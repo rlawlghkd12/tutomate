@@ -1,0 +1,48 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "수강생관리프로그램",
+  "version": "0.1.0",
+  "identifier": "com.student-management.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "수강생 관리 프로그램",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "publisher": "Student Management Team"
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/4uphwang/tutomate/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEMxQjk2MkZGRjlGQkNGQzEKUldUQnovdjUvMks1d1R5ZG9JaXc5QU01ekEwZXR1UTI2WFEwM0NPMVgzZjdqbVU2TkFHRXNXcE8K"
+    }
+  }
+}

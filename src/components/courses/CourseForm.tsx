@@ -1,0 +1,392 @@
+import React, { useEffect, useState } from 'react';
+import {
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Button,
+  message,
+  DatePicker,
+  TimePicker,
+  Checkbox,
+  Divider,
+  Space,
+  Typography,
+} from 'antd';
+import type { Course, CourseFormData } from '../../types';
+import { useCourseStore } from '../../stores/courseStore';
+import dayjs from 'dayjs';
+
+const { Text } = Typography;
+
+interface CourseFormProps {
+  visible: boolean;
+  onClose: () => void;
+  course?: Course | null;
+}
+
+const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => {
+  const [form] = Form.useForm();
+  const { addCourse, updateCourse } = useCourseStore();
+  const [enableSchedule, setEnableSchedule] = useState(false);
+
+  useEffect(() => {
+    if (visible && course) {
+      // schedule이 있으면 필드 설정
+      if (course.schedule) {
+        setEnableSchedule(true);
+        form.setFieldsValue({
+          ...course,
+          schedule_startDate: dayjs(course.schedule.startDate),
+          schedule_endDate: dayjs(course.schedule.endDate),
+          schedule_daysOfWeek: course.schedule.daysOfWeek,
+          schedule_startTime: dayjs(course.schedule.startTime, 'HH:mm'),
+          schedule_endTime: dayjs(course.schedule.endTime, 'HH:mm'),
+          schedule_totalSessions: course.schedule.totalSessions,
+        });
+      } else {
+        form.setFieldsValue(course);
+      }
+    } else if (visible) {
+      form.resetFields();
+      setEnableSchedule(false);
+    }
+  }, [visible, course, form]);
+
+  const handleSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+
+      // schedule 데이터 구성
+      let courseData: any = {
+        name: values.name,
+        classroom: values.classroom,
+        instructorName: values.instructorName,
+        instructorPhone: values.instructorPhone,
+        fee: values.fee,
+        maxStudents: values.maxStudents,
+      };
+
+      if (enableSchedule && values.schedule_startDate) {
+        courseData.schedule = {
+          startDate: values.schedule_startDate.format('YYYY-MM-DD'),
+          endDate: values.schedule_endDate.format('YYYY-MM-DD'),
+          daysOfWeek: values.schedule_daysOfWeek || [],
+          startTime: values.schedule_startTime.format('HH:mm'),
+          endTime: values.schedule_endTime.format('HH:mm'),
+          totalSessions: values.schedule_totalSessions || 0,
+          holidays: [],
+        };
+      }
+
+      if (course) {
+        updateCourse(course.id, courseData);
+        message.success('강좌가 수정되었습니다.');
+      } else {
+        addCourse(courseData as CourseFormData);
+        message.success('강좌가 생성되었습니다.');
+      }
+
+      form.resetFields();
+      setEnableSchedule(false);
+      onClose();
+    } catch (error) {
+      console.error('Validation failed:', error);
+    }
+  };
+
+  return (
+    <Modal
+      title={course ? '강좌 수정' : '강좌 개설'}
+      open={visible}
+      onCancel={onClose}
+      width={700}
+      footer={[
+        <Button key="cancel" onClick={onClose}>
+          취소
+        </Button>,
+        <Button key="submit" type="primary" onClick={handleSubmit}>
+          {course ? '수정' : '생성'}
+        </Button>,
+      ]}
+    >
+      <Form form={form} layout="vertical">
+        <Form.Item
+          name="name"
+          label="강좌 이름"
+          rules={[{ required: true, message: '강좌 이름을 입력하세요' }]}
+        >
+          <Input placeholder="예: React 기초 강좌" />
+        </Form.Item>
+
+        <Form.Item
+          name="classroom"
+          label="강의실"
+          rules={[{ required: true, message: '강의실을 입력하세요' }]}
+        >
+          <Input placeholder="예: A동 301호" />
+        </Form.Item>
+
+        <Form.Item
+          name="instructorName"
+          label="강사 이름"
+          rules={[{ required: true, message: '강사 이름을 입력하세요' }]}
+        >
+          <Input placeholder="예: 홍길동" />
+        </Form.Item>
+
+        <Form.Item
+          name="instructorPhone"
+          label="강사 전화번호"
+          rules={[{ required: true, message: '강사 전화번호를 입력하세요' }]}
+        >
+          <Input placeholder="예: 010-1234-5678" />
+        </Form.Item>
+
+        <Form.Item
+          name="fee"
+          label="수강료"
+          rules={[{ required: true, message: '수강료를 입력하세요' }]}
+        >
+          <InputNumber
+            style={{ width: '100%' }}
+            min={0}
+            placeholder="예: 300000"
+            formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+            parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, '')) || 0) as any}
+          />
+        </Form.Item>
+        <Space style={{ marginTop: -16, marginBottom: 24 }}>
+          <Button
+            size="small"
+            onClick={() => {
+              const currentValue = form.getFieldValue('fee') || 0;
+              form.setFieldsValue({ fee: currentValue + 10000 });
+            }}
+          >
+            +1만
+          </Button>
+          <Button
+            size="small"
+            onClick={() => {
+              const currentValue = form.getFieldValue('fee') || 0;
+              form.setFieldsValue({ fee: currentValue + 50000 });
+            }}
+          >
+            +5만
+          </Button>
+          <Button
+            size="small"
+            onClick={() => {
+              const currentValue = form.getFieldValue('fee') || 0;
+              form.setFieldsValue({ fee: currentValue + 100000 });
+            }}
+          >
+            +10만
+          </Button>
+        </Space>
+
+        <Form.Item
+          name="maxStudents"
+          label="최대 인원"
+          rules={[
+            { required: true, message: '최대 인원을 입력하세요' },
+            { type: 'number', min: 1, message: '최소 1명 이상이어야 합니다' },
+          ]}
+        >
+          <InputNumber
+            style={{ width: '100%' }}
+            min={1}
+            placeholder="예: 30"
+          />
+        </Form.Item>
+        <Space style={{ marginTop: -16, marginBottom: 24 }}>
+          <Button
+            size="small"
+            onClick={() => form.setFieldsValue({ maxStudents: 5 })}
+          >
+            최대 5명
+          </Button>
+          <Button
+            size="small"
+            onClick={() => form.setFieldsValue({ maxStudents: 10 })}
+          >
+            최대 10명
+          </Button>
+          <Button
+            size="small"
+            onClick={() => form.setFieldsValue({ maxStudents: 20 })}
+          >
+            최대 20명
+          </Button>
+          <Button
+            size="small"
+            onClick={() => form.setFieldsValue({ maxStudents: 30 })}
+          >
+            최대 30명
+          </Button>
+          <Button
+            size="small"
+            onClick={() => form.setFieldsValue({ maxStudents: 50 })}
+          >
+            최대 50명
+          </Button>
+        </Space>
+
+        {/* 강좌 일정 섹션 */}
+        <Divider />
+        <Checkbox
+          checked={enableSchedule}
+          onChange={(e) => setEnableSchedule(e.target.checked)}
+          style={{ marginBottom: 16 }}
+        >
+          강좌 일정 설정
+        </Checkbox>
+
+        {enableSchedule && (
+          <div style={{ marginTop: 16 }}>
+            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              {/* 시작일/종료일 */}
+              <Space style={{ width: '100%' }}>
+                <Form.Item
+                  name="schedule_startDate"
+                  label="시작일"
+                  rules={enableSchedule ? [{ required: true, message: '시작일을 선택하세요' }] : []}
+                  style={{ marginBottom: 0, flex: 1 }}
+                >
+                  <DatePicker placeholder="시작일" />
+                </Form.Item>
+                <Form.Item
+                  name="schedule_endDate"
+                  label="종료일"
+                  rules={enableSchedule ? [{ required: true, message: '종료일을 선택하세요' }] : []}
+                  style={{ marginBottom: 0, flex: 1 }}
+                >
+                  <DatePicker placeholder="종료일" />
+                </Form.Item>
+              </Space>
+
+              {/* 수업 요일 */}
+              <Form.Item
+                name="schedule_daysOfWeek"
+                label="수업 요일"
+                rules={enableSchedule ? [{ required: true, message: '수업 요일을 선택하세요' }] : []}
+              >
+                <div>
+                  <Checkbox.Group
+                    options={[
+                      { label: '일', value: 0 },
+                      { label: '월', value: 1 },
+                      { label: '화', value: 2 },
+                      { label: '수', value: 3 },
+                      { label: '목', value: 4 },
+                      { label: '금', value: 5 },
+                      { label: '토', value: 6 },
+                    ]}
+                  />
+                  <Space style={{ marginTop: 8 }}>
+                    <Button
+                      size="small"
+                      onClick={() => form.setFieldsValue({ schedule_daysOfWeek: [1, 2, 3, 4, 5] })}
+                    >
+                      주중
+                    </Button>
+                    <Button
+                      size="small"
+                      onClick={() => form.setFieldsValue({ schedule_daysOfWeek: [0, 6] })}
+                    >
+                      주말
+                    </Button>
+                    <Button
+                      size="small"
+                      onClick={() => form.setFieldsValue({ schedule_daysOfWeek: [0, 1, 2, 3, 4, 5, 6] })}
+                    >
+                      전체
+                    </Button>
+                  </Space>
+                </div>
+              </Form.Item>
+
+              {/* 수업 시간 */}
+              <div>
+                <Space style={{ width: '100%' }}>
+                  <Form.Item
+                    name="schedule_startTime"
+                    label="시작 시간"
+                    rules={enableSchedule ? [{ required: true, message: '시작 시간을 선택하세요' }] : []}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <TimePicker format="HH:mm" placeholder="09:00" />
+                  </Form.Item>
+                  <Form.Item
+                    name="schedule_endTime"
+                    label="종료 시간"
+                    rules={enableSchedule ? [{ required: true, message: '종료 시간을 선택하세요' }] : []}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <TimePicker format="HH:mm" placeholder="12:00" />
+                  </Form.Item>
+                </Space>
+                <Space style={{ marginTop: 8 }}>
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      form.setFieldsValue({
+                        schedule_startTime: dayjs('09:00', 'HH:mm'),
+                        schedule_endTime: dayjs('12:00', 'HH:mm'),
+                      });
+                    }}
+                  >
+                    오전반 (9-12시)
+                  </Button>
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      form.setFieldsValue({
+                        schedule_startTime: dayjs('13:00', 'HH:mm'),
+                        schedule_endTime: dayjs('17:00', 'HH:mm'),
+                      });
+                    }}
+                  >
+                    오후반 (13-17시)
+                  </Button>
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      form.setFieldsValue({
+                        schedule_startTime: dayjs('18:00', 'HH:mm'),
+                        schedule_endTime: dayjs('21:00', 'HH:mm'),
+                      });
+                    }}
+                  >
+                    저녁반 (18-21시)
+                  </Button>
+                </Space>
+              </div>
+
+              {/* 총 회차 */}
+              <Form.Item
+                name="schedule_totalSessions"
+                label="총 수업 회차"
+                rules={enableSchedule ? [{ required: true, message: '총 회차를 입력하세요' }] : []}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={1}
+                  placeholder="예: 12"
+                  addonAfter="회"
+                />
+              </Form.Item>
+
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                * 실제 수업 날짜는 시작일, 종료일, 수업 요일을 기준으로 자동 생성됩니다.
+              </Text>
+            </Space>
+          </div>
+        )}
+      </Form>
+    </Modal>
+  );
+};
+
+export default CourseForm;
