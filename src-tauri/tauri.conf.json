@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "수강생관리프로그램",
+  "productName": "TutorMate",
   "version": "0.1.0",
   "identifier": "com.student-management.app",
   "build": {
