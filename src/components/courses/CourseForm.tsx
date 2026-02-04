@@ -30,6 +30,23 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
   const { addCourse, updateCourse } = useCourseStore();
   const [enableSchedule, setEnableSchedule] = useState(false);
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^0-9]/g, '');
+    let formattedValue = value;
+
+    if (value.length <= 3) {
+      formattedValue = value;
+    } else if (value.length <= 7) {
+      formattedValue = `${value.slice(0, 3)}-${value.slice(3)}`;
+    } else if (value.length <= 11) {
+      formattedValue = `${value.slice(0, 3)}-${value.slice(3, 7)}-${value.slice(7)}`;
+    } else {
+      formattedValue = `${value.slice(0, 3)}-${value.slice(3, 7)}-${value.slice(7, 11)}`;
+    }
+
+    form.setFieldsValue({ instructorPhone: formattedValue });
+  };
+
   useEffect(() => {
     if (visible && course) {
       // schedule이 있으면 필드 설정
@@ -38,7 +55,6 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
         form.setFieldsValue({
           ...course,
           schedule_startDate: dayjs(course.schedule.startDate),
-          schedule_endDate: dayjs(course.schedule.endDate),
           schedule_daysOfWeek: course.schedule.daysOfWeek,
           schedule_startTime: dayjs(course.schedule.startTime, 'HH:mm'),
           schedule_endTime: dayjs(course.schedule.endTime, 'HH:mm'),
@@ -70,7 +86,6 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
       if (enableSchedule && values.schedule_startDate) {
         courseData.schedule = {
           startDate: values.schedule_startDate.format('YYYY-MM-DD'),
-          endDate: values.schedule_endDate.format('YYYY-MM-DD'),
           daysOfWeek: values.schedule_daysOfWeek || [],
           startTime: values.schedule_startTime.format('HH:mm'),
           endTime: values.schedule_endTime.format('HH:mm'),
@@ -140,7 +155,11 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
           label="강사 전화번호"
           rules={[{ required: true, message: '강사 전화번호를 입력하세요' }]}
         >
-          <Input placeholder="예: 010-1234-5678" />
+          <Input
+            placeholder="01012345678 → 010-1234-5678"
+            onChange={handlePhoneChange}
+            maxLength={13}
+          />
         </Form.Item>
 
         <Form.Item
@@ -159,30 +178,21 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
         <Space style={{ marginTop: -16, marginBottom: 24 }}>
           <Button
             size="small"
-            onClick={() => {
-              const currentValue = form.getFieldValue('fee') || 0;
-              form.setFieldsValue({ fee: currentValue + 10000 });
-            }}
+            onClick={() => form.setFieldsValue({ fee: 20000 })}
           >
-            +1만
+            2만원
           </Button>
           <Button
             size="small"
-            onClick={() => {
-              const currentValue = form.getFieldValue('fee') || 0;
-              form.setFieldsValue({ fee: currentValue + 50000 });
-            }}
+            onClick={() => form.setFieldsValue({ fee: 30000 })}
           >
-            +5만
+            3만원
           </Button>
           <Button
             size="small"
-            onClick={() => {
-              const currentValue = form.getFieldValue('fee') || 0;
-              form.setFieldsValue({ fee: currentValue + 100000 });
-            }}
+            onClick={() => form.setFieldsValue({ fee: 50000 })}
           >
-            +10만
+            5만원
           </Button>
         </Space>
 
@@ -203,33 +213,33 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
         <Space style={{ marginTop: -16, marginBottom: 24 }}>
           <Button
             size="small"
-            onClick={() => form.setFieldsValue({ maxStudents: 5 })}
+            onClick={() => form.setFieldsValue({ maxStudents: 15 })}
           >
-            최대 5명
-          </Button>
-          <Button
-            size="small"
-            onClick={() => form.setFieldsValue({ maxStudents: 10 })}
-          >
-            최대 10명
+            15명
           </Button>
           <Button
             size="small"
             onClick={() => form.setFieldsValue({ maxStudents: 20 })}
           >
-            최대 20명
+            20명
+          </Button>
+          <Button
+            size="small"
+            onClick={() => form.setFieldsValue({ maxStudents: 25 })}
+          >
+            25명
           </Button>
           <Button
             size="small"
             onClick={() => form.setFieldsValue({ maxStudents: 30 })}
           >
-            최대 30명
+            30명
           </Button>
           <Button
             size="small"
-            onClick={() => form.setFieldsValue({ maxStudents: 50 })}
+            onClick={() => form.setFieldsValue({ maxStudents: 35 })}
           >
-            최대 50명
+            35명
           </Button>
         </Space>
 
@@ -246,25 +256,15 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
         {enableSchedule && (
           <div style={{ marginTop: 16 }}>
             <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              {/* 시작일/종료일 */}
-              <Space style={{ width: '100%' }}>
-                <Form.Item
-                  name="schedule_startDate"
-                  label="시작일"
-                  rules={enableSchedule ? [{ required: true, message: '시작일을 선택하세요' }] : []}
-                  style={{ marginBottom: 0, flex: 1 }}
-                >
-                  <DatePicker placeholder="시작일" />
-                </Form.Item>
-                <Form.Item
-                  name="schedule_endDate"
-                  label="종료일"
-                  rules={enableSchedule ? [{ required: true, message: '종료일을 선택하세요' }] : []}
-                  style={{ marginBottom: 0, flex: 1 }}
-                >
-                  <DatePicker placeholder="종료일" />
-                </Form.Item>
-              </Space>
+              {/* 시작일 */}
+              <Form.Item
+                name="schedule_startDate"
+                label="시작일"
+                rules={enableSchedule ? [{ required: true, message: '시작일을 선택하세요' }] : []}
+                style={{ marginBottom: 0 }}
+              >
+                <DatePicker placeholder="시작일" style={{ width: '100%' }} />
+              </Form.Item>
 
               {/* 수업 요일 */}
               <Form.Item
@@ -379,7 +379,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
               </Form.Item>
 
               <Text type="secondary" style={{ fontSize: 12 }}>
-                * 실제 수업 날짜는 시작일, 종료일, 수업 요일을 기준으로 자동 생성됩니다.
+                * 실제 수업 날짜는 시작일, 수업 요일, 총 회차를 기준으로 자동 생성됩니다.
               </Text>
             </Space>
           </div>

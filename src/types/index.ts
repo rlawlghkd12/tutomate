@@ -1,7 +1,7 @@
 // 강좌 일정 인터페이스
 export interface CourseSchedule {
   startDate: string; // 강좌 시작일 YYYY-MM-DD
-  endDate: string; // 강좌 종료일 YYYY-MM-DD
+  endDate?: string; // 강좌 종료일 YYYY-MM-DD (선택)
   daysOfWeek: number[]; // 수업 요일 (0=일요일, 1=월요일, ..., 6=토요일)
   startTime: string; // 수업 시작 시간 HH:mm
   endTime: string; // 수업 종료 시간 HH:mm

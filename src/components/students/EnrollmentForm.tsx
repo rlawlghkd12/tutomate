@@ -1,12 +1,11 @@
 import React, { useEffect } from 'react';
-import { Modal, Form, Select, InputNumber, Button, message } from 'antd';
+import { Modal, Form, Select, InputNumber, Button, message, Space, Input } from 'antd';
 import type { Student, EnrollmentFormData } from '../../types';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import { useCourseStore } from '../../stores/courseStore';
 
 const { Option } = Select;
 const { TextArea } = Input;
-import { Input } from 'antd';
 
 interface EnrollmentFormProps {
   visible: boolean;
@@ -136,6 +135,23 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
             parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, '')) || 0) as any}
           />
         </Form.Item>
+        <Space style={{ marginTop: -16, marginBottom: 24 }} wrap>
+          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 20000 })}>
+            2만원
+          </Button>
+          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 30000 })}>
+            3만원
+          </Button>
+          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 40000 })}>
+            4만원
+          </Button>
+          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 60000 })}>
+            6만원
+          </Button>
+          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 90000 })}>
+            9만원
+          </Button>
+        </Space>
 
         <Form.Item name="notes" label="메모">
           <TextArea rows={3} placeholder="추가 정보를 입력하세요" />

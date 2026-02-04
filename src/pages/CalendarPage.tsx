@@ -32,8 +32,11 @@ const CalendarPage: React.FC = () => {
       const { startDate, endDate, daysOfWeek, holidays } = course.schedule;
       const dateStr = date.format('YYYY-MM-DD');
 
-      // 날짜 범위 확인
-      if (dateStr < startDate || dateStr > endDate) return false;
+      // 날짜 범위 확인 (시작일 이전이면 제외)
+      if (dateStr < startDate) return false;
+
+      // 종료일이 있는 경우에만 종료일 체크
+      if (endDate && dateStr > endDate) return false;
 
       // 휴강일 확인
       if (holidays && holidays.includes(dateStr)) return false;
@@ -182,7 +185,8 @@ const CalendarPage: React.FC = () => {
                 {course.schedule && (
                   <div style={{ marginTop: 8, padding: 8, backgroundColor: token.colorBgLayout, borderRadius: 4 }}>
                     <div style={{ fontSize: '12px', color: token.colorTextSecondary }}>
-                      <strong>강좌 기간:</strong> {course.schedule.startDate} ~ {course.schedule.endDate}
+                      <strong>시작일:</strong> {course.schedule.startDate}
+                      {course.schedule.totalSessions && ` (총 ${course.schedule.totalSessions}회)`}
                     </div>
                     <div style={{ fontSize: '12px', color: token.colorTextSecondary, marginTop: 4 }}>
                       <strong>수업 요일:</strong>{' '}

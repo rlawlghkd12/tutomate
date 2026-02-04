@@ -12,7 +12,7 @@ import dayjs from 'dayjs';
 interface StudentStore {
   students: Student[];
   loadStudents: () => Promise<void>;
-  addStudent: (studentData: StudentFormData) => void;
+  addStudent: (studentData: StudentFormData) => Student;
   updateStudent: (id: string, studentData: Partial<Student>) => void;
   deleteStudent: (id: string) => void;
   getStudentById: (id: string) => Student | undefined;
@@ -35,6 +35,7 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
     };
     const students = addToStorage(STORAGE_KEYS.STUDENTS, newStudent);
     set({ students });
+    return newStudent;
   },
 
   updateStudent: (id: string, studentData: Partial<Student>) => {

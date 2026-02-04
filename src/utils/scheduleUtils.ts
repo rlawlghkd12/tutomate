@@ -3,21 +3,38 @@ import type { CourseSchedule } from '../types';
 
 // 강좌의 모든 수업 날짜 생성
 export const generateClassDates = (schedule: CourseSchedule): string[] => {
-  const { startDate, endDate, daysOfWeek, holidays } = schedule;
+  const { startDate, endDate, daysOfWeek, holidays, totalSessions } = schedule;
 
   const dates: string[] = [];
   let currentDate = dayjs(startDate);
-  const end = dayjs(endDate);
 
-  while (currentDate.isBefore(end) || currentDate.isSame(end, 'day')) {
-    const dayOfWeek = currentDate.day();
+  // 종료일이 있으면 종료일까지, 없으면 totalSessions만큼
+  if (endDate) {
+    const end = dayjs(endDate);
+    while (currentDate.isBefore(end) || currentDate.isSame(end, 'day')) {
+      const dayOfWeek = currentDate.day();
 
-    // 수업 요일이고 휴강일이 아닌 경우
-    if (daysOfWeek.includes(dayOfWeek) && !holidays.includes(currentDate.format('YYYY-MM-DD'))) {
-      dates.push(currentDate.format('YYYY-MM-DD'));
+      if (daysOfWeek.includes(dayOfWeek) && !holidays.includes(currentDate.format('YYYY-MM-DD'))) {
+        dates.push(currentDate.format('YYYY-MM-DD'));
+      }
+
+      currentDate = currentDate.add(1, 'day');
     }
+  } else {
+    // 종료일이 없으면 totalSessions 횟수만큼 생성
+    const maxDates = totalSessions || 100; // 기본값 100회
+    while (dates.length < maxDates) {
+      const dayOfWeek = currentDate.day();
 
-    currentDate = currentDate.add(1, 'day');
+      if (daysOfWeek.includes(dayOfWeek) && !holidays.includes(currentDate.format('YYYY-MM-DD'))) {
+        dates.push(currentDate.format('YYYY-MM-DD'));
+      }
+
+      currentDate = currentDate.add(1, 'day');
+
+      // 무한 루프 방지
+      if (currentDate.diff(dayjs(startDate), 'year') > 2) break;
+    }
   }
 
   return dates;
@@ -87,11 +104,13 @@ export const formatClassTime = (startTime: string, endTime: string): string => {
   return `${startTime}-${endTime}`;
 };
 
-// 전체 일정 요약 문자열 (예: "월,수,금 19:00-21:00 (2024-01-01 ~ 2024-03-31)")
+// 전체 일정 요약 문자열 (예: "월,수,금 19:00-21:00 (2024-01-01 시작, 총 12회)")
 export const formatScheduleSummary = (schedule: CourseSchedule): string => {
   const days = formatDaysOfWeek(schedule.daysOfWeek);
   const time = formatClassTime(schedule.startTime, schedule.endTime);
-  const period = `${schedule.startDate} ~ ${schedule.endDate}`;
+  const period = schedule.endDate
+    ? `${schedule.startDate} ~ ${schedule.endDate}`
+    : `${schedule.startDate} 시작, 총 ${schedule.totalSessions}회`;
 
   return `${days} ${time} (${period})`;
 };
