@@ -141,28 +141,41 @@ jobs:
           cat release-files/latest.json
 
       - name: Create release on public repo
-        uses: softprops/action-gh-release@v2
-        with:
-          repository: 4uphwang/tutomate-release
-          token: ${{ secrets.RELEASE_TOKEN }}
-          tag_name: ${{ github.ref_name }}
-          name: '수강생 관리 프로그램 ${{ github.ref_name }}'
-          body: |
-            새로운 버전이 출시되었습니다.
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          # Clone the public release repo
+          git clone https://x-access-token:${GH_TOKEN}@github.com/4uphwang/tutomate-release.git release-repo
+          cd release-repo
 
-            자동 업데이트를 통해 최신 버전으로 업데이트하거나, 아래에서 직접 다운로드할 수 있습니다.
+          # Create tag if not exists
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a ${{ github.ref_name }} -m "${{ github.ref_name }}" 2>/dev/null || true
+          git push origin ${{ github.ref_name }} 2>/dev/null || true
 
-            ## 설치 방법
+          cd ..
 
-            ### macOS
-            - Apple Silicon (M1/M2): `TutorMate_*_aarch64.dmg` 다운로드
-            - Intel Mac: `TutorMate_*_x64.dmg` 다운로드
+          # Delete existing release if exists
+          gh release delete ${{ github.ref_name }} --repo 4uphwang/tutomate-release --yes 2>/dev/null || true
 
-            ### Windows
-            - `.exe` 또는 `.msi` 파일 다운로드
-          files: release-files/*
-          draft: false
-          prerelease: false
+          # Create new release with files
+          gh release create ${{ github.ref_name }} \
+            --repo 4uphwang/tutomate-release \
+            --title "수강생 관리 프로그램 ${{ github.ref_name }}" \
+            --notes "새로운 버전이 출시되었습니다.
+
+          자동 업데이트를 통해 최신 버전으로 업데이트하거나, 아래에서 직접 다운로드할 수 있습니다.
+
+          ## 설치 방법
+
+          ### macOS
+          - Apple Silicon (M1/M2): \`TutorMate_*_aarch64.dmg\` 다운로드
+          - Intel Mac: \`TutorMate_*_x64.dmg\` 다운로드
+
+          ### Windows
+          - \`.exe\` 또는 \`.msi\` 파일 다운로드" \
+            release-files/*
 
   # 테스트 빌드용 (태그 없이 실행)
   test-build:
