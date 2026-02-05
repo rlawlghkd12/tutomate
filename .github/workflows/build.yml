@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  release:
+  build:
     permissions:
       contents: write
     strategy:
@@ -16,10 +16,13 @@ jobs:
         include:
           - platform: 'macos-latest'
             args: '--target aarch64-apple-darwin'
+            artifact_name: 'macos-aarch64'
           - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
+            artifact_name: 'macos-x86_64'
           - platform: 'windows-latest'
             args: ''
+            artifact_name: 'windows'
 
     runs-on: ${{ matrix.platform }}
 
@@ -45,16 +48,106 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and Release
+      - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: '수강생 관리 프로그램 ${{ github.ref_name }}'
-          releaseBody: |
+          args: ${{ matrix.args }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.app.tar.gz
+            src-tauri/target/release/bundle/**/*.app.tar.gz.sig
+            src-tauri/target/release/bundle/**/*.exe
+            src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/release/bundle/**/*.msi.sig
+            src-tauri/target/aarch64-apple-darwin/release/bundle/**/*.dmg
+            src-tauri/target/aarch64-apple-darwin/release/bundle/**/*.app.tar.gz
+            src-tauri/target/aarch64-apple-darwin/release/bundle/**/*.app.tar.gz.sig
+            src-tauri/target/x86_64-apple-darwin/release/bundle/**/*.dmg
+            src-tauri/target/x86_64-apple-darwin/release/bundle/**/*.app.tar.gz
+            src-tauri/target/x86_64-apple-darwin/release/bundle/**/*.app.tar.gz.sig
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: find artifacts -type f | head -50
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release-files
+          find artifacts -type f \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.app.tar.gz.sig" -o -name "*.exe" -o -name "*.msi" -o -name "*.msi.sig" \) -exec cp {} release-files/ \;
+          ls -la release-files/
+
+      - name: Generate latest.json for updater
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          # Get signature files content
+          MAC_AARCH64_SIG=""
+          MAC_X86_64_SIG=""
+          WINDOWS_SIG=""
+
+          if [ -f "release-files/TutorMate_${VERSION}_aarch64.app.tar.gz.sig" ]; then
+            MAC_AARCH64_SIG=$(cat "release-files/TutorMate_${VERSION}_aarch64.app.tar.gz.sig")
+          fi
+
+          if [ -f "release-files/TutorMate_${VERSION}_x64.app.tar.gz.sig" ]; then
+            MAC_X86_64_SIG=$(cat "release-files/TutorMate_${VERSION}_x64.app.tar.gz.sig")
+          fi
+
+          if [ -f "release-files/TutorMate_${VERSION}_x64-setup.msi.sig" ]; then
+            WINDOWS_SIG=$(cat "release-files/TutorMate_${VERSION}_x64-setup.msi.sig")
+          fi
+
+          cat > release-files/latest.json << EOF
+          {
+            "version": "${VERSION}",
+            "notes": "새로운 버전이 출시되었습니다.",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "platforms": {
+              "darwin-aarch64": {
+                "signature": "${MAC_AARCH64_SIG}",
+                "url": "https://github.com/4uphwang/tutomate-release/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_aarch64.app.tar.gz"
+              },
+              "darwin-x86_64": {
+                "signature": "${MAC_X86_64_SIG}",
+                "url": "https://github.com/4uphwang/tutomate-release/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_x64.app.tar.gz"
+              },
+              "windows-x86_64": {
+                "signature": "${WINDOWS_SIG}",
+                "url": "https://github.com/4uphwang/tutomate-release/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_x64-setup.msi"
+              }
+            }
+          }
+          EOF
+
+          cat release-files/latest.json
+
+      - name: Create release on public repo
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: 4uphwang/tutomate-release
+          token: ${{ secrets.RELEASE_TOKEN }}
+          tag_name: ${{ github.ref_name }}
+          name: '수강생 관리 프로그램 ${{ github.ref_name }}'
+          body: |
             새로운 버전이 출시되었습니다.
 
             자동 업데이트를 통해 최신 버전으로 업데이트하거나, 아래에서 직접 다운로드할 수 있습니다.
@@ -62,18 +155,14 @@ jobs:
             ## 설치 방법
 
             ### macOS
-            - Apple Silicon (M1/M2): `.dmg` 파일 중 `aarch64` 다운로드
-            - Intel Mac: `.dmg` 파일 중 `x86_64` 다운로드
+            - Apple Silicon (M1/M2): `TutorMate_*_aarch64.dmg` 다운로드
+            - Intel Mac: `TutorMate_*_x64.dmg` 다운로드
 
             ### Windows
             - `.exe` 또는 `.msi` 파일 다운로드
-
-            ## 변경 사항
-
-            릴리스 노트를 여기에 작성하세요.
-          releaseDraft: false
+          files: release-files/*
+          draft: false
           prerelease: false
-          args: ${{ matrix.args }}
 
   # 테스트 빌드용 (태그 없이 실행)
   test-build:
