@@ -148,9 +148,20 @@ jobs:
           git clone https://x-access-token:${GH_TOKEN}@github.com/4uphwang/tutomate-release.git release-repo
           cd release-repo
 
-          # Create tag if not exists
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Initialize repo if empty
+          if [ -z "$(git log --oneline -1 2>/dev/null)" ]; then
+            echo "# TutorMate Releases" > README.md
+            echo "" >> README.md
+            echo "수강생 관리 프로그램 배포 저장소입니다." >> README.md
+            git add README.md
+            git commit -m "Initial commit"
+            git push origin main
+          fi
+
+          # Create tag if not exists
           git tag -a ${{ github.ref_name }} -m "${{ github.ref_name }}" 2>/dev/null || true
           git push origin ${{ github.ref_name }} 2>/dev/null || true
 
