@@ -46,6 +46,7 @@ export interface Enrollment {
   paymentStatus: 'pending' | 'partial' | 'completed'; // 납부 현황
   paidAmount: number; // 납부 금액
   remainingAmount: number; // 잔여 금액
+  paidAt?: string; // 마지막 납부일 YYYY-MM-DD
   notes?: string;
 }
 

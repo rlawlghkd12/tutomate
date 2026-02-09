@@ -18,7 +18,7 @@ interface EnrollmentStore {
   getEnrollmentById: (id: string) => Enrollment | undefined;
   getEnrollmentsByCourseId: (courseId: string) => Enrollment[];
   getEnrollmentsByStudentId: (studentId: string) => Enrollment[];
-  updatePayment: (id: string, paidAmount: number, totalFee: number) => void;
+  updatePayment: (id: string, paidAmount: number, totalFee: number, paidAt?: string) => void;
 }
 
 export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
@@ -69,7 +69,7 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
     return enrollments.filter((enrollment) => enrollment.studentId === studentId);
   },
 
-  updatePayment: (id: string, paidAmount: number, totalFee: number) => {
+  updatePayment: (id: string, paidAmount: number, totalFee: number, paidAt?: string) => {
     const remainingAmount = totalFee - paidAmount;
     let paymentStatus: 'pending' | 'partial' | 'completed' = 'pending';
 
@@ -85,6 +85,7 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
       paidAmount,
       remainingAmount,
       paymentStatus,
+      paidAt: paidAt || dayjs().format('YYYY-MM-DD'),
     });
   },
 }));

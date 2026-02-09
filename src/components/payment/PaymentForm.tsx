@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
-import { Modal, Form, InputNumber, Button, message, Descriptions, Space } from 'antd';
+import { Modal, Form, InputNumber, Button, message, Descriptions, Space, DatePicker, Row, Col } from 'antd';
 import type { Enrollment } from '../../types';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
+import dayjs from 'dayjs';
 
 interface PaymentFormProps {
   visible: boolean;
@@ -23,6 +24,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     if (visible && enrollment) {
       form.setFieldsValue({
         paidAmount: enrollment.paidAmount,
+        paidAt: enrollment.paidAt ? dayjs(enrollment.paidAt) : dayjs(),
       });
     }
   }, [visible, enrollment, form]);
@@ -36,7 +38,8 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
         return;
       }
 
-      updatePayment(enrollment.id, values.paidAmount, courseFee);
+      const paidAt = values.paidAt ? values.paidAt.format('YYYY-MM-DD') : undefined;
+      updatePayment(enrollment.id, values.paidAmount, courseFee, paidAt);
       message.success('납부 정보가 업데이트되었습니다.');
       form.resetFields();
       onClose();
@@ -78,24 +81,37 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       </Descriptions>
 
       <Form form={form} layout="vertical">
-        <Form.Item
-          name="paidAmount"
-          label="납부 금액"
-          rules={[
-            { required: true, message: '납부 금액을 입력하세요' },
-            { type: 'number', max: courseFee, message: '수강료를 초과할 수 없습니다' },
-          ]}
-        >
-          <InputNumber
-            style={{ width: '100%' }}
-            min={0}
-            max={courseFee}
-            placeholder="납부 금액 입력"
-            formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-            parser={(value) => value?.replace(/₩\s?|(,*)/g, '') as unknown as number}
-            onChange={() => form.validateFields(['paidAmount'])}
-          />
-        </Form.Item>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="paidAmount"
+              label="납부 금액"
+              rules={[
+                { required: true, message: '납부 금액을 입력하세요' },
+                { type: 'number', max: courseFee, message: '수강료를 초과할 수 없습니다' },
+              ]}
+            >
+              <InputNumber
+                style={{ width: '100%' }}
+                min={0}
+                max={courseFee}
+                placeholder="납부 금액 입력"
+                formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={(value) => value?.replace(/₩\s?|(,*)/g, '') as unknown as number}
+                onChange={() => form.validateFields(['paidAmount'])}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="paidAt"
+              label="납부일"
+              rules={[{ required: true, message: '납부일을 선택하세요' }]}
+            >
+              <DatePicker style={{ width: '100%' }} placeholder="납부일 선택" />
+            </Form.Item>
+          </Col>
+        </Row>
         <Space style={{ marginTop: -16, marginBottom: 24 }}>
           <Button
             size="small"

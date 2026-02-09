@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Table, Button, Space, Popconfirm, message, Tag, Input, Select, Row, Col, Empty } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { EditOutlined, DeleteOutlined, PlusCircleOutlined, SearchOutlined } from '@ant-design/icons';
@@ -28,20 +28,30 @@ const StudentList: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [courseFilter, setCourseFilter] = useState<string | null>(null);
 
-  const handleEdit = (student: Student) => {
+  const handleEdit = useCallback((student: Student) => {
     setSelectedStudent(student);
     setIsModalVisible(true);
-  };
+  }, []);
 
-  const handleDelete = (id: string) => {
+  const handleDelete = useCallback((id: string) => {
     deleteStudent(id);
     message.success('수강생이 삭제되었습니다.');
-  };
+  }, [deleteStudent]);
 
-  const handleEnroll = (student: Student) => {
+  const handleEnroll = useCallback((student: Student) => {
     setSelectedStudent(student);
     setIsEnrollmentModalVisible(true);
-  };
+  }, []);
+
+  const handleCloseStudentModal = useCallback(() => {
+    setIsModalVisible(false);
+    setSelectedStudent(null);
+  }, []);
+
+  const handleCloseEnrollmentModal = useCallback(() => {
+    setIsEnrollmentModalVisible(false);
+    setSelectedStudent(null);
+  }, []);
 
   // 학생-강좌 조합으로 행 생성
   const studentRows = useMemo(() => {
@@ -203,6 +213,7 @@ const StudentList: React.FC = () => {
         dataSource={filteredRows}
         rowKey="rowKey"
         pagination={false}
+        size="small"
         locale={{
           emptyText: (
             <Empty
@@ -214,18 +225,12 @@ const StudentList: React.FC = () => {
       />
       <StudentForm
         visible={isModalVisible}
-        onClose={() => {
-          setIsModalVisible(false);
-          setSelectedStudent(null);
-        }}
+        onClose={handleCloseStudentModal}
         student={selectedStudent}
       />
       <EnrollmentForm
         visible={isEnrollmentModalVisible}
-        onClose={() => {
-          setIsEnrollmentModalVisible(false);
-          setSelectedStudent(null);
-        }}
+        onClose={handleCloseEnrollmentModal}
         student={selectedStudent}
       />
     </>

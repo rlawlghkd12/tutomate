@@ -129,7 +129,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
     >
       <Form form={form} layout="vertical">
         <Row gutter={16}>
-          <Col span={8}>
+          <Col span={12}>
             <Form.Item
               name="name"
               label="강좌 이름"
@@ -138,7 +138,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
               <Input placeholder="예: 요가 초급" />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col span={12}>
             <Form.Item
               name="classroom"
               label="강의실"
@@ -147,7 +147,10 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
               <Input placeholder="예: A동 301호" />
             </Form.Item>
           </Col>
-          <Col span={8}>
+        </Row>
+
+        <Row gutter={16}>
+          <Col span={12}>
             <Form.Item
               name="instructorName"
               label="강사 이름"
@@ -156,10 +159,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
               <Input placeholder="예: 홍길동" />
             </Form.Item>
           </Col>
-        </Row>
-
-        <Row gutter={16}>
-          <Col span={8}>
+          <Col span={12}>
             <Form.Item
               name="instructorPhone"
               label="강사 전화번호"
@@ -172,7 +172,10 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
               />
             </Form.Item>
           </Col>
-          <Col span={8}>
+        </Row>
+
+        <Row gutter={16}>
+          <Col span={12}>
             <Form.Item
               name="fee"
               label="수강료"
@@ -187,7 +190,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
               />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col span={12}>
             <Form.Item
               name="maxStudents"
               label="최대 인원"

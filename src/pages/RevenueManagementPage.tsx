@@ -289,6 +289,13 @@ const RevenueManagementPage: React.FC = () => {
       sorter: (a, b) => a.paidAmount - b.paidAmount,
     },
     {
+      title: '납부일',
+      dataIndex: 'paidAt',
+      key: 'paidAt',
+      render: (date) => date || '-',
+      sorter: (a, b) => (a.paidAt || '').localeCompare(b.paidAt || ''),
+    },
+    {
       title: '잔여 금액',
       dataIndex: 'remainingAmount',
       key: 'remainingAmount',
@@ -320,6 +327,7 @@ const RevenueManagementPage: React.FC = () => {
           dataSource={courseRevenueData}
           rowKey="courseId"
           pagination={false}
+          size="small"
         />
       ),
     },
@@ -332,6 +340,7 @@ const RevenueManagementPage: React.FC = () => {
           dataSource={unpaidList}
           rowKey="id"
           pagination={false}
+          size="small"
         />
       ),
     },

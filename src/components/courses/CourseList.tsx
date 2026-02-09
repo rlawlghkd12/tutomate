@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Table, Button, Space, Tag, message, Progress, Input, Select, Row, Col, Modal, Empty } from 'antd';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -16,12 +16,12 @@ const CourseList: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
-  const handleEdit = (course: Course) => {
+  const handleEdit = useCallback((course: Course) => {
     setSelectedCourse(course);
     setIsModalVisible(true);
-  };
+  }, []);
 
-  const handleDelete = (course: Course) => {
+  const handleDelete = useCallback((course: Course) => {
     if (course.currentStudents > 0) {
       Modal.confirm({
         title: '⚠️ 수강생이 있는 강좌입니다!',
@@ -54,11 +54,16 @@ const CourseList: React.FC = () => {
         },
       });
     }
-  };
+  }, [deleteCourse]);
 
-  const handleView = (id: string) => {
+  const handleView = useCallback((id: string) => {
     navigate(`/courses/${id}`);
-  };
+  }, [navigate]);
+
+  const handleCloseModal = useCallback(() => {
+    setIsModalVisible(false);
+    setSelectedCourse(null);
+  }, []);
 
   const getStatus = (course: Course) => {
     if (course.currentStudents >= course.maxStudents) {
@@ -222,6 +227,7 @@ const CourseList: React.FC = () => {
         dataSource={filteredCourses}
         rowKey="id"
         pagination={false}
+        size="small"
         locale={{
           emptyText: (
             <Empty
@@ -233,10 +239,7 @@ const CourseList: React.FC = () => {
       />
       <CourseForm
         visible={isModalVisible}
-        onClose={() => {
-          setIsModalVisible(false);
-          setSelectedCourse(null);
-        }}
+        onClose={handleCloseModal}
         course={selectedCourse}
       />
     </>
