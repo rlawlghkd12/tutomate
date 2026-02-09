@@ -319,7 +319,7 @@ const RevenueManagementPage: React.FC = () => {
           columns={courseColumns}
           dataSource={courseRevenueData}
           rowKey="courseId"
-          pagination={{ pageSize: 10 }}
+          pagination={false}
         />
       ),
     },
@@ -331,7 +331,7 @@ const RevenueManagementPage: React.FC = () => {
           columns={unpaidColumns}
           dataSource={unpaidList}
           rowKey="id"
-          pagination={{ pageSize: 10 }}
+          pagination={false}
         />
       ),
     },

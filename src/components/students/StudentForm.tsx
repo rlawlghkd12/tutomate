@@ -1,14 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { Modal, Form, Input, Button, message, Space, Select } from 'antd';
+import { Modal, Form, Input, Button, message, Row, Col } from 'antd';
 import type { Student, StudentFormData } from '../../types';
 import { useStudentStore } from '../../stores/studentStore';
-import { useCourseStore } from '../../stores/courseStore';
-import { useEnrollmentStore } from '../../stores/enrollmentStore';
-import type { EnrollmentFormData } from '../../types';
-import dayjs from 'dayjs';
 
 const { TextArea } = Input;
-const { Option } = Select;
 
 interface StudentFormProps {
   visible: boolean;
@@ -19,16 +14,10 @@ interface StudentFormProps {
 const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) => {
   const [form] = Form.useForm();
   const { addStudent, updateStudent } = useStudentStore();
-  const { courses, incrementCurrentStudents, getCourseById } = useCourseStore();
-  const { addEnrollment } = useEnrollmentStore();
   const nameInputRef = useRef<any>(null);
   const phoneInputRef = useRef<any>(null);
   const emailInputRef = useRef<any>(null);
   const birthDateInputRef = useRef<any>(null);
-
-  const availableCourses = courses.filter(
-    (course) => course.currentStudents < course.maxStudents
-  );
 
   useEffect(() => {
     if (visible && student) {
@@ -90,34 +79,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
         form.resetFields();
         onClose();
       } else {
-        const newStudent = addStudent(formData as StudentFormData);
-
-        if (values.courseId && newStudent) {
-          const course = getCourseById(values.courseId);
-          if (course && course.currentStudents < course.maxStudents) {
-            const paidAmount = values.paidAmount || 0;
-            let paymentStatus: 'pending' | 'partial' | 'completed' = 'pending';
-            if (paidAmount === 0) {
-              paymentStatus = 'pending';
-            } else if (paidAmount < course.fee) {
-              paymentStatus = 'partial';
-            } else {
-              paymentStatus = 'completed';
-            }
-
-            const enrollmentData: EnrollmentFormData = {
-              courseId: values.courseId,
-              studentId: newStudent.id,
-              paymentStatus,
-              paidAmount,
-              notes: '',
-            };
-
-            addEnrollment(enrollmentData);
-            incrementCurrentStudents(values.courseId);
-          }
-        }
-
+        addStudent(formData as StudentFormData);
         message.success('수강생이 등록되었습니다.');
         form.resetFields();
         setTimeout(() => {
@@ -153,136 +115,70 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
       ]}
     >
       <Form form={form} layout="vertical">
-        <Form.Item
-          name="name"
-          label="이름"
-          rules={[{ required: true, message: '이름을 입력하세요' }]}
-        >
-          <Input
-            ref={nameInputRef}
-            placeholder="예: 김철수"
-            onKeyDown={(e) => handleKeyDown(e, phoneInputRef)}
-          />
-        </Form.Item>
-
-        <Form.Item
-          name="phone"
-          label="전화번호"
-          rules={[{ required: true, message: '전화번호를 입력하세요' }]}
-        >
-          <Input
-            ref={phoneInputRef}
-            placeholder="01035567586 → 010-3556-7586"
-            onChange={handlePhoneChange}
-            maxLength={13}
-            onKeyDown={(e) => handleKeyDown(e, emailInputRef)}
-          />
-        </Form.Item>
-
-        <Form.Item
-          name="email"
-          label="이메일 (선택)"
-          rules={[
-            { type: 'email', message: '올바른 이메일 형식이 아닙니다' },
-          ]}
-        >
-          <Input
-            ref={emailInputRef}
-            placeholder="예: example@email.com"
-            onKeyDown={(e) => handleKeyDown(e, birthDateInputRef)}
-          />
-        </Form.Item>
-
-        <Form.Item name="birthDate" label="생년월일">
-          <Input
-            ref={birthDateInputRef}
-            placeholder="630201 → 1963-02-01"
-            maxLength={6}
-          />
-        </Form.Item>
-        <Space style={{ marginTop: -16, marginBottom: 24 }}>
-          <Button
-            size="small"
-            onClick={() => form.setFieldsValue({ birthDate: dayjs().subtract(10, 'year').format('YYMMDD') })}
-          >
-            10년 전
-          </Button>
-          <Button
-            size="small"
-            onClick={() => form.setFieldsValue({ birthDate: dayjs().subtract(20, 'year').format('YYMMDD') })}
-          >
-            20년 전
-          </Button>
-          <Button
-            size="small"
-            onClick={() => form.setFieldsValue({ birthDate: dayjs().subtract(30, 'year').format('YYMMDD') })}
-          >
-            30년 전
-          </Button>
-          <Button
-            size="small"
-            onClick={() => form.setFieldsValue({ birthDate: dayjs().subtract(40, 'year').format('YYMMDD') })}
-          >
-            40년 전
-          </Button>
-        </Space>
-
-        {!student && (
-          <>
-            <Form.Item name="courseId" label="수강 강좌 (선택)">
-              <Select
-                placeholder="강좌를 선택하세요"
-                allowClear
-                showSearch
-                optionFilterProp="children"
-              >
-                {availableCourses.map((course) => (
-                  <Option key={course.id} value={course.id}>
-                    {course.name} (₩{course.fee.toLocaleString()})
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-
+        <Row gutter={16}>
+          <Col span={12}>
             <Form.Item
-              noStyle
-              shouldUpdate={(prevValues, currentValues) => prevValues.courseId !== currentValues.courseId}
+              name="name"
+              label="이름"
+              rules={[{ required: true, message: '이름을 입력하세요' }]}
             >
-              {({ getFieldValue }) =>
-                getFieldValue('courseId') ? (
-                  <Form.Item name="paidAmount" label="납부 금액" initialValue={0}>
-                    <Space direction="vertical" style={{ width: '100%' }}>
-                      <Space wrap>
-                        <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 20000 })}>
-                          2만원
-                        </Button>
-                        <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 30000 })}>
-                          3만원
-                        </Button>
-                        <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 40000 })}>
-                          4만원
-                        </Button>
-                        <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 60000 })}>
-                          6만원
-                        </Button>
-                        <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 90000 })}>
-                          9만원
-                        </Button>
-                      </Space>
-                    </Space>
-                  </Form.Item>
-                ) : null
-              }
+              <Input
+                ref={nameInputRef}
+                placeholder="예: 김철수"
+                onKeyDown={(e) => handleKeyDown(e, phoneInputRef)}
+              />
             </Form.Item>
-          </>
-        )}
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="phone"
+              label="전화번호"
+              rules={[{ required: true, message: '전화번호를 입력하세요' }]}
+            >
+              <Input
+                ref={phoneInputRef}
+                placeholder="01012341234"
+                onChange={handlePhoneChange}
+                maxLength={13}
+                onKeyDown={(e) => handleKeyDown(e, emailInputRef)}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="email"
+              label="이메일"
+              rules={[
+                { type: 'email', message: '올바른 이메일 형식이 아닙니다' },
+              ]}
+            >
+              <Input
+                ref={emailInputRef}
+                placeholder="example@email.com"
+                onKeyDown={(e) => handleKeyDown(e, birthDateInputRef)}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="birthDate" label="생년월일">
+              <Input
+                ref={birthDateInputRef}
+                placeholder="630201"
+                maxLength={6}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
 
         <Form.Item name="address" label="주소">
           <Input placeholder="예: 서울시 강남구" />
         </Form.Item>
 
         <Form.Item name="notes" label="메모">
-          <TextArea rows={3} placeholder="추가 정보를 입력하세요" />
+          <TextArea rows={2} placeholder="추가 정보를 입력하세요" />
         </Form.Item>
       </Form>
     </Modal>

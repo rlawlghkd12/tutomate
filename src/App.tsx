@@ -8,7 +8,6 @@ import CourseDetailPage from './pages/CourseDetailPage';
 import StudentsPage from './pages/StudentsPage';
 import CalendarPage from './pages/CalendarPage';
 import RevenueManagementPage from './pages/RevenueManagementPage';
-import BackupManagementPage from './pages/BackupManagementPage';
 import SettingsPage from './pages/SettingsPage';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { UpdateChecker } from './components/common/UpdateChecker';
@@ -55,7 +54,6 @@ function App() {
                 <Route path="/students" element={<StudentsPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/revenue" element={<RevenueManagementPage />} />
-                <Route path="/backup" element={<BackupManagementPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

@@ -12,6 +12,8 @@ import {
   Divider,
   Space,
   Typography,
+  Row,
+  Col,
 } from 'antd';
 import type { Course, CourseFormData } from '../../types';
 import { useCourseStore } from '../../stores/courseStore';
@@ -126,122 +128,101 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
       ]}
     >
       <Form form={form} layout="vertical">
-        <Form.Item
-          name="name"
-          label="강좌 이름"
-          rules={[{ required: true, message: '강좌 이름을 입력하세요' }]}
-        >
-          <Input placeholder="예: React 기초 강좌" />
-        </Form.Item>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item
+              name="name"
+              label="강좌 이름"
+              rules={[{ required: true, message: '강좌 이름을 입력하세요' }]}
+            >
+              <Input placeholder="예: 요가 초급" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item
+              name="classroom"
+              label="강의실"
+              rules={[{ required: true, message: '강의실을 입력하세요' }]}
+            >
+              <Input placeholder="예: A동 301호" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item
+              name="instructorName"
+              label="강사 이름"
+              rules={[{ required: true, message: '강사 이름을 입력하세요' }]}
+            >
+              <Input placeholder="예: 홍길동" />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <Form.Item
-          name="classroom"
-          label="강의실"
-          rules={[{ required: true, message: '강의실을 입력하세요' }]}
-        >
-          <Input placeholder="예: A동 301호" />
-        </Form.Item>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item
+              name="instructorPhone"
+              label="강사 전화번호"
+              rules={[{ required: true, message: '강사 전화번호를 입력하세요' }]}
+            >
+              <Input
+                placeholder="01012341234"
+                onChange={handlePhoneChange}
+                maxLength={13}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item
+              name="fee"
+              label="수강료"
+              rules={[{ required: true, message: '수강료를 입력하세요' }]}
+            >
+              <InputNumber
+                style={{ width: '100%' }}
+                min={0}
+                placeholder="30000"
+                formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, '')) || 0) as any}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item
+              name="maxStudents"
+              label="최대 인원"
+              rules={[
+                { required: true, message: '최대 인원을 입력하세요' },
+                { type: 'number', min: 1, message: '최소 1명 이상이어야 합니다' },
+              ]}
+            >
+              <InputNumber
+                style={{ width: '100%' }}
+                min={1}
+                placeholder="20"
+              />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <Form.Item
-          name="instructorName"
-          label="강사 이름"
-          rules={[{ required: true, message: '강사 이름을 입력하세요' }]}
-        >
-          <Input placeholder="예: 홍길동" />
-        </Form.Item>
-
-        <Form.Item
-          name="instructorPhone"
-          label="강사 전화번호"
-          rules={[{ required: true, message: '강사 전화번호를 입력하세요' }]}
-        >
-          <Input
-            placeholder="01012345678 → 010-1234-5678"
-            onChange={handlePhoneChange}
-            maxLength={13}
-          />
-        </Form.Item>
-
-        <Form.Item
-          name="fee"
-          label="수강료"
-          rules={[{ required: true, message: '수강료를 입력하세요' }]}
-        >
-          <InputNumber
-            style={{ width: '100%' }}
-            min={0}
-            placeholder="예: 300000"
-            formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-            parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, '')) || 0) as any}
-          />
-        </Form.Item>
-        <Space style={{ marginTop: -16, marginBottom: 24 }}>
-          <Button
-            size="small"
-            onClick={() => form.setFieldsValue({ fee: 20000 })}
-          >
-            2만원
-          </Button>
-          <Button
-            size="small"
-            onClick={() => form.setFieldsValue({ fee: 30000 })}
-          >
-            3만원
-          </Button>
-          <Button
-            size="small"
-            onClick={() => form.setFieldsValue({ fee: 50000 })}
-          >
-            5만원
-          </Button>
-        </Space>
-
-        <Form.Item
-          name="maxStudents"
-          label="최대 인원"
-          rules={[
-            { required: true, message: '최대 인원을 입력하세요' },
-            { type: 'number', min: 1, message: '최소 1명 이상이어야 합니다' },
-          ]}
-        >
-          <InputNumber
-            style={{ width: '100%' }}
-            min={1}
-            placeholder="예: 30"
-          />
-        </Form.Item>
-        <Space style={{ marginTop: -16, marginBottom: 24 }}>
-          <Button
-            size="small"
-            onClick={() => form.setFieldsValue({ maxStudents: 15 })}
-          >
-            15명
-          </Button>
-          <Button
-            size="small"
-            onClick={() => form.setFieldsValue({ maxStudents: 20 })}
-          >
-            20명
-          </Button>
-          <Button
-            size="small"
-            onClick={() => form.setFieldsValue({ maxStudents: 25 })}
-          >
-            25명
-          </Button>
-          <Button
-            size="small"
-            onClick={() => form.setFieldsValue({ maxStudents: 30 })}
-          >
-            30명
-          </Button>
-          <Button
-            size="small"
-            onClick={() => form.setFieldsValue({ maxStudents: 35 })}
-          >
-            35명
-          </Button>
-        </Space>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Space wrap>
+              <Button size="small" onClick={() => form.setFieldsValue({ fee: 20000 })}>2만원</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ fee: 30000 })}>3만원</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ fee: 50000 })}>5만원</Button>
+            </Space>
+          </Col>
+          <Col span={12}>
+            <Space wrap>
+              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 15 })}>15명</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 20 })}>20명</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 25 })}>25명</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 30 })}>30명</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 35 })}>35명</Button>
+            </Space>
+          </Col>
+        </Row>
 
         {/* 강좌 일정 섹션 */}
         <Divider />

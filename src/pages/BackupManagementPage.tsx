@@ -224,10 +224,7 @@ const BackupManagementPage: React.FC = () => {
                 dataSource={backups}
                 rowKey="filename"
                 loading={loading}
-                pagination={{
-                  pageSize: 10,
-                  showTotal: (total) => `총 ${total}개의 백업`,
-                }}
+                pagination={false}
                 locale={{
                   emptyText: '백업이 없습니다. "지금 백업" 버튼을 눌러 첫 백업을 생성하세요.',
                 }}

@@ -1,36 +1,31 @@
-import React, { useEffect } from 'react';
-import { Card, Row, Col, Statistic, Typography } from 'antd';
-import {
-  BookOutlined,
-  UserOutlined,
-  CheckCircleOutlined,
-  DollarOutlined,
-} from '@ant-design/icons';
+import React, { useEffect, useState } from 'react';
+import { Card, Row, Col, Statistic, Progress, Empty, Button, Spin } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { useCourseStore } from '../stores/courseStore';
 import { useStudentStore } from '../stores/studentStore';
 import { useEnrollmentStore } from '../stores/enrollmentStore';
 import { useAttendanceStore } from '../stores/attendanceStore';
 import { generateAllNotifications } from '../utils/notificationGenerator';
-import { MonthlyRevenueChart } from '../components/charts/MonthlyRevenueChart';
 import { CourseRevenueChart } from '../components/charts/CourseRevenueChart';
 import { PaymentStatusChart } from '../components/charts/PaymentStatusChart';
 
-const { Title } = Typography;
-
 const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const { courses, loadCourses } = useCourseStore();
   const { students, loadStudents } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
   const { attendances, loadAttendances } = useAttendanceStore();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadCourses();
-    loadStudents();
-    loadEnrollments();
-    loadAttendances();
+    const loadData = async () => {
+      await Promise.all([loadCourses(), loadStudents(), loadEnrollments(), loadAttendances()]);
+      setLoading(false);
+    };
+    loadData();
   }, [loadCourses, loadStudents, loadEnrollments, loadAttendances]);
 
-  // 알림 생성 (하루에 한 번)
   useEffect(() => {
     if (enrollments.length > 0 && students.length > 0 && courses.length > 0) {
       generateAllNotifications(enrollments, students, courses, attendances);
@@ -39,7 +34,6 @@ const DashboardPage: React.FC = () => {
 
   const totalCourses = courses.length;
   const totalStudents = students.length;
-  const totalEnrollments = enrollments.length;
 
   const completedPayments = enrollments.filter((e) => e.paymentStatus === 'completed').length;
   const pendingPayments = enrollments.filter((e) => e.paymentStatus === 'pending').length;
@@ -55,116 +49,102 @@ const DashboardPage: React.FC = () => {
 
   const paymentRate = expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0;
 
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
   return (
     <div>
-      <Title level={2}>대시보드</Title>
-      <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="전체 강좌"
-              value={totalCourses}
-              prefix={<BookOutlined />}
-              valueStyle={{ color: '#3f8600' }}
-            />
+      {/* 상단 통계 - 한 줄 */}
+      <Row gutter={[12, 12]}>
+        <Col xs={8} sm={4}>
+          <Card size="small" hoverable onClick={() => navigate('/courses')} bodyStyle={{ padding: '12px' }}>
+            <Statistic title="강좌" value={totalCourses} valueStyle={{ color: '#1890ff', fontSize: 20 }} />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="전체 수강생"
-              value={totalStudents}
-              prefix={<UserOutlined />}
-              valueStyle={{ color: '#1890ff' }}
-            />
+        <Col xs={8} sm={4}>
+          <Card size="small" hoverable onClick={() => navigate('/students')} bodyStyle={{ padding: '12px' }}>
+            <Statistic title="수강생" value={totalStudents} valueStyle={{ color: '#52c41a', fontSize: 20 }} />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="전체 수강 신청"
-              value={totalEnrollments}
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#cf1322' }}
-            />
+        <Col xs={8} sm={4}>
+          <Card size="small" hoverable onClick={() => navigate('/revenue')} bodyStyle={{ padding: '12px' }}>
+            <Statistic title="납부" value={totalRevenue.toLocaleString()} suffix="원" valueStyle={{ color: '#722ed1', fontSize: 20 }} />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="총 납부 금액"
-              value={totalRevenue}
-              prefix={<DollarOutlined />}
-              suffix="원"
-              valueStyle={{ color: '#722ed1' }}
-            />
+        <Col xs={8} sm={4}>
+          <Card size="small" bodyStyle={{ padding: '12px' }}>
+            <Statistic title="납부율" value={paymentRate.toFixed(0)} suffix="%" valueStyle={{ color: paymentRate >= 80 ? '#52c41a' : '#faad14', fontSize: 20 }} />
+          </Card>
+        </Col>
+        <Col xs={8} sm={4}>
+          <Card size="small" bodyStyle={{ padding: '12px' }}>
+            <Statistic title="완납" value={completedPayments} suffix="건" valueStyle={{ color: '#52c41a', fontSize: 20 }} />
+          </Card>
+        </Col>
+        <Col xs={8} sm={4}>
+          <Card size="small" bodyStyle={{ padding: '12px' }}>
+            <Statistic title="미납" value={pendingPayments} suffix="건" valueStyle={{ color: '#ff4d4f', fontSize: 20 }} />
           </Card>
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col xs={24} sm={12} lg={8}>
-          <Card>
-            <Statistic title="완납" value={completedPayments} suffix="건" />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={8}>
-          <Card>
-            <Statistic title="미납" value={pendingPayments} suffix="건" />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={8}>
-          <Card>
-            <Statistic
-              title="납부율"
-              value={paymentRate.toFixed(1)}
-              suffix="%"
-              precision={1}
-            />
-          </Card>
-        </Col>
-      </Row>
+      {/* 전체 강좌 */}
+      <Card title={`전체 강좌 (${totalCourses})`} size="small" style={{ marginTop: 16 }}>
+        {courses.length === 0 ? (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description="등록된 강좌가 없습니다"
+          >
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/courses')}>
+              강좌 등록하기
+            </Button>
+          </Empty>
+        ) : (
+          <Row gutter={[8, 8]}>
+            {courses.map((course) => {
+              const percentage = (course.currentStudents / course.maxStudents) * 100;
+              return (
+                <Col key={course.id} xs={12} sm={8} md={6} lg={4}>
+                  <Card
+                    size="small"
+                    hoverable
+                    onClick={() => navigate(`/courses/${course.id}`)}
+                    style={{ cursor: 'pointer' }}
+                    bodyStyle={{ padding: 12 }}
+                  >
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>{course.name}</div>
+                    <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+                      {course.instructorName} · {course.classroom}
+                    </div>
+                    <Progress
+                      percent={percentage}
+                      size="small"
+                      status={percentage >= 100 ? 'exception' : 'normal'}
+                      format={() => `${course.currentStudents}/${course.maxStudents}`}
+                    />
+                  </Card>
+                </Col>
+              );
+            })}
+          </Row>
+        )}
+      </Card>
 
-      {/* 차트 섹션 */}
-      <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-        <Col xs={24} lg={12}>
-          <Card title="월별 수익 추이">
-            <MonthlyRevenueChart enrollments={enrollments} courses={courses} />
-          </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card title="강좌별 수익 비교">
+      {/* 차트 */}
+      <Row gutter={[12, 12]} style={{ marginTop: 16 }}>
+        <Col xs={24} md={16}>
+          <Card title="강좌별 수익" size="small">
             <CourseRevenueChart enrollments={enrollments} courses={courses} />
           </Card>
         </Col>
-      </Row>
-
-      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col xs={24} lg={12}>
-          <Card title="납부 상태 분포">
+        <Col xs={24} md={8}>
+          <Card title="납부 상태" size="small">
             <PaymentStatusChart enrollments={enrollments} />
-          </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card title="최근 강좌">
-            {courses.slice(0, 5).map((course) => (
-              <div
-                key={course.id}
-                style={{
-                  padding: '12px 0',
-                  borderBottom: '1px solid #f0f0f0',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>
-                    <strong>{course.name}</strong> - {course.classroom}
-                  </span>
-                  <span>
-                    {course.currentStudents}/{course.maxStudents}명
-                  </span>
-                </div>
-              </div>
-            ))}
           </Card>
         </Col>
       </Row>

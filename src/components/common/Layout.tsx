@@ -1,8 +1,10 @@
-import React from 'react';
-import { Layout as AntLayout, theme } from 'antd';
+import React, { useState } from 'react';
+import { Layout as AntLayout, theme, Button } from 'antd';
+import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import Navigation from './Navigation';
 import { NotificationCenter } from '../notification/NotificationCenter';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { APP_VERSION, APP_NAME } from '../../config/version';
 
 const { Header, Sider, Content } = AntLayout;
 const { useToken } = theme;
@@ -14,13 +16,17 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { token } = useToken();
   const { theme: appTheme } = useSettingsStore();
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
     <AntLayout style={{ minHeight: '100vh' }}>
       <Sider
         width={150}
-        breakpoint="lg"
-        collapsedWidth="0"
+        collapsible
+        collapsed={collapsed}
+        onCollapse={setCollapsed}
+        collapsedWidth={60}
+        trigger={null}
         theme={appTheme === 'dark' ? 'dark' : 'light'}
         style={{
           overflow: 'auto',
@@ -30,23 +36,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           top: 0,
           bottom: 0,
           backgroundColor: appTheme === 'dark' ? '#0a0a0a' : undefined,
+          transition: 'all 0.2s ease',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <div
-          style={{
-            height: 32,
-            margin: 16,
-            color: appTheme === 'dark' ? 'white' : token.colorText,
-            fontSize: 20,
-            fontWeight: 'bold',
-            textAlign: 'center',
-          }}
-        >
-          수강생 관리
+        <div style={{ height: 16 }} />
+        <Navigation collapsed={collapsed} />
+        <div style={{ marginTop: 'auto', padding: '12px 16px', textAlign: 'center' }}>
+          <span style={{ fontSize: 11, color: appTheme === 'dark' ? '#666' : '#999' }}>
+            {collapsed ? `v${APP_VERSION}` : `${APP_NAME} v${APP_VERSION}`}
+          </span>
         </div>
-        <Navigation />
       </Sider>
-      <AntLayout style={{ marginLeft: 150 }}>
+      <AntLayout style={{ marginLeft: collapsed ? 60 : 150, transition: 'all 0.2s ease' }}>
         <Header
           style={{
             background: token.colorBgContainer,
@@ -57,7 +60,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             borderBottom: `1px solid ${token.colorBorder}`,
           }}
         >
-          <h2 style={{ margin: 0 }}>수강생 관리 시스템</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+              style={{ fontSize: 16 }}
+            />
+            <h2 style={{ margin: 0 }}>통도예술마을협동조합</h2>
+          </div>
           <NotificationCenter />
         </Header>
         <Content style={{ margin: '24px 16px 0', overflow: 'initial' }}>

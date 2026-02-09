@@ -7,13 +7,16 @@ import {
   UserOutlined,
   CalendarOutlined,
   DollarOutlined,
-  SaveOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSettingsStore } from '../../stores/settingsStore';
 
-const Navigation: React.FC = () => {
+interface NavigationProps {
+  collapsed?: boolean;
+}
+
+const Navigation: React.FC<NavigationProps> = ({ collapsed = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme } = useSettingsStore();
@@ -45,11 +48,6 @@ const Navigation: React.FC = () => {
       label: '수익 관리',
     },
     {
-      key: '/backup',
-      icon: <SaveOutlined />,
-      label: '백업 관리',
-    },
-    {
       key: '/settings',
       icon: <SettingOutlined />,
       label: '설정',
@@ -64,6 +62,7 @@ const Navigation: React.FC = () => {
     <Menu
       theme={theme === 'dark' ? 'dark' : 'light'}
       mode="inline"
+      inlineCollapsed={collapsed}
       selectedKeys={[location.pathname]}
       items={menuItems}
       onClick={handleMenuClick}

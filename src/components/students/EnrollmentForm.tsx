@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Modal, Form, Select, InputNumber, Button, message, Space, Input } from 'antd';
+import { Modal, Form, Select, InputNumber, Button, message, Space, Input, Row, Col } from 'antd';
 import type { Student, EnrollmentFormData } from '../../types';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import { useCourseStore } from '../../stores/courseStore';
@@ -15,7 +15,7 @@ interface EnrollmentFormProps {
 
 const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, student }) => {
   const [form] = Form.useForm();
-  const { addEnrollment } = useEnrollmentStore();
+  const { addEnrollment, enrollments } = useEnrollmentStore();
   const { courses, incrementCurrentStudents, getCourseById } = useCourseStore();
 
   useEffect(() => {
@@ -36,6 +36,15 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
       const course = getCourseById(values.courseId);
       if (!course) {
         message.error('강좌 정보를 찾을 수 없습니다.');
+        return;
+      }
+
+      // 중복 등록 체크
+      const alreadyEnrolled = enrollments.some(
+        (e) => e.studentId === student.id && e.courseId === values.courseId
+      );
+      if (alreadyEnrolled) {
+        message.error('이미 등록된 강좌입니다.');
         return;
       }
 
@@ -74,8 +83,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
     }
   };
 
+  // 정원 여유 있고, 해당 학생이 아직 등록하지 않은 강좌만 표시
   const availableCourses = courses.filter(
-    (course) => course.currentStudents < course.maxStudents
+    (course) =>
+      course.currentStudents < course.maxStudents &&
+      !enrollments.some((e) => e.studentId === student?.id && e.courseId === course.id)
   );
 
   const handleCourseChange = (courseId: string) => {
@@ -90,6 +102,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
       title={`강좌 신청 - ${student?.name || ''}`}
       open={visible}
       onCancel={onClose}
+      width={500}
       footer={[
         <Button key="cancel" onClick={onClose}>
           취소
@@ -100,61 +113,55 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
       ]}
     >
       <Form form={form} layout="vertical">
-        <Form.Item
-          name="courseId"
-          label="강좌 선택"
-          rules={[{ required: true, message: '강좌를 선택하세요' }]}
-        >
-          <Select
-            placeholder="강좌를 선택하세요"
-            onChange={handleCourseChange}
-            showSearch
-            optionFilterProp="children"
-          >
-            {availableCourses.map((course) => (
-              <Option key={course.id} value={course.id}>
-                {course.name} - {course.classroom} (수강료: ₩
-                {course.fee.toLocaleString()}, 남은 자리:{' '}
-                {course.maxStudents - course.currentStudents})
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="courseId"
+              label="강좌 선택"
+              rules={[{ required: true, message: '강좌를 선택하세요' }]}
+            >
+              <Select
+                placeholder="강좌를 선택하세요"
+                onChange={handleCourseChange}
+                showSearch
+                optionFilterProp="children"
+              >
+                {availableCourses.map((course) => (
+                  <Option key={course.id} value={course.id}>
+                    {course.name} (₩{course.fee.toLocaleString()})
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="paidAmount"
+              label="납부 금액"
+              initialValue={0}
+              rules={[{ required: true, message: '납부 금액을 입력하세요' }]}
+            >
+              <InputNumber
+                style={{ width: '100%' }}
+                min={0}
+                placeholder="30000"
+                formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, '')) || 0) as any}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        <Form.Item
-          name="paidAmount"
-          label="납부 금액"
-          initialValue={0}
-          rules={[{ required: true, message: '납부 금액을 입력하세요' }]}
-        >
-          <InputNumber
-            style={{ width: '100%' }}
-            min={0}
-            placeholder="예: 300000"
-            formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-            parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, '')) || 0) as any}
-          />
-        </Form.Item>
-        <Space style={{ marginTop: -16, marginBottom: 24 }} wrap>
-          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 20000 })}>
-            2만원
-          </Button>
-          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 30000 })}>
-            3만원
-          </Button>
-          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 40000 })}>
-            4만원
-          </Button>
-          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 60000 })}>
-            6만원
-          </Button>
-          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 90000 })}>
-            9만원
-          </Button>
+        <Space wrap style={{ marginBottom: 16 }}>
+          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 20000 })}>2만원</Button>
+          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 30000 })}>3만원</Button>
+          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 40000 })}>4만원</Button>
+          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 60000 })}>6만원</Button>
+          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 90000 })}>9만원</Button>
         </Space>
 
         <Form.Item name="notes" label="메모">
-          <TextArea rows={3} placeholder="추가 정보를 입력하세요" />
+          <TextArea rows={2} placeholder="추가 정보를 입력하세요" />
         </Form.Item>
       </Form>
     </Modal>

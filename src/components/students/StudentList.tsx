@@ -1,19 +1,32 @@
-import React, { useState } from 'react';
-import { Table, Button, Space, Popconfirm, message, Tag } from 'antd';
+import React, { useState, useMemo } from 'react';
+import { Table, Button, Space, Popconfirm, message, Tag, Input, Select, Row, Col, Empty } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { EditOutlined, DeleteOutlined, PlusCircleOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined, PlusCircleOutlined, SearchOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import type { Student } from '../../types';
 import { useStudentStore } from '../../stores/studentStore';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
+import { useCourseStore } from '../../stores/courseStore';
 import StudentForm from './StudentForm';
 import EnrollmentForm from './EnrollmentForm';
 
+interface StudentRow {
+  rowKey: string;
+  student: Student;
+  courseId: string | null;
+  courseName: string | null;
+}
+
 const StudentList: React.FC = () => {
+  const navigate = useNavigate();
   const { students, deleteStudent } = useStudentStore();
   const { enrollments } = useEnrollmentStore();
+  const { courses } = useCourseStore();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isEnrollmentModalVisible, setIsEnrollmentModalVisible] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [searchText, setSearchText] = useState('');
+  const [courseFilter, setCourseFilter] = useState<string | null>(null);
 
   const handleEdit = (student: Student) => {
     setSelectedStudent(student);
@@ -30,40 +43,93 @@ const StudentList: React.FC = () => {
     setIsEnrollmentModalVisible(true);
   };
 
-  const getEnrollmentCount = (studentId: string) => {
-    return enrollments.filter((e) => e.studentId === studentId).length;
-  };
+  // 학생-강좌 조합으로 행 생성
+  const studentRows = useMemo(() => {
+    const rows: StudentRow[] = [];
 
-  const columns: ColumnsType<Student> = [
+    students.forEach((student) => {
+      const studentEnrollments = enrollments.filter((e) => e.studentId === student.id);
+
+      if (studentEnrollments.length === 0) {
+        // 강좌가 없는 학생
+        rows.push({
+          rowKey: student.id,
+          student,
+          courseId: null,
+          courseName: null,
+        });
+      } else {
+        // 각 강좌별로 행 생성
+        studentEnrollments.forEach((enrollment) => {
+          const course = courses.find((c) => c.id === enrollment.courseId);
+          rows.push({
+            rowKey: `${student.id}-${enrollment.courseId}`,
+            student,
+            courseId: enrollment.courseId,
+            courseName: course?.name || null,
+          });
+        });
+      }
+    });
+
+    return rows;
+  }, [students, enrollments, courses]);
+
+  // 필터링
+  const filteredRows = useMemo(() => {
+    return studentRows.filter((row) => {
+      const searchLower = searchText.toLowerCase();
+      const matchesSearch =
+        !searchText ||
+        row.student.name.toLowerCase().includes(searchLower) ||
+        row.student.phone.includes(searchText) ||
+        (row.student.email && row.student.email.toLowerCase().includes(searchLower));
+
+      const matchesCourse = !courseFilter || row.courseId === courseFilter;
+
+      return matchesSearch && matchesCourse;
+    });
+  }, [studentRows, searchText, courseFilter]);
+
+  const columns: ColumnsType<StudentRow> = [
     {
       title: '이름',
-      dataIndex: 'name',
       key: 'name',
-      sorter: (a, b) => a.name.localeCompare(b.name),
+      sorter: (a, b) => a.student.name.localeCompare(b.student.name),
+      render: (_, record) => record.student.name,
     },
     {
       title: '전화번호',
-      dataIndex: 'phone',
       key: 'phone',
+      render: (_, record) => record.student.phone,
     },
     {
       title: '이메일',
-      dataIndex: 'email',
       key: 'email',
+      render: (_, record) => record.student.email || '-',
     },
     {
-      title: '수강 중인 강좌',
-      key: 'enrollments',
+      title: '강좌',
+      key: 'course',
       render: (_, record) => {
-        const count = getEnrollmentCount(record.id);
-        return <Tag color="blue">{count}개</Tag>;
+        if (!record.courseId) {
+          return <span style={{ color: '#999' }}>-</span>;
+        }
+        return (
+          <Tag
+            color="blue"
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate(`/courses/${record.courseId}`)}
+          >
+            {record.courseName}
+          </Tag>
+        );
       },
     },
     {
       title: '주소',
-      dataIndex: 'address',
       key: 'address',
-      render: (address) => address || '-',
+      render: (_, record) => record.student.address || '-',
     },
     {
       title: '작업',
@@ -73,20 +139,20 @@ const StudentList: React.FC = () => {
           <Button
             type="link"
             icon={<PlusCircleOutlined />}
-            onClick={() => handleEnroll(record)}
+            onClick={() => handleEnroll(record.student)}
           >
             강좌 신청
           </Button>
           <Button
             type="link"
             icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
+            onClick={() => handleEdit(record.student)}
           >
             수정
           </Button>
           <Popconfirm
             title="정말 삭제하시겠습니까?"
-            onConfirm={() => handleDelete(record.id)}
+            onConfirm={() => handleDelete(record.student.id)}
             okText="삭제"
             cancelText="취소"
           >
@@ -101,11 +167,50 @@ const StudentList: React.FC = () => {
 
   return (
     <>
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={8}>
+          <Input
+            placeholder="이름, 전화번호, 이메일 검색"
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
+          />
+        </Col>
+        <Col span={6}>
+          <Select
+            placeholder="강좌 필터"
+            value={courseFilter}
+            onChange={setCourseFilter}
+            allowClear
+            style={{ width: '100%' }}
+          >
+            {courses.map((course) => (
+              <Select.Option key={course.id} value={course.id}>
+                {course.name}
+              </Select.Option>
+            ))}
+          </Select>
+        </Col>
+        <Col>
+          <span style={{ color: '#888' }}>
+            {filteredRows.length}건
+          </span>
+        </Col>
+      </Row>
       <Table
         columns={columns}
-        dataSource={students}
-        rowKey="id"
-        pagination={{ pageSize: 10 }}
+        dataSource={filteredRows}
+        rowKey="rowKey"
+        pagination={false}
+        locale={{
+          emptyText: (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={students.length === 0 ? "등록된 수강생이 없습니다" : "검색 결과가 없습니다"}
+            />
+          ),
+        }}
       />
       <StudentForm
         visible={isModalVisible}

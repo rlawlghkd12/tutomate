@@ -264,7 +264,7 @@ const CourseDetailPage: React.FC = () => {
             columns={columns}
             dataSource={enrolledStudents}
             rowKey="id"
-            pagination={{ pageSize: 10 }}
+            pagination={false}
             rowSelection={rowSelection}
           />
         </div>

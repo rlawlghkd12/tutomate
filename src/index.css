@@ -16,3 +16,83 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* 부드러운 전환 효과 */
+.ant-card {
+  transition: all 0.3s ease;
+}
+
+.ant-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.ant-btn {
+  transition: all 0.2s ease;
+}
+
+.ant-tag {
+  transition: all 0.2s ease;
+}
+
+.ant-tag:hover {
+  transform: scale(1.05);
+}
+
+/* 테이블 행 hover 효과 */
+.ant-table-tbody > tr {
+  transition: background-color 0.2s ease;
+}
+
+/* 메뉴 아이템 전환 */
+.ant-menu-item {
+  transition: all 0.2s ease !important;
+}
+
+/* 모달 애니메이션 */
+.ant-modal {
+  animation: modalFadeIn 0.2s ease;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 프로그레스 바 애니메이션 */
+.ant-progress-bg {
+  transition: width 0.5s ease;
+}
+
+/* 통계 숫자 애니메이션 */
+.ant-statistic-content-value {
+  transition: all 0.3s ease;
+}
+
+/* 입력 필드 포커스 */
+.ant-input:focus,
+.ant-select-focused .ant-select-selector {
+  transition: all 0.2s ease;
+}
+
+/* 페이지 전환 효과 */
+.ant-layout-content > div {
+  animation: pageSlideIn 0.3s ease;
+}
+
+@keyframes pageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
