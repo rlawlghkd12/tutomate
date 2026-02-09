@@ -107,26 +107,38 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           mkdir -p release-files
 
-          # Copy and rename files with version
+          echo "=== Artifact structure ==="
+          find artifacts -type f
+
+          # Find and copy tar.gz files with version naming
           # macOS aarch64
-          if [ -f "artifacts/macos-aarch64/TutorMate.app.tar.gz" ]; then
-            cp "artifacts/macos-aarch64/TutorMate.app.tar.gz" "release-files/TutorMate_${VERSION}_aarch64.app.tar.gz"
+          AARCH64_TAR=$(find artifacts/macos-aarch64 -name "*.app.tar.gz" -type f 2>/dev/null | head -1)
+          if [ -n "$AARCH64_TAR" ]; then
+            cp "$AARCH64_TAR" "release-files/TutorMate_${VERSION}_aarch64.app.tar.gz"
+            echo "Copied aarch64 tar.gz"
           fi
-          if [ -f "artifacts/macos-aarch64/TutorMate.app.tar.gz.sig" ]; then
-            cp "artifacts/macos-aarch64/TutorMate.app.tar.gz.sig" "release-files/TutorMate_${VERSION}_aarch64.app.tar.gz.sig"
+          AARCH64_SIG=$(find artifacts/macos-aarch64 -name "*.app.tar.gz.sig" -type f 2>/dev/null | head -1)
+          if [ -n "$AARCH64_SIG" ]; then
+            cp "$AARCH64_SIG" "release-files/TutorMate_${VERSION}_aarch64.app.tar.gz.sig"
+            echo "Copied aarch64 sig"
           fi
 
           # macOS x86_64
-          if [ -f "artifacts/macos-x86_64/TutorMate.app.tar.gz" ]; then
-            cp "artifacts/macos-x86_64/TutorMate.app.tar.gz" "release-files/TutorMate_${VERSION}_x64.app.tar.gz"
+          X64_TAR=$(find artifacts/macos-x86_64 -name "*.app.tar.gz" -type f 2>/dev/null | head -1)
+          if [ -n "$X64_TAR" ]; then
+            cp "$X64_TAR" "release-files/TutorMate_${VERSION}_x64.app.tar.gz"
+            echo "Copied x64 tar.gz"
           fi
-          if [ -f "artifacts/macos-x86_64/TutorMate.app.tar.gz.sig" ]; then
-            cp "artifacts/macos-x86_64/TutorMate.app.tar.gz.sig" "release-files/TutorMate_${VERSION}_x64.app.tar.gz.sig"
+          X64_SIG=$(find artifacts/macos-x86_64 -name "*.app.tar.gz.sig" -type f 2>/dev/null | head -1)
+          if [ -n "$X64_SIG" ]; then
+            cp "$X64_SIG" "release-files/TutorMate_${VERSION}_x64.app.tar.gz.sig"
+            echo "Copied x64 sig"
           fi
 
           # Copy dmg, exe, msi files
           find artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.msi" -o -name "*.msi.sig" \) -exec cp {} release-files/ \;
 
+          echo "=== Release files ==="
           ls -la release-files/
 
       - name: Generate latest.json for updater
