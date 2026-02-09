@@ -91,6 +91,8 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     if: startsWith(github.ref, 'refs/tags/')
 
     steps:
@@ -170,15 +172,15 @@ jobs:
             "platforms": {
               "darwin-aarch64": {
                 "signature": "${MAC_AARCH64_SIG}",
-                "url": "https://github.com/4uphwang/tutomate-release/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_aarch64.app.tar.gz"
+                "url": "https://github.com/rlawlghkd12/tutomate/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_aarch64.app.tar.gz"
               },
               "darwin-x86_64": {
                 "signature": "${MAC_X86_64_SIG}",
-                "url": "https://github.com/4uphwang/tutomate-release/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_x64.app.tar.gz"
+                "url": "https://github.com/rlawlghkd12/tutomate/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_x64.app.tar.gz"
               },
               "windows-x86_64": {
                 "signature": "${WINDOWS_SIG}",
-                "url": "https://github.com/4uphwang/tutomate-release/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_x64-setup.msi"
+                "url": "https://github.com/rlawlghkd12/tutomate/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_x64-setup.msi"
               }
             }
           }
@@ -186,39 +188,15 @@ jobs:
 
           cat release-files/latest.json
 
-      - name: Create release on public repo
+      - name: Create GitHub Release
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Clone the public release repo
-          git clone https://x-access-token:${GH_TOKEN}@github.com/4uphwang/tutomate-release.git release-repo
-          cd release-repo
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Initialize repo if empty
-          if [ -z "$(git log --oneline -1 2>/dev/null)" ]; then
-            echo "# TutorMate Releases" > README.md
-            echo "" >> README.md
-            echo "수강생 관리 프로그램 배포 저장소입니다." >> README.md
-            git add README.md
-            git commit -m "Initial commit"
-            git push origin main
-          fi
-
-          # Create tag if not exists
-          git tag -a ${{ github.ref_name }} -m "${{ github.ref_name }}" 2>/dev/null || true
-          git push origin ${{ github.ref_name }} 2>/dev/null || true
-
-          cd ..
-
           # Delete existing release if exists
-          gh release delete ${{ github.ref_name }} --repo 4uphwang/tutomate-release --yes 2>/dev/null || true
+          gh release delete ${{ github.ref_name }} --yes 2>/dev/null || true
 
           # Create new release with files
           gh release create ${{ github.ref_name }} \
-            --repo 4uphwang/tutomate-release \
             --title "수강생 관리 프로그램 ${{ github.ref_name }}" \
             --notes "새로운 버전이 출시되었습니다.
 
