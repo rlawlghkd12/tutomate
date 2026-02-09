@@ -8,6 +8,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 3000, // Tauri 앱은 로컬이라 청크 크기 무관
   },
   server: {
     port: 5173,
