@@ -193,10 +193,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Delete existing release if exists
-          gh release delete ${{ github.ref_name }} --yes 2>/dev/null || true
+          gh release delete ${{ github.ref_name }} --repo ${{ github.repository }} --yes 2>/dev/null || true
 
           # Create new release with files
           gh release create ${{ github.ref_name }} \
+            --repo ${{ github.repository }} \
             --title "수강생 관리 프로그램 ${{ github.ref_name }}" \
             --notes "새로운 버전이 출시되었습니다.
 
