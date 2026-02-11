@@ -70,23 +70,23 @@ jobs:
         with:
           args: ${{ matrix.args }}
 
+      - name: List built files
+        run: |
+          echo "=== All bundle files ==="
+          find src-tauri/target -name "*.tar.gz*" -o -name "*.dmg" -o -name "*.exe" -o -name "*.msi*" 2>/dev/null || true
+        shell: bash
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            src-tauri/target/release/bundle/**/*.dmg
-            src-tauri/target/release/bundle/**/*.app.tar.gz
-            src-tauri/target/release/bundle/**/*.app.tar.gz.sig
-            src-tauri/target/release/bundle/**/*.exe
-            src-tauri/target/release/bundle/**/*.msi
-            src-tauri/target/release/bundle/**/*.msi.sig
-            src-tauri/target/aarch64-apple-darwin/release/bundle/**/*.dmg
-            src-tauri/target/aarch64-apple-darwin/release/bundle/**/*.app.tar.gz
-            src-tauri/target/aarch64-apple-darwin/release/bundle/**/*.app.tar.gz.sig
-            src-tauri/target/x86_64-apple-darwin/release/bundle/**/*.dmg
-            src-tauri/target/x86_64-apple-darwin/release/bundle/**/*.app.tar.gz
-            src-tauri/target/x86_64-apple-darwin/release/bundle/**/*.app.tar.gz.sig
+            src-tauri/target/**/release/bundle/**/*.dmg
+            src-tauri/target/**/release/bundle/**/*.app.tar.gz
+            src-tauri/target/**/release/bundle/**/*.app.tar.gz.sig
+            src-tauri/target/**/release/bundle/**/*.exe
+            src-tauri/target/**/release/bundle/**/*.msi
+            src-tauri/target/**/release/bundle/**/*.msi.sig
 
   release:
     needs: build

@@ -89,14 +89,15 @@ const SettingsPage: React.FC = () => {
           version: update.version,
           body: update.body || '새로운 버전이 있습니다.',
         });
-        message.info(`새 버전 v${update.version}이 있습니다!`);
+        message.info(`새 버전 v${update.version}이 있습니다! (현재: v${APP_VERSION})`);
+      } else if (update) {
+        message.success(`최신 버전입니다. (현재: v${APP_VERSION}, 서버: v${update.version})`);
       } else {
-        message.success('현재 최신 버전입니다.');
+        message.warning(`업데이트 정보 없음 (현재: v${APP_VERSION})`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Update check:', error);
-      // 업데이트 서버 연결 실패 또는 서명 검증 실패 시에도 최신 버전으로 표시
-      message.success('현재 최신 버전입니다.');
+      message.error(`업데이트 확인 실패: ${error?.message || error} (현재: v${APP_VERSION})`);
     } finally {
       setCheckingUpdate(false);
     }
