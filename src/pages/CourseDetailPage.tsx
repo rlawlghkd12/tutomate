@@ -181,6 +181,17 @@ const CourseDetailPage: React.FC = () => {
       sorter: (a, b) => a.remainingAmount - b.remainingAmount,
     },
     {
+      title: '납부일자',
+      key: 'paidAt',
+      render: (_, record) => record.paidAt ? new Date(record.paidAt).toLocaleDateString() : '-',
+      sorter: (a, b) => {
+        if (!a.paidAt && !b.paidAt) return 0;
+        if (!a.paidAt) return 1;
+        if (!b.paidAt) return -1;
+        return new Date(a.paidAt).getTime() - new Date(b.paidAt).getTime();
+      },
+    },
+    {
       title: '출석률',
       key: 'attendanceRate',
       render: (_, record) => {
