@@ -383,16 +383,16 @@ const SettingsPage: React.FC = () => {
                 <Card
                   size="small"
                   style={{
-                    backgroundColor: token.colorSuccessBg,
-                    border: `1px solid ${token.colorSuccessBorder}`,
+                    backgroundColor: token.colorBgElevated,
+                    border: `1px solid ${token.colorPrimary}`,
                   }}
                 >
                   <Space direction="vertical" style={{ width: '100%' }}>
                     <Space>
                       <Tag color="green">새 버전</Tag>
-                      <Text strong>v{updateAvailable.version}</Text>
+                      <Text strong style={{ color: token.colorText }}>v{updateAvailable.version}</Text>
                     </Space>
-                    <Text type="secondary">{updateAvailable.body}</Text>
+                    <Text style={{ color: token.colorTextSecondary }}>{updateAvailable.body}</Text>
                     {downloading ? (
                       <Progress percent={downloadProgress} status="active" />
                     ) : (
