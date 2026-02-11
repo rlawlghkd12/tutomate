@@ -62,18 +62,14 @@ jobs:
         run: pnpm install
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        run: pnpm tauri build ${{ matrix.args }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          args: ${{ matrix.args }}
 
       - name: List built files
         run: |
           echo "=== All bundle files ==="
-          find src-tauri/target -name "*.tar.gz*" -o -name "*.dmg" -o -name "*.exe" -o -name "*.msi*" 2>/dev/null || true
+          find src-tauri/target -type f \( -name "*.tar.gz" -o -name "*.tar.gz.sig" -o -name "*.dmg" -o -name "*.exe" -o -name "*.msi" -o -name "*.msi.sig" \) 2>/dev/null || true
         shell: bash
 
       - name: Upload artifacts
