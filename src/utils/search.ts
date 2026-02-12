@@ -105,6 +105,7 @@ export const searchEnrollments = (
       pending: '미납',
       partial: '부분납부',
       completed: '완납',
+      exempt: '면제',
     };
 
     return [{

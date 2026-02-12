@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Table, DatePicker, Radio, Space, Tag, message, Button } from 'antd';
+import { DownloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import { useStudentStore } from '../../stores/studentStore';
@@ -8,9 +9,10 @@ import dayjs from 'dayjs';
 
 interface AttendanceSheetProps {
   courseId: string;
+  onExport?: () => void;
 }
 
-const AttendanceSheet: React.FC<AttendanceSheetProps> = ({ courseId }) => {
+const AttendanceSheet: React.FC<AttendanceSheetProps> = ({ courseId, onExport }) => {
   const [selectedDate, setSelectedDate] = useState<string>(dayjs().format('YYYY-MM-DD'));
   const { enrollments } = useEnrollmentStore();
   const { getStudentById } = useStudentStore();
@@ -106,8 +108,8 @@ const AttendanceSheet: React.FC<AttendanceSheetProps> = ({ courseId }) => {
   return (
     <div>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
-          <Space>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <Space wrap align="center">
             <span>날짜 선택:</span>
             <DatePicker
               value={dayjs(selectedDate)}
@@ -118,8 +120,6 @@ const AttendanceSheet: React.FC<AttendanceSheetProps> = ({ courseId }) => {
               }}
               format="YYYY-MM-DD"
             />
-          </Space>
-          <Space>
             <Button
               size="small"
               onClick={() => setSelectedDate(dayjs().format('YYYY-MM-DD'))}
@@ -151,7 +151,12 @@ const AttendanceSheet: React.FC<AttendanceSheetProps> = ({ courseId }) => {
               +7일
             </Button>
           </Space>
-        </Space>
+          {onExport && (
+            <Button icon={<DownloadOutlined />} onClick={onExport}>
+              출석부 Excel 다운로드
+            </Button>
+          )}
+        </div>
 
         <Space size="large" style={{ width: '100%', justifyContent: 'space-between' }}>
           <Space>

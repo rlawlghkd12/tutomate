@@ -21,6 +21,13 @@ const Navigation: React.FC<NavigationProps> = ({ collapsed = false }) => {
   const location = useLocation();
   const { theme } = useSettingsStore();
 
+  const getSelectedKey = () => {
+    const path = location.pathname;
+    if (path === '/') return '/';
+    const base = '/' + path.split('/').filter(Boolean)[0];
+    return base;
+  };
+
   const menuItems: MenuProps['items'] = [
     {
       key: '/',
@@ -63,7 +70,7 @@ const Navigation: React.FC<NavigationProps> = ({ collapsed = false }) => {
       theme={theme === 'dark' ? 'dark' : 'light'}
       mode="inline"
       inlineCollapsed={collapsed}
-      selectedKeys={[location.pathname]}
+      selectedKeys={[getSelectedKey()]}
       items={menuItems}
       onClick={handleMenuClick}
       style={{

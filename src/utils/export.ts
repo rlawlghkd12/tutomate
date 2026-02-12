@@ -172,6 +172,7 @@ export const exportRevenueToExcel = (
       pending: '미납',
       partial: '부분납부',
       completed: '완납',
+      exempt: '면제',
     };
 
     return {
@@ -275,6 +276,7 @@ export const exportRevenueToCSV = (
     pending: '미납',
     partial: '부분납부',
     completed: '완납',
+    exempt: '면제',
   };
 
   const rows = enrollments.map((enrollment) => {

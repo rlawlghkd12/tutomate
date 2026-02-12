@@ -16,7 +16,7 @@ interface EnrollmentFormProps {
 const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, student }) => {
   const [form] = Form.useForm();
   const { addEnrollment, enrollments } = useEnrollmentStore();
-  const { courses, incrementCurrentStudents, getCourseById } = useCourseStore();
+  const { courses, getCourseById } = useCourseStore();
 
   useEffect(() => {
     if (visible) {
@@ -48,7 +48,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
         return;
       }
 
-      if (course.currentStudents >= course.maxStudents) {
+      const currentEnrollmentCount = enrollments.filter(e => e.courseId === values.courseId).length;
+      if (currentEnrollmentCount >= course.maxStudents) {
         message.error('강좌 정원이 마감되었습니다.');
         return;
       }
@@ -73,7 +74,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
       };
 
       addEnrollment(enrollmentData);
-      incrementCurrentStudents(values.courseId);
       message.success('강좌 신청이 완료되었습니다.');
 
       form.resetFields();
@@ -83,17 +83,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
     }
   };
 
-  // 정원 여유 있고, 해당 학생이 아직 등록하지 않은 강좌만 표시
-  const availableCourses = courses.filter(
-    (course) =>
-      course.currentStudents < course.maxStudents &&
-      !enrollments.some((e) => e.studentId === student?.id && e.courseId === course.id)
-  );
-
   const handleCourseChange = (courseId: string) => {
     const course = getCourseById(courseId);
     if (course) {
-      form.setFieldsValue({ paidAmount: 0 });
+      form.setFieldsValue({ paidAmount: course.fee });
     }
   };
 
@@ -126,11 +119,21 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
                 showSearch
                 optionFilterProp="children"
               >
-                {availableCourses.map((course) => (
-                  <Option key={course.id} value={course.id}>
-                    {course.name} (₩{course.fee.toLocaleString()})
-                  </Option>
-                ))}
+                {courses.map((course) => {
+                  const currentCount = enrollments.filter(e => e.courseId === course.id).length;
+                  const isFull = currentCount >= course.maxStudents;
+                  const isEnrolled = enrollments.some(e => e.studentId === student?.id && e.courseId === course.id);
+                  const isDisabled = isFull || isEnrolled;
+                  return (
+                    <Option key={course.id} value={course.id} disabled={isDisabled}>
+                      <span style={isEnrolled ? { textDecoration: 'line-through', color: '#999' } : undefined}>
+                        {course.name} (₩{course.fee.toLocaleString()}) - {currentCount}/{course.maxStudents}명
+                        {isEnrolled && ' [수강중]'}
+                        {isFull && !isEnrolled && ' [정원 마감]'}
+                      </span>
+                    </Option>
+                  );
+                })}
               </Select>
             </Form.Item>
           </Col>

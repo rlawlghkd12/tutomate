@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
-  Descriptions,
   Table,
   Tag,
   Button,
@@ -14,7 +13,6 @@ import {
   Col,
   message,
   Popconfirm,
-  Slider,
   Typography,
   theme,
 } from 'antd';
@@ -26,7 +24,6 @@ import {
   DollarOutlined,
   UserOutlined,
   CheckCircleOutlined,
-  DownloadOutlined,
 } from '@ant-design/icons';
 import { useCourseStore } from '../stores/courseStore';
 import { useStudentStore } from '../stores/studentStore';
@@ -51,7 +48,6 @@ const CourseDetailPage: React.FC = () => {
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
   const [isBulkPaymentModalVisible, setIsBulkPaymentModalVisible] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
-  const [attendanceRateFilter, setAttendanceRateFilter] = useState<[number, number]>([0, 100]);
 
   useEffect(() => {
     loadCourses();
@@ -72,9 +68,9 @@ const CourseDetailPage: React.FC = () => {
 
   const courseEnrollments = enrollments.filter((e) => e.courseId === id);
 
-  // 출석률을 포함한 수강생 목록 (필터링 적용)
+  // 출석률을 포함한 수강생 목록
   const enrolledStudents = useMemo(() => {
-    const studentsWithAttendance = courseEnrollments.map((enrollment) => {
+    return courseEnrollments.map((enrollment) => {
       const student = getStudentById(enrollment.studentId);
 
       // 해당 학생의 출석 기록
@@ -98,15 +94,11 @@ const CourseDetailPage: React.FC = () => {
         lateCount,
       };
     });
-
-    // 출석률 필터 적용
-    return studentsWithAttendance.filter(
-      (s) => s.attendanceRate >= attendanceRateFilter[0] && s.attendanceRate <= attendanceRateFilter[1]
-    );
-  }, [courseEnrollments, attendances, id, getStudentById, attendanceRateFilter]);
+  }, [courseEnrollments, attendances, id, getStudentById]);
 
   const totalRevenue = courseEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-  const expectedRevenue = courseEnrollments.length * course.fee;
+  const nonExemptEnrollments = courseEnrollments.filter(e => e.paymentStatus !== 'exempt');
+  const expectedRevenue = nonExemptEnrollments.length * course.fee;
   const completedPayments = courseEnrollments.filter((e) => e.paymentStatus === 'completed').length;
 
   const handleRemoveStudent = (enrollmentId: string) => {
@@ -138,6 +130,7 @@ const CourseDetailPage: React.FC = () => {
       title: '이름',
       key: 'name',
       render: (_, record) => record.student?.name || '-',
+      sorter: (a, b) => (a.student?.name || '').localeCompare(b.student?.name || ''),
     },
     {
       title: '전화번호',
@@ -157,6 +150,7 @@ const CourseDetailPage: React.FC = () => {
           pending: { color: 'red', text: '미납' },
           partial: { color: 'orange', text: '부분납부' },
           completed: { color: 'green', text: '완납' },
+          exempt: { color: 'purple', text: '면제' },
         };
         const status = statusMap[record.paymentStatus];
         return <Tag color={status.color}>{status.text}</Tag>;
@@ -165,6 +159,7 @@ const CourseDetailPage: React.FC = () => {
         { text: '미납', value: 'pending' },
         { text: '부분납부', value: 'partial' },
         { text: '완납', value: 'completed' },
+        { text: '면제', value: 'exempt' },
       ],
       onFilter: (value, record) => record.paymentStatus === value,
     },
@@ -196,18 +191,29 @@ const CourseDetailPage: React.FC = () => {
       key: 'attendanceRate',
       render: (_, record) => {
         const rate = record.attendanceRate;
-        let color = '#52c41a'; // green
-        if (rate < 50) color = '#f5222d'; // red
-        else if (rate < 80) color = '#faad14'; // orange
+        let color = 'green';
+        if (rate < 50) color = 'red';
+        else if (rate < 80) color = 'orange';
 
         return (
           <div>
             <Tag color={color}>{rate.toFixed(1)}%</Tag>
-            <div style={{ fontSize: '12px', color: '#888' }}>
+            <div style={{ fontSize: '12px', color: token.colorTextSecondary }}>
               출석 {record.presentCount} / 지각 {record.lateCount} / 총 {record.totalSessions}회
             </div>
           </div>
         );
+      },
+      filters: [
+        { text: '우수 (80%+)', value: 'excellent' },
+        { text: '보통 (50-80%)', value: 'normal' },
+        { text: '주의 (50% 미만)', value: 'warning' },
+      ],
+      onFilter: (value, record) => {
+        if (value === 'excellent') return record.attendanceRate >= 80;
+        if (value === 'normal') return record.attendanceRate >= 50 && record.attendanceRate < 80;
+        if (value === 'warning') return record.attendanceRate < 50;
+        return true;
       },
       sorter: (a, b) => a.attendanceRate - b.attendanceRate,
     },
@@ -285,16 +291,7 @@ const CourseDetailPage: React.FC = () => {
     {
       key: '2',
       label: '출석부',
-      children: (
-        <div>
-          <div style={{ marginBottom: 16, textAlign: 'right' }}>
-            <Button icon={<DownloadOutlined />} onClick={handleExportAttendance}>
-              출석부 Excel 다운로드
-            </Button>
-          </div>
-          <AttendanceSheet courseId={id} />
-        </div>
-      ),
+      children: <AttendanceSheet courseId={id} onExport={handleExportAttendance} />,
     },
   ];
 
@@ -308,20 +305,18 @@ const CourseDetailPage: React.FC = () => {
         강좌 목록으로
       </Button>
 
-      <Card title="강좌 정보" style={{ marginBottom: 16 }}>
-        <Descriptions column={2} bordered>
-          <Descriptions.Item label="강좌명">{course.name}</Descriptions.Item>
-          <Descriptions.Item label="강의실">{course.classroom}</Descriptions.Item>
-          <Descriptions.Item label="강사">{course.instructorName}</Descriptions.Item>
-          <Descriptions.Item label="강사 전화번호">{course.instructorPhone}</Descriptions.Item>
-          <Descriptions.Item label="수강료">
-            ₩{course.fee.toLocaleString()}
-          </Descriptions.Item>
-          <Descriptions.Item label="정원">
-            {course.currentStudents} / {course.maxStudents}
-          </Descriptions.Item>
-        </Descriptions>
-      </Card>
+      {/* 강좌명 크게 표시 */}
+      <Typography.Title level={2} style={{ marginTop: 16, marginBottom: 8 }}>
+        {course.name}
+      </Typography.Title>
+
+      {/* 부가 정보 한 줄로 */}
+      <Space split={<span style={{ color: '#d9d9d9' }}>·</span>} style={{ marginBottom: 24 }}>
+        <span>강사: {course.instructorName}</span>
+        <span>강의실: {course.classroom}</span>
+        <span>수강료: ₩{course.fee.toLocaleString()}</span>
+        <span>정원: {courseEnrollments.length}/{course.maxStudents}명</span>
+      </Space>
 
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}>
@@ -334,6 +329,7 @@ const CourseDetailPage: React.FC = () => {
             />
             <Progress
               percent={(courseEnrollments.length / course.maxStudents) * 100}
+              format={(percent) => `${percent?.toFixed(2)}%`}
               size="small"
               style={{ marginTop: 8 }}
             />
@@ -364,7 +360,7 @@ const CourseDetailPage: React.FC = () => {
           <Card>
             <Statistic
               title="완납률"
-              value={courseEnrollments.length > 0 ? (completedPayments / courseEnrollments.length) * 100 : 0}
+              value={nonExemptEnrollments.length > 0 ? (completedPayments / nonExemptEnrollments.length) * 100 : 0}
               precision={1}
               suffix="%"
               prefix={<CheckCircleOutlined />}
@@ -374,60 +370,7 @@ const CourseDetailPage: React.FC = () => {
         </Col>
       </Row>
 
-      {/* 출석률 필터 */}
-      <Card style={{ marginBottom: 16 }}>
-        <Space direction="vertical" style={{ width: '100%' }} size="small">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontWeight: 500 }}>출석률 필터:</span>
-            <div style={{ flex: 1, maxWidth: 400 }}>
-              <Slider
-                range
-                min={0}
-                max={100}
-                value={attendanceRateFilter}
-                onChange={(value) => setAttendanceRateFilter(value as [number, number])}
-                marks={{
-                  0: '0%',
-                  50: '50%',
-                  80: '80%',
-                  100: '100%',
-                }}
-                tooltip={{ formatter: (value) => `${value}%` }}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: '24px' }}>
-              <Button
-                size="small"
-                type={attendanceRateFilter[0] === 0 && attendanceRateFilter[1] === 100 ? 'primary' : 'default'}
-                onClick={() => setAttendanceRateFilter([0, 100])}
-              >
-                전체
-              </Button>
-              <Button
-                size="small"
-                type={attendanceRateFilter[0] === 80 && attendanceRateFilter[1] === 100 ? 'primary' : 'default'}
-                onClick={() => setAttendanceRateFilter([80, 100])}
-              >
-                우수 (80%+)
-              </Button>
-              <Button
-                size="small"
-                type={attendanceRateFilter[0] === 0 && attendanceRateFilter[1] === 50 ? 'primary' : 'default'}
-                onClick={() => setAttendanceRateFilter([0, 50])}
-              >
-                주의 (50% 이하)
-              </Button>
-            </div>
-          </div>
-          <Typography.Text type="secondary" style={{ fontSize: '13px' }}>
-            {attendanceRateFilter[0]}% ~ {attendanceRateFilter[1]}% ({enrolledStudents.length}명)
-          </Typography.Text>
-        </Space>
-      </Card>
-
-      <Card>
-        <Tabs items={tabItems} />
-      </Card>
+      <Tabs items={tabItems} />
 
       <PaymentForm
         visible={isPaymentModalVisible}

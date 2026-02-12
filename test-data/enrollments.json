@@ -1,0 +1,112 @@
+[
+  {
+    "id": "enroll-001",
+    "courseId": "course-001",
+    "studentId": "student-001",
+    "enrolledAt": "2025-01-15T00:00:00.000Z",
+    "paymentStatus": "completed",
+    "paidAmount": 60000,
+    "remainingAmount": 0,
+    "paidAt": "2025-01-15",
+    "notes": ""
+  },
+  {
+    "id": "enroll-002",
+    "courseId": "course-001",
+    "studentId": "student-002",
+    "enrolledAt": "2025-01-16T00:00:00.000Z",
+    "paymentStatus": "completed",
+    "paidAmount": 60000,
+    "remainingAmount": 0,
+    "paidAt": "2025-01-16",
+    "notes": ""
+  },
+  {
+    "id": "enroll-003",
+    "courseId": "course-001",
+    "studentId": "student-004",
+    "enrolledAt": "2025-01-17T00:00:00.000Z",
+    "paymentStatus": "partial",
+    "paidAmount": 30000,
+    "remainingAmount": 30000,
+    "paidAt": "2025-01-17",
+    "notes": "다음달 잔금"
+  },
+  {
+    "id": "enroll-004",
+    "courseId": "course-002",
+    "studentId": "student-004",
+    "enrolledAt": "2025-02-01T00:00:00.000Z",
+    "paymentStatus": "pending",
+    "paidAmount": 0,
+    "remainingAmount": 80000,
+    "paidAt": null,
+    "notes": "중급반 이동"
+  },
+  {
+    "id": "enroll-005",
+    "courseId": "course-003",
+    "studentId": "student-003",
+    "enrolledAt": "2025-01-18T00:00:00.000Z",
+    "paymentStatus": "completed",
+    "paidAmount": 70000,
+    "remainingAmount": 0,
+    "paidAt": "2025-01-18",
+    "notes": ""
+  },
+  {
+    "id": "enroll-006",
+    "courseId": "course-003",
+    "studentId": "student-007",
+    "enrolledAt": "2025-01-19T00:00:00.000Z",
+    "paymentStatus": "exempt",
+    "paidAmount": 0,
+    "remainingAmount": 0,
+    "paidAt": "2025-01-19",
+    "notes": "장학생"
+  },
+  {
+    "id": "enroll-007",
+    "courseId": "course-004",
+    "studentId": "student-005",
+    "enrolledAt": "2025-01-20T00:00:00.000Z",
+    "paymentStatus": "completed",
+    "paidAmount": 50000,
+    "remainingAmount": 0,
+    "paidAt": "2025-01-20",
+    "notes": ""
+  },
+  {
+    "id": "enroll-008",
+    "courseId": "course-004",
+    "studentId": "student-008",
+    "enrolledAt": "2025-01-21T00:00:00.000Z",
+    "paymentStatus": "partial",
+    "paidAmount": 20000,
+    "remainingAmount": 30000,
+    "paidAt": "2025-01-21",
+    "notes": ""
+  },
+  {
+    "id": "enroll-009",
+    "courseId": "course-005",
+    "studentId": "student-006",
+    "enrolledAt": "2025-01-22T00:00:00.000Z",
+    "paymentStatus": "pending",
+    "paidAmount": 0,
+    "remainingAmount": 90000,
+    "paidAt": null,
+    "notes": "다음주 납부 예정"
+  },
+  {
+    "id": "enroll-010",
+    "courseId": "course-001",
+    "studentId": "student-005",
+    "enrolledAt": "2025-01-23T00:00:00.000Z",
+    "paymentStatus": "completed",
+    "paidAmount": 60000,
+    "remainingAmount": 0,
+    "paidAt": "2025-01-23",
+    "notes": ""
+  }
+]

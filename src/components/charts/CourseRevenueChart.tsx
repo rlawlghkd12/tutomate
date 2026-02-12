@@ -17,8 +17,9 @@ export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollme
     return courses
       .map((course) => {
         const courseEnrollments = enrollments.filter((e) => e.courseId === course.id);
+        const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
         const revenue = courseEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-        const expectedRevenue = courseEnrollments.length * course.fee;
+        const expectedRevenue = nonExemptEnrollments.length * course.fee;
 
         return {
           name: course.name.length > 10 ? course.name.substring(0, 10) + '...' : course.name,

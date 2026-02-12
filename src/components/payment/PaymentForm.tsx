@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react';
-import { Modal, Form, InputNumber, Button, message, Descriptions, Space, DatePicker, Row, Col } from 'antd';
+import { Modal, Form, InputNumber, Button, message, Descriptions, Space, DatePicker, Row, Col, Popconfirm, Tag, theme } from 'antd';
 import type { Enrollment } from '../../types';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import dayjs from 'dayjs';
+
+const { useToken } = theme;
 
 interface PaymentFormProps {
   visible: boolean;
@@ -17,6 +19,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   enrollment,
   courseFee,
 }) => {
+  const { token } = useToken();
   const [form] = Form.useForm();
   const { updatePayment } = useEnrollmentStore();
 
@@ -48,6 +51,22 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     }
   };
 
+  const handleExempt = () => {
+    if (!enrollment) return;
+    updatePayment(enrollment.id, 0, courseFee, dayjs().format('YYYY-MM-DD'), true);
+    message.success('수강료가 면제 처리되었습니다.');
+    form.resetFields();
+    onClose();
+  };
+
+  const handleCancelExempt = () => {
+    if (!enrollment) return;
+    updatePayment(enrollment.id, 0, courseFee, undefined);
+    message.success('면제가 취소되었습니다.');
+    form.resetFields();
+    onClose();
+  };
+
   if (!enrollment) {
     return null;
   }
@@ -60,14 +79,44 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       open={visible}
       onCancel={onClose}
       footer={[
+        enrollment?.paymentStatus === 'exempt' ? (
+          <Popconfirm
+            key="cancelExempt"
+            title="면제 취소"
+            description="면제를 취소하시겠습니까? 납부 상태가 미납으로 변경됩니다."
+            onConfirm={handleCancelExempt}
+            okText="취소하기"
+            cancelText="닫기"
+          >
+            <Button>면제 취소</Button>
+          </Popconfirm>
+        ) : (
+          <Popconfirm
+            key="exempt"
+            title="수강료 면제"
+            description="정말 수강료를 면제 처리하시겠습니까? 면제된 금액은 수익에 포함되지 않습니다."
+            onConfirm={handleExempt}
+            okText="면제"
+            cancelText="취소"
+          >
+            <Button danger>면제</Button>
+          </Popconfirm>
+        ),
         <Button key="cancel" onClick={onClose}>
           취소
         </Button>,
-        <Button key="submit" type="primary" onClick={handleSubmit}>
+        <Button key="submit" type="primary" onClick={handleSubmit} disabled={enrollment?.paymentStatus === 'exempt'}>
           저장
         </Button>,
       ]}
     >
+      {enrollment.paymentStatus === 'exempt' && (
+        <div style={{ marginBottom: 16, padding: 12, backgroundColor: token.colorWarningBg, border: `1px solid ${token.colorWarningBorder}`, borderRadius: token.borderRadius }}>
+          <Tag color="purple">면제</Tag>
+          <span style={{ marginLeft: 8 }}>이 수강은 수강료가 면제되었습니다.</span>
+        </div>
+      )}
+
       <Descriptions column={1} bordered style={{ marginBottom: 16 }}>
         <Descriptions.Item label="수강료">
           ₩{courseFee.toLocaleString()}

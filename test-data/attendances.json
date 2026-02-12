@@ -1,0 +1,122 @@
+[
+  {
+    "id": "att-001",
+    "courseId": "course-001",
+    "studentId": "student-001",
+    "date": "2025-02-03",
+    "status": "present",
+    "notes": ""
+  },
+  {
+    "id": "att-002",
+    "courseId": "course-001",
+    "studentId": "student-002",
+    "date": "2025-02-03",
+    "status": "present",
+    "notes": ""
+  },
+  {
+    "id": "att-003",
+    "courseId": "course-001",
+    "studentId": "student-004",
+    "date": "2025-02-03",
+    "status": "late",
+    "notes": "10분 지각"
+  },
+  {
+    "id": "att-004",
+    "courseId": "course-001",
+    "studentId": "student-005",
+    "date": "2025-02-03",
+    "status": "present",
+    "notes": ""
+  },
+  {
+    "id": "att-005",
+    "courseId": "course-001",
+    "studentId": "student-001",
+    "date": "2025-02-10",
+    "status": "present",
+    "notes": ""
+  },
+  {
+    "id": "att-006",
+    "courseId": "course-001",
+    "studentId": "student-002",
+    "date": "2025-02-10",
+    "status": "absent",
+    "notes": "병결"
+  },
+  {
+    "id": "att-007",
+    "courseId": "course-001",
+    "studentId": "student-004",
+    "date": "2025-02-10",
+    "status": "present",
+    "notes": ""
+  },
+  {
+    "id": "att-008",
+    "courseId": "course-001",
+    "studentId": "student-005",
+    "date": "2025-02-10",
+    "status": "present",
+    "notes": ""
+  },
+  {
+    "id": "att-009",
+    "courseId": "course-003",
+    "studentId": "student-003",
+    "date": "2025-02-04",
+    "status": "present",
+    "notes": ""
+  },
+  {
+    "id": "att-010",
+    "courseId": "course-003",
+    "studentId": "student-007",
+    "date": "2025-02-04",
+    "status": "present",
+    "notes": ""
+  },
+  {
+    "id": "att-011",
+    "courseId": "course-003",
+    "studentId": "student-003",
+    "date": "2025-02-11",
+    "status": "present",
+    "notes": ""
+  },
+  {
+    "id": "att-012",
+    "courseId": "course-003",
+    "studentId": "student-007",
+    "date": "2025-02-11",
+    "status": "late",
+    "notes": ""
+  },
+  {
+    "id": "att-013",
+    "courseId": "course-004",
+    "studentId": "student-005",
+    "date": "2025-02-05",
+    "status": "present",
+    "notes": ""
+  },
+  {
+    "id": "att-014",
+    "courseId": "course-004",
+    "studentId": "student-008",
+    "date": "2025-02-05",
+    "status": "absent",
+    "notes": ""
+  },
+  {
+    "id": "att-015",
+    "courseId": "course-005",
+    "studentId": "student-006",
+    "date": "2025-02-06",
+    "status": "present",
+    "notes": ""
+  }
+]

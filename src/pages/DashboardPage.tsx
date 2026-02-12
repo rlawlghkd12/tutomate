@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Progress, Empty, Button, Spin } from 'antd';
+import { Card, Row, Col, Statistic, Progress, Empty, Button, Spin, theme } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+
+const { useToken } = theme;
 import { useNavigate } from 'react-router-dom';
 import { useCourseStore } from '../stores/courseStore';
 import { useStudentStore } from '../stores/studentStore';
@@ -11,6 +13,7 @@ import { CourseRevenueChart } from '../components/charts/CourseRevenueChart';
 import { PaymentStatusChart } from '../components/charts/PaymentStatusChart';
 
 const DashboardPage: React.FC = () => {
+  const { token } = useToken();
   const navigate = useNavigate();
   const { courses, loadCourses } = useCourseStore();
   const { students, loadStudents } = useStudentStore();
@@ -42,10 +45,12 @@ const DashboardPage: React.FC = () => {
     return sum + enrollment.paidAmount;
   }, 0);
 
-  const expectedRevenue = enrollments.reduce((sum, enrollment) => {
-    const course = courses.find((c) => c.id === enrollment.courseId);
-    return sum + (course?.fee || 0);
-  }, 0);
+  const expectedRevenue = enrollments
+    .filter((e) => e.paymentStatus !== 'exempt')
+    .reduce((sum, enrollment) => {
+      const course = courses.find((c) => c.id === enrollment.courseId);
+      return sum + (course?.fee || 0);
+    }, 0);
 
   const paymentRate = expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0;
 
@@ -107,7 +112,8 @@ const DashboardPage: React.FC = () => {
         ) : (
           <Row gutter={[8, 8]}>
             {courses.map((course) => {
-              const percentage = (course.currentStudents / course.maxStudents) * 100;
+              const currentStudents = enrollments.filter(e => e.courseId === course.id).length;
+              const percentage = (currentStudents / course.maxStudents) * 100;
               return (
                 <Col key={course.id} xs={12} sm={8} md={6} lg={4}>
                   <Card
@@ -118,14 +124,14 @@ const DashboardPage: React.FC = () => {
                     bodyStyle={{ padding: 12 }}
                   >
                     <div style={{ fontWeight: 600, marginBottom: 4 }}>{course.name}</div>
-                    <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, color: token.colorTextSecondary, marginBottom: 8 }}>
                       {course.instructorName} · {course.classroom}
                     </div>
                     <Progress
                       percent={percentage}
                       size="small"
                       status={percentage >= 100 ? 'exception' : 'normal'}
-                      format={() => `${course.currentStudents}/${course.maxStudents}`}
+                      format={() => `${currentStudents}/${course.maxStudents}`}
                     />
                   </Card>
                 </Col>

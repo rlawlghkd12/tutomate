@@ -43,7 +43,7 @@ export interface Enrollment {
   courseId: string;
   studentId: string;
   enrolledAt: string;
-  paymentStatus: 'pending' | 'partial' | 'completed'; // 납부 현황
+  paymentStatus: 'pending' | 'partial' | 'completed' | 'exempt'; // 납부 현황 (exempt: 면제)
   paidAmount: number; // 납부 금액
   remainingAmount: number; // 잔여 금액
   paidAt?: string; // 마지막 납부일 YYYY-MM-DD

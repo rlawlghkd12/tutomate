@@ -1,0 +1,62 @@
+[
+  {
+    "id": "course-001",
+    "name": "피아노 기초반",
+    "classroom": "101호",
+    "instructorName": "김선생",
+    "instructorPhone": "010-1234-5678",
+    "fee": 60000,
+    "maxStudents": 10,
+    "currentStudents": 0,
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "course-002",
+    "name": "피아노 중급반",
+    "classroom": "102호",
+    "instructorName": "김선생",
+    "instructorPhone": "010-1234-5678",
+    "fee": 80000,
+    "maxStudents": 8,
+    "currentStudents": 0,
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "course-003",
+    "name": "바이올린 입문",
+    "classroom": "201호",
+    "instructorName": "이선생",
+    "instructorPhone": "010-2345-6789",
+    "fee": 70000,
+    "maxStudents": 6,
+    "currentStudents": 0,
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "course-004",
+    "name": "기타 초급",
+    "classroom": "202호",
+    "instructorName": "박선생",
+    "instructorPhone": "010-3456-7890",
+    "fee": 50000,
+    "maxStudents": 12,
+    "currentStudents": 0,
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "course-005",
+    "name": "드럼 기초",
+    "classroom": "지하1층",
+    "instructorName": "최선생",
+    "instructorPhone": "010-4567-8901",
+    "fee": 90000,
+    "maxStudents": 4,
+    "currentStudents": 0,
+    "createdAt": "2025-01-01T00:00:00.000Z",
+    "updatedAt": "2025-01-01T00:00:00.000Z"
+  }
+]

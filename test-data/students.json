@@ -1,0 +1,90 @@
+[
+  {
+    "id": "student-001",
+    "name": "김민준",
+    "phone": "010-1111-1111",
+    "email": "minjun@example.com",
+    "address": "서울시 강남구",
+    "birthDate": "2015-03-15",
+    "notes": "피아노에 관심이 많음",
+    "createdAt": "2025-01-05T00:00:00.000Z",
+    "updatedAt": "2025-01-05T00:00:00.000Z"
+  },
+  {
+    "id": "student-002",
+    "name": "이서연",
+    "phone": "010-2222-2222",
+    "email": "seoyeon@example.com",
+    "address": "서울시 서초구",
+    "birthDate": "2014-07-22",
+    "notes": "",
+    "createdAt": "2025-01-06T00:00:00.000Z",
+    "updatedAt": "2025-01-06T00:00:00.000Z"
+  },
+  {
+    "id": "student-003",
+    "name": "박지호",
+    "phone": "010-3333-3333",
+    "email": "jiho@example.com",
+    "address": "서울시 송파구",
+    "birthDate": "2016-01-10",
+    "notes": "바이올린 초보",
+    "createdAt": "2025-01-07T00:00:00.000Z",
+    "updatedAt": "2025-01-07T00:00:00.000Z"
+  },
+  {
+    "id": "student-004",
+    "name": "최수아",
+    "phone": "010-4444-4444",
+    "email": "sua@example.com",
+    "address": "서울시 강동구",
+    "birthDate": "2013-11-28",
+    "notes": "중급반 이동 예정",
+    "createdAt": "2025-01-08T00:00:00.000Z",
+    "updatedAt": "2025-01-08T00:00:00.000Z"
+  },
+  {
+    "id": "student-005",
+    "name": "정예준",
+    "phone": "010-5555-5555",
+    "email": "yejun@example.com",
+    "address": "서울시 마포구",
+    "birthDate": "2015-05-03",
+    "notes": "",
+    "createdAt": "2025-01-09T00:00:00.000Z",
+    "updatedAt": "2025-01-09T00:00:00.000Z"
+  },
+  {
+    "id": "student-006",
+    "name": "강하은",
+    "phone": "010-6666-6666",
+    "email": "haeun@example.com",
+    "address": "서울시 용산구",
+    "birthDate": "2014-09-17",
+    "notes": "드럼에 관심",
+    "createdAt": "2025-01-10T00:00:00.000Z",
+    "updatedAt": "2025-01-10T00:00:00.000Z"
+  },
+  {
+    "id": "student-007",
+    "name": "윤도윤",
+    "phone": "010-7777-7777",
+    "email": "doyun@example.com",
+    "address": "서울시 성북구",
+    "birthDate": "2016-04-25",
+    "notes": "",
+    "createdAt": "2025-01-11T00:00:00.000Z",
+    "updatedAt": "2025-01-11T00:00:00.000Z"
+  },
+  {
+    "id": "student-008",
+    "name": "장시우",
+    "phone": "010-8888-8888",
+    "email": "siwoo@example.com",
+    "address": "서울시 노원구",
+    "birthDate": "2015-12-08",
+    "notes": "기타 배우고 싶어함",
+    "createdAt": "2025-01-12T00:00:00.000Z",
+    "updatedAt": "2025-01-12T00:00:00.000Z"
+  }
+]

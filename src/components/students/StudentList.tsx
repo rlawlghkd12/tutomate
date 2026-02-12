@@ -12,9 +12,9 @@ import EnrollmentForm from './EnrollmentForm';
 
 interface StudentRow {
   rowKey: string;
+  index: number;
   student: Student;
-  courseId: string | null;
-  courseName: string | null;
+  courses: { id: string; name: string }[];
 }
 
 const StudentList: React.FC = () => {
@@ -53,41 +53,29 @@ const StudentList: React.FC = () => {
     setSelectedStudent(null);
   }, []);
 
-  // 학생-강좌 조합으로 행 생성
+  // 학생별로 행 생성 (강좌는 배열로)
   const studentRows = useMemo(() => {
-    const rows: StudentRow[] = [];
-
-    students.forEach((student) => {
+    return students.map((student, index) => {
       const studentEnrollments = enrollments.filter((e) => e.studentId === student.id);
-
-      if (studentEnrollments.length === 0) {
-        // 강좌가 없는 학생
-        rows.push({
-          rowKey: student.id,
-          student,
-          courseId: null,
-          courseName: null,
-        });
-      } else {
-        // 각 강좌별로 행 생성
-        studentEnrollments.forEach((enrollment) => {
+      const studentCourses = studentEnrollments
+        .map((enrollment) => {
           const course = courses.find((c) => c.id === enrollment.courseId);
-          rows.push({
-            rowKey: `${student.id}-${enrollment.courseId}`,
-            student,
-            courseId: enrollment.courseId,
-            courseName: course?.name || null,
-          });
-        });
-      }
-    });
+          return course ? { id: course.id, name: course.name } : null;
+        })
+        .filter((c): c is { id: string; name: string } => c !== null);
 
-    return rows;
+      return {
+        rowKey: student.id,
+        index: index + 1,
+        student,
+        courses: studentCourses,
+      };
+    });
   }, [students, enrollments, courses]);
 
   // 필터링
   const filteredRows = useMemo(() => {
-    return studentRows.filter((row) => {
+    const filtered = studentRows.filter((row) => {
       const searchLower = searchText.toLowerCase();
       const matchesSearch =
         !searchText ||
@@ -95,13 +83,22 @@ const StudentList: React.FC = () => {
         row.student.phone.includes(searchText) ||
         (row.student.email && row.student.email.toLowerCase().includes(searchLower));
 
-      const matchesCourse = !courseFilter || row.courseId === courseFilter;
+      const matchesCourse = !courseFilter || row.courses.some((c) => c.id === courseFilter);
 
       return matchesSearch && matchesCourse;
     });
+
+    // 필터링 후 인덱스 재부여
+    return filtered.map((row, idx) => ({ ...row, index: idx + 1 }));
   }, [studentRows, searchText, courseFilter]);
 
   const columns: ColumnsType<StudentRow> = [
+    {
+      title: 'No.',
+      key: 'index',
+      width: 60,
+      render: (_, record) => record.index,
+    },
     {
       title: '이름',
       key: 'name',
@@ -120,19 +117,24 @@ const StudentList: React.FC = () => {
     },
     {
       title: '강좌',
-      key: 'course',
+      key: 'courses',
       render: (_, record) => {
-        if (!record.courseId) {
+        if (record.courses.length === 0) {
           return <span style={{ color: '#999' }}>-</span>;
         }
         return (
-          <Tag
-            color="blue"
-            style={{ cursor: 'pointer' }}
-            onClick={() => navigate(`/courses/${record.courseId}`)}
-          >
-            {record.courseName}
-          </Tag>
+          <Space size={[0, 4]} wrap>
+            {record.courses.map((course) => (
+              <Tag
+                key={course.id}
+                color="blue"
+                style={{ cursor: 'pointer' }}
+                onClick={() => navigate(`/courses/${course.id}`)}
+              >
+                {course.name}
+              </Tag>
+            ))}
+          </Space>
         );
       },
     },
@@ -204,7 +206,7 @@ const StudentList: React.FC = () => {
         </Col>
         <Col>
           <span style={{ color: '#888' }}>
-            {filteredRows.length}건
+            {filteredRows.length}명
           </span>
         </Col>
       </Row>

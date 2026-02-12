@@ -12,12 +12,14 @@ const COLORS = {
   completed: '#52c41a',
   partial: '#faad14',
   pending: '#f5222d',
+  exempt: '#722ed1',
 };
 
 const STATUS_LABELS = {
   completed: '완납',
   partial: '부분납부',
   pending: '미납',
+  exempt: '면제',
 };
 
 export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollments }) => {
@@ -28,11 +30,13 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
     const completed = enrollments.filter((e) => e.paymentStatus === 'completed').length;
     const partial = enrollments.filter((e) => e.paymentStatus === 'partial').length;
     const pending = enrollments.filter((e) => e.paymentStatus === 'pending').length;
+    const exempt = enrollments.filter((e) => e.paymentStatus === 'exempt').length;
 
     return [
       { name: STATUS_LABELS.completed, value: completed, status: 'completed' },
       { name: STATUS_LABELS.partial, value: partial, status: 'partial' },
       { name: STATUS_LABELS.pending, value: pending, status: 'pending' },
+      { name: STATUS_LABELS.exempt, value: exempt, status: 'exempt' },
     ].filter((item) => item.value > 0);
   }, [enrollments]);
 

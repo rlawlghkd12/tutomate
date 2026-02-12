@@ -77,9 +77,12 @@ const RevenueManagementPage: React.FC = () => {
     return filtered;
   }, [enrollments, dateRange, paymentStatusFilter]);
 
-  // 전체 통계 계산
-  const totalRevenue = filteredEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-  const expectedRevenue = filteredEnrollments.reduce((sum, e) => {
+  // 면제 제외한 수익 계산용 목록
+  const revenueEnrollments = filteredEnrollments.filter((e) => e.paymentStatus !== 'exempt');
+
+  // 전체 통계 계산 (면제 제외)
+  const totalRevenue = revenueEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
+  const expectedRevenue = revenueEnrollments.reduce((sum, e) => {
     const course = getCourseById(e.courseId);
     return sum + (course?.fee || 0);
   }, 0);
@@ -88,12 +91,14 @@ const RevenueManagementPage: React.FC = () => {
   const completedPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'completed').length;
   const partialPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'partial').length;
   const pendingPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'pending').length;
+  const exemptPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'exempt').length;
 
   // 강좌별 수익 테이블 데이터
   const courseRevenueData = courses.map((course) => {
     const courseEnrollments = filteredEnrollments.filter((e) => e.courseId === course.id);
-    const revenue = courseEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-    const expected = courseEnrollments.length * course.fee;
+    const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
+    const revenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
+    const expected = nonExemptEnrollments.length * course.fee;
     const unpaid = expected - revenue;
     const completed = courseEnrollments.filter((e) => e.paymentStatus === 'completed').length;
 
@@ -104,13 +109,13 @@ const RevenueManagementPage: React.FC = () => {
       revenue,
       expected,
       unpaid,
-      completionRate: courseEnrollments.length > 0 ? (completed / courseEnrollments.length) * 100 : 0,
+      completionRate: nonExemptEnrollments.length > 0 ? (completed / nonExemptEnrollments.length) * 100 : 0,
     };
   });
 
-  // 미납자 목록
+  // 미납자 목록 (면제 제외)
   const unpaidList = filteredEnrollments
-    .filter((e) => e.paymentStatus !== 'completed')
+    .filter((e) => e.paymentStatus !== 'completed' && e.paymentStatus !== 'exempt')
     .map((enrollment) => {
       const student = getStudentById(enrollment.studentId);
       const course = getCourseById(enrollment.courseId);
@@ -271,6 +276,7 @@ const RevenueManagementPage: React.FC = () => {
           pending: { color: 'red', text: '미납' },
           partial: { color: 'orange', text: '부분납부' },
           completed: { color: 'green', text: '완납' },
+          exempt: { color: 'purple', text: '면제' },
         };
         const s = statusMap[status as keyof typeof statusMap];
         return <Tag color={s.color}>{s.text}</Tag>;
@@ -429,6 +435,7 @@ const RevenueManagementPage: React.FC = () => {
                 { label: '미납', value: 'pending' },
                 { label: '부분납부', value: 'partial' },
                 { label: '완납', value: 'completed' },
+                { label: '면제', value: 'exempt' },
               ]}
               maxTagCount="responsive"
             />
@@ -558,7 +565,7 @@ const RevenueManagementPage: React.FC = () => {
       </Row>
 
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={8}>
+        <Col xs={24} sm={6}>
           <Card>
             <Statistic
               title="완납"
@@ -569,7 +576,7 @@ const RevenueManagementPage: React.FC = () => {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={24} sm={6}>
           <Card>
             <Statistic
               title="부분납부"
@@ -580,7 +587,7 @@ const RevenueManagementPage: React.FC = () => {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={24} sm={6}>
           <Card>
             <Statistic
               title="미납"
@@ -591,11 +598,19 @@ const RevenueManagementPage: React.FC = () => {
             />
           </Card>
         </Col>
+        <Col xs={24} sm={6}>
+          <Card>
+            <Statistic
+              title="면제"
+              value={exemptPayments}
+              suffix="건"
+              valueStyle={{ color: '#722ed1' }}
+            />
+          </Card>
+        </Col>
       </Row>
 
-      <Card>
-        <Tabs items={tabItems} />
-      </Card>
+      <Tabs items={tabItems} />
 
       {selectedEnrollment && (
         <PaymentForm
