@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { Badge, Dropdown, List, Button, Empty, Typography, Tag, Space } from 'antd';
 import {
   BellOutlined,
@@ -63,13 +63,13 @@ export const NotificationCenter: React.FC = () => {
     }
   };
 
-  const handleNotificationClick = (notification: Notification) => {
+  const handleNotificationClick = useCallback((notification: Notification) => {
     if (!notification.isRead) {
       markAsRead(notification.id);
     }
-  };
+  }, [markAsRead]);
 
-  const dropdownMenu = (
+  const dropdownMenu = useMemo(() => (
     <div
       style={{
         width: 420,
@@ -189,7 +189,7 @@ export const NotificationCenter: React.FC = () => {
         )}
       </div>
     </div>
-  );
+  ), [notifications, unreadCount, handleNotificationClick, markAllAsRead, clearAll, deleteNotification]);
 
   return (
     <Dropdown

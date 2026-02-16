@@ -4,6 +4,20 @@ import { Empty } from 'antd';
 import type { Enrollment, Course } from '../../types';
 import { useSettingsStore } from '../../stores/settingsStore';
 
+const TOOLTIP_STYLE_LIGHT = {
+  backgroundColor: '#fff',
+  border: '1px solid #d9d9d9',
+  borderRadius: 6,
+  color: '#000',
+};
+
+const TOOLTIP_STYLE_DARK = {
+  backgroundColor: '#1f1f1f',
+  border: '1px solid #434343',
+  borderRadius: 6,
+  color: '#fff',
+};
+
 interface CourseRevenueChartProps {
   enrollments: Enrollment[];
   courses: Course[];
@@ -33,12 +47,7 @@ export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollme
       .slice(0, 8);
   }, [enrollments, courses]);
 
-  const tooltipStyle = {
-    backgroundColor: isDark ? '#1f1f1f' : '#fff',
-    border: `1px solid ${isDark ? '#434343' : '#d9d9d9'}`,
-    borderRadius: 6,
-    color: isDark ? '#fff' : '#000',
-  };
+  const tooltipStyle = isDark ? TOOLTIP_STYLE_DARK : TOOLTIP_STYLE_LIGHT;
 
   if (courseData.length === 0) {
     return (

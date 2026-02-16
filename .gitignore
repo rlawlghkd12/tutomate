@@ -24,3 +24,6 @@ release-files/
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code
+CLAUDE.md

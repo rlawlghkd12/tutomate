@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Table, DatePicker, Radio, Space, Tag, message, Button } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -20,7 +20,7 @@ const AttendanceSheet: React.FC<AttendanceSheetProps> = ({ courseId, onExport })
 
   const courseEnrollments = enrollments.filter((e) => e.courseId === courseId);
 
-  const enrolledStudents = courseEnrollments.map((enrollment) => {
+  const enrolledStudents = useMemo(() => courseEnrollments.map((enrollment) => {
     const student = getStudentById(enrollment.studentId);
     const attendance = getAttendanceByDate(courseId, enrollment.studentId, selectedDate);
 
@@ -31,7 +31,7 @@ const AttendanceSheet: React.FC<AttendanceSheetProps> = ({ courseId, onExport })
       phone: student?.phone || '-',
       status: attendance?.status || null,
     };
-  });
+  }), [courseEnrollments, getStudentById, getAttendanceByDate, courseId, selectedDate]);
 
   const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late') => {
     markAttendance(courseId, studentId, selectedDate, status);

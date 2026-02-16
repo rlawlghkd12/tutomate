@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, Form, Input, Button, message, Row, Col, Select, InputNumber, Space, Tag, theme } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import type { Student, StudentFormData } from '../../types';
@@ -29,11 +29,6 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
   const { courses, getCourseById } = useCourseStore();
   const { enrollments, addEnrollment, deleteEnrollment, updateEnrollment } = useEnrollmentStore();
   const nameInputRef = useRef<any>(null);
-  const phoneInputRef = useRef<any>(null);
-  const emailInputRef = useRef<any>(null);
-  const birthDateInputRef = useRef<any>(null);
-  const addressInputRef = useRef<any>(null);
-  const notesInputRef = useRef<any>(null);
 
   const [coursePayments, setCoursePayments] = useState<CoursePayment[]>([]);
 
@@ -97,21 +92,21 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
     }
   };
 
-  const handleRemoveCourse = (courseId: string) => {
-    setCoursePayments(coursePayments.filter(cp => cp.courseId !== courseId));
-  };
+  const handleRemoveCourse = useCallback((courseId: string) => {
+    setCoursePayments(prev => prev.filter(cp => cp.courseId !== courseId));
+  }, []);
 
-  const handlePaymentChange = (courseId: string, paidAmount: number) => {
-    setCoursePayments(coursePayments.map(cp =>
+  const handlePaymentChange = useCallback((courseId: string, paidAmount: number) => {
+    setCoursePayments(prev => prev.map(cp =>
       cp.courseId === courseId ? { ...cp, paidAmount, isExempt: false } : cp
     ));
-  };
+  }, []);
 
-  const handleExemptToggle = (courseId: string) => {
-    setCoursePayments(coursePayments.map(cp =>
+  const handleExemptToggle = useCallback((courseId: string) => {
+    setCoursePayments(prev => prev.map(cp =>
       cp.courseId === courseId ? { ...cp, isExempt: !cp.isExempt, paidAmount: 0 } : cp
     ));
-  };
+  }, []);
 
   const getPaymentStatus = (cp: CoursePayment, fee: number): 'pending' | 'partial' | 'completed' | 'exempt' => {
     if (cp.isExempt) return 'exempt';
@@ -206,15 +201,6 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent, nextRef: React.RefObject<any> | null) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (nextRef?.current) {
-        nextRef.current.focus();
-      }
-    }
-  };
-
   // 선택 가능한 강좌 (이미 선택된 것 제외)
   const availableCourses = courses.filter(course => {
     const isSelected = coursePayments.some(cp => cp.courseId === course.id);
@@ -257,7 +243,6 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
               <Input
                 ref={nameInputRef}
                 placeholder="예: 김철수"
-                onKeyDown={(e) => handleKeyDown(e, phoneInputRef)}
               />
             </Form.Item>
           </Col>
@@ -268,11 +253,9 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
               rules={[{ required: true, message: '전화번호를 입력하세요' }]}
             >
               <Input
-                ref={phoneInputRef}
                 placeholder="01012341234"
                 onChange={handlePhoneChange}
                 maxLength={13}
-                onKeyDown={(e) => handleKeyDown(e, emailInputRef)}
               />
             </Form.Item>
           </Col>
@@ -288,19 +271,15 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
               ]}
             >
               <Input
-                ref={emailInputRef}
                 placeholder="example@email.com"
-                onKeyDown={(e) => handleKeyDown(e, birthDateInputRef)}
               />
             </Form.Item>
           </Col>
           <Col span={12}>
             <Form.Item name="birthDate" label="생년월일">
               <Input
-                ref={birthDateInputRef}
                 placeholder="630201"
                 maxLength={6}
-                onKeyDown={(e) => handleKeyDown(e, addressInputRef)}
               />
             </Form.Item>
           </Col>
@@ -308,9 +287,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
 
         <Form.Item name="address" label="주소">
           <Input
-            ref={addressInputRef}
             placeholder="예: 서울시 강남구"
-            onKeyDown={(e) => handleKeyDown(e, notesInputRef)}
           />
         </Form.Item>
 
@@ -393,7 +370,6 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
 
         <Form.Item name="notes" label="메모">
           <TextArea
-            ref={notesInputRef}
             rows={2}
             placeholder="추가 정보를 입력하세요"
             onKeyDown={(e) => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Calendar, Badge, Card, Typography, Modal, Descriptions, Tag, List, theme, Button, Space } from 'antd';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
@@ -25,7 +25,7 @@ const CalendarPage: React.FC = () => {
   }, [loadCourses, loadEnrollments]);
 
   // 특정 날짜에 해당하는 강좌들을 찾는 함수
-  const getCoursesForDate = (date: Dayjs): Course[] => {
+  const getCoursesForDate = useCallback((date: Dayjs): Course[] => {
     return courses.filter((course) => {
       if (!course.schedule) return false;
 
@@ -45,7 +45,7 @@ const CalendarPage: React.FC = () => {
       const dayOfWeek = date.day();
       return daysOfWeek.includes(dayOfWeek);
     });
-  };
+  }, [courses]);
 
   // 달력 셀 렌더링
   const dateCellRender = (value: Dayjs) => {

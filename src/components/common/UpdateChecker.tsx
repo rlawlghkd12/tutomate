@@ -14,12 +14,11 @@ interface UpdateCheckerProps {
 }
 
 export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCheckerProps) {
-  const [currentVersion, setCurrentVersion] = useState('');
-  const [latestVersion, setLatestVersion] = useState('');
-  const [updateBody, setUpdateBody] = useState('');
+  const [updateInfo, setUpdateInfo] = useState<{ currentVersion: string; latestVersion: string; body: string } | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
-  const [modalVisible, setModalVisible] = useState(false);
+
+  const modalVisible = updateInfo !== null;
 
   const checkForUpdates = async (silent = false) => {
     try {
@@ -34,10 +33,11 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
           }
         });
 
-        setCurrentVersion(update.currentVersion);
-        setLatestVersion(update.version);
-        setUpdateBody(update.body || '새로운 버전이 출시되었습니다.');
-        setModalVisible(true);
+        setUpdateInfo({
+          currentVersion: update.currentVersion,
+          latestVersion: update.version,
+          body: update.body || '새로운 버전이 출시되었습니다.',
+        });
       } else {
         logInfo('No updates available');
         if (!silent) {
@@ -123,21 +123,21 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
       <Modal
         title="업데이트 알림"
         open={modalVisible}
-        onCancel={() => setModalVisible(false)}
+        onCancel={() => setUpdateInfo(null)}
         footer={null}
         width={500}
       >
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           <div>
             <Paragraph>
-              <Text strong>현재 버전:</Text> {currentVersion}
+              <Text strong>현재 버전:</Text> {updateInfo?.currentVersion}
             </Paragraph>
             <Paragraph>
-              <Text strong>최신 버전:</Text> {latestVersion}
+              <Text strong>최신 버전:</Text> {updateInfo?.latestVersion}
             </Paragraph>
           </div>
 
-          {updateBody && (
+          {updateInfo?.body && (
             <div>
               <Text strong>변경 사항:</Text>
               <div
@@ -151,7 +151,7 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
                 }}
               >
                 <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
-                  {updateBody}
+                  {updateInfo.body}
                 </pre>
               </div>
             </div>
@@ -167,7 +167,7 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
           <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
             <Button
               icon={<CloseOutlined />}
-              onClick={() => setModalVisible(false)}
+              onClick={() => setUpdateInfo(null)}
               disabled={downloading}
             >
               나중에

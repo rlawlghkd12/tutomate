@@ -18,7 +18,7 @@ const DashboardPage: React.FC = () => {
   const { courses, loadCourses } = useCourseStore();
   const { students, loadStudents } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
-  const { attendances, loadAttendances } = useAttendanceStore();
+  const { loadAttendances } = useAttendanceStore();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,14 +26,18 @@ const DashboardPage: React.FC = () => {
       await Promise.all([loadCourses(), loadStudents(), loadEnrollments(), loadAttendances()]);
       setLoading(false);
     };
-    loadData();
+    loadData().then(() => {
+      const { enrollments, students, courses, attendances } = {
+        enrollments: useEnrollmentStore.getState().enrollments,
+        students: useStudentStore.getState().students,
+        courses: useCourseStore.getState().courses,
+        attendances: useAttendanceStore.getState().attendances,
+      };
+      if (enrollments.length > 0 && students.length > 0 && courses.length > 0) {
+        generateAllNotifications(enrollments, students, courses, attendances);
+      }
+    });
   }, [loadCourses, loadStudents, loadEnrollments, loadAttendances]);
-
-  useEffect(() => {
-    if (enrollments.length > 0 && students.length > 0 && courses.length > 0) {
-      generateAllNotifications(enrollments, students, courses, attendances);
-    }
-  }, [enrollments, students, courses, attendances]);
 
   const totalCourses = courses.length;
   const totalStudents = students.length;

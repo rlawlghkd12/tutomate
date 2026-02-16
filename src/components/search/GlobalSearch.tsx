@@ -27,17 +27,16 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
     if (!visible) {
       setQuery('');
       setResults([]);
+      return;
     }
-  }, [visible]);
 
-  useEffect(() => {
     if (query.trim()) {
       const searchResults = searchAll(query, courses, students, enrollments);
       setResults(searchResults);
     } else {
       setResults([]);
     }
-  }, [query, courses, students, enrollments]);
+  }, [visible, query, courses, students, enrollments]);
 
   const handleSelect = (result: SearchResult) => {
     switch (result.type) {

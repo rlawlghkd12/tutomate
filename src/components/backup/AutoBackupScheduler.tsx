@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Switch, InputNumber, Space, Typography, message, Alert } from 'antd';
 import { invoke } from '@tauri-apps/api/core';
 import dayjs from 'dayjs';
@@ -20,9 +20,10 @@ const DEFAULT_SETTINGS: BackupSettings = {
 export const AutoBackupScheduler: React.FC = () => {
   const [settings, setSettings] = useState<BackupSettings>(DEFAULT_SETTINGS);
   const [nextBackupTime, setNextBackupTime] = useState<string>('');
+  const settingsRef = useRef<BackupSettings>(settings);
+  settingsRef.current = settings;
 
   useEffect(() => {
-    // 설정 불러오기
     const savedSettings = localStorage.getItem(STORAGE_KEY);
     if (savedSettings) {
       const parsed = JSON.parse(savedSettings);
@@ -30,54 +31,50 @@ export const AutoBackupScheduler: React.FC = () => {
     }
   }, []);
 
+  const checkAndBackup = useCallback(async () => {
+    const current = settingsRef.current;
+    if (!current.enabled) return;
+
+    const now = dayjs();
+    const lastBackupTime = current.lastBackup ? dayjs(current.lastBackup) : null;
+
+    if (!lastBackupTime || now.diff(lastBackupTime, 'hour') >= current.intervalHours) {
+      try {
+        await invoke('create_backup');
+        const newSettings: BackupSettings = {
+          ...current,
+          lastBackup: now.toISOString(),
+        };
+        setSettings(newSettings);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
+        message.success('자동 백업이 완료되었습니다');
+      } catch (error) {
+        message.error('자동 백업 실패: ' + error);
+      }
+    }
+  }, []);
+
   useEffect(() => {
-    // 자동 백업 스케줄러
+    if (settings.lastBackup) {
+      const lastBackup = dayjs(settings.lastBackup);
+      const next = lastBackup.add(settings.intervalHours, 'hour');
+      setNextBackupTime(next.format('YYYY-MM-DD HH:mm:ss'));
+    } else if (settings.enabled) {
+      setNextBackupTime('즉시');
+    }
+  }, [settings.lastBackup, settings.intervalHours, settings.enabled]);
+
+  useEffect(() => {
     if (!settings.enabled) {
       return;
     }
 
-    const checkAndBackup = async () => {
-      const now = dayjs();
-      const lastBackupTime = settings.lastBackup ? dayjs(settings.lastBackup) : null;
-
-      // 마지막 백업으로부터 설정된 시간이 지났는지 확인
-      if (!lastBackupTime || now.diff(lastBackupTime, 'hour') >= settings.intervalHours) {
-        try {
-          await invoke('create_backup');
-          const newSettings = {
-            ...settings,
-            lastBackup: now.toISOString(),
-          };
-          setSettings(newSettings);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
-          message.success('자동 백업이 완료되었습니다');
-        } catch (error) {
-          message.error('자동 백업 실패: ' + error);
-        }
-      }
-    };
-
-    // 다음 백업 시간 계산
-    const calculateNextBackup = () => {
-      if (settings.lastBackup) {
-        const lastBackup = dayjs(settings.lastBackup);
-        const next = lastBackup.add(settings.intervalHours, 'hour');
-        setNextBackupTime(next.format('YYYY-MM-DD HH:mm:ss'));
-      } else {
-        setNextBackupTime('즉시');
-      }
-    };
-
-    calculateNextBackup();
-
-    // 초기 체크
     checkAndBackup();
 
-    // 1시간마다 체크 (실제 백업은 설정된 간격에 따라)
     const interval = setInterval(checkAndBackup, 60 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [settings.enabled, settings.intervalHours, settings.lastBackup]);
+  }, [settings.enabled, settings.intervalHours, checkAndBackup]);
 
   const handleToggle = (checked: boolean) => {
     const newSettings = {

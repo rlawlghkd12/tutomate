@@ -78,7 +78,7 @@ const RevenueManagementPage: React.FC = () => {
   }, [enrollments, dateRange, paymentStatusFilter]);
 
   // 면제 제외한 수익 계산용 목록
-  const revenueEnrollments = filteredEnrollments.filter((e) => e.paymentStatus !== 'exempt');
+  const revenueEnrollments = useMemo(() => filteredEnrollments.filter((e) => e.paymentStatus !== 'exempt'), [filteredEnrollments]);
 
   // 전체 통계 계산 (면제 제외)
   const totalRevenue = revenueEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
@@ -94,7 +94,7 @@ const RevenueManagementPage: React.FC = () => {
   const exemptPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'exempt').length;
 
   // 강좌별 수익 테이블 데이터
-  const courseRevenueData = courses.map((course) => {
+  const courseRevenueData = useMemo(() => courses.map((course) => {
     const courseEnrollments = filteredEnrollments.filter((e) => e.courseId === course.id);
     const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
     const revenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
@@ -111,10 +111,10 @@ const RevenueManagementPage: React.FC = () => {
       unpaid,
       completionRate: nonExemptEnrollments.length > 0 ? (completed / nonExemptEnrollments.length) * 100 : 0,
     };
-  });
+  }), [courses, filteredEnrollments]);
 
   // 미납자 목록 (면제 제외)
-  const unpaidList = filteredEnrollments
+  const unpaidList = useMemo(() => filteredEnrollments
     .filter((e) => e.paymentStatus !== 'completed' && e.paymentStatus !== 'exempt')
     .map((enrollment) => {
       const student = getStudentById(enrollment.studentId);
@@ -127,7 +127,7 @@ const RevenueManagementPage: React.FC = () => {
         courseName: course?.name || '-',
         courseFee: course?.fee || 0,
       };
-    });
+    }), [filteredEnrollments, getStudentById, getCourseById]);
 
   const handlePaymentEdit = (enrollment: Enrollment) => {
     setSelectedEnrollment(enrollment);

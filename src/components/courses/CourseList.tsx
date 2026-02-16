@@ -94,7 +94,7 @@ const CourseList: React.FC = () => {
     });
   }, [courses, searchText, statusFilter, getStatus]);
 
-  const columns: ColumnsType<Course> = [
+  const columns: ColumnsType<Course> = useMemo(() => [
     {
       title: '강좌 이름',
       dataIndex: 'name',
@@ -194,7 +194,7 @@ const CourseList: React.FC = () => {
         </Space>
       ),
     },
-  ];
+  ], [handleView, handleEdit, handleDelete, getEnrollmentCountByCourseId, getStatus]);
 
   return (
     <>
