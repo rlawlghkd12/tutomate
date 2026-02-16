@@ -30,7 +30,7 @@ import { relaunch } from '@tauri-apps/plugin-process';
 import dayjs from 'dayjs';
 import { useSettingsStore, type FontSize } from '../stores/settingsStore';
 import { AutoBackupScheduler } from '../components/backup/AutoBackupScheduler';
-import { APP_VERSION, APP_NAME } from '../config/version';
+import { useAppVersion, APP_NAME } from '../config/version';
 
 const { Title, Text } = Typography;
 const { useToken } = theme;
@@ -52,6 +52,8 @@ const SettingsPage: React.FC = () => {
     setNotificationsEnabled,
     loadSettings,
   } = useSettingsStore();
+
+  const APP_VERSION = useAppVersion();
 
   // 백업 관련 상태
   const [backups, setBackups] = useState<BackupInfo[]>([]);

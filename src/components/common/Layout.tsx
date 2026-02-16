@@ -4,7 +4,7 @@ import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import Navigation from './Navigation';
 import { NotificationCenter } from '../notification/NotificationCenter';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { APP_VERSION, APP_NAME } from '../../config/version';
+import { useAppVersion, APP_NAME } from '../../config/version';
 
 const { Header, Sider, Content } = AntLayout;
 const { useToken } = theme;
@@ -17,6 +17,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { token } = useToken();
   const { theme: appTheme } = useSettingsStore();
   const [collapsed, setCollapsed] = useState(false);
+  const APP_VERSION = useAppVersion();
 
   return (
     <AntLayout style={{ minHeight: '100vh' }}>

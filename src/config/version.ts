@@ -1,3 +1,14 @@
-// 앱 버전 정보
-export const APP_VERSION = '0.1.11';
+import { useState, useEffect } from 'react';
+import { getVersion } from '@tauri-apps/api/app';
+
 export const APP_NAME = 'TutorMate';
+
+export function useAppVersion() {
+  const [version, setVersion] = useState('');
+
+  useEffect(() => {
+    getVersion().then(setVersion);
+  }, []);
+
+  return version;
+}
