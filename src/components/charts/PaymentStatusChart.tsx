@@ -2,18 +2,11 @@ import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Empty } from 'antd';
 import type { Enrollment } from '../../types';
-import { useSettingsStore } from '../../stores/settingsStore';
+import { useChartColors, useChartTooltipStyle, FLEX_CENTER } from '../../config/styles';
 
 interface PaymentStatusChartProps {
   enrollments: Enrollment[];
 }
-
-const COLORS = {
-  completed: '#52c41a',
-  partial: '#faad14',
-  pending: '#f5222d',
-  exempt: '#722ed1',
-};
 
 const STATUS_LABELS = {
   completed: '완납',
@@ -23,8 +16,9 @@ const STATUS_LABELS = {
 };
 
 export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollments }) => {
-  const { theme } = useSettingsStore();
-  const isDark = theme === 'dark';
+  const chartColors = useChartColors();
+  const tooltip = useChartTooltipStyle();
+  const COLORS = { completed: chartColors.success, partial: chartColors.warning, pending: chartColors.error, exempt: chartColors.exempt };
 
   const statusData = useMemo(() => {
     const completed = enrollments.filter((e) => e.paymentStatus === 'completed').length;
@@ -40,20 +34,13 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
     ].filter((item) => item.value > 0);
   }, [enrollments]);
 
-  const tooltipStyle = {
-    backgroundColor: isDark ? '#1f1f1f' : '#fff',
-    border: `1px solid ${isDark ? '#434343' : '#d9d9d9'}`,
-    borderRadius: 6,
-    color: isDark ? '#fff' : '#000',
-  };
-
   const renderCustomLabel = ({ name, value, percent }: any) => {
     return `${name}: ${value}건 (${(percent * 100).toFixed(1)}%)`;
   };
 
   if (enrollments.length === 0) {
     return (
-      <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ ...FLEX_CENTER, height: 300 }}>
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="납부 데이터가 없습니다" />
       </div>
     );
@@ -71,17 +58,17 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
           outerRadius={100}
           fill="#8884d8"
           dataKey="value"
-          stroke={isDark ? '#1f1f1f' : '#fff'}
+          stroke={chartColors.bgContainer}
         >
           {statusData.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={COLORS[entry.status as keyof typeof COLORS]} />
           ))}
         </Pie>
         <Tooltip
-          contentStyle={tooltipStyle}
-          labelStyle={{ color: isDark ? '#fff' : '#000' }}
+          contentStyle={tooltip.contentStyle}
+          labelStyle={tooltip.labelStyle}
         />
-        <Legend wrapperStyle={{ color: isDark ? '#fff' : '#000' }} />
+        <Legend wrapperStyle={{ color: chartColors.text }} />
       </PieChart>
     </ResponsiveContainer>
   );

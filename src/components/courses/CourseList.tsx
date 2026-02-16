@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Table, Button, Space, Tag, message, Progress, Input, Select, Row, Col, Modal, Empty } from 'antd';
+import { Table, Button, Space, Tag, message, Progress, Input, Select, Row, Col, Modal, Empty, theme } from 'antd';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons';
@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import CourseForm from './CourseForm';
 
 const CourseList: React.FC = () => {
+  const { token } = theme.useToken();
   const navigate = useNavigate();
   const { courses, deleteCourse } = useCourseStore();
   const { getEnrollmentCountByCourseId } = useEnrollmentStore();
@@ -28,11 +29,11 @@ const CourseList: React.FC = () => {
     if (currentStudents > 0) {
       Modal.confirm({
         title: '⚠️ 수강생이 있는 강좌입니다!',
-        icon: <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />,
+        icon: <ExclamationCircleOutlined style={{ color: token.colorError }} />,
         content: (
           <div>
-            <p><strong>{course.name}</strong> 강좌에 현재 <strong style={{ color: '#ff4d4f' }}>{currentStudents}명</strong>의 수강생이 등록되어 있습니다.</p>
-            <p style={{ marginTop: 8, color: '#ff4d4f' }}>삭제 시 해당 수강생들의 수강 기록도 함께 삭제됩니다.</p>
+            <p><strong>{course.name}</strong> 강좌에 현재 <strong style={{ color: token.colorError }}>{currentStudents}명</strong>의 수강생이 등록되어 있습니다.</p>
+            <p style={{ marginTop: 8, color: token.colorError }}>삭제 시 해당 수강생들의 수강 기록도 함께 삭제됩니다.</p>
           </div>
         ),
         okText: '삭제',
@@ -57,7 +58,7 @@ const CourseList: React.FC = () => {
         },
       });
     }
-  }, [deleteCourse, getEnrollmentCountByCourseId]);
+  }, [deleteCourse, getEnrollmentCountByCourseId, token]);
 
   const handleView = useCallback((id: string) => {
     navigate(`/courses/${id}`);
@@ -222,7 +223,7 @@ const CourseList: React.FC = () => {
           </Select>
         </Col>
         <Col>
-          <span style={{ color: '#888' }}>
+          <span style={{ color: token.colorTextSecondary }}>
             {filteredCourses.length}개
           </span>
         </Col>

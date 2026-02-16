@@ -3,6 +3,7 @@ import { Calendar, Badge, Card, Typography, Modal, Descriptions, Tag, List, them
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import { FLEX_BETWEEN } from '../config/styles';
 import { useCourseStore } from '../stores/courseStore';
 import { useEnrollmentStore } from '../stores/enrollmentStore';
 import type { Course } from '../types';
@@ -114,7 +115,7 @@ const CalendarPage: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div style={{ ...FLEX_BETWEEN, marginBottom: 16 }}>
         <Title level={2} style={{ margin: 0 }}>강좌 캘린더</Title>
         <Space>
           <Button onClick={handleToday}>오늘</Button>
@@ -128,8 +129,8 @@ const CalendarPage: React.FC = () => {
 
       <Card>
         <div style={{ marginBottom: 16 }}>
-          <Badge color="#1890ff" text="수업 있음" style={{ marginRight: 16 }} />
-          <Badge color="#ff4d4f" text="정원 마감" />
+          <Badge color={token.colorPrimary} text="수업 있음" style={{ marginRight: 16 }} />
+          <Badge color={token.colorError} text="정원 마감" />
         </div>
 
         <Calendar

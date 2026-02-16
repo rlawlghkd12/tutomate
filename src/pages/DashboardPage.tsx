@@ -4,6 +4,7 @@ import { PlusOutlined } from '@ant-design/icons';
 
 const { useToken } = theme;
 import { useNavigate } from 'react-router-dom';
+import { FLEX_CENTER, EXEMPT_COLOR } from '../config/styles';
 import { useCourseStore } from '../stores/courseStore';
 import { useStudentStore } from '../stores/studentStore';
 import { useEnrollmentStore } from '../stores/enrollmentStore';
@@ -60,7 +61,7 @@ const DashboardPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+      <div style={{ ...FLEX_CENTER, height: 400 }}>
         <Spin size="large" />
       </div>
     );
@@ -72,32 +73,32 @@ const DashboardPage: React.FC = () => {
       <Row gutter={[12, 12]}>
         <Col xs={8} sm={4}>
           <Card size="small" hoverable onClick={() => navigate('/courses')} bodyStyle={{ padding: '12px' }}>
-            <Statistic title="강좌" value={totalCourses} valueStyle={{ color: '#1890ff', fontSize: 20 }} />
+            <Statistic title="강좌" value={totalCourses} valueStyle={{ color: token.colorPrimary, fontSize: 20 }} />
           </Card>
         </Col>
         <Col xs={8} sm={4}>
           <Card size="small" hoverable onClick={() => navigate('/students')} bodyStyle={{ padding: '12px' }}>
-            <Statistic title="수강생" value={totalStudents} valueStyle={{ color: '#52c41a', fontSize: 20 }} />
+            <Statistic title="수강생" value={totalStudents} valueStyle={{ color: token.colorSuccess, fontSize: 20 }} />
           </Card>
         </Col>
         <Col xs={8} sm={4}>
           <Card size="small" hoverable onClick={() => navigate('/revenue')} bodyStyle={{ padding: '12px' }}>
-            <Statistic title="납부" value={totalRevenue.toLocaleString()} suffix="원" valueStyle={{ color: '#722ed1', fontSize: 20 }} />
+            <Statistic title="납부" value={totalRevenue.toLocaleString()} suffix="원" valueStyle={{ color: EXEMPT_COLOR, fontSize: 20 }} />
           </Card>
         </Col>
         <Col xs={8} sm={4}>
           <Card size="small" bodyStyle={{ padding: '12px' }}>
-            <Statistic title="납부율" value={paymentRate.toFixed(0)} suffix="%" valueStyle={{ color: paymentRate >= 80 ? '#52c41a' : '#faad14', fontSize: 20 }} />
+            <Statistic title="납부율" value={paymentRate.toFixed(0)} suffix="%" valueStyle={{ color: paymentRate >= 80 ? token.colorSuccess : token.colorWarning, fontSize: 20 }} />
           </Card>
         </Col>
         <Col xs={8} sm={4}>
           <Card size="small" bodyStyle={{ padding: '12px' }}>
-            <Statistic title="완납" value={completedPayments} suffix="건" valueStyle={{ color: '#52c41a', fontSize: 20 }} />
+            <Statistic title="완납" value={completedPayments} suffix="건" valueStyle={{ color: token.colorSuccess, fontSize: 20 }} />
           </Card>
         </Col>
         <Col xs={8} sm={4}>
           <Card size="small" bodyStyle={{ padding: '12px' }}>
-            <Statistic title="미납" value={pendingPayments} suffix="건" valueStyle={{ color: '#ff4d4f', fontSize: 20 }} />
+            <Statistic title="미납" value={pendingPayments} suffix="건" valueStyle={{ color: token.colorError, fontSize: 20 }} />
           </Card>
         </Col>
       </Row>

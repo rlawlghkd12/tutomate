@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Input, List, Tag, Empty, Typography } from 'antd';
+import { Modal, Input, List, Tag, Empty, Typography, theme } from 'antd';
 import { SearchOutlined, BookOutlined, UserOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useCourseStore } from '../../stores/courseStore';
 import { useStudentStore } from '../../stores/studentStore';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import { searchAll, type SearchResult } from '../../utils/search';
+import { FLEX_BETWEEN } from '../../config/styles';
 
 const { Text } = Typography;
 
@@ -15,6 +16,7 @@ interface GlobalSearchProps {
 }
 
 export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) => {
+  const { token } = theme.useToken();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const navigate = useNavigate();
@@ -56,11 +58,11 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
   const getIcon = (type: SearchResult['type']) => {
     switch (type) {
       case 'course':
-        return <BookOutlined style={{ color: '#1890ff' }} />;
+        return <BookOutlined style={{ color: token.colorPrimary }} />;
       case 'student':
-        return <UserOutlined style={{ color: '#52c41a' }} />;
+        return <UserOutlined style={{ color: token.colorSuccess }} />;
       case 'enrollment':
-        return <FileTextOutlined style={{ color: '#faad14' }} />;
+        return <FileTextOutlined style={{ color: token.colorWarning }} />;
     }
   };
 
@@ -118,7 +120,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
                   transition: 'background 0.2s',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#f5f5f5';
+                  e.currentTarget.style.background = token.colorFillQuaternary;
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = 'transparent';
@@ -172,18 +174,16 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
       <div
         style={{
           padding: '12px 16px',
-          borderTop: '1px solid #f0f0f0',
-          background: '#fafafa',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
+          borderTop: `1px solid ${token.colorBorderSecondary}`,
+          background: token.colorBgLayout,
+          ...FLEX_BETWEEN,
         }}
       >
         <Text type="secondary" style={{ fontSize: '12px' }}>
           {results.length > 0 && `${results.length}개의 결과`}
         </Text>
         <Text type="secondary" style={{ fontSize: '12px' }}>
-          <kbd style={{ padding: '2px 6px', background: '#fff', border: '1px solid #d9d9d9', borderRadius: '3px' }}>
+          <kbd style={{ padding: '2px 6px', background: token.colorBgContainer, border: `1px solid ${token.colorBorder}`, borderRadius: '3px' }}>
             ESC
           </kbd>{' '}
           닫기

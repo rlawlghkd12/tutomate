@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Button, Progress, Typography, Space } from 'antd';
+import { Modal, Button, Progress, Typography, Space, theme } from 'antd';
 import { DownloadOutlined, CloseOutlined } from '@ant-design/icons';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
@@ -14,6 +14,7 @@ interface UpdateCheckerProps {
 }
 
 export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCheckerProps) {
+  const { token } = theme.useToken();
   const [updateInfo, setUpdateInfo] = useState<{ currentVersion: string; latestVersion: string; body: string } | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -144,7 +145,7 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
                 style={{
                   marginTop: 8,
                   padding: 12,
-                  background: '#f5f5f5',
+                  background: token.colorFillQuaternary,
                   borderRadius: 4,
                   maxHeight: 200,
                   overflowY: 'auto',

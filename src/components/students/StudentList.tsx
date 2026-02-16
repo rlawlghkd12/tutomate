@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Table, Button, Space, Popconfirm, message, Tag, Input, Select, Row, Col, Empty } from 'antd';
+import { Table, Button, Space, Popconfirm, message, Tag, Input, Select, Row, Col, Empty, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { EditOutlined, DeleteOutlined, PlusCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +18,7 @@ interface StudentRow {
 }
 
 const StudentList: React.FC = () => {
+  const { token } = theme.useToken();
   const navigate = useNavigate();
   const { students, deleteStudent } = useStudentStore();
   const { enrollments } = useEnrollmentStore();
@@ -120,7 +121,7 @@ const StudentList: React.FC = () => {
       key: 'courses',
       render: (_, record) => {
         if (record.courses.length === 0) {
-          return <span style={{ color: '#999' }}>-</span>;
+          return <span style={{ color: token.colorTextQuaternary }}>-</span>;
         }
         return (
           <Space size={[0, 4]} wrap>
@@ -205,7 +206,7 @@ const StudentList: React.FC = () => {
           </Select>
         </Col>
         <Col>
-          <span style={{ color: '#888' }}>
+          <span style={{ color: token.colorTextSecondary }}>
             {filteredRows.length}명
           </span>
         </Col>

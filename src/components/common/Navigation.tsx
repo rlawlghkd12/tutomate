@@ -10,7 +10,6 @@ import {
   SettingOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useSettingsStore } from '../../stores/settingsStore';
 
 interface NavigationProps {
   collapsed?: boolean;
@@ -19,7 +18,6 @@ interface NavigationProps {
 const Navigation: React.FC<NavigationProps> = ({ collapsed = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { theme } = useSettingsStore();
 
   const getSelectedKey = () => {
     const path = location.pathname;
@@ -67,15 +65,11 @@ const Navigation: React.FC<NavigationProps> = ({ collapsed = false }) => {
 
   return (
     <Menu
-      theme={theme === 'dark' ? 'dark' : 'light'}
       mode="inline"
       inlineCollapsed={collapsed}
       selectedKeys={[getSelectedKey()]}
       items={menuItems}
       onClick={handleMenuClick}
-      style={{
-        backgroundColor: theme === 'dark' ? '#0a0a0a' : undefined,
-      }}
     />
   );
 };

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Switch, InputNumber, Space, Typography, message, Alert } from 'antd';
 import { invoke } from '@tauri-apps/api/core';
 import dayjs from 'dayjs';
+import { FLEX_BETWEEN } from '../../config/styles';
 
 const { Text } = Typography;
 
@@ -106,14 +107,14 @@ export const AutoBackupScheduler: React.FC = () => {
   return (
     <Card title="자동 백업 설정" size="small">
       <Space direction="vertical" style={{ width: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={FLEX_BETWEEN}>
           <Text>자동 백업 활성화</Text>
           <Switch checked={settings.enabled} onChange={handleToggle} />
         </div>
 
         {settings.enabled && (
           <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={FLEX_BETWEEN}>
               <Text>백업 주기 (시간)</Text>
               <InputNumber
                 min={1}

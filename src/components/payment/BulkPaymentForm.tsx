@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Form, InputNumber, Button, message, Space, Radio, Divider, theme } from 'antd';
 import type { Enrollment } from '../../types';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
+import { FLEX_BETWEEN } from '../../config/styles';
 
 const { useToken } = theme;
 
@@ -72,19 +73,19 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
       <Form form={form} layout="vertical">
         <div style={{ marginBottom: 16, padding: 12, backgroundColor: token.colorBgLayout, borderRadius: 4 }}>
           <Space direction="vertical" size="small" style={{ width: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div style={FLEX_BETWEEN}>
               <span>선택된 수강생:</span>
               <strong>{totalSelectedStudents}명</strong>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div style={FLEX_BETWEEN}>
               <span>총 예상 금액:</span>
               <strong>₩{totalExpectedAmount.toLocaleString()}</strong>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div style={FLEX_BETWEEN}>
               <span>현재 총 납부액:</span>
               <strong>₩{totalCurrentPaid.toLocaleString()}</strong>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div style={FLEX_BETWEEN}>
               <span>총 잔여 금액:</span>
               <strong style={{ color: token.colorError }}>₩{totalRemaining.toLocaleString()}</strong>
             </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Space, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { FLEX_BETWEEN } from '../config/styles';
 import CourseList from '../components/courses/CourseList';
 import CourseForm from '../components/courses/CourseForm';
 import { useCourseStore } from '../stores/courseStore';
@@ -18,7 +19,7 @@ const CoursesPage: React.FC = () => {
   return (
     <div>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={FLEX_BETWEEN}>
           <Title level={2}>강좌 관리</Title>
           <Button
             type="primary"

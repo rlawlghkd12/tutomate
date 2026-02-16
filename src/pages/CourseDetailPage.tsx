@@ -311,7 +311,7 @@ const CourseDetailPage: React.FC = () => {
       </Typography.Title>
 
       {/* 부가 정보 한 줄로 */}
-      <Space split={<span style={{ color: '#d9d9d9' }}>·</span>} style={{ marginBottom: 24 }}>
+      <Space split={<span style={{ color: token.colorBorder }}>·</span>} style={{ marginBottom: 24 }}>
         <span>강사: {course.instructorName}</span>
         <span>강의실: {course.classroom}</span>
         <span>수강료: ₩{course.fee.toLocaleString()}</span>
@@ -342,7 +342,7 @@ const CourseDetailPage: React.FC = () => {
               value={totalRevenue}
               prefix={<DollarOutlined />}
               suffix="원"
-              valueStyle={{ color: '#3f8600' }}
+              valueStyle={{ color: token.colorSuccess }}
             />
           </Card>
         </Col>
@@ -364,7 +364,7 @@ const CourseDetailPage: React.FC = () => {
               precision={1}
               suffix="%"
               prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#cf1322' }}
+              valueStyle={{ color: token.colorError }}
             />
           </Card>
         </Col>

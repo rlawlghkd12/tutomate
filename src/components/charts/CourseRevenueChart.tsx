@@ -2,21 +2,7 @@ import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Empty } from 'antd';
 import type { Enrollment, Course } from '../../types';
-import { useSettingsStore } from '../../stores/settingsStore';
-
-const TOOLTIP_STYLE_LIGHT = {
-  backgroundColor: '#fff',
-  border: '1px solid #d9d9d9',
-  borderRadius: 6,
-  color: '#000',
-};
-
-const TOOLTIP_STYLE_DARK = {
-  backgroundColor: '#1f1f1f',
-  border: '1px solid #434343',
-  borderRadius: 6,
-  color: '#fff',
-};
+import { useChartColors, useChartTooltipStyle, FLEX_CENTER } from '../../config/styles';
 
 interface CourseRevenueChartProps {
   enrollments: Enrollment[];
@@ -24,8 +10,8 @@ interface CourseRevenueChartProps {
 }
 
 export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollments, courses }) => {
-  const { theme } = useSettingsStore();
-  const isDark = theme === 'dark';
+  const chartColors = useChartColors();
+  const tooltip = useChartTooltipStyle();
 
   const courseData = useMemo(() => {
     return courses
@@ -47,11 +33,9 @@ export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollme
       .slice(0, 8);
   }, [enrollments, courses]);
 
-  const tooltipStyle = isDark ? TOOLTIP_STYLE_DARK : TOOLTIP_STYLE_LIGHT;
-
   if (courseData.length === 0) {
     return (
-      <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ ...FLEX_CENTER, height: 300 }}>
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="수익 데이터가 없습니다" />
       </div>
     );
@@ -60,17 +44,17 @@ export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollme
   return (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={courseData}>
-        <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#434343' : '#e8e8e8'} />
-        <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} stroke={isDark ? '#fff' : '#000'} />
-        <YAxis stroke={isDark ? '#fff' : '#000'} />
+        <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} />
+        <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} stroke={chartColors.text} />
+        <YAxis stroke={chartColors.text} />
         <Tooltip
           formatter={(value: number) => `₩${value.toLocaleString()}`}
-          contentStyle={tooltipStyle}
-          labelStyle={{ color: isDark ? '#fff' : '#000' }}
+          contentStyle={tooltip.contentStyle}
+          labelStyle={tooltip.labelStyle}
         />
-        <Legend wrapperStyle={{ color: isDark ? '#fff' : '#000' }} />
-        <Bar dataKey="수익" fill="#52c41a" />
-        <Bar dataKey="예상수익" fill="#1890ff" />
+        <Legend wrapperStyle={{ color: chartColors.text }} />
+        <Bar dataKey="수익" fill={chartColors.success} />
+        <Bar dataKey="예상수익" fill={chartColors.primary} />
       </BarChart>
     </ResponsiveContainer>
   );

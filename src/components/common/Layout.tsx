@@ -3,8 +3,8 @@ import { Layout as AntLayout, theme, Button } from 'antd';
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import Navigation from './Navigation';
 import { NotificationCenter } from '../notification/NotificationCenter';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { useAppVersion, APP_NAME } from '../../config/version';
+import { FLEX_BETWEEN } from '../../config/styles';
 
 const { Header, Sider, Content } = AntLayout;
 const { useToken } = theme;
@@ -15,7 +15,6 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { token } = useToken();
-  const { theme: appTheme } = useSettingsStore();
   const [collapsed, setCollapsed] = useState(false);
   const APP_VERSION = useAppVersion();
 
@@ -28,7 +27,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         onCollapse={setCollapsed}
         collapsedWidth={60}
         trigger={null}
-        theme={appTheme === 'dark' ? 'dark' : 'light'}
+        theme="light"
         style={{
           overflow: 'auto',
           height: '100vh',
@@ -36,7 +35,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           left: 0,
           top: 0,
           bottom: 0,
-          backgroundColor: appTheme === 'dark' ? '#0a0a0a' : undefined,
           transition: 'all 0.2s ease',
           display: 'flex',
           flexDirection: 'column',
@@ -45,7 +43,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div style={{ height: 16 }} />
         <Navigation collapsed={collapsed} />
         <div style={{ marginTop: 'auto', padding: '12px 16px', textAlign: 'center' }}>
-          <span style={{ fontSize: 11, color: appTheme === 'dark' ? '#666' : '#999' }}>
+          <span style={{ fontSize: 11, color: token.colorTextQuaternary }}>
             {collapsed ? `v${APP_VERSION}` : `${APP_NAME} v${APP_VERSION}`}
           </span>
         </div>
@@ -55,9 +53,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           style={{
             background: token.colorBgContainer,
             padding: '0 24px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            ...FLEX_BETWEEN,
             borderBottom: `1px solid ${token.colorBorder}`,
           }}
         >

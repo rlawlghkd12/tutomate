@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Table, DatePicker, Radio, Space, Tag, message, Button } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { FLEX_BETWEEN } from '../../config/styles';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import { useStudentStore } from '../../stores/studentStore';
 import { useAttendanceStore } from '../../stores/attendanceStore';
@@ -108,7 +109,7 @@ const AttendanceSheet: React.FC<AttendanceSheetProps> = ({ courseId, onExport })
   return (
     <div>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ ...FLEX_BETWEEN, flexWrap: 'wrap', gap: 8 }}>
           <Space wrap align="center">
             <span>날짜 선택:</span>
             <DatePicker

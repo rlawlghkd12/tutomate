@@ -14,6 +14,7 @@ import {
   DatePicker,
   Space,
   Select,
+  theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
@@ -24,6 +25,7 @@ import {
   WarningOutlined,
   DownloadOutlined,
 } from '@ant-design/icons';
+import { FLEX_BETWEEN, EXEMPT_COLOR } from '../config/styles';
 import { useCourseStore } from '../stores/courseStore';
 import { useStudentStore } from '../stores/studentStore';
 import { useEnrollmentStore } from '../stores/enrollmentStore';
@@ -37,6 +39,7 @@ const { Title } = Typography;
 const { RangePicker } = DatePicker;
 
 const RevenueManagementPage: React.FC = () => {
+  const { token } = theme.useToken();
   const { courses, loadCourses, getCourseById } = useCourseStore();
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
@@ -230,7 +233,7 @@ const RevenueManagementPage: React.FC = () => {
       dataIndex: 'unpaid',
       key: 'unpaid',
       render: (unpaid) => (
-        <span style={{ color: unpaid > 0 ? '#ff4d4f' : '#52c41a' }}>
+        <span style={{ color: unpaid > 0 ? token.colorError : token.colorSuccess }}>
           ₩{unpaid.toLocaleString()}
         </span>
       ),
@@ -306,7 +309,7 @@ const RevenueManagementPage: React.FC = () => {
       dataIndex: 'remainingAmount',
       key: 'remainingAmount',
       render: (amount) => (
-        <span style={{ color: '#ff4d4f', fontWeight: 'bold' }}>
+        <span style={{ color: token.colorError, fontWeight: 'bold' }}>
           ₩{amount.toLocaleString()}
         </span>
       ),
@@ -354,7 +357,7 @@ const RevenueManagementPage: React.FC = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={FLEX_BETWEEN}>
         <Title level={2}>수익 관리</Title>
         <Dropdown menu={{ items: exportMenuItems }} placement="bottomRight">
           <Button icon={<DownloadOutlined />}>내보내기</Button>
@@ -524,7 +527,7 @@ const RevenueManagementPage: React.FC = () => {
               value={totalRevenue}
               prefix={<DollarOutlined />}
               suffix="원"
-              valueStyle={{ color: '#3f8600' }}
+              valueStyle={{ color: token.colorSuccess }}
             />
           </Card>
         </Col>
@@ -535,7 +538,7 @@ const RevenueManagementPage: React.FC = () => {
               value={expectedRevenue}
               prefix={<DollarOutlined />}
               suffix="원"
-              valueStyle={{ color: '#1890ff' }}
+              valueStyle={{ color: token.colorPrimary }}
             />
           </Card>
         </Col>
@@ -546,7 +549,7 @@ const RevenueManagementPage: React.FC = () => {
               value={totalUnpaid}
               prefix={<WarningOutlined />}
               suffix="원"
-              valueStyle={{ color: '#cf1322' }}
+              valueStyle={{ color: token.colorError }}
             />
           </Card>
         </Col>
@@ -558,7 +561,7 @@ const RevenueManagementPage: React.FC = () => {
               precision={1}
               suffix="%"
               prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#722ed1' }}
+              valueStyle={{ color: EXEMPT_COLOR }}
             />
           </Card>
         </Col>
@@ -572,7 +575,7 @@ const RevenueManagementPage: React.FC = () => {
               value={completedPayments}
               suffix="건"
               prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#52c41a' }}
+              valueStyle={{ color: token.colorSuccess }}
             />
           </Card>
         </Col>
@@ -583,7 +586,7 @@ const RevenueManagementPage: React.FC = () => {
               value={partialPayments}
               suffix="건"
               prefix={<ClockCircleOutlined />}
-              valueStyle={{ color: '#faad14' }}
+              valueStyle={{ color: token.colorWarning }}
             />
           </Card>
         </Col>
@@ -594,7 +597,7 @@ const RevenueManagementPage: React.FC = () => {
               value={pendingPayments}
               suffix="건"
               prefix={<WarningOutlined />}
-              valueStyle={{ color: '#f5222d' }}
+              valueStyle={{ color: token.colorError }}
             />
           </Card>
         </Col>
@@ -604,7 +607,7 @@ const RevenueManagementPage: React.FC = () => {
               title="면제"
               value={exemptPayments}
               suffix="건"
-              valueStyle={{ color: '#722ed1' }}
+              valueStyle={{ color: EXEMPT_COLOR }}
             />
           </Card>
         </Col>

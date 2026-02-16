@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { Badge, Dropdown, List, Button, Empty, Typography, Tag, Space } from 'antd';
+import { Badge, Dropdown, List, Button, Empty, Typography, Tag, Space, theme } from 'antd';
 import {
   BellOutlined,
   CheckOutlined,
@@ -10,6 +10,7 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useNotificationStore } from '../../stores/notificationStore';
+import { FLEX_CENTER, FLEX_BETWEEN } from '../../config/styles';
 import type { Notification } from '../../types';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -21,6 +22,7 @@ dayjs.locale('ko');
 const { Text } = Typography;
 
 export const NotificationCenter: React.FC = () => {
+  const { token } = theme.useToken();
   const {
     notifications,
     loadNotifications,
@@ -40,14 +42,14 @@ export const NotificationCenter: React.FC = () => {
   const getIcon = (type: Notification['type']) => {
     switch (type) {
       case 'payment_overdue':
-        return <WarningOutlined style={{ color: '#ff4d4f' }} />;
+        return <WarningOutlined style={{ color: token.colorError }} />;
       case 'payment_reminder':
-        return <DollarOutlined style={{ color: '#faad14' }} />;
+        return <DollarOutlined style={{ color: token.colorWarning }} />;
       case 'low_attendance':
-        return <UserOutlined style={{ color: '#fa8c16' }} />;
+        return <UserOutlined style={{ color: token.colorWarning }} />;
       case 'info':
       default:
-        return <InfoCircleOutlined style={{ color: '#1890ff' }} />;
+        return <InfoCircleOutlined style={{ color: token.colorPrimary }} />;
     }
   };
 
@@ -74,7 +76,7 @@ export const NotificationCenter: React.FC = () => {
       style={{
         width: 420,
         maxHeight: 600,
-        background: '#fff',
+        background: token.colorBgContainer,
         borderRadius: 8,
         boxShadow: '0 3px 6px -4px rgba(0,0,0,.12), 0 6px 16px 0 rgba(0,0,0,.08)',
       }}
@@ -83,10 +85,8 @@ export const NotificationCenter: React.FC = () => {
       <div
         style={{
           padding: '12px 16px',
-          borderBottom: '1px solid #f0f0f0',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          ...FLEX_BETWEEN,
         }}
       >
         <Text strong style={{ fontSize: 16 }}>
@@ -139,15 +139,15 @@ export const NotificationCenter: React.FC = () => {
                 onClick={() => handleNotificationClick(notification)}
                 style={{
                   cursor: 'pointer',
-                  background: notification.isRead ? '#fff' : '#f0f5ff',
+                  background: notification.isRead ? token.colorBgContainer : token.colorPrimaryBg,
                   padding: '12px 16px',
                   transition: 'background 0.2s',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = notification.isRead ? '#fafafa' : '#e6f4ff';
+                  e.currentTarget.style.background = notification.isRead ? token.colorBgLayout : token.colorPrimaryBgHover;
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = notification.isRead ? '#fff' : '#f0f5ff';
+                  e.currentTarget.style.background = notification.isRead ? token.colorBgContainer : token.colorPrimaryBg;
                 }}
               >
                 <List.Item.Meta
@@ -189,7 +189,7 @@ export const NotificationCenter: React.FC = () => {
         )}
       </div>
     </div>
-  ), [notifications, unreadCount, handleNotificationClick, markAllAsRead, clearAll, deleteNotification]);
+  ), [notifications, unreadCount, handleNotificationClick, markAllAsRead, clearAll, deleteNotification, token]);
 
   return (
     <Dropdown
@@ -201,7 +201,7 @@ export const NotificationCenter: React.FC = () => {
         <Button
           type="text"
           icon={<BellOutlined style={{ fontSize: 20 }} />}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={FLEX_CENTER}
         />
       </Badge>
     </Dropdown>

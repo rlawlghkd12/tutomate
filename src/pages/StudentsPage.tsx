@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Space, Typography, Dropdown, message } from 'antd';
 import { PlusOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
+import { FLEX_BETWEEN } from '../config/styles';
 import StudentList from '../components/students/StudentList';
 import StudentForm from '../components/students/StudentForm';
 import { useStudentStore } from '../stores/studentStore';
@@ -70,7 +71,7 @@ const StudentsPage: React.FC = () => {
   return (
     <div>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={FLEX_BETWEEN}>
           <Title level={2}>수강생 관리</Title>
           <Space>
             <Dropdown menu={{ items: exportMenuItems }} placement="bottomRight">

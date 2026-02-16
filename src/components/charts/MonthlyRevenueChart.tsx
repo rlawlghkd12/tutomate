@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import type { Enrollment, Course } from '../../types';
 import dayjs from 'dayjs';
+import type { Enrollment, Course } from '../../types';
+import { useChartColors, useChartTooltipStyle } from '../../config/styles';
 
 interface MonthlyRevenueChartProps {
   enrollments: Enrollment[];
@@ -9,6 +10,9 @@ interface MonthlyRevenueChartProps {
 }
 
 export const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({ enrollments, courses }) => {
+  const chartColors = useChartColors();
+  const tooltip = useChartTooltipStyle();
+
   const monthlyData = useMemo(() => {
     // 최근 6개월 데이터 생성
     const months: string[] = [];
@@ -38,13 +42,13 @@ export const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({ enroll
   return (
     <ResponsiveContainer width="100%" height={300}>
       <LineChart data={monthlyData}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="month" />
-        <YAxis />
-        <Tooltip formatter={(value: number) => `₩${value.toLocaleString()}`} />
-        <Legend />
-        <Line type="monotone" dataKey="수익" stroke="#3f8600" strokeWidth={2} />
-        <Line type="monotone" dataKey="예상수익" stroke="#1890ff" strokeWidth={2} strokeDasharray="5 5" />
+        <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} />
+        <XAxis dataKey="month" stroke={chartColors.text} />
+        <YAxis stroke={chartColors.text} />
+        <Tooltip formatter={(value: number) => `₩${value.toLocaleString()}`} contentStyle={tooltip.contentStyle} labelStyle={tooltip.labelStyle} />
+        <Legend wrapperStyle={{ color: chartColors.text }} />
+        <Line type="monotone" dataKey="수익" stroke={chartColors.success} strokeWidth={2} />
+        <Line type="monotone" dataKey="예상수익" stroke={chartColors.primary} strokeWidth={2} strokeDasharray="5 5" />
       </LineChart>
     </ResponsiveContainer>
   );

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Modal, Form, Select, InputNumber, Button, message, Space, Input, Row, Col } from 'antd';
+import { Modal, Form, Select, InputNumber, Button, message, Space, Input, Row, Col, theme } from 'antd';
 import type { Student, EnrollmentFormData } from '../../types';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import { useCourseStore } from '../../stores/courseStore';
@@ -14,6 +14,7 @@ interface EnrollmentFormProps {
 }
 
 const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, student }) => {
+  const { token } = theme.useToken();
   const [form] = Form.useForm();
   const { addEnrollment, enrollments } = useEnrollmentStore();
   const { courses, getCourseById } = useCourseStore();
@@ -126,7 +127,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
                   const isDisabled = isFull || isEnrolled;
                   return (
                     <Option key={course.id} value={course.id} disabled={isDisabled}>
-                      <span style={isEnrolled ? { textDecoration: 'line-through', color: '#999' } : undefined}>
+                      <span style={isEnrolled ? { textDecoration: 'line-through', color: token.colorTextQuaternary } : undefined}>
                         {course.name} (₩{course.fee.toLocaleString()}) - {currentCount}/{course.maxStudents}명
                         {isEnrolled && ' [수강중]'}
                         {isFull && !isEnrolled && ' [정원 마감]'}
