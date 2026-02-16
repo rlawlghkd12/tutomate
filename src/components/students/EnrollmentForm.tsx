@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Modal, Form, Select, InputNumber, Button, message, Space, Input, Row, Col, theme } from 'antd';
+import dayjs from 'dayjs';
 import type { Student, EnrollmentFormData } from '../../types';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import { useCourseStore } from '../../stores/courseStore';
@@ -71,6 +72,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
         studentId: student.id,
         paymentStatus,
         paidAmount,
+        paidAt: paidAmount > 0 ? dayjs().format('YYYY-MM-DD') : undefined,
         notes: values.notes,
       };
 
