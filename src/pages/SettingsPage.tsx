@@ -467,7 +467,7 @@ const SettingsPage: React.FC = () => {
                   <Space direction="vertical">
                     <Text strong>백업 안내</Text>
                     <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      <li>백업은 모든 강좌, 수강생, 출석 데이터를 포함합니다</li>
+                      <li>백업은 모든 강좌, 수강생 데이터를 포함합니다</li>
                       <li>복원 시 현재 데이터는 자동으로 백업됩니다</li>
                       <li>정기적으로 백업을 생성하여 데이터 손실을 방지하세요</li>
                     </ul>

@@ -1,4 +1,4 @@
-import type { Enrollment, Student, Course, Attendance } from '../types';
+import type { Enrollment, Student, Course } from '../types';
 import dayjs from 'dayjs';
 import { useNotificationStore } from '../stores/notificationStore';
 
@@ -27,46 +27,6 @@ export const generatePaymentOverdueNotifications = (
             relatedId: enrollment.studentId,
             relatedType: 'student',
             priority: 'high',
-          });
-        }
-      }
-    }
-  });
-};
-
-// 출석률 저조 알림 생성 (50% 미만)
-export const generateLowAttendanceNotifications = (
-  enrollments: Enrollment[],
-  attendances: Attendance[],
-  students: Student[],
-  courses: Course[]
-) => {
-  const { addNotification } = useNotificationStore.getState();
-  const lowAttendanceThreshold = 50; // 50%
-
-  enrollments.forEach((enrollment) => {
-    const studentAttendances = attendances.filter(
-      (a) => a.courseId === enrollment.courseId && a.studentId === enrollment.studentId
-    );
-
-    if (studentAttendances.length >= 3) { // 최소 3회 이상 수업이 있을 때만
-      const presentCount = studentAttendances.filter((a) => a.status === 'present').length;
-      const lateCount = studentAttendances.filter((a) => a.status === 'late').length;
-      const totalSessions = studentAttendances.length;
-      const attendanceRate = ((presentCount + lateCount * 0.5) / totalSessions) * 100;
-
-      if (attendanceRate < lowAttendanceThreshold) {
-        const student = students.find((s) => s.id === enrollment.studentId);
-        const course = courses.find((c) => c.id === enrollment.courseId);
-
-        if (student && course) {
-          addNotification({
-            type: 'low_attendance',
-            title: '출석률 저조 경고',
-            message: `${student.name}님의 ${course.name} 강좌 출석률이 ${attendanceRate.toFixed(1)}%로 낮습니다. (${presentCount}/${totalSessions}회 출석)`,
-            relatedId: enrollment.studentId,
-            relatedType: 'student',
-            priority: 'medium',
           });
         }
       }
@@ -110,8 +70,7 @@ export const generatePaymentReminderNotifications = (
 export const generateAllNotifications = (
   enrollments: Enrollment[],
   students: Student[],
-  courses: Course[],
-  attendances: Attendance[]
+  courses: Course[]
 ) => {
   // 기존 알림이 오늘 생성되었는지 확인
   const lastGeneratedDate = localStorage.getItem('lastNotificationGeneration');
@@ -122,7 +81,6 @@ export const generateAllNotifications = (
   }
 
   generatePaymentOverdueNotifications(enrollments, students, courses);
-  generateLowAttendanceNotifications(enrollments, attendances, students, courses);
   generatePaymentReminderNotifications(enrollments, students, courses);
 
   localStorage.setItem('lastNotificationGeneration', today);

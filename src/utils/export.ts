@@ -1,6 +1,6 @@
 // Excel 및 CSV 내보내기 유틸리티
 import * as XLSX from 'xlsx';
-import type { Course, Student, Enrollment, Attendance } from '../types';
+import type { Course, Student, Enrollment } from '../types';
 import dayjs from 'dayjs';
 
 // Excel 파일 다운로드 헬퍼
@@ -87,75 +87,6 @@ export const exportStudentsToExcel = (
   worksheet['!cols'] = colWidths;
 
   downloadExcel(workbook, '수강생_명단');
-};
-
-// 강좌별 출석부 Excel 내보내기
-export const exportAttendanceToExcel = (
-  course: Course,
-  students: Student[],
-  enrollments: Enrollment[],
-  attendances: Attendance[]
-) => {
-  // 해당 강좌의 수강생 목록
-  const courseEnrollments = enrollments.filter((e) => e.courseId === course.id);
-  const courseStudents = students.filter((s) =>
-    courseEnrollments.some((e) => e.studentId === s.id)
-  );
-
-  // 출석 날짜 목록 (유니크하게, 정렬)
-  const dates = Array.from(
-    new Set(
-      attendances
-        .filter((a) => a.courseId === course.id)
-        .map((a) => a.date)
-    )
-  ).sort();
-
-  // 출석부 데이터 생성
-  const data = courseStudents.map((student) => {
-    const row: any = {
-      이름: student.name,
-      전화번호: student.phone,
-    };
-
-    // 각 날짜별 출석 상태
-    dates.forEach((date) => {
-      const attendance = attendances.find(
-        (a) => a.courseId === course.id && a.studentId === student.id && a.date === date
-      );
-      const statusMap = {
-        present: 'O',
-        absent: 'X',
-        late: '△',
-      };
-      row[dayjs(date).format('MM/DD')] = attendance
-        ? statusMap[attendance.status]
-        : '-';
-    });
-
-    // 출석 통계
-    const studentAttendances = attendances.filter(
-      (a) => a.courseId === course.id && a.studentId === student.id
-    );
-    const presentCount = studentAttendances.filter((a) => a.status === 'present').length;
-    const lateCount = studentAttendances.filter((a) => a.status === 'late').length;
-    const absentCount = studentAttendances.filter((a) => a.status === 'absent').length;
-    const total = studentAttendances.length;
-    const rate = total > 0 ? ((presentCount + lateCount * 0.5) / total) * 100 : 0;
-
-    row['출석'] = presentCount;
-    row['지각'] = lateCount;
-    row['결석'] = absentCount;
-    row['출석률'] = `${rate.toFixed(1)}%`;
-
-    return row;
-  });
-
-  const worksheet = XLSX.utils.json_to_sheet(data);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, '출석부');
-
-  downloadExcel(workbook, `${course.name}_출석부`);
 };
 
 // 수익 현황 Excel 내보내기
@@ -298,4 +229,116 @@ export const exportRevenueToCSV = (
 
   const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
   downloadCSV(csv, '수익_현황', encoding);
+};
+
+// 합계 대상 필드
+const SUMMABLE_FIELDS = new Set(['paidAmount', 'remainingAmount']);
+
+// 강좌별 수강생 필드 정의
+export interface CourseStudentExportField {
+  key: string;
+  label: string;
+  getValue: (student: Student, enrollment: Enrollment) => string | number;
+}
+
+const paymentStatusMap: Record<string, string> = {
+  pending: '미납',
+  partial: '부분납부',
+  completed: '완납',
+  exempt: '면제',
+};
+
+export const COURSE_STUDENT_EXPORT_FIELDS: CourseStudentExportField[] = [
+  { key: 'name', label: '이름', getValue: (s) => s.name },
+  { key: 'phone', label: '전화번호', getValue: (s) => s.phone },
+  { key: 'email', label: '이메일', getValue: (s) => s.email },
+  { key: 'address', label: '주소', getValue: (s) => s.address || '' },
+  { key: 'birthDate', label: '생년월일', getValue: (s) => s.birthDate || '' },
+  { key: 'paymentStatus', label: '납부 현황', getValue: (_, e) => paymentStatusMap[e.paymentStatus] },
+  { key: 'paidAmount', label: '납부 금액', getValue: (_, e) => e.paidAmount },
+  { key: 'remainingAmount', label: '잔여 금액', getValue: (_, e) => e.remainingAmount },
+  { key: 'paidAt', label: '납부일자', getValue: (_, e) => e.paidAt ? dayjs(e.paidAt).format('YYYY-MM-DD') : '' },
+  { key: 'enrolledAt', label: '등록일', getValue: (_, e) => dayjs(e.enrolledAt).format('YYYY-MM-DD') },
+  { key: 'notes', label: '메모', getValue: (_, e) => e.notes || '' },
+];
+
+// 강좌별 수강생 Excel 내보내기
+export const exportCourseStudentsToExcel = (
+  courseName: string,
+  data: { student: Student; enrollment: Enrollment }[],
+  selectedFields: string[]
+) => {
+  const fields = COURSE_STUDENT_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key));
+
+  const rows = data.map(({ student, enrollment }) => {
+    const row: Record<string, string | number> = {};
+    fields.forEach((field) => {
+      row[field.label] = field.getValue(student, enrollment);
+    });
+    return row;
+  });
+
+  // 합계 행 추가
+  const hasSummable = fields.some((f) => SUMMABLE_FIELDS.has(f.key));
+  if (hasSummable) {
+    const totalRow: Record<string, string | number> = {};
+    fields.forEach((field, idx) => {
+      if (SUMMABLE_FIELDS.has(field.key)) {
+        totalRow[field.label] = data.reduce(
+          (sum, { student, enrollment }) => sum + (Number(field.getValue(student, enrollment)) || 0),
+          0,
+        );
+      } else if (idx === 0) {
+        totalRow[field.label] = '합계';
+      } else {
+        totalRow[field.label] = '';
+      }
+    });
+    rows.push(totalRow);
+  }
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, '수강생');
+
+  // 열 너비 자동 설정
+  worksheet['!cols'] = fields.map((f) => ({
+    wch: Math.max(f.label.length * 2, 12),
+  }));
+
+  downloadExcel(workbook, `${courseName}_수강생`);
+};
+
+// 강좌별 수강생 CSV 내보내기
+export const exportCourseStudentsToCSV = (
+  courseName: string,
+  data: { student: Student; enrollment: Enrollment }[],
+  selectedFields: string[],
+  encoding: 'utf-8' | 'euc-kr' = 'utf-8'
+) => {
+  const fields = COURSE_STUDENT_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key));
+  const headers = fields.map((f) => f.label);
+
+  const rows = data.map(({ student, enrollment }) =>
+    fields.map((field) => `"${field.getValue(student, enrollment)}"`),
+  );
+
+  // 합계 행 추가
+  const hasSummable = fields.some((f) => SUMMABLE_FIELDS.has(f.key));
+  if (hasSummable) {
+    const totalRow = fields.map((field, idx) => {
+      if (SUMMABLE_FIELDS.has(field.key)) {
+        const sum = data.reduce(
+          (s, { student, enrollment }) => s + (Number(field.getValue(student, enrollment)) || 0),
+          0,
+        );
+        return `"${sum}"`;
+      }
+      return idx === 0 ? '"합계"' : '""';
+    });
+    rows.push(totalRow);
+  }
+
+  const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+  downloadCSV(csv, `${courseName}_수강생`, encoding);
 };

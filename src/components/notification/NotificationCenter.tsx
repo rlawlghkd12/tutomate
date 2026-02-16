@@ -6,7 +6,6 @@ import {
   DeleteOutlined,
   WarningOutlined,
   DollarOutlined,
-  UserOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useNotificationStore } from '../../stores/notificationStore';
@@ -45,8 +44,6 @@ export const NotificationCenter: React.FC = () => {
         return <WarningOutlined style={{ color: token.colorError }} />;
       case 'payment_reminder':
         return <DollarOutlined style={{ color: token.colorWarning }} />;
-      case 'low_attendance':
-        return <UserOutlined style={{ color: token.colorWarning }} />;
       case 'info':
       default:
         return <InfoCircleOutlined style={{ color: token.colorPrimary }} />;

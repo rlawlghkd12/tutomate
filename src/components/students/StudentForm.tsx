@@ -29,6 +29,11 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
   const { courses, getCourseById } = useCourseStore();
   const { enrollments, addEnrollment, deleteEnrollment, updateEnrollment } = useEnrollmentStore();
   const nameInputRef = useRef<any>(null);
+  const phoneInputRef = useRef<any>(null);
+  const emailInputRef = useRef<any>(null);
+  const birthDateInputRef = useRef<any>(null);
+  const addressInputRef = useRef<any>(null);
+  const notesInputRef = useRef<any>(null);
 
   const [coursePayments, setCoursePayments] = useState<CoursePayment[]>([]);
 
@@ -243,6 +248,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
               <Input
                 ref={nameInputRef}
                 placeholder="예: 김철수"
+                onPressEnter={() => phoneInputRef.current?.focus()}
               />
             </Form.Item>
           </Col>
@@ -253,9 +259,11 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
               rules={[{ required: true, message: '전화번호를 입력하세요' }]}
             >
               <Input
+                ref={phoneInputRef}
                 placeholder="01012341234"
                 onChange={handlePhoneChange}
                 maxLength={13}
+                onPressEnter={() => emailInputRef.current?.focus()}
               />
             </Form.Item>
           </Col>
@@ -271,15 +279,19 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
               ]}
             >
               <Input
+                ref={emailInputRef}
                 placeholder="example@email.com"
+                onPressEnter={() => birthDateInputRef.current?.focus()}
               />
             </Form.Item>
           </Col>
           <Col span={12}>
             <Form.Item name="birthDate" label="생년월일">
               <Input
+                ref={birthDateInputRef}
                 placeholder="630201"
                 maxLength={6}
+                onPressEnter={() => addressInputRef.current?.focus()}
               />
             </Form.Item>
           </Col>
@@ -287,7 +299,9 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
 
         <Form.Item name="address" label="주소">
           <Input
+            ref={addressInputRef}
             placeholder="예: 서울시 강남구"
+            onPressEnter={() => notesInputRef.current?.focus()}
           />
         </Form.Item>
 
@@ -370,6 +384,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
 
         <Form.Item name="notes" label="메모">
           <TextArea
+            ref={notesInputRef}
             rows={2}
             placeholder="추가 정보를 입력하세요"
             onKeyDown={(e) => {

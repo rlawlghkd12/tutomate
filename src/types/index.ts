@@ -50,16 +50,6 @@ export interface Enrollment {
   notes?: string;
 }
 
-// 출석 인터페이스
-export interface Attendance {
-  id: string;
-  courseId: string;
-  studentId: string;
-  date: string; // YYYY-MM-DD
-  status: 'present' | 'absent' | 'late'; // 출석/결석/지각
-  notes?: string;
-}
-
 // 강좌 폼 데이터 타입
 export type CourseFormData = Omit<Course, 'id' | 'currentStudents' | 'createdAt' | 'updatedAt'>;
 
@@ -69,13 +59,10 @@ export type StudentFormData = Omit<Student, 'id' | 'createdAt' | 'updatedAt'>;
 // 수강 신청 폼 데이터 타입
 export type EnrollmentFormData = Omit<Enrollment, 'id' | 'enrolledAt' | 'remainingAmount'>;
 
-// 출석 폼 데이터 타입
-export type AttendanceFormData = Omit<Attendance, 'id'>;
-
 // 알림 인터페이스
 export interface Notification {
   id: string;
-  type: 'payment_overdue' | 'low_attendance' | 'payment_reminder' | 'info';
+  type: 'payment_overdue' | 'payment_reminder' | 'info';
   title: string;
   message: string;
   relatedId?: string; // 관련 수강생 또는 강좌 ID

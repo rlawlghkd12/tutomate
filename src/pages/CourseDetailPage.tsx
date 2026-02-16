@@ -6,7 +6,6 @@ import {
   Tag,
   Button,
   Space,
-  Tabs,
   Progress,
   Statistic,
   Row,
@@ -14,6 +13,8 @@ import {
   message,
   Popconfirm,
   Typography,
+  Modal,
+  Checkbox,
   theme,
 } from 'antd';
 
@@ -24,37 +25,42 @@ import {
   DollarOutlined,
   UserOutlined,
   CheckCircleOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import { useCourseStore } from '../stores/courseStore';
 import { useStudentStore } from '../stores/studentStore';
 import { useEnrollmentStore } from '../stores/enrollmentStore';
-import { useAttendanceStore } from '../stores/attendanceStore';
 import type { Enrollment } from '../types';
-import AttendanceSheet from '../components/attendance/AttendanceSheet';
 import PaymentForm from '../components/payment/PaymentForm';
 import BulkPaymentForm from '../components/payment/BulkPaymentForm';
-import { exportAttendanceToExcel } from '../utils/export';
+import {
+  exportCourseStudentsToExcel,
+  exportCourseStudentsToCSV,
+  COURSE_STUDENT_EXPORT_FIELDS,
+} from '../utils/export';
+
+const DEFAULT_EXPORT_FIELDS = ['name', 'phone', 'email', 'paymentStatus', 'paidAmount'];
 
 const CourseDetailPage: React.FC = () => {
   const { token } = useToken();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getCourseById, loadCourses } = useCourseStore();
-  const { students, loadStudents, getStudentById } = useStudentStore();
+  const { loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments, deleteEnrollment } = useEnrollmentStore();
-  const { attendances, loadAttendances } = useAttendanceStore();
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
   const [isBulkPaymentModalVisible, setIsBulkPaymentModalVisible] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [isExportModalVisible, setIsExportModalVisible] = useState(false);
+  const [selectedExportFields, setSelectedExportFields] = useState<string[]>(DEFAULT_EXPORT_FIELDS);
 
   useEffect(() => {
     loadCourses();
     loadStudents();
     loadEnrollments();
-    loadAttendances();
-  }, [loadCourses, loadStudents, loadEnrollments, loadAttendances]);
+  }, [loadCourses, loadStudents, loadEnrollments]);
 
   if (!id) {
     return <div>강좌를 찾을 수 없습니다.</div>;
@@ -68,33 +74,15 @@ const CourseDetailPage: React.FC = () => {
 
   const courseEnrollments = enrollments.filter((e) => e.courseId === id);
 
-  // 출석률을 포함한 수강생 목록
   const enrolledStudents = useMemo(() => {
     return courseEnrollments.map((enrollment) => {
       const student = getStudentById(enrollment.studentId);
-
-      // 해당 학생의 출석 기록
-      const studentAttendances = attendances.filter(
-        (a) => a.courseId === id && a.studentId === enrollment.studentId
-      );
-
-      // 출석률 계산
-      const totalSessions = studentAttendances.length;
-      const presentCount = studentAttendances.filter((a) => a.status === 'present').length;
-      const lateCount = studentAttendances.filter((a) => a.status === 'late').length;
-      const attendanceRate =
-        totalSessions > 0 ? ((presentCount + lateCount * 0.5) / totalSessions) * 100 : 100;
-
       return {
         ...enrollment,
         student,
-        attendanceRate,
-        totalSessions,
-        presentCount,
-        lateCount,
       };
     });
-  }, [courseEnrollments, attendances, id, getStudentById]);
+  }, [courseEnrollments, getStudentById]);
 
   const totalRevenue = courseEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
   const nonExemptEnrollments = courseEnrollments.filter(e => e.paymentStatus !== 'exempt');
@@ -111,19 +99,37 @@ const CourseDetailPage: React.FC = () => {
     setIsPaymentModalVisible(true);
   };
 
-  const handleExportAttendance = () => {
-    if (courseEnrollments.length === 0) {
-      message.warning('출석부를 내보낼 수강생이 없습니다');
+  const handleExport = (type: 'excel' | 'csv') => {
+    if (selectedExportFields.length === 0) {
+      message.warning('내보낼 필드를 1개 이상 선택해주세요.');
+      return;
+    }
+
+    const data = enrolledStudents
+      .filter((es) => es.student)
+      .map((es) => ({ student: es.student!, enrollment: es as Enrollment }));
+
+    if (data.length === 0) {
+      message.warning('내보낼 수강생이 없습니다.');
       return;
     }
 
     try {
-      exportAttendanceToExcel(course, students, enrollments, attendances);
-      message.success('출석부 Excel 파일이 다운로드되었습니다');
-    } catch (error) {
-      message.error('출석부 내보내기에 실패했습니다');
+      if (type === 'excel') {
+        exportCourseStudentsToExcel(course.name, data, selectedExportFields);
+        message.success('Excel 파일이 다운로드되었습니다.');
+      } else {
+        exportCourseStudentsToCSV(course.name, data, selectedExportFields);
+        message.success('CSV 파일이 다운로드되었습니다.');
+      }
+      setIsExportModalVisible(false);
+    } catch {
+      message.error('내보내기에 실패했습니다.');
     }
   };
+
+  const allFieldKeys = COURSE_STUDENT_EXPORT_FIELDS.map((f) => f.key);
+  const isAllSelected = selectedExportFields.length === allFieldKeys.length;
 
   const columns: ColumnsType<typeof enrolledStudents[0]> = [
     {
@@ -187,37 +193,6 @@ const CourseDetailPage: React.FC = () => {
       },
     },
     {
-      title: '출석률',
-      key: 'attendanceRate',
-      render: (_, record) => {
-        const rate = record.attendanceRate;
-        let color = 'green';
-        if (rate < 50) color = 'red';
-        else if (rate < 80) color = 'orange';
-
-        return (
-          <div>
-            <Tag color={color}>{rate.toFixed(1)}%</Tag>
-            <div style={{ fontSize: '12px', color: token.colorTextSecondary }}>
-              출석 {record.presentCount} / 지각 {record.lateCount} / 총 {record.totalSessions}회
-            </div>
-          </div>
-        );
-      },
-      filters: [
-        { text: '우수 (80%+)', value: 'excellent' },
-        { text: '보통 (50-80%)', value: 'normal' },
-        { text: '주의 (50% 미만)', value: 'warning' },
-      ],
-      onFilter: (value, record) => {
-        if (value === 'excellent') return record.attendanceRate >= 80;
-        if (value === 'normal') return record.attendanceRate >= 50 && record.attendanceRate < 80;
-        if (value === 'warning') return record.attendanceRate < 50;
-        return true;
-      },
-      sorter: (a, b) => a.attendanceRate - b.attendanceRate,
-    },
-    {
       title: '등록일',
       key: 'enrolledAt',
       render: (_, record) => new Date(record.enrolledAt).toLocaleDateString(),
@@ -257,44 +232,6 @@ const CourseDetailPage: React.FC = () => {
     },
   };
 
-  const tabItems = [
-    {
-      key: '1',
-      label: '수강생 목록',
-      children: (
-        <div>
-          {selectedRowKeys.length > 0 && (
-            <div style={{ marginBottom: 16, padding: 12, backgroundColor: token.colorInfoBg, borderRadius: 4 }}>
-              <Space>
-                <span>{selectedRowKeys.length}명 선택됨</span>
-                <Button
-                  type="primary"
-                  onClick={() => setIsBulkPaymentModalVisible(true)}
-                >
-                  일괄 납부 처리
-                </Button>
-                <Button onClick={() => setSelectedRowKeys([])}>선택 해제</Button>
-              </Space>
-            </div>
-          )}
-          <Table
-            columns={columns}
-            dataSource={enrolledStudents}
-            rowKey="id"
-            pagination={false}
-            size="small"
-            rowSelection={rowSelection}
-          />
-        </div>
-      ),
-    },
-    {
-      key: '2',
-      label: '출석부',
-      children: <AttendanceSheet courseId={id} onExport={handleExportAttendance} />,
-    },
-  ];
-
   return (
     <div>
       <Button
@@ -305,10 +242,19 @@ const CourseDetailPage: React.FC = () => {
         강좌 목록으로
       </Button>
 
-      {/* 강좌명 크게 표시 */}
-      <Typography.Title level={2} style={{ marginTop: 16, marginBottom: 8 }}>
-        {course.name}
-      </Typography.Title>
+      {/* 강좌명 + 내보내기 버튼 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 8 }}>
+        <Typography.Title level={2} style={{ margin: 0 }}>
+          {course.name}
+        </Typography.Title>
+        <Button
+          icon={<DownloadOutlined />}
+          onClick={() => setIsExportModalVisible(true)}
+          disabled={courseEnrollments.length === 0}
+        >
+          내보내기
+        </Button>
+      </div>
 
       {/* 부가 정보 한 줄로 */}
       <Space split={<span style={{ color: token.colorBorder }}>·</span>} style={{ marginBottom: 24 }}>
@@ -370,7 +316,29 @@ const CourseDetailPage: React.FC = () => {
         </Col>
       </Row>
 
-      <Tabs items={tabItems} />
+      {selectedRowKeys.length > 0 && (
+        <div style={{ marginBottom: 16, padding: 12, backgroundColor: token.colorInfoBg, borderRadius: 4 }}>
+          <Space>
+            <span>{selectedRowKeys.length}명 선택됨</span>
+            <Button
+              type="primary"
+              onClick={() => setIsBulkPaymentModalVisible(true)}
+            >
+              일괄 납부 처리
+            </Button>
+            <Button onClick={() => setSelectedRowKeys([])}>선택 해제</Button>
+          </Space>
+        </div>
+      )}
+
+      <Table
+        columns={columns}
+        dataSource={enrolledStudents}
+        rowKey="id"
+        pagination={false}
+        size="small"
+        rowSelection={rowSelection}
+      />
 
       <PaymentForm
         visible={isPaymentModalVisible}
@@ -391,6 +359,45 @@ const CourseDetailPage: React.FC = () => {
         enrollments={selectedEnrollments}
         courseFee={course.fee}
       />
+
+      {/* 내보내기 모달 */}
+      <Modal
+        title="수강생 내보내기"
+        open={isExportModalVisible}
+        onCancel={() => setIsExportModalVisible(false)}
+        footer={
+          <Space>
+            <Button onClick={() => setIsExportModalVisible(false)}>취소</Button>
+            <Button type="primary" icon={<DownloadOutlined />} onClick={() => handleExport('excel')}>
+              Excel 내보내기
+            </Button>
+            <Button icon={<DownloadOutlined />} onClick={() => handleExport('csv')}>
+              CSV 내보내기
+            </Button>
+          </Space>
+        }
+      >
+        <div style={{ marginBottom: 12 }}>
+          <Checkbox
+            checked={isAllSelected}
+            indeterminate={selectedExportFields.length > 0 && !isAllSelected}
+            onChange={(e) => setSelectedExportFields(e.target.checked ? allFieldKeys : [])}
+          >
+            전체 선택
+          </Checkbox>
+        </div>
+        <Checkbox.Group
+          value={selectedExportFields}
+          onChange={(values) => setSelectedExportFields(values as string[])}
+          style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+        >
+          {COURSE_STUDENT_EXPORT_FIELDS.map((field) => (
+            <Checkbox key={field.key} value={field.key}>
+              {field.label}
+            </Checkbox>
+          ))}
+        </Checkbox.Group>
+      </Modal>
     </div>
   );
 };

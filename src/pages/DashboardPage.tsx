@@ -8,7 +8,6 @@ import { FLEX_CENTER, EXEMPT_COLOR } from '../config/styles';
 import { useCourseStore } from '../stores/courseStore';
 import { useStudentStore } from '../stores/studentStore';
 import { useEnrollmentStore } from '../stores/enrollmentStore';
-import { useAttendanceStore } from '../stores/attendanceStore';
 import { generateAllNotifications } from '../utils/notificationGenerator';
 import { CourseRevenueChart } from '../components/charts/CourseRevenueChart';
 import { PaymentStatusChart } from '../components/charts/PaymentStatusChart';
@@ -19,26 +18,24 @@ const DashboardPage: React.FC = () => {
   const { courses, loadCourses } = useCourseStore();
   const { students, loadStudents } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
-  const { loadAttendances } = useAttendanceStore();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
-      await Promise.all([loadCourses(), loadStudents(), loadEnrollments(), loadAttendances()]);
+      await Promise.all([loadCourses(), loadStudents(), loadEnrollments()]);
       setLoading(false);
     };
     loadData().then(() => {
-      const { enrollments, students, courses, attendances } = {
+      const { enrollments, students, courses } = {
         enrollments: useEnrollmentStore.getState().enrollments,
         students: useStudentStore.getState().students,
         courses: useCourseStore.getState().courses,
-        attendances: useAttendanceStore.getState().attendances,
       };
       if (enrollments.length > 0 && students.length > 0 && courses.length > 0) {
-        generateAllNotifications(enrollments, students, courses, attendances);
+        generateAllNotifications(enrollments, students, courses);
       }
     });
-  }, [loadCourses, loadStudents, loadEnrollments, loadAttendances]);
+  }, [loadCourses, loadStudents, loadEnrollments]);
 
   const totalCourses = courses.length;
   const totalStudents = students.length;

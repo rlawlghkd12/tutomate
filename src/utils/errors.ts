@@ -17,7 +17,6 @@ export const ErrorType = {
   // 비즈니스 로직 에러
   ENROLLMENT_ERROR: 'ENROLLMENT_ERROR',
   PAYMENT_ERROR: 'PAYMENT_ERROR',
-  ATTENDANCE_ERROR: 'ATTENDANCE_ERROR',
 
   // 시스템 에러
   UNKNOWN_ERROR: 'UNKNOWN_ERROR',
@@ -78,8 +77,6 @@ export class AppError extends Error {
         return '수강 신청 중 오류가 발생했습니다.';
       case ErrorType.PAYMENT_ERROR:
         return '결제 처리 중 오류가 발생했습니다.';
-      case ErrorType.ATTENDANCE_ERROR:
-        return '출석 처리 중 오류가 발생했습니다.';
       case ErrorType.NETWORK_ERROR:
         return '네트워크 연결을 확인해주세요.';
       default:
