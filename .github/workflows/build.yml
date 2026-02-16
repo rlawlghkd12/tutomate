@@ -137,8 +137,20 @@ jobs:
             echo "Copied x64 sig"
           fi
 
-          # Copy dmg, exe, msi files
-          find artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.msi" -o -name "*.msi.sig" \) -exec cp {} release-files/ \;
+          # Windows MSI (Tauri adds _en-US locale suffix)
+          WIN_MSI=$(find artifacts/windows -name "*.msi" ! -name "*.msi.sig" -type f 2>/dev/null | head -1)
+          if [ -n "$WIN_MSI" ]; then
+            cp "$WIN_MSI" "release-files/TutorMate_${VERSION}_x64.msi"
+            echo "Copied windows msi"
+          fi
+          WIN_MSI_SIG=$(find artifacts/windows -name "*.msi.sig" -type f 2>/dev/null | head -1)
+          if [ -n "$WIN_MSI_SIG" ]; then
+            cp "$WIN_MSI_SIG" "release-files/TutorMate_${VERSION}_x64.msi.sig"
+            echo "Copied windows msi sig"
+          fi
+
+          # Copy dmg, exe files
+          find artifacts -type f \( -name "*.dmg" -o -name "*.exe" \) -exec cp {} release-files/ \;
 
           echo "=== Release files ==="
           ls -la release-files/
@@ -160,8 +172,8 @@ jobs:
             MAC_X86_64_SIG=$(cat "release-files/TutorMate_${VERSION}_x64.app.tar.gz.sig")
           fi
 
-          if [ -f "release-files/TutorMate_${VERSION}_x64-setup.msi.sig" ]; then
-            WINDOWS_SIG=$(cat "release-files/TutorMate_${VERSION}_x64-setup.msi.sig")
+          if [ -f "release-files/TutorMate_${VERSION}_x64.msi.sig" ]; then
+            WINDOWS_SIG=$(cat "release-files/TutorMate_${VERSION}_x64.msi.sig")
           fi
 
           cat > release-files/latest.json << EOF
@@ -180,7 +192,7 @@ jobs:
               },
               "windows-x86_64": {
                 "signature": "${WINDOWS_SIG}",
-                "url": "https://github.com/rlawlghkd12/tutomate/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_x64-setup.msi"
+                "url": "https://github.com/rlawlghkd12/tutomate/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_x64.msi"
               }
             }
           }
