@@ -8,6 +8,8 @@ import { handleError } from '../../utils/errors';
 
 const { Text, Paragraph } = Typography;
 
+const SKIPPED_VERSION_KEY = 'skippedUpdateVersion';
+
 interface UpdateCheckerProps {
   autoCheck?: boolean;
   checkInterval?: number; // 분 단위
@@ -33,6 +35,12 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
             latest: update.version,
           }
         });
+
+        const skippedVersion = localStorage.getItem(SKIPPED_VERSION_KEY);
+        if (silent && skippedVersion === update.version) {
+          logInfo('Update skipped by user', { data: { version: update.version } });
+          return;
+        }
 
         setUpdateInfo({
           currentVersion: update.currentVersion,
@@ -124,7 +132,12 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
       <Modal
         title="업데이트 알림"
         open={modalVisible}
-        onCancel={() => setUpdateInfo(null)}
+        onCancel={() => {
+          if (updateInfo?.latestVersion) {
+            localStorage.setItem(SKIPPED_VERSION_KEY, updateInfo.latestVersion);
+          }
+          setUpdateInfo(null);
+        }}
         footer={null}
         width={500}
       >
@@ -168,10 +181,16 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
           <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
             <Button
               icon={<CloseOutlined />}
-              onClick={() => setUpdateInfo(null)}
+              onClick={() => {
+                if (updateInfo?.latestVersion) {
+                  localStorage.setItem(SKIPPED_VERSION_KEY, updateInfo.latestVersion);
+                  logInfo('User skipped update', { data: { version: updateInfo.latestVersion } });
+                }
+                setUpdateInfo(null);
+              }}
               disabled={downloading}
             >
-              나중에
+              이 버전 건너뛰기
             </Button>
             <Button
               type="primary"
