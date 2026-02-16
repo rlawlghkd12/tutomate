@@ -116,10 +116,10 @@ const CourseDetailPage: React.FC = () => {
 
     try {
       if (type === 'excel') {
-        exportCourseStudentsToExcel(course.name, data, selectedExportFields);
+        exportCourseStudentsToExcel(course, data, selectedExportFields);
         message.success('Excel 파일이 다운로드되었습니다.');
       } else {
-        exportCourseStudentsToCSV(course.name, data, selectedExportFields);
+        exportCourseStudentsToCSV(course, data, selectedExportFields);
         message.success('CSV 파일이 다운로드되었습니다.');
       }
       setIsExportModalVisible(false);

@@ -5,6 +5,7 @@ import type { Student, StudentFormData } from '../../types';
 import { useStudentStore } from '../../stores/studentStore';
 import { useCourseStore } from '../../stores/courseStore';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
+import dayjs from 'dayjs';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -154,19 +155,23 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
             // 기존 enrollment 수정 (납부금액 또는 면제 상태가 변경된 경우)
             const existingIsExempt = existing.paymentStatus === 'exempt';
             if (existing.paidAmount !== cp.paidAmount || existingIsExempt !== cp.isExempt) {
+              const hasPaid = !cp.isExempt && cp.paidAmount > 0;
               updateEnrollment(existing.id, {
                 paidAmount: cp.isExempt ? 0 : cp.paidAmount,
                 remainingAmount: cp.isExempt ? 0 : course.fee - cp.paidAmount,
                 paymentStatus: newStatus,
+                paidAt: hasPaid ? dayjs().format('YYYY-MM-DD') : undefined,
               });
             }
           } else {
             // 새 enrollment 추가
+            const hasPaidNew = !cp.isExempt && cp.paidAmount > 0;
             addEnrollment({
               studentId: student.id,
               courseId: cp.courseId,
               paidAmount: cp.isExempt ? 0 : cp.paidAmount,
               paymentStatus: newStatus,
+              paidAt: hasPaidNew ? dayjs().format('YYYY-MM-DD') : undefined,
             });
           }
         });
@@ -184,11 +189,13 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
           coursePayments.forEach(cp => {
             const course = getCourseById(cp.courseId);
             if (course) {
+              const hasPaidInit = !cp.isExempt && cp.paidAmount > 0;
               addEnrollment({
                 studentId: newStudent.id,
                 courseId: cp.courseId,
                 paidAmount: cp.isExempt ? 0 : cp.paidAmount,
                 paymentStatus: getPaymentStatus(cp, course.fee),
+                paidAt: hasPaidInit ? dayjs().format('YYYY-MM-DD') : undefined,
               });
             }
           });

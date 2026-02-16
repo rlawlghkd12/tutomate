@@ -3,6 +3,8 @@ import * as XLSX from 'xlsx';
 import type { Course, Student, Enrollment } from '../types';
 import dayjs from 'dayjs';
 
+const ORG_NAME = '통도예술마을협동조합';
+
 // Excel 파일 다운로드 헬퍼
 const downloadExcel = (workbook: XLSX.WorkBook, filename: string) => {
   const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
@@ -37,6 +39,34 @@ const downloadCSV = (csv: string, filename: string, encoding: 'utf-8' | 'euc-kr'
   URL.revokeObjectURL(url);
 };
 
+// Excel 시트에 헤더 행 추가 후 데이터 삽입하는 헬퍼
+const createSheetWithHeader = (
+  headerLines: string[],
+  data: Record<string, string | number>[],
+  colWidths?: { wch: number }[]
+): XLSX.WorkSheet => {
+  // 헤더 행 생성 (각 줄을 한 셀에)
+  const headerRows: (string | number)[][] = headerLines.map((line) => [line]);
+  headerRows.push([]); // 빈 줄
+
+  const ws = XLSX.utils.aoa_to_sheet(headerRows);
+  // 데이터 행 삽입 (헤더 + 빈줄 다음부터)
+  XLSX.utils.sheet_add_json(ws, data, { origin: headerRows.length });
+
+  if (colWidths) {
+    ws['!cols'] = colWidths;
+  }
+
+  return ws;
+};
+
+// CSV에 헤더 행 추가하는 헬퍼
+const buildCSVWithHeader = (headerLines: string[], csvHeaders: string[], rows: string[][]): string => {
+  const header = headerLines.map((line) => `"${line}"`).join('\n');
+  const dataCSV = [csvHeaders.join(','), ...rows.map((row) => row.join(','))].join('\n');
+  return `${header}\n\n${dataCSV}`;
+};
+
 // 수강생 명단 Excel 내보내기
 export const exportStudentsToExcel = (
   students: Student[],
@@ -67,24 +97,15 @@ export const exportStudentsToExcel = (
     };
   });
 
-  const worksheet = XLSX.utils.json_to_sheet(data);
+  const colWidths = [
+    { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 30 }, { wch: 12 },
+    { wch: 30 }, { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 12 },
+  ];
+
+  const headerLines = [ORG_NAME, `수강생 명단 (${dayjs().format('YYYY-MM-DD')} 기준)`];
+  const worksheet = createSheetWithHeader(headerLines, data, colWidths);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, '수강생 명단');
-
-  // 열 너비 설정
-  const colWidths = [
-    { wch: 10 }, // 이름
-    { wch: 15 }, // 전화번호
-    { wch: 25 }, // 이메일
-    { wch: 30 }, // 주소
-    { wch: 12 }, // 생년월일
-    { wch: 30 }, // 수강강좌
-    { wch: 12 }, // 납부금액
-    { wch: 12 }, // 잔여금액
-    { wch: 30 }, // 메모
-    { wch: 12 }, // 등록일
-  ];
-  worksheet['!cols'] = colWidths;
 
   downloadExcel(workbook, '수강생_명단');
 };
@@ -95,16 +116,16 @@ export const exportRevenueToExcel = (
   students: Student[],
   courses: Course[]
 ) => {
+  const localPaymentStatusMap: Record<string, string> = {
+    pending: '미납',
+    partial: '부분납부',
+    completed: '완납',
+    exempt: '면제',
+  };
+
   const data = enrollments.map((enrollment) => {
     const student = students.find((s) => s.id === enrollment.studentId);
     const course = courses.find((c) => c.id === enrollment.courseId);
-
-    const paymentStatusMap = {
-      pending: '미납',
-      partial: '부분납부',
-      completed: '완납',
-      exempt: '면제',
-    };
 
     return {
       강좌명: course?.name || '',
@@ -113,7 +134,7 @@ export const exportRevenueToExcel = (
       수강료: course?.fee || 0,
       납부금액: enrollment.paidAmount,
       잔여금액: enrollment.remainingAmount,
-      납부상태: paymentStatusMap[enrollment.paymentStatus],
+      납부상태: localPaymentStatusMap[enrollment.paymentStatus],
       등록일: dayjs(enrollment.enrolledAt).format('YYYY-MM-DD'),
       메모: enrollment.notes || '',
     };
@@ -136,23 +157,15 @@ export const exportRevenueToExcel = (
     메모: '',
   });
 
-  const worksheet = XLSX.utils.json_to_sheet(data);
+  const colWidths = [
+    { wch: 20 }, { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
+    { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 30 },
+  ];
+
+  const headerLines = [ORG_NAME, `수익 현황 (${dayjs().format('YYYY-MM-DD')} 기준)`];
+  const worksheet = createSheetWithHeader(headerLines, data, colWidths);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, '수익 현황');
-
-  // 열 너비 설정
-  const colWidths = [
-    { wch: 20 }, // 강좌명
-    { wch: 10 }, // 수강생
-    { wch: 15 }, // 전화번호
-    { wch: 12 }, // 수강료
-    { wch: 12 }, // 납부금액
-    { wch: 12 }, // 잔여금액
-    { wch: 12 }, // 납부상태
-    { wch: 12 }, // 등록일
-    { wch: 30 }, // 메모
-  ];
-  worksheet['!cols'] = colWidths;
 
   downloadExcel(workbook, '수익_현황');
 };
@@ -190,7 +203,8 @@ export const exportStudentsToCSV = (
     ].map((cell) => `"${cell}"`);
   });
 
-  const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+  const headerLines = [ORG_NAME, `수강생 명단 (${dayjs().format('YYYY-MM-DD')} 기준)`];
+  const csv = buildCSVWithHeader(headerLines, headers, rows);
   downloadCSV(csv, '수강생_명단', encoding);
 };
 
@@ -203,7 +217,7 @@ export const exportRevenueToCSV = (
 ) => {
   const headers = ['강좌명', '수강생', '전화번호', '수강료', '납부금액', '잔여금액', '납부상태', '등록일', '메모'];
 
-  const paymentStatusMap = {
+  const localPaymentStatusMap: Record<string, string> = {
     pending: '미납',
     partial: '부분납부',
     completed: '완납',
@@ -221,13 +235,14 @@ export const exportRevenueToCSV = (
       course?.fee || 0,
       enrollment.paidAmount,
       enrollment.remainingAmount,
-      paymentStatusMap[enrollment.paymentStatus],
+      localPaymentStatusMap[enrollment.paymentStatus],
       dayjs(enrollment.enrolledAt).format('YYYY-MM-DD'),
       enrollment.notes || '',
     ].map((cell) => `"${cell}"`);
   });
 
-  const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+  const headerLines = [ORG_NAME, `수익 현황 (${dayjs().format('YYYY-MM-DD')} 기준)`];
+  const csv = buildCSVWithHeader(headerLines, headers, rows);
   downloadCSV(csv, '수익_현황', encoding);
 };
 
@@ -264,7 +279,7 @@ export const COURSE_STUDENT_EXPORT_FIELDS: CourseStudentExportField[] = [
 
 // 강좌별 수강생 Excel 내보내기
 export const exportCourseStudentsToExcel = (
-  courseName: string,
+  course: Course,
   data: { student: Student; enrollment: Enrollment }[],
   selectedFields: string[]
 ) => {
@@ -297,27 +312,29 @@ export const exportCourseStudentsToExcel = (
     rows.push(totalRow);
   }
 
-  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const headerLines = [
+    ORG_NAME,
+    `${course.name} — 수강생 명단`,
+    `강사: ${course.instructorName} | 강의실: ${course.classroom} | 수강료: ₩${course.fee.toLocaleString()} | 출력일: ${dayjs().format('YYYY-MM-DD')}`,
+  ];
+
+  const colWidths = fields.map((f) => ({ wch: Math.max(f.label.length * 2, 12) }));
+  const worksheet = createSheetWithHeader(headerLines, rows, colWidths);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, '수강생');
 
-  // 열 너비 자동 설정
-  worksheet['!cols'] = fields.map((f) => ({
-    wch: Math.max(f.label.length * 2, 12),
-  }));
-
-  downloadExcel(workbook, `${courseName}_수강생`);
+  downloadExcel(workbook, `${course.name}_수강생`);
 };
 
 // 강좌별 수강생 CSV 내보내기
 export const exportCourseStudentsToCSV = (
-  courseName: string,
+  course: Course,
   data: { student: Student; enrollment: Enrollment }[],
   selectedFields: string[],
   encoding: 'utf-8' | 'euc-kr' = 'utf-8'
 ) => {
   const fields = COURSE_STUDENT_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key));
-  const headers = fields.map((f) => f.label);
+  const csvHeaders = fields.map((f) => f.label);
 
   const rows = data.map(({ student, enrollment }) =>
     fields.map((field) => `"${field.getValue(student, enrollment)}"`),
@@ -339,6 +356,11 @@ export const exportCourseStudentsToCSV = (
     rows.push(totalRow);
   }
 
-  const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
-  downloadCSV(csv, `${courseName}_수강생`, encoding);
+  const headerLines = [
+    ORG_NAME,
+    `${course.name} — 수강생 명단`,
+    `강사: ${course.instructorName} | 강의실: ${course.classroom} | 수강료: ₩${course.fee.toLocaleString()} | 출력일: ${dayjs().format('YYYY-MM-DD')}`,
+  ];
+  const csv = buildCSVWithHeader(headerLines, csvHeaders, rows);
+  downloadCSV(csv, `${course.name}_수강생`, encoding);
 };
