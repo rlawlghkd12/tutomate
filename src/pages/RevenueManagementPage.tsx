@@ -25,7 +25,7 @@ import {
   WarningOutlined,
   DownloadOutlined,
 } from '@ant-design/icons';
-import { FLEX_BETWEEN, EXEMPT_COLOR } from '../config/styles';
+import { EXEMPT_COLOR } from '../config/styles';
 import { useCourseStore } from '../stores/courseStore';
 import { useStudentStore } from '../stores/studentStore';
 import { useEnrollmentStore } from '../stores/enrollmentStore';
@@ -35,7 +35,6 @@ import { exportRevenueToExcel, exportRevenueToCSV } from '../utils/export';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 
-const { Title } = Typography;
 const { RangePicker } = DatePicker;
 
 const RevenueManagementPage: React.FC = () => {
@@ -357,18 +356,12 @@ const RevenueManagementPage: React.FC = () => {
 
   return (
     <div>
-      <div style={FLEX_BETWEEN}>
-        <Title level={2}>수익 관리</Title>
-        <Dropdown menu={{ items: exportMenuItems }} placement="bottomRight">
-          <Button icon={<DownloadOutlined />}>내보내기</Button>
-        </Dropdown>
-      </div>
-
       {/* 필터 섹션 */}
-      <Card style={{ marginTop: 16, marginBottom: 24 }}>
+      <Card style={{ marginBottom: 24 }}>
         <Space direction="vertical" style={{ width: '100%' }} size="middle">
           {/* 날짜 범위 필터 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 500 }}>기간 선택:</span>
             <RangePicker
               value={dateRange}
@@ -422,6 +415,10 @@ const RevenueManagementPage: React.FC = () => {
                 올해
               </Button>
             </Space>
+            </div>
+            <Dropdown menu={{ items: exportMenuItems }} placement="bottomRight">
+              <Button icon={<DownloadOutlined />}>내보내기</Button>
+            </Dropdown>
           </div>
 
           {/* 결제 상태 필터 */}

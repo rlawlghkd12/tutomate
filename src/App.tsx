@@ -23,6 +23,11 @@ function App() {
     loadSettings();
   }, [loadSettings]);
 
+  useEffect(() => {
+    document.documentElement.style.backgroundColor = theme === 'dark' ? '#141414' : '#ffffff';
+    document.body.style.backgroundColor = theme === 'dark' ? '#141414' : '#ffffff';
+  }, [theme]);
+
   const themeConfig = useMemo(() => {
     const fontSizeMap = {
       small: 12,

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Input, List, Tag, Empty, Typography, theme } from 'antd';
+import { Modal, Input, List, Tag, Empty, Typography, Select, theme } from 'antd';
 import { SearchOutlined, BookOutlined, UserOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useCourseStore } from '../../stores/courseStore';
 import { useStudentStore } from '../../stores/studentStore';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
-import { searchAll, type SearchResult } from '../../utils/search';
+import { searchAll, searchCourses, searchStudents, searchEnrollments, type SearchResult } from '../../utils/search';
 import { FLEX_BETWEEN } from '../../config/styles';
 
 const { Text } = Typography;
@@ -18,6 +18,7 @@ interface GlobalSearchProps {
 export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) => {
   const { token } = theme.useToken();
   const [query, setQuery] = useState('');
+  const [searchField, setSearchField] = useState<string>('all');
   const [results, setResults] = useState<SearchResult[]>([]);
   const navigate = useNavigate();
 
@@ -28,17 +29,31 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
   useEffect(() => {
     if (!visible) {
       setQuery('');
+      setSearchField('all');
       setResults([]);
       return;
     }
 
     if (query.trim()) {
-      const searchResults = searchAll(query, courses, students, enrollments);
+      let searchResults: SearchResult[];
+      switch (searchField) {
+        case 'course':
+          searchResults = searchCourses(courses, query);
+          break;
+        case 'student':
+          searchResults = searchStudents(students, query);
+          break;
+        case 'enrollment':
+          searchResults = searchEnrollments(enrollments, courses, students, query);
+          break;
+        default:
+          searchResults = searchAll(query, courses, students, enrollments);
+      }
       setResults(searchResults);
     } else {
       setResults([]);
     }
-  }, [visible, query, courses, students, enrollments]);
+  }, [visible, query, searchField, courses, students, enrollments]);
 
   const handleSelect = (result: SearchResult) => {
     switch (result.type) {
@@ -89,10 +104,26 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
       }}
       closable={false}
     >
-      <div style={{ padding: '16px 16px 0' }}>
+      <div style={{ padding: '16px 16px 0', display: 'flex', gap: 8 }}>
+        <Select
+          value={searchField}
+          onChange={setSearchField}
+          style={{ width: 110, flexShrink: 0 }}
+          size="large"
+        >
+          <Select.Option value="all">전체</Select.Option>
+          <Select.Option value="course">강좌</Select.Option>
+          <Select.Option value="student">수강생</Select.Option>
+          <Select.Option value="enrollment">수강 신청</Select.Option>
+        </Select>
         <Input
           size="large"
-          placeholder="강좌, 수강생, 수강 신청 검색... (이름, 전화번호, 이메일 등)"
+          placeholder={
+            searchField === 'course' ? '강좌 검색... (강좌명, 강의실, 강사 등)' :
+            searchField === 'student' ? '수강생 검색... (이름, 전화번호 등)' :
+            searchField === 'enrollment' ? '수강 신청 검색... (강좌명, 수강생명 등)' :
+            '강좌, 수강생, 수강 신청 검색...'
+          }
           prefix={<SearchOutlined />}
           value={query}
           onChange={(e) => setQuery(e.target.value)}

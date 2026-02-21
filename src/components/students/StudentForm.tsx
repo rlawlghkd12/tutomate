@@ -36,8 +36,10 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
   const notesInputRef = useRef<any>(null);
 
   const [coursePayments, setCoursePayments] = useState<CoursePayment[]>([]);
+  const [courseSelectKey, setCourseSelectKey] = useState(0);
   const [nameSearch, setNameSearch] = useState('');
   const [selectedExistingStudent, setSelectedExistingStudent] = useState<Student | null>(null);
+  const [savedCoursePayments, setSavedCoursePayments] = useState<CoursePayment[]>([]);
 
   // 현재 편집 중인 수강생 (props로 받은 것 또는 자동완성으로 선택한 것)
   const editingStudent = student || selectedExistingStudent;
@@ -94,6 +96,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
     if (!existing) return;
 
     setSelectedExistingStudent(existing);
+    setSavedCoursePayments(coursePayments);
 
     // 폼에 기존 정보 채우기
     form.setFieldsValue({
@@ -151,10 +154,12 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
     if (course && !coursePayments.find(cp => cp.courseId === courseId)) {
       setCoursePayments([...coursePayments, { courseId, paidAmount: course.fee, isExempt: false }]);
     }
+    setCourseSelectKey(k => k + 1);
   };
 
   const handleRemoveCourse = useCallback((courseId: string) => {
     setCoursePayments(prev => prev.filter(cp => cp.courseId !== courseId));
+    setCourseSelectKey(k => k + 1);
   }, []);
 
   const handlePaymentChange = useCallback((courseId: string, paidAmount: number) => {
@@ -316,7 +321,8 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
             closable
             onClose={() => {
               setSelectedExistingStudent(null);
-              setCoursePayments([]);
+              setCoursePayments(savedCoursePayments);
+              setSavedCoursePayments([]);
               form.resetFields();
               setNameSearch('');
             }}
@@ -384,9 +390,9 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
 
         <Form.Item label="강좌 신청">
           <Select
+            key={courseSelectKey}
             placeholder="강좌를 선택하세요"
             onChange={handleAddCourse}
-            value={undefined}
             showSearch
             optionFilterProp="children"
           >
@@ -444,11 +450,13 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
                     </Button>
                   </Space>
                   <Button
-                    type="text"
+                    size="small"
                     danger
                     icon={<DeleteOutlined />}
                     onClick={() => handleRemoveCourse(cp.courseId)}
-                  />
+                  >
+                    삭제
+                  </Button>
                 </div>
               );
             })}

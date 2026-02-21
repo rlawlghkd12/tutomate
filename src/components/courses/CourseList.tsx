@@ -9,7 +9,11 @@ import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import { useNavigate } from 'react-router-dom';
 import CourseForm from './CourseForm';
 
-const CourseList: React.FC = () => {
+interface CourseListProps {
+  actions?: React.ReactNode;
+}
+
+const CourseList: React.FC<CourseListProps> = ({ actions }) => {
   const { token } = theme.useToken();
   const navigate = useNavigate();
   const { courses, deleteCourse } = useCourseStore();
@@ -17,6 +21,7 @@ const CourseList: React.FC = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [searchText, setSearchText] = useState('');
+  const [searchField, setSearchField] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   const handleEdit = useCallback((course: Course) => {
@@ -83,17 +88,31 @@ const CourseList: React.FC = () => {
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
       const searchLower = searchText.toLowerCase();
-      const matchesSearch =
-        !searchText ||
-        course.name.toLowerCase().includes(searchLower) ||
-        course.instructorName.toLowerCase().includes(searchLower) ||
-        course.classroom.toLowerCase().includes(searchLower);
+      let matchesSearch = !searchText;
+      if (searchText) {
+        switch (searchField) {
+          case 'name':
+            matchesSearch = course.name.toLowerCase().includes(searchLower);
+            break;
+          case 'instructor':
+            matchesSearch = course.instructorName.toLowerCase().includes(searchLower);
+            break;
+          case 'classroom':
+            matchesSearch = course.classroom.toLowerCase().includes(searchLower);
+            break;
+          default:
+            matchesSearch =
+              course.name.toLowerCase().includes(searchLower) ||
+              course.instructorName.toLowerCase().includes(searchLower) ||
+              course.classroom.toLowerCase().includes(searchLower);
+        }
+      }
 
       const matchesStatus = !statusFilter || getStatus(course) === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
-  }, [courses, searchText, statusFilter, getStatus]);
+  }, [courses, searchText, searchField, statusFilter, getStatus]);
 
   const columns: ColumnsType<Course> = useMemo(() => [
     {
@@ -200,9 +219,26 @@ const CourseList: React.FC = () => {
   return (
     <>
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={8}>
+        <Col flex="none">
+          <Select
+            value={searchField}
+            onChange={setSearchField}
+            style={{ width: 100 }}
+          >
+            <Select.Option value="all">전체</Select.Option>
+            <Select.Option value="name">강좌명</Select.Option>
+            <Select.Option value="instructor">강사명</Select.Option>
+            <Select.Option value="classroom">강의실</Select.Option>
+          </Select>
+        </Col>
+        <Col flex="auto" style={{ maxWidth: 300 }}>
           <Input
-            placeholder="강좌명, 강사명, 강의실 검색"
+            placeholder={
+              searchField === 'name' ? '강좌명 검색' :
+              searchField === 'instructor' ? '강사명 검색' :
+              searchField === 'classroom' ? '강의실 검색' :
+              '강좌명, 강사명, 강의실 검색'
+            }
             prefix={<SearchOutlined />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
@@ -227,6 +263,7 @@ const CourseList: React.FC = () => {
             {filteredCourses.length}개
           </span>
         </Col>
+        {actions && <Col flex="auto" style={{ textAlign: 'right' }}>{actions}</Col>}
       </Row>
       <Table
         columns={columns}

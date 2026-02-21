@@ -44,9 +44,16 @@ body {
   transition: background-color 0.2s ease;
 }
 
-/* 메뉴 아이템 전환 */
-.ant-menu-item {
-  transition: all 0.2s ease !important;
+/* 사이드바 아이콘 위치 고정 (열림/닫힘 동일) */
+.ant-layout-sider .ant-menu-item {
+  padding-left: 16px !important;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* 사이드바 닫힘 시 텍스트 즉시 숨김 */
+.ant-layout-sider-collapsed .ant-menu-title-content {
+  display: none !important;
 }
 
 /* 프로그레스 바 애니메이션 */

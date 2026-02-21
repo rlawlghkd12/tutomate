@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Menu } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -18,6 +18,18 @@ interface NavigationProps {
 const Navigation: React.FC<NavigationProps> = ({ collapsed = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // 접을 때: Sider 전환 끝난 후 inlineCollapsed 적용 (툴팁 깜빡임 방지)
+  // 펼칠 때: 즉시 적용
+  const [delayedCollapsed, setDelayedCollapsed] = useState(collapsed);
+  useEffect(() => {
+    if (collapsed) {
+      const timer = setTimeout(() => setDelayedCollapsed(true), 200);
+      return () => clearTimeout(timer);
+    } else {
+      setDelayedCollapsed(false);
+    }
+  }, [collapsed]);
 
   const getSelectedKey = () => {
     const path = location.pathname;
@@ -66,7 +78,7 @@ const Navigation: React.FC<NavigationProps> = ({ collapsed = false }) => {
   return (
     <Menu
       mode="inline"
-      inlineCollapsed={collapsed}
+      inlineCollapsed={delayedCollapsed}
       selectedKeys={[getSelectedKey()]}
       items={menuItems}
       onClick={handleMenuClick}

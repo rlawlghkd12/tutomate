@@ -9,6 +9,7 @@ import {
   Tabs,
   Button,
   Table,
+  Input,
   message,
   Modal,
   Progress,
@@ -23,23 +24,19 @@ import {
   RollbackOutlined,
   DeleteOutlined,
   ExclamationCircleOutlined,
+  ImportOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
-import { invoke } from '@tauri-apps/api/core';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import dayjs from 'dayjs';
 import { useSettingsStore, type FontSize } from '../stores/settingsStore';
 import { AutoBackupScheduler } from '../components/backup/AutoBackupScheduler';
 import { useAppVersion, APP_NAME } from '../config/version';
+import { useBackup, type BackupInfo } from '../hooks/useBackup';
 
 const { Title, Text } = Typography;
 const { useToken } = theme;
-
-interface BackupInfo {
-  filename: string;
-  size: number;
-  created_at: string;
-}
 
 const SettingsPage: React.FC = () => {
   const { token } = useToken();
@@ -47,19 +44,27 @@ const SettingsPage: React.FC = () => {
     theme: appTheme,
     fontSize,
     notificationsEnabled,
+    organizationName,
     setTheme,
     setFontSize,
     setNotificationsEnabled,
+    setOrganizationName,
     loadSettings,
   } = useSettingsStore();
 
   const APP_VERSION = useAppVersion();
-
-  // 백업 관련 상태
-  const [backups, setBackups] = useState<BackupInfo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [restoring, setRestoring] = useState<string | null>(null);
+  const {
+    backups,
+    loading,
+    creating,
+    importing,
+    restoring,
+    createBackup,
+    importBackup,
+    restoreBackup,
+    downloadBackup,
+    deleteBackup,
+  } = useBackup();
 
   // 업데이트 관련 상태
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -67,10 +72,8 @@ const SettingsPage: React.FC = () => {
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
 
-
   useEffect(() => {
     loadSettings();
-    loadBackups();
   }, [loadSettings]);
 
   const fontSizeOptions = [
@@ -143,33 +146,30 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  // 백업 관련 함수들
-  const loadBackups = async () => {
-    setLoading(true);
-    try {
-      const result = await invoke<BackupInfo[]>('list_backups');
-      setBackups(result);
-    } catch (error) {
-      message.error('백업 목록을 불러오는데 실패했습니다: ' + error);
-    } finally {
-      setLoading(false);
-    }
+  const handleImportBackup = async () => {
+    const result = await importBackup();
+    if (!result) return;
+
+    Modal.confirm({
+      title: '백업 파일 복원',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <p>백업 파일을 불러왔습니다. 바로 복원하시겠습니까?</p>
+          <p><Text type="danger">현재 데이터가 백업 데이터로 교체됩니다. 현재 데이터는 자동 백업됩니다.</Text></p>
+        </div>
+      ),
+      okText: '복원',
+      okType: 'danger',
+      cancelText: '나중에',
+      onOk: () => restoreBackup(result.filename),
+      onCancel: () => {
+        message.info('백업 목록에 추가되었습니다. 나중에 복원할 수 있습니다.');
+      },
+    });
   };
 
-  const handleCreateBackup = async () => {
-    setCreating(true);
-    try {
-      await invoke<BackupInfo>('create_backup');
-      message.success('백업이 성공적으로 생성되었습니다');
-      await loadBackups();
-    } catch (error) {
-      message.error('백업 생성에 실패했습니다: ' + error);
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const handleRestore = async (filename: string) => {
+  const handleRestore = (filename: string) => {
     Modal.confirm({
       title: '백업 복원',
       icon: <ExclamationCircleOutlined />,
@@ -186,30 +186,8 @@ const SettingsPage: React.FC = () => {
       okText: '복원',
       okType: 'danger',
       cancelText: '취소',
-      onOk: async () => {
-        setRestoring(filename);
-        try {
-          await invoke('restore_backup', { filename });
-          message.success('백업이 성공적으로 복원되었습니다. 페이지를 새로고침합니다.');
-          setTimeout(() => {
-            window.location.reload();
-          }, 1500);
-        } catch (error) {
-          message.error('백업 복원에 실패했습니다: ' + error);
-          setRestoring(null);
-        }
-      },
+      onOk: () => restoreBackup(filename),
     });
-  };
-
-  const handleDelete = async (filename: string) => {
-    try {
-      await invoke('delete_backup', { filename });
-      message.success('백업이 삭제되었습니다');
-      await loadBackups();
-    } catch (error) {
-      message.error('백업 삭제에 실패했습니다: ' + error);
-    }
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -268,10 +246,16 @@ const SettingsPage: React.FC = () => {
           >
             복원
           </Button>
+          <Button
+            icon={<DownloadOutlined />}
+            onClick={() => downloadBackup(record.filename)}
+          >
+            다운로드
+          </Button>
           <Popconfirm
             title="백업 삭제"
             description="정말로 이 백업을 삭제하시겠습니까?"
-            onConfirm={() => handleDelete(record.filename)}
+            onConfirm={() => deleteBackup(record.filename)}
             okText="삭제"
             cancelText="취소"
             okButtonProps={{ danger: true }}
@@ -291,6 +275,22 @@ const SettingsPage: React.FC = () => {
       label: '일반',
       children: (
         <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 800 }}>
+          {/* 기관명 설정 */}
+          <Card>
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <div>
+                <Title level={4}>기관명</Title>
+                <Text type="secondary">헤더와 백업 파일명에 표시되는 기관명을 설정합니다.</Text>
+              </div>
+              <Input
+                value={organizationName}
+                onChange={(e) => setOrganizationName(e.target.value)}
+                placeholder="기관명을 입력하세요"
+                style={{ maxWidth: 400 }}
+              />
+            </Space>
+          </Card>
+
           {/* 테마 설정 */}
           <Card>
             <Space direction="vertical" size="middle" style={{ width: '100%' }}>
@@ -427,17 +427,25 @@ const SettingsPage: React.FC = () => {
                   </Text>
                 </div>
 
-                <div>
+                <Space>
                   <Button
                     type="primary"
                     size="large"
                     icon={<SaveOutlined />}
-                    onClick={handleCreateBackup}
+                    onClick={createBackup}
                     loading={creating}
                   >
                     {creating ? '백업 생성 중...' : '지금 백업'}
                   </Button>
-                </div>
+                  <Button
+                    size="large"
+                    icon={<ImportOutlined />}
+                    onClick={handleImportBackup}
+                    loading={importing}
+                  >
+                    {importing ? '불러오는 중...' : '백업 파일 불러오기'}
+                  </Button>
+                </Space>
 
                 {creating && (
                   <div>
@@ -487,7 +495,6 @@ const SettingsPage: React.FC = () => {
 
   return (
     <div>
-      <Title level={2}>설정</Title>
       <Tabs items={tabItems} />
     </div>
   );

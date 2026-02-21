@@ -1,7 +1,7 @@
 {
   "name": "student-management",
   "private": true,
-  "version": "0.1.16",
+  "version": "0.1.17",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -28,6 +28,7 @@
     "@eslint/js": "^9.39.1",
     "@tauri-apps/api": "2.9.1",
     "@tauri-apps/cli": "2.9.6",
+    "@tauri-apps/plugin-dialog": "^2.6.0",
     "@tauri-apps/plugin-log": "2.8.0",
     "@tauri-apps/plugin-process": "2.3.1",
     "@tauri-apps/plugin-updater": "2.9.0",

@@ -1,49 +1,64 @@
 {
-  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "TutorMate",
-  "version": "0.1.16",
-  "identifier": "com.student-management.app",
-  "build": {
-    "frontendDist": "../dist",
-    "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
-  },
-  "app": {
-    "windows": [
-      {
-        "title": "수강생 관리 프로그램",
-        "width": 1400,
-        "height": 900,
-        "minWidth": 800,
-        "minHeight": 600,
-        "resizable": true,
-        "fullscreen": false
-      }
-    ],
-    "security": {
-      "csp": null
+    "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+    "productName": "TutorMate",
+    "version": "0.1.17",
+    "identifier": "com.student-management.app",
+    "build": {
+        "frontendDist": "../dist",
+        "devUrl": "http://localhost:5173",
+        "beforeDevCommand": "npm run dev",
+        "beforeBuildCommand": "npm run build"
+    },
+    "app": {
+        "windows": [
+            {
+                "title": "수강생 관리 프로그램",
+                "width": 1400,
+                "height": 900,
+                "minWidth": 800,
+                "minHeight": 600,
+                "resizable": true,
+                "fullscreen": false
+            }
+        ],
+        "security": {
+            "csp": null
+        }
+    },
+    "bundle": {
+        "active": true,
+        "targets": "all",
+        "createUpdaterArtifacts": "v1Compatible",
+        "icon": [
+            "icons/32x32.png",
+            "icons/128x128.png",
+            "icons/128x128@2x.png",
+            "icons/icon.icns",
+            "icons/icon.ico"
+        ],
+        "publisher": "Student Management Team",
+        "windows": {
+            "webviewInstallMode": {
+                "type": "embedBootstrapper"
+            },
+            "nsis": {
+                "installMode": "currentUser",
+                "displayLanguageSelector": false,
+                "languages": [
+                    "Korean"
+                ]
+            }
+        }
+    },
+    "plugins": {
+        "updater": {
+            "windows": {
+                "installMode": "passive"
+            },
+            "endpoints": [
+                "https://github.com/rlawlghkd12/tutomate/releases/latest/download/latest.json"
+            ],
+            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ5Q0FCQjkwNTExQjAxN0UKUldSK0FSdFJrTHZLU1ZtV2k5VG8vbmd4R0h5MnVCeHA4UlZzUWlqY2lkMjd1MHdCS21Gd0NjdmIK"
+        }
     }
-  },
-  "bundle": {
-    "active": true,
-    "targets": "all",
-    "createUpdaterArtifacts": "v1Compatible",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ],
-    "publisher": "Student Management Team"
-  },
-  "plugins": {
-    "updater": {
-      "endpoints": [
-        "https://github.com/rlawlghkd12/tutomate/releases/latest/download/latest.json"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ5Q0FCQjkwNTExQjAxN0UKUldSK0FSdFJrTHZLU1ZtV2k5VG8vbmd4R0h5MnVCeHA4UlZzUWlqY2lkMjd1MHdCS21Gd0NjdmIK"
-    }
-  }
 }

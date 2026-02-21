@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Space, Typography, Dropdown, message } from 'antd';
+import { Button, Space, Dropdown, message } from 'antd';
 import { PlusOutlined, DownloadOutlined } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { FLEX_BETWEEN } from '../config/styles';
 import StudentList from '../components/students/StudentList';
 import StudentForm from '../components/students/StudentForm';
 import { useStudentStore } from '../stores/studentStore';
 import { useEnrollmentStore } from '../stores/enrollmentStore';
 import { useCourseStore } from '../stores/courseStore';
 import { exportStudentsToExcel, exportStudentsToCSV } from '../utils/export';
-
-const { Title } = Typography;
 
 const StudentsPage: React.FC = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -70,9 +67,8 @@ const StudentsPage: React.FC = () => {
 
   return (
     <div>
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <div style={FLEX_BETWEEN}>
-          <Title level={2}>수강생 관리</Title>
+      <StudentList
+        actions={
           <Space>
             <Dropdown menu={{ items: exportMenuItems }} placement="bottomRight">
               <Button icon={<DownloadOutlined />}>내보내기</Button>
@@ -85,9 +81,8 @@ const StudentsPage: React.FC = () => {
               수강생 등록
             </Button>
           </Space>
-        </div>
-        <StudentList />
-      </Space>
+        }
+      />
       <StudentForm
         visible={isModalVisible}
         onClose={() => setIsModalVisible(false)}

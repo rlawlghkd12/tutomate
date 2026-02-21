@@ -78,16 +78,21 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
       }
 
       // 다운로드 및 설치
+      let downloaded = 0;
+      let contentLength = 0;
+
       await update.downloadAndInstall((event: any) => {
         switch (event.event) {
           case 'Started':
-            logInfo('Download started', { data: { contentLength: event.data.contentLength } });
+            contentLength = event.data.contentLength ?? 0;
+            downloaded = 0;
+            logInfo('Download started', { data: { contentLength } });
             setDownloadProgress(0);
             break;
           case 'Progress':
-            const progress = (event.data.chunkLength / (event.data.contentLength || 1)) * 100;
+            downloaded += event.data.chunkLength;
+            const progress = contentLength ? (downloaded / contentLength) * 100 : 0;
             setDownloadProgress(Math.min(progress, 100));
-            logInfo('Download progress', { data: { progress: `${progress.toFixed(2)}%` } });
             break;
           case 'Finished':
             logInfo('Download finished');

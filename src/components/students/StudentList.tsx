@@ -17,7 +17,11 @@ interface StudentRow {
   courses: { id: string; name: string }[];
 }
 
-const StudentList: React.FC = () => {
+interface StudentListProps {
+  actions?: React.ReactNode;
+}
+
+const StudentList: React.FC<StudentListProps> = ({ actions }) => {
   const { token } = theme.useToken();
   const navigate = useNavigate();
   const { students, deleteStudent } = useStudentStore();
@@ -27,7 +31,7 @@ const StudentList: React.FC = () => {
   const [isEnrollmentModalVisible, setIsEnrollmentModalVisible] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [searchText, setSearchText] = useState('');
-  const [courseFilter, setCourseFilter] = useState<string | null>(null);
+  const [searchField, setSearchField] = useState<string>('all');
 
   const handleEdit = useCallback((student: Student) => {
     setSelectedStudent(student);
@@ -78,19 +82,28 @@ const StudentList: React.FC = () => {
   const filteredRows = useMemo(() => {
     const filtered = studentRows.filter((row) => {
       const searchLower = searchText.toLowerCase();
-      const matchesSearch =
-        !searchText ||
-        row.student.name.toLowerCase().includes(searchLower) ||
-        row.student.phone.includes(searchText);
+      let matchesSearch = !searchText;
+      if (searchText) {
+        switch (searchField) {
+          case 'name':
+            matchesSearch = row.student.name.toLowerCase().includes(searchLower);
+            break;
+          case 'phone':
+            matchesSearch = row.student.phone.includes(searchText);
+            break;
+          default:
+            matchesSearch =
+              row.student.name.toLowerCase().includes(searchLower) ||
+              row.student.phone.includes(searchText);
+        }
+      }
 
-      const matchesCourse = !courseFilter || row.courses.some((c) => c.id === courseFilter);
-
-      return matchesSearch && matchesCourse;
+      return matchesSearch;
     });
 
     // 필터링 후 인덱스 재부여
     return filtered.map((row, idx) => ({ ...row, index: idx + 1 }));
-  }, [studentRows, searchText, courseFilter]);
+  }, [studentRows, searchText, searchField]);
 
   const columns: ColumnsType<StudentRow> = [
     {
@@ -113,6 +126,8 @@ const StudentList: React.FC = () => {
     {
       title: '강좌',
       key: 'courses',
+      filters: courses.map((c) => ({ text: c.name, value: c.id })),
+      onFilter: (value, record) => record.courses.some((c) => c.id === value),
       render: (_, record) => {
         if (record.courses.length === 0) {
           return <span style={{ color: token.colorTextQuaternary }}>-</span>;
@@ -175,34 +190,31 @@ const StudentList: React.FC = () => {
   return (
     <>
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={8}>
+        <Col flex="none">
+          <Select
+            value={searchField}
+            onChange={setSearchField}
+            style={{ width: 100 }}
+          >
+            <Select.Option value="all">전체</Select.Option>
+            <Select.Option value="name">이름</Select.Option>
+            <Select.Option value="phone">전화번호</Select.Option>
+          </Select>
+        </Col>
+        <Col flex="auto" style={{ maxWidth: 300 }}>
           <Input
-            placeholder="이름, 전화번호 검색"
+            placeholder={searchField === 'all' ? '이름, 전화번호 검색' : searchField === 'name' ? '이름 검색' : '전화번호 검색'}
             prefix={<SearchOutlined />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             allowClear
           />
         </Col>
-        <Col span={6}>
-          <Select
-            placeholder="강좌 필터"
-            value={courseFilter}
-            onChange={setCourseFilter}
-            allowClear
-            style={{ width: '100%' }}
-          >
-            {courses.map((course) => (
-              <Select.Option key={course.id} value={course.id}>
-                {course.name}
-              </Select.Option>
-            ))}
-          </Select>
-        </Col>
-        <Col>
+        <Col flex="auto" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
           <span style={{ color: token.colorTextSecondary }}>
             {filteredRows.length}명
           </span>
+          {actions}
         </Col>
       </Row>
       <Table

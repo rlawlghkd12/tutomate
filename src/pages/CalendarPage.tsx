@@ -66,7 +66,7 @@ const CalendarPage: React.FC = () => {
                 marginBottom: '2px',
                 backgroundColor: isFull ? token.colorErrorBg : token.colorInfoBg,
                 borderLeft: `3px solid ${isFull ? token.colorError : token.colorInfo}`,
-                fontSize: '12px',
+                fontSize: '13px',
                 cursor: 'pointer',
                 borderRadius: '2px',
               }}
@@ -78,7 +78,7 @@ const CalendarPage: React.FC = () => {
               <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {course.schedule?.startTime} {course.name}
               </div>
-              <div style={{ fontSize: '11px', color: token.colorTextSecondary }}>
+              <div style={{ fontSize: '12px', color: token.colorTextSecondary }}>
                 {course.classroom} ({enrollmentCount}/{course.maxStudents})
               </div>
             </div>
@@ -119,11 +119,11 @@ const CalendarPage: React.FC = () => {
         <Title level={2} style={{ margin: 0 }}>강좌 캘린더</Title>
         <Space>
           <Button onClick={handleToday}>오늘</Button>
-          <Button icon={<LeftOutlined />} onClick={handlePreviousMonth} />
+          <Button icon={<LeftOutlined />} onClick={handlePreviousMonth}>이전</Button>
           <span style={{ fontSize: '16px', fontWeight: 500, minWidth: '120px', textAlign: 'center' }}>
             {currentMonth.format('YYYY년 MM월')}
           </span>
-          <Button icon={<RightOutlined />} onClick={handleNextMonth} />
+          <Button onClick={handleNextMonth}>다음<RightOutlined /></Button>
         </Space>
       </div>
 

@@ -7,12 +7,14 @@ interface Settings {
   theme: Theme;
   fontSize: FontSize;
   notificationsEnabled: boolean;
+  organizationName: string;
 }
 
 interface SettingsStore extends Settings {
   setTheme: (theme: Theme) => void;
   setFontSize: (fontSize: FontSize) => void;
   setNotificationsEnabled: (enabled: boolean) => void;
+  setOrganizationName: (name: string) => void;
   loadSettings: () => void;
   saveSettings: () => void;
 }
@@ -23,6 +25,7 @@ const defaultSettings: Settings = {
   theme: 'light',
   fontSize: 'medium',
   notificationsEnabled: true,
+  organizationName: '수강생 관리 프로그램',
 };
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
@@ -43,6 +46,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     get().saveSettings();
   },
 
+  setOrganizationName: (name: string) => {
+    set({ organizationName: name });
+    get().saveSettings();
+  },
+
   loadSettings: () => {
     try {
       const stored = localStorage.getItem(SETTINGS_KEY);
@@ -57,8 +65,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   saveSettings: () => {
     try {
-      const { theme, fontSize, notificationsEnabled } = get();
-      const settings: Settings = { theme, fontSize, notificationsEnabled };
+      const { theme, fontSize, notificationsEnabled, organizationName } = get();
+      const settings: Settings = { theme, fontSize, notificationsEnabled, organizationName };
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     } catch (error) {
       console.error('Failed to save settings:', error);

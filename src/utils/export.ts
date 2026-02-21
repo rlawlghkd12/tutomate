@@ -3,7 +3,9 @@ import * as XLSX from 'xlsx';
 import type { Course, Student, Enrollment } from '../types';
 import dayjs from 'dayjs';
 
-const ORG_NAME = '통도예술마을협동조합';
+import { useSettingsStore } from '../stores/settingsStore';
+
+const getOrgName = () => useSettingsStore.getState().organizationName;
 
 // Excel 파일 다운로드 헬퍼
 const downloadExcel = (workbook: XLSX.WorkBook, filename: string) => {
@@ -102,7 +104,7 @@ export const exportStudentsToExcel = (
     { wch: 30 }, { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 12 },
   ];
 
-  const headerLines = [ORG_NAME, `수강생 명단 (${dayjs().format('YYYY-MM-DD')} 기준)`];
+  const headerLines = [getOrgName(), `수강생 명단 (${dayjs().format('YYYY-MM-DD')} 기준)`];
   const worksheet = createSheetWithHeader(headerLines, data, colWidths);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, '수강생 명단');
@@ -162,7 +164,7 @@ export const exportRevenueToExcel = (
     { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 30 },
   ];
 
-  const headerLines = [ORG_NAME, `수익 현황 (${dayjs().format('YYYY-MM-DD')} 기준)`];
+  const headerLines = [getOrgName(), `수익 현황 (${dayjs().format('YYYY-MM-DD')} 기준)`];
   const worksheet = createSheetWithHeader(headerLines, data, colWidths);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, '수익 현황');
@@ -203,7 +205,7 @@ export const exportStudentsToCSV = (
     ].map((cell) => `"${cell}"`);
   });
 
-  const headerLines = [ORG_NAME, `수강생 명단 (${dayjs().format('YYYY-MM-DD')} 기준)`];
+  const headerLines = [getOrgName(), `수강생 명단 (${dayjs().format('YYYY-MM-DD')} 기준)`];
   const csv = buildCSVWithHeader(headerLines, headers, rows);
   downloadCSV(csv, '수강생_명단', encoding);
 };
@@ -241,7 +243,7 @@ export const exportRevenueToCSV = (
     ].map((cell) => `"${cell}"`);
   });
 
-  const headerLines = [ORG_NAME, `수익 현황 (${dayjs().format('YYYY-MM-DD')} 기준)`];
+  const headerLines = [getOrgName(), `수익 현황 (${dayjs().format('YYYY-MM-DD')} 기준)`];
   const csv = buildCSVWithHeader(headerLines, headers, rows);
   downloadCSV(csv, '수익_현황', encoding);
 };
@@ -313,7 +315,7 @@ export const exportCourseStudentsToExcel = (
   }
 
   const headerLines = [
-    ORG_NAME,
+    getOrgName(),
     `${course.name} — 수강생 명단`,
     `강사: ${course.instructorName} | 강의실: ${course.classroom} | 수강료: ₩${course.fee.toLocaleString()} | 출력일: ${dayjs().format('YYYY-MM-DD')}`,
   ];
@@ -357,7 +359,7 @@ export const exportCourseStudentsToCSV = (
   }
 
   const headerLines = [
-    ORG_NAME,
+    getOrgName(),
     `${course.name} — 수강생 명단`,
     `강사: ${course.instructorName} | 강의실: ${course.classroom} | 수강료: ₩${course.fee.toLocaleString()} | 출력일: ${dayjs().format('YYYY-MM-DD')}`,
   ];
