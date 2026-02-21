@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Form, Input, Button, message, Row, Col, Select, InputNumber, Space, Tag, theme } from 'antd';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Modal, Form, Input, Button, message, Row, Col, Select, InputNumber, Space, Tag, AutoComplete, Alert, theme } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import type { Student, StudentFormData } from '../../types';
 import { useStudentStore } from '../../stores/studentStore';
@@ -26,17 +26,21 @@ interface StudentFormProps {
 const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) => {
   const { token } = useToken();
   const [form] = Form.useForm();
-  const { addStudent, updateStudent } = useStudentStore();
+  const { addStudent, updateStudent, students } = useStudentStore();
   const { courses, getCourseById } = useCourseStore();
   const { enrollments, addEnrollment, deleteEnrollment, updateEnrollment } = useEnrollmentStore();
   const nameInputRef = useRef<any>(null);
   const phoneInputRef = useRef<any>(null);
-  const emailInputRef = useRef<any>(null);
   const birthDateInputRef = useRef<any>(null);
   const addressInputRef = useRef<any>(null);
   const notesInputRef = useRef<any>(null);
 
   const [coursePayments, setCoursePayments] = useState<CoursePayment[]>([]);
+  const [nameSearch, setNameSearch] = useState('');
+  const [selectedExistingStudent, setSelectedExistingStudent] = useState<Student | null>(null);
+
+  // 현재 편집 중인 수강생 (props로 받은 것 또는 자동완성으로 선택한 것)
+  const editingStudent = student || selectedExistingStudent;
 
   useEffect(() => {
     if (visible && student) {
@@ -48,6 +52,8 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
         isExempt: e.paymentStatus === 'exempt',
       }));
       setCoursePayments(payments);
+      setSelectedExistingStudent(null);
+      setNameSearch('');
       form.setFieldsValue({
         ...student,
         birthDate: student.birthDate ? student.birthDate.replace(/-/g, '').slice(2) : undefined,
@@ -55,11 +61,60 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
     } else if (visible) {
       form.resetFields();
       setCoursePayments([]);
+      setSelectedExistingStudent(null);
+      setNameSearch('');
       setTimeout(() => {
         nameInputRef.current?.focus();
       }, 100);
     }
   }, [visible, student, form, enrollments]);
+
+  // 이름 자동완성 옵션
+  const nameOptions = useMemo(() => {
+    if (student || !nameSearch || nameSearch.length < 1) return [];
+    const search = nameSearch.toLowerCase();
+    return students
+      .filter(s => s.name.toLowerCase().includes(search))
+      .slice(0, 8)
+      .map(s => ({
+        value: s.name,
+        key: s.id,
+        label: (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>{s.name}</span>
+            <span style={{ color: token.colorTextSecondary }}>{s.phone}</span>
+          </div>
+        ),
+      }));
+  }, [students, nameSearch, student, token]);
+
+  // 기존 수강생 선택 시
+  const handleNameSelect = (_value: string, option: { key?: string }) => {
+    const existing = students.find(s => s.id === option.key);
+    if (!existing) return;
+
+    setSelectedExistingStudent(existing);
+
+    // 폼에 기존 정보 채우기
+    form.setFieldsValue({
+      name: existing.name,
+      phone: existing.phone,
+      birthDate: existing.birthDate ? existing.birthDate.replace(/-/g, '').slice(2) : undefined,
+      address: existing.address || '',
+      notes: existing.notes || '',
+    });
+
+    // 기존 수강 정보 로드
+    const studentEnrollments = enrollments.filter(e => e.studentId === existing.id);
+    setCoursePayments(studentEnrollments.map(e => ({
+      courseId: e.courseId,
+      paidAmount: e.paidAmount,
+      isExempt: e.paymentStatus === 'exempt',
+    })));
+
+    message.info(`기존 수강생 "${existing.name}"님의 정보를 불러왔습니다.`);
+    phoneInputRef.current?.focus();
+  };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/[^0-9]/g, '');
@@ -131,12 +186,11 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
         birthDate: birthDateParsed,
       };
 
-      if (student) {
-        // 수정 모드
-        updateStudent(student.id, formData);
+      if (editingStudent) {
+        // 수정 모드 (props 또는 자동완성으로 선택한 기존 수강생)
+        updateStudent(editingStudent.id, formData);
 
-        // 기존 enrollment와 비교하여 추가/삭제/수정
-        const existingEnrollments = enrollments.filter(e => e.studentId === student.id);
+        const existingEnrollments = enrollments.filter(e => e.studentId === editingStudent.id);
         const newCourseIds = coursePayments.map(cp => cp.courseId);
 
         // 삭제할 enrollment
@@ -152,7 +206,6 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
           const existing = existingEnrollments.find(e => e.courseId === cp.courseId);
           const newStatus = getPaymentStatus(cp, course.fee);
           if (existing) {
-            // 기존 enrollment 수정 (납부금액 또는 면제 상태가 변경된 경우)
             const existingIsExempt = existing.paymentStatus === 'exempt';
             if (existing.paidAmount !== cp.paidAmount || existingIsExempt !== cp.isExempt) {
               const hasPaid = !cp.isExempt && cp.paidAmount > 0;
@@ -164,10 +217,9 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
               });
             }
           } else {
-            // 새 enrollment 추가
             const hasPaidNew = !cp.isExempt && cp.paidAmount > 0;
             addEnrollment({
-              studentId: student.id,
+              studentId: editingStudent.id,
               courseId: cp.courseId,
               paidAmount: cp.isExempt ? 0 : cp.paidAmount,
               paymentStatus: newStatus,
@@ -179,12 +231,21 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
         message.success('수강생 정보가 수정되었습니다.');
         form.resetFields();
         setCoursePayments([]);
+        setSelectedExistingStudent(null);
+        setNameSearch('');
         onClose();
       } else {
-        // 신규 등록
+        // 신규 등록 — 동일 이름+전화번호 중복 체크
+        const duplicate = students.find(
+          s => s.name === values.name && s.phone === values.phone
+        );
+        if (duplicate) {
+          message.warning('동일한 이름과 전화번호의 수강생이 이미 있습니다. 위 목록에서 선택해주세요.');
+          return;
+        }
+
         const newStudent = addStudent(formData as StudentFormData);
 
-        // 선택된 강좌에 enrollment 생성
         if (coursePayments.length > 0 && newStudent) {
           coursePayments.forEach(cp => {
             const course = getCourseById(cp.courseId);
@@ -204,6 +265,8 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
         message.success('수강생이 등록되었습니다.');
         form.resetFields();
         setCoursePayments([]);
+        setSelectedExistingStudent(null);
+        setNameSearch('');
         setTimeout(() => {
           nameInputRef.current?.focus();
         }, 100);
@@ -213,7 +276,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
     }
   };
 
-  // 선택 가능한 강좌 (이미 선택된 것 제외)
+  // 선택 가능한 강좌 (이미 선택된 것 제외 + 정원 체크)
   const availableCourses = courses.filter(course => {
     const isSelected = coursePayments.some(cp => cp.courseId === course.id);
     if (isSelected) return false;
@@ -222,8 +285,8 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
     const isFull = count >= course.maxStudents;
 
     // 수정 모드일 때 현재 학생이 이미 등록된 강좌는 표시
-    const isCurrentlyEnrolled = student
-      ? enrollments.some(e => e.courseId === course.id && e.studentId === student.id)
+    const isCurrentlyEnrolled = editingStudent
+      ? enrollments.some(e => e.courseId === course.id && e.studentId === editingStudent.id)
       : false;
 
     return !isFull || isCurrentlyEnrolled;
@@ -231,7 +294,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
 
   return (
     <Modal
-      title={student ? '수강생 정보 수정' : '수강생 등록'}
+      title={editingStudent ? '수강생 정보 수정' : '수강생 등록'}
       open={visible}
       onCancel={onClose}
       width={600}
@@ -240,11 +303,27 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
           취소
         </Button>,
         <Button key="submit" type="primary" onClick={handleSubmit}>
-          {student ? '수정' : '등록'}
+          {editingStudent ? '수정' : '등록'}
         </Button>,
       ]}
     >
       <Form form={form} layout="vertical">
+        {selectedExistingStudent && (
+          <Alert
+            message={`기존 수강생 "${selectedExistingStudent.name}" (${selectedExistingStudent.phone})의 정보를 수정합니다.`}
+            type="info"
+            showIcon
+            closable
+            onClose={() => {
+              setSelectedExistingStudent(null);
+              setCoursePayments([]);
+              form.resetFields();
+              setNameSearch('');
+            }}
+            style={{ marginBottom: 16 }}
+          />
+        )}
+
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item
@@ -252,11 +331,17 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
               label="이름"
               rules={[{ required: true, message: '이름을 입력하세요' }]}
             >
-              <Input
-                ref={nameInputRef}
-                placeholder="예: 김철수"
-                onPressEnter={() => phoneInputRef.current?.focus()}
-              />
+              <AutoComplete
+                options={nameOptions}
+                onSearch={setNameSearch}
+                onSelect={handleNameSelect}
+              >
+                <Input
+                  ref={nameInputRef}
+                  placeholder="예: 김철수"
+                  onPressEnter={() => phoneInputRef.current?.focus()}
+                />
+              </AutoComplete>
             </Form.Item>
           </Col>
           <Col span={12}>
@@ -270,28 +355,13 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
                 placeholder="01012341234"
                 onChange={handlePhoneChange}
                 maxLength={13}
-                onPressEnter={() => emailInputRef.current?.focus()}
+                onPressEnter={() => birthDateInputRef.current?.focus()}
               />
             </Form.Item>
           </Col>
         </Row>
 
         <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              name="email"
-              label="이메일"
-              rules={[
-                { type: 'email', message: '올바른 이메일 형식이 아닙니다' },
-              ]}
-            >
-              <Input
-                ref={emailInputRef}
-                placeholder="example@email.com"
-                onPressEnter={() => birthDateInputRef.current?.focus()}
-              />
-            </Form.Item>
-          </Col>
           <Col span={12}>
             <Form.Item name="birthDate" label="생년월일">
               <Input

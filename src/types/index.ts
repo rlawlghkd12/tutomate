@@ -29,7 +29,7 @@ export interface Student {
   id: string;
   name: string; // 회원 이름
   phone: string; // 전화번호
-  email: string; // 이메일
+  email?: string; // 이메일 (선택)
   address?: string; // 주소 (선택)
   birthDate?: string; // 생년월일 (선택)
   notes?: string; // 메모

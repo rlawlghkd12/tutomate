@@ -144,11 +144,6 @@ const CourseDetailPage: React.FC = () => {
       render: (_, record) => record.student?.phone || '-',
     },
     {
-      title: '이메일',
-      key: 'email',
-      render: (_, record) => record.student?.email || '-',
-    },
-    {
       title: '납부 현황',
       key: 'paymentStatus',
       render: (_, record) => {

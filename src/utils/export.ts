@@ -86,7 +86,7 @@ export const exportStudentsToExcel = (
     return {
       이름: student.name,
       전화번호: student.phone,
-      이메일: student.email,
+      이메일: student.email || '',
       주소: student.address || '',
       생년월일: student.birthDate || '',
       수강강좌: enrolledCourses,
@@ -266,7 +266,7 @@ const paymentStatusMap: Record<string, string> = {
 export const COURSE_STUDENT_EXPORT_FIELDS: CourseStudentExportField[] = [
   { key: 'name', label: '이름', getValue: (s) => s.name },
   { key: 'phone', label: '전화번호', getValue: (s) => s.phone },
-  { key: 'email', label: '이메일', getValue: (s) => s.email },
+  { key: 'email', label: '이메일', getValue: (s) => s.email || '' },
   { key: 'address', label: '주소', getValue: (s) => s.address || '' },
   { key: 'birthDate', label: '생년월일', getValue: (s) => s.birthDate || '' },
   { key: 'paymentStatus', label: '납부 현황', getValue: (_, e) => paymentStatusMap[e.paymentStatus] },

@@ -81,8 +81,7 @@ const StudentList: React.FC = () => {
       const matchesSearch =
         !searchText ||
         row.student.name.toLowerCase().includes(searchLower) ||
-        row.student.phone.includes(searchText) ||
-        (row.student.email && row.student.email.toLowerCase().includes(searchLower));
+        row.student.phone.includes(searchText);
 
       const matchesCourse = !courseFilter || row.courses.some((c) => c.id === courseFilter);
 
@@ -110,11 +109,6 @@ const StudentList: React.FC = () => {
       title: '전화번호',
       key: 'phone',
       render: (_, record) => record.student.phone,
-    },
-    {
-      title: '이메일',
-      key: 'email',
-      render: (_, record) => record.student.email || '-',
     },
     {
       title: '강좌',
@@ -183,7 +177,7 @@ const StudentList: React.FC = () => {
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={8}>
           <Input
-            placeholder="이름, 전화번호, 이메일 검색"
+            placeholder="이름, 전화번호 검색"
             prefix={<SearchOutlined />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}

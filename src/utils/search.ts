@@ -71,7 +71,7 @@ export const searchStudents = (students: Student[], query: string): SearchResult
       id: student.id,
       title: student.name,
       subtitle: student.phone,
-      description: student.email,
+      description: student.email || '',
       data: student,
       matchedFields,
     }];
