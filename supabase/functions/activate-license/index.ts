@@ -22,6 +22,14 @@ Deno.serve(async (req) => {
   try {
     const { license_key } = await req.json();
 
+    // 입력 길이 검증
+    if (typeof license_key !== 'string' || license_key.length > 19) {
+      return new Response(
+        JSON.stringify({ error: 'invalid_format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // 1. 형식 검증 (TMKH: 일반, TMKA: 어드민)
     if (!/^TMK[HA]-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(license_key)) {
       return new Response(
@@ -53,7 +61,7 @@ Deno.serve(async (req) => {
 
     // JWT에서 유저 ID 추출
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: 'unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -61,7 +69,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(
-      authHeader.replace('Bearer ', ''),
+      authHeader.slice(7),
     );
 
     if (userError || !user) {
@@ -111,7 +119,7 @@ Deno.serve(async (req) => {
 
         if (linkError) {
           return new Response(
-            JSON.stringify({ error: 'link_failed', detail: linkError.message }),
+            JSON.stringify({ error: 'link_failed' }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
           );
         }
@@ -131,7 +139,7 @@ Deno.serve(async (req) => {
 
       if (orgError || !newOrg) {
         return new Response(
-          JSON.stringify({ error: 'org_creation_failed', detail: orgError?.message }),
+          JSON.stringify({ error: 'org_creation_failed' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
@@ -145,7 +153,7 @@ Deno.serve(async (req) => {
 
       if (linkError) {
         return new Response(
-          JSON.stringify({ error: 'link_failed', detail: linkError.message }),
+          JSON.stringify({ error: 'link_failed' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
@@ -160,7 +168,7 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     return new Response(
-      JSON.stringify({ error: 'internal_error', detail: String(err) }),
+      JSON.stringify({ error: 'internal_error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }

@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
 
     // JWT에서 유저 확인
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: 'unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(
-      authHeader.replace('Bearer ', ''),
+      authHeader.slice(7),
     );
 
     if (userError || !user) {
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
 
     if (listError) {
       return new Response(
-        JSON.stringify({ error: 'query_failed', detail: listError.message }),
+        JSON.stringify({ error: 'query_failed' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     return new Response(
-      JSON.stringify({ error: 'internal_error', detail: String(err) }),
+      JSON.stringify({ error: 'internal_error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }

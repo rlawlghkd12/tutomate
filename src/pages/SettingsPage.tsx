@@ -62,7 +62,7 @@ const SettingsPage: React.FC = () => {
   } = useSettingsStore();
 
   const APP_VERSION = useAppVersion();
-  const { getPlan, activateLicense, licenseKey } = useLicenseStore();
+  const { getPlan, activateLicense, deactivateLicense, licenseKey } = useLicenseStore();
   const [orgNameInput, setOrgNameInput] = useState(organizationName);
   const [showKey, setShowKey] = useState(false);
   const [licenseInput, setLicenseInput] = useState(['', '', '', '']);
@@ -697,6 +697,26 @@ const SettingsPage: React.FC = () => {
                   onClick={() => { navigator.clipboard.writeText(licenseKey); message.success('키가 복사되었습니다.'); }}
                 />
                 <Tag color="green">활성화됨</Tag>
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => {
+                    Modal.confirm({
+                      title: '로그아웃',
+                      icon: <ExclamationCircleOutlined />,
+                      content: '로그아웃하면 클라우드 동기화가 해제됩니다. 계속하시겠습니까?',
+                      okText: '로그아웃',
+                      okType: 'danger',
+                      cancelText: '취소',
+                      onOk: async () => {
+                        await deactivateLicense();
+                        message.success('로그아웃되었습니다.');
+                      },
+                    });
+                  }}
+                >
+                  로그아웃
+                </Button>
               </Space>
             ) : (
               <Space direction="vertical" size={8}>
