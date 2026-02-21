@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Card,
   Space,
@@ -10,14 +11,12 @@ import {
   Button,
   Table,
   Input,
+  InputNumber,
   message,
   Modal,
   Progress,
   Tag,
   Popconfirm,
-  Row,
-  Col,
-  theme,
 } from 'antd';
 import {
   SaveOutlined,
@@ -29,17 +28,20 @@ import {
 } from '@ant-design/icons';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { invoke } from '@tauri-apps/api/core';
 import dayjs from 'dayjs';
 import { useSettingsStore, type FontSize } from '../stores/settingsStore';
-import { AutoBackupScheduler } from '../components/backup/AutoBackupScheduler';
+import { useLicenseStore } from '../stores/licenseStore';
+import LicenseKeyInput from '../components/common/LicenseKeyInput';
+import { PLAN_LIMITS } from '../config/planLimits';
 import { useAppVersion, APP_NAME } from '../config/version';
 import { useBackup, type BackupInfo } from '../hooks/useBackup';
 
-const { Title, Text } = Typography;
-const { useToken } = theme;
+const { Text } = Typography;
 
 const SettingsPage: React.FC = () => {
-  const { token } = useToken();
+  const [searchParams] = useSearchParams();
+  const defaultTab = useMemo(() => searchParams.get('tab') || 'general', [searchParams]);
   const {
     theme: appTheme,
     fontSize,
@@ -53,6 +55,10 @@ const SettingsPage: React.FC = () => {
   } = useSettingsStore();
 
   const APP_VERSION = useAppVersion();
+  const { getPlan, activateLicense, deactivateLicense, licenseKey } = useLicenseStore();
+  const [licenseInput, setLicenseInput] = useState(['', '', '', '']);
+  const [activating, setActivating] = useState(false);
+  const currentPlan = getPlan();
   const {
     backups,
     loading,
@@ -68,13 +74,80 @@ const SettingsPage: React.FC = () => {
 
   // 업데이트 관련 상태
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [isLatest, setIsLatest] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState<{ version: string; body: string } | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
 
+  // 자동 백업 상태
+  const AUTO_BACKUP_KEY = 'autoBackupSettings';
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
+  const [autoBackupInterval, setAutoBackupInterval] = useState(24);
+  const [lastAutoBackup, setLastAutoBackup] = useState<string | undefined>();
+  const autoBackupRef = useRef({ enabled: autoBackupEnabled, intervalHours: autoBackupInterval, lastBackup: lastAutoBackup });
+  autoBackupRef.current = { enabled: autoBackupEnabled, intervalHours: autoBackupInterval, lastBackup: lastAutoBackup };
+
+  const nextBackupTime = (() => {
+    if (!autoBackupEnabled) return '';
+    if (lastAutoBackup) {
+      return dayjs(lastAutoBackup).add(autoBackupInterval, 'hour').format('YYYY-MM-DD HH:mm');
+    }
+    return '즉시';
+  })();
+
   useEffect(() => {
     loadSettings();
+    useLicenseStore.getState().loadLicense();
+
+    // 자동 백업 설정 로드
+    const saved = localStorage.getItem(AUTO_BACKUP_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      setAutoBackupEnabled(parsed.enabled ?? false);
+      setAutoBackupInterval(parsed.intervalHours ?? 24);
+      setLastAutoBackup(parsed.lastBackup);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadSettings]);
+
+  const checkAndAutoBackup = useCallback(async () => {
+    const current = autoBackupRef.current;
+    if (!current.enabled) return;
+    const now = dayjs();
+    const last = current.lastBackup ? dayjs(current.lastBackup) : null;
+    if (!last || now.diff(last, 'hour') >= current.intervalHours) {
+      try {
+        await invoke('create_backup');
+        const newLast = now.toISOString();
+        setLastAutoBackup(newLast);
+        localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify({ ...current, lastBackup: newLast }));
+        message.success('자동 백업이 완료되었습니다');
+      } catch (error) {
+        message.error('자동 백업 실패: ' + error);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!autoBackupEnabled) return;
+    checkAndAutoBackup();
+    const interval = setInterval(checkAndAutoBackup, 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [autoBackupEnabled, autoBackupInterval, checkAndAutoBackup]);
+
+  const handleAutoBackupToggle = (checked: boolean) => {
+    setAutoBackupEnabled(checked);
+    const settings = { enabled: checked, intervalHours: autoBackupInterval, lastBackup: checked ? lastAutoBackup : undefined };
+    localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify(settings));
+    message.info(checked ? '자동 백업이 활성화되었습니다' : '자동 백업이 비활성화되었습니다');
+  };
+
+  const handleAutoBackupIntervalChange = (value: number | null) => {
+    if (value && value > 0) {
+      setAutoBackupInterval(value);
+      localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify({ enabled: autoBackupEnabled, intervalHours: value, lastBackup: lastAutoBackup }));
+    }
+  };
 
   const fontSizeOptions = [
     { label: '작게', value: 'small' as FontSize },
@@ -87,6 +160,7 @@ const SettingsPage: React.FC = () => {
   const handleCheckUpdate = async () => {
     setCheckingUpdate(true);
     setUpdateAvailable(null);
+    setIsLatest(false);
     try {
       const update = await check();
       if (update && update.version !== APP_VERSION) {
@@ -96,9 +170,11 @@ const SettingsPage: React.FC = () => {
         });
         message.info(`새 버전 v${update.version}이 있습니다! (현재: v${APP_VERSION})`);
       } else if (update) {
-        message.success(`최신 버전입니다. (현재: v${APP_VERSION}, 서버: v${update.version})`);
+        setIsLatest(true);
+        message.success(`최신 버전입니다.`);
       } else {
-        message.warning(`업데이트 정보 없음 (현재: v${APP_VERSION})`);
+        setIsLatest(true);
+        message.success('최신 버전입니다.');
       }
     } catch (error: any) {
       console.error('Update check:', error);
@@ -143,6 +219,30 @@ const SettingsPage: React.FC = () => {
       message.error('업데이트 다운로드에 실패했습니다.');
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleActivateLicense = async () => {
+    const key = licenseInput.join('-');
+    if (licenseInput.some((g) => g.length !== 4)) {
+      message.warning('라이선스 키를 모두 입력하세요.');
+      return;
+    }
+    setActivating(true);
+    try {
+      const result = await activateLicense(key);
+      if (result === 'success') {
+        message.success('라이선스가 활성화되었습니다!');
+        setLicenseInput(['', '', '', '']);
+      } else if (result === 'invalid_format') {
+        message.error('유효하지 않은 형식입니다. 형식: TMKH-XXXX-XXXX-XXXX');
+      } else if (result === 'network_error') {
+        message.error('서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요.');
+      } else {
+        message.error('유효하지 않은 라이선스 키입니다.');
+      }
+    } finally {
+      setActivating(false);
     }
   };
 
@@ -269,233 +369,318 @@ const SettingsPage: React.FC = () => {
     },
   ];
 
+  const settingRowStyle: React.CSSProperties = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '16px 0',
+  };
+
   const tabItems = [
     {
       key: 'general',
       label: '일반',
       children: (
-        <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 800 }}>
-          {/* 기관명 설정 */}
-          <Card>
-            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-              <div>
-                <Title level={4}>기관명</Title>
-                <Text type="secondary">헤더와 백업 파일명에 표시되는 기관명을 설정합니다.</Text>
-              </div>
-              <Input
-                value={organizationName}
-                onChange={(e) => setOrganizationName(e.target.value)}
-                placeholder="기관명을 입력하세요"
-                style={{ maxWidth: 400 }}
-              />
-            </Space>
-          </Card>
+        <Card style={{ maxWidth: 800 }}>
+          {/* 기관명 */}
+          <div style={settingRowStyle}>
+            <div style={{ flex: 1, marginRight: 24 }}>
+              <Text strong>기관명</Text>
+              <br />
+              <Text type="secondary" style={{ fontSize: '0.85em' }}>
+                {currentPlan === 'trial' ? '라이선스 활성화 후 변경 가능' : '헤더와 백업 파일명에 표시'}
+              </Text>
+            </div>
+            <Input
+              value={organizationName}
+              onChange={(e) => setOrganizationName(e.target.value)}
+              placeholder="기관명을 입력하세요"
+              style={{ width: 240 }}
+              disabled={currentPlan === 'trial'}
+            />
+          </div>
 
-          {/* 테마 설정 */}
-          <Card>
-            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-              <div>
-                <Title level={4}>테마</Title>
-                <Text type="secondary">앱의 테마를 변경합니다.</Text>
-              </div>
-              <Space>
-                <Text>다크 모드:</Text>
-                <Switch
-                  checked={appTheme === 'dark'}
-                  onChange={(checked) => setTheme(checked ? 'dark' : 'light')}
-                  checkedChildren="켜짐"
-                  unCheckedChildren="꺼짐"
-                />
+          <Divider style={{ margin: 0 }} />
+
+          {/* 다크 모드 */}
+          <div style={settingRowStyle}>
+            <div>
+              <Text strong>다크 모드</Text>
+              <br />
+              <Text type="secondary" style={{ fontSize: '0.85em' }}>앱의 테마를 변경합니다</Text>
+            </div>
+            <Switch
+              checked={appTheme === 'dark'}
+              onChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+              checkedChildren="켜짐"
+              unCheckedChildren="꺼짐"
+            />
+          </div>
+
+          <Divider style={{ margin: 0 }} />
+
+          {/* 텍스트 크기 */}
+          <div style={settingRowStyle}>
+            <div>
+              <Text strong>텍스트 크기</Text>
+              <br />
+              <Text type="secondary" style={{ fontSize: '0.85em' }}>앱 전체의 텍스트 크기를 조절합니다</Text>
+            </div>
+            <Radio.Group
+              value={fontSize}
+              onChange={(e) => setFontSize(e.target.value)}
+              options={fontSizeOptions}
+              optionType="button"
+              buttonStyle="solid"
+              size="small"
+            />
+          </div>
+
+          <Divider style={{ margin: 0 }} />
+
+          {/* 알림 */}
+          <div style={settingRowStyle}>
+            <div>
+              <Text strong>알림</Text>
+              <br />
+              <Text type="secondary" style={{ fontSize: '0.85em' }}>
+                {notificationsEnabled ? '앱 내 알림이 활성화되어 있습니다' : '알림이 비활성화되어 있습니다'}
+              </Text>
+            </div>
+            <Switch
+              checked={notificationsEnabled}
+              onChange={setNotificationsEnabled}
+              checkedChildren="켜짐"
+              unCheckedChildren="꺼짐"
+            />
+          </div>
+
+          <Divider style={{ margin: 0 }} />
+
+          {/* 앱 정보 */}
+          <div style={settingRowStyle}>
+            <div>
+              <Text strong>앱 정보</Text>
+              <br />
+              <Space size={8}>
+                <Text type="secondary" style={{ fontSize: '0.85em' }}>{APP_NAME} v{APP_VERSION}</Text>
+                {isLatest && <Tag color="green" style={{ margin: 0 }}>최신 버전</Tag>}
               </Space>
-            </Space>
-          </Card>
+            </div>
+            <Button
+              onClick={handleCheckUpdate}
+              loading={checkingUpdate}
+              size="small"
+            >
+              업데이트 확인
+            </Button>
+          </div>
 
-          {/* 폰트 크기 설정 */}
-          <Card>
-            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-              <div>
-                <Title level={4}>텍스트 크기</Title>
-                <Text type="secondary">앱 전체의 텍스트 크기를 조절합니다.</Text>
-              </div>
-              <Radio.Group
-                value={fontSize}
-                onChange={(e) => setFontSize(e.target.value)}
-                options={fontSizeOptions}
-                optionType="button"
-                buttonStyle="solid"
-              />
-              <Divider />
-              <div>
-                <Text style={{ fontSize: fontSize === 'small' ? 12 : fontSize === 'medium' ? 14 : fontSize === 'large' ? 16 : 18 }}>
-                  미리보기: 이것은 선택한 크기의 텍스트입니다.
-                </Text>
-              </div>
-            </Space>
-          </Card>
-
-          {/* 알림 설정 */}
-          <Card>
-            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-              <div>
-                <Title level={4}>알림</Title>
-                <Text type="secondary">앱 내 알림을 제어합니다.</Text>
-              </div>
-              <Space>
-                <Text>알림 활성화:</Text>
-                <Switch
-                  checked={notificationsEnabled}
-                  onChange={setNotificationsEnabled}
-                  checkedChildren="켜짐"
-                  unCheckedChildren="꺼짐"
-                />
-              </Space>
-              {!notificationsEnabled && (
-                <Text type="warning">
-                  알림이 비활성화되어 있습니다. 중요한 업데이트를 놓칠 수 있습니다.
-                </Text>
-              )}
-            </Space>
-          </Card>
-
-          {/* 버전 정보 */}
-          <Card>
-            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-              <div>
-                <Title level={4}>앱 정보</Title>
-              </div>
-              <Row gutter={16} align="middle">
-                <Col>
-                  <Text>현재 버전:</Text>
-                </Col>
-                <Col>
-                  <Text strong>v{APP_VERSION}</Text>
-                </Col>
-                <Col>
-                  <Button
-                    onClick={handleCheckUpdate}
-                    loading={checkingUpdate}
-                    size="small"
-                  >
-                    업데이트 확인
-                  </Button>
-                </Col>
-              </Row>
-
-              {updateAvailable && (
-                <Card
-                  size="small"
-                  style={{
-                    backgroundColor: token.colorBgElevated,
-                    border: `1px solid ${token.colorPrimary}`,
-                  }}
-                >
-                  <Space direction="vertical" style={{ width: '100%' }}>
-                    <Space>
-                      <Tag color="green">새 버전</Tag>
-                      <Text strong style={{ color: token.colorText }}>v{updateAvailable.version}</Text>
-                    </Space>
-                    <Text style={{ color: token.colorTextSecondary }}>{updateAvailable.body}</Text>
-                    {downloading ? (
-                      <Progress percent={downloadProgress} status="active" />
-                    ) : (
-                      <Button type="primary" onClick={handleDownloadUpdate}>
-                        다운로드 및 설치
-                      </Button>
-                    )}
+          {updateAvailable && (
+            <>
+              <Divider style={{ margin: 0 }} />
+              <div style={{ padding: '16px 0' }}>
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Space>
+                    <Tag color="green">새 버전</Tag>
+                    <Text strong>v{updateAvailable.version}</Text>
                   </Space>
-                </Card>
-              )}
-
-              <Text type="secondary">{APP_NAME}</Text>
-            </Space>
-          </Card>
-        </Space>
+                  <Text type="secondary">{updateAvailable.body}</Text>
+                  {downloading ? (
+                    <Progress percent={downloadProgress} status="active" />
+                  ) : (
+                    <Button type="primary" onClick={handleDownloadUpdate} size="small">
+                      다운로드 및 설치
+                    </Button>
+                  )}
+                </Space>
+              </div>
+            </>
+          )}
+        </Card>
       ),
     },
     {
       key: 'backup',
       label: '백업',
       children: (
-        <Row gutter={[16, 16]}>
-          <Col xs={24} lg={16}>
-            <Card>
-              <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                <div>
-                  <Title level={4}>데이터 백업 및 복구</Title>
-                  <Text type="secondary">
-                    중요한 데이터를 안전하게 백업하고 필요시 복원할 수 있습니다.
-                  </Text>
-                </div>
+        <Card style={{ maxWidth: 800 }}>
+          {/* 수동 백업 */}
+          <div style={settingRowStyle}>
+            <div>
+              <Text strong>수동 백업</Text>
+              <br />
+              <Text type="secondary" style={{ fontSize: '0.85em' }}>데이터를 백업하거나 외부 파일을 불러옵니다</Text>
+            </div>
+            <Space>
+              <Button
+                type="primary"
+                icon={<SaveOutlined />}
+                onClick={createBackup}
+                loading={creating}
+                size="small"
+              >
+                {creating ? '생성 중...' : '지금 백업'}
+              </Button>
+              <Button
+                icon={<ImportOutlined />}
+                onClick={handleImportBackup}
+                loading={importing}
+                size="small"
+              >
+                {importing ? '불러오는 중...' : '불러오기'}
+              </Button>
+            </Space>
+          </div>
 
-                <Space>
-                  <Button
-                    type="primary"
-                    size="large"
-                    icon={<SaveOutlined />}
-                    onClick={createBackup}
-                    loading={creating}
-                  >
-                    {creating ? '백업 생성 중...' : '지금 백업'}
+          <Divider style={{ margin: 0 }} />
+
+          {/* 자동 백업 */}
+          <div style={settingRowStyle}>
+            <div>
+              <Text strong>자동 백업</Text>
+              <br />
+              <Text type="secondary" style={{ fontSize: '0.85em' }}>
+                {autoBackupEnabled
+                  ? lastAutoBackup
+                    ? `다음 백업: ${nextBackupTime}`
+                    : '즉시 백업 예정'
+                  : '앱 실행 중 주기적으로 자동 백업'}
+              </Text>
+            </div>
+            <Space>
+              {autoBackupEnabled && (
+                <InputNumber
+                  min={1}
+                  max={168}
+                  value={autoBackupInterval}
+                  onChange={handleAutoBackupIntervalChange}
+                  style={{ width: 80 }}
+                  size="small"
+                  addonAfter="시간"
+                />
+              )}
+              <Switch
+                checked={autoBackupEnabled}
+                onChange={handleAutoBackupToggle}
+                checkedChildren="켜짐"
+                unCheckedChildren="꺼짐"
+              />
+            </Space>
+          </div>
+
+          {creating && (
+            <>
+              <Divider style={{ margin: 0 }} />
+              <div style={{ padding: '12px 0' }}>
+                <Progress percent={100} status="active" />
+                <Text type="secondary">데이터를 백업하고 있습니다...</Text>
+              </div>
+            </>
+          )}
+
+          <Divider style={{ margin: 0 }} />
+
+          {/* 백업 목록 */}
+          <div style={{ paddingTop: 16 }}>
+            <Table
+              columns={backupColumns}
+              dataSource={backups}
+              rowKey="filename"
+              loading={loading}
+              pagination={false}
+              size="small"
+              locale={{
+                emptyText: '백업이 없습니다. "지금 백업" 버튼을 눌러 첫 백업을 생성하세요.',
+              }}
+            />
+          </div>
+        </Card>
+      ),
+    },
+    {
+      key: 'license',
+      label: '라이선스',
+      children: (
+        <Card style={{ maxWidth: 800 }}>
+          {/* 현재 플랜 */}
+          <div style={settingRowStyle}>
+            <div>
+              <Text strong>현재 플랜</Text>
+              <br />
+              <Text type="secondary" style={{ fontSize: '0.85em' }}>
+                {currentPlan === 'trial'
+                  ? `강좌 ${PLAN_LIMITS.trial.maxCourses}개, 강좌당 수강생 ${PLAN_LIMITS.trial.maxStudentsPerCourse}명 제한`
+                  : '모든 기능을 제한 없이 사용 가능'}
+              </Text>
+            </div>
+            <Tag
+              color={currentPlan === 'trial' ? 'orange' : 'green'}
+              style={{ fontSize: 13, padding: '2px 10px' }}
+            >
+              {currentPlan === 'trial' ? '체험판' : 'Basic'}
+            </Tag>
+          </div>
+
+          <Divider style={{ margin: 0 }} />
+
+          {/* 라이선스 키 */}
+          <div style={{ padding: '16px 0' }}>
+            <div style={{ marginBottom: 12 }}>
+              <Text strong>라이선스 키</Text>
+              <br />
+              <Text type="secondary" style={{ fontSize: '0.85em' }}>
+                라이선스 키를 입력하여 모든 기능을 활성화하세요 (문의: 010-3556-7586)
+              </Text>
+            </div>
+            {currentPlan === 'basic' && licenseKey ? (
+              <Space>
+                <Text code>{licenseKey.slice(0, 9)}****-****</Text>
+                <Tag color="green">활성화됨</Tag>
+                {import.meta.env.DEV && (
+                  <Button size="small" danger onClick={() => { deactivateLicense(); message.info('라이선스가 비활성화되었습니다.'); }}>
+                    비활성화 (DEV)
                   </Button>
-                  <Button
-                    size="large"
-                    icon={<ImportOutlined />}
-                    onClick={handleImportBackup}
-                    loading={importing}
-                  >
-                    {importing ? '불러오는 중...' : '백업 파일 불러오기'}
+                )}
+              </Space>
+            ) : (
+              <Space direction="vertical" size={8}>
+                <Text type="secondary" style={{ fontSize: '0.85em' }}>
+                  키를 직접 입력하거나 전체 붙여넣기 하세요
+                </Text>
+                <Space>
+                  <LicenseKeyInput value={licenseInput} onChange={setLicenseInput} onPressEnter={handleActivateLicense} />
+                  <Button type="primary" onClick={handleActivateLicense} loading={activating}>
+                    활성화
                   </Button>
                 </Space>
-
-                {creating && (
-                  <div>
-                    <Progress percent={100} status="active" />
-                    <Text type="secondary">데이터를 백업하고 있습니다...</Text>
-                  </div>
-                )}
-
-                <Table
-                  columns={backupColumns}
-                  dataSource={backups}
-                  rowKey="filename"
-                  loading={loading}
-                  pagination={false}
-                  locale={{
-                    emptyText: '백업이 없습니다. "지금 백업" 버튼을 눌러 첫 백업을 생성하세요.',
-                  }}
-                />
-
-                <Card
-                  size="small"
-                  style={{
-                    backgroundColor: token.colorInfoBg,
-                    border: `1px solid ${token.colorInfoBorder}`
-                  }}
-                >
-                  <Space direction="vertical">
-                    <Text strong>백업 안내</Text>
-                    <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      <li>백업은 모든 강좌, 수강생 데이터를 포함합니다</li>
-                      <li>복원 시 현재 데이터는 자동으로 백업됩니다</li>
-                      <li>정기적으로 백업을 생성하여 데이터 손실을 방지하세요</li>
-                    </ul>
-                  </Space>
-                </Card>
               </Space>
-            </Card>
-          </Col>
+            )}
+          </div>
 
-          <Col xs={24} lg={8}>
-            <AutoBackupScheduler />
-          </Col>
-        </Row>
+          {import.meta.env.DEV && (
+            <>
+              <Divider style={{ margin: 0 }} />
+              <div style={settingRowStyle}>
+                <div>
+                  <Text strong>웰컴 모달 (DEV)</Text>
+                  <br />
+                  <Text type="secondary" style={{ fontSize: '0.85em' }}>앱 첫 실행 시 뜨는 모달을 다시 표시</Text>
+                </div>
+                <Button size="small" onClick={() => { localStorage.removeItem('welcome-dismissed'); window.location.reload(); }}>
+                  모달 열기
+                </Button>
+              </div>
+            </>
+          )}
+        </Card>
       ),
     },
   ];
 
   return (
     <div>
-      <Tabs items={tabItems} />
+      <Tabs items={tabItems} defaultActiveKey={defaultTab} />
     </div>
   );
 };

@@ -516,95 +516,95 @@ const RevenueManagementPage: React.FC = () => {
         </Space>
       </Card>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={12} lg={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="총 수익"
               value={totalRevenue}
               prefix={<DollarOutlined />}
               suffix="원"
-              valueStyle={{ color: token.colorSuccess }}
+              valueStyle={{ color: token.colorSuccess, fontSize: 20 }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="예상 총 수익"
               value={expectedRevenue}
               prefix={<DollarOutlined />}
               suffix="원"
-              valueStyle={{ color: token.colorPrimary }}
+              valueStyle={{ color: token.colorPrimary, fontSize: 20 }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="총 미수금"
               value={totalUnpaid}
               prefix={<WarningOutlined />}
               suffix="원"
-              valueStyle={{ color: token.colorError }}
+              valueStyle={{ color: token.colorError, fontSize: 20 }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="수익률"
               value={expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0}
               precision={1}
               suffix="%"
               prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: EXEMPT_COLOR }}
+              valueStyle={{ color: EXEMPT_COLOR, fontSize: 20 }}
             />
           </Card>
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="완납"
               value={completedPayments}
               suffix="건"
               prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: token.colorSuccess }}
+              valueStyle={{ color: token.colorSuccess, fontSize: 20 }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="부분납부"
               value={partialPayments}
               suffix="건"
               prefix={<ClockCircleOutlined />}
-              valueStyle={{ color: token.colorWarning }}
+              valueStyle={{ color: token.colorWarning, fontSize: 20 }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="미납"
               value={pendingPayments}
               suffix="건"
               prefix={<WarningOutlined />}
-              valueStyle={{ color: token.colorError }}
+              valueStyle={{ color: token.colorError, fontSize: 20 }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="면제"
               value={exemptPayments}
               suffix="건"
-              valueStyle={{ color: EXEMPT_COLOR }}
+              valueStyle={{ color: EXEMPT_COLOR, fontSize: 20 }}
             />
           </Card>
         </Col>

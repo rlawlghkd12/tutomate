@@ -25,5 +25,8 @@ release-files/
 *.sln
 *.sw?
 
+# License keys
+scripts/licenses.json
+
 # Claude Code
 CLAUDE.md

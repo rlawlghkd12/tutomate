@@ -45,7 +45,7 @@ export const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({ enroll
         <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} />
         <XAxis dataKey="month" stroke={chartColors.text} />
         <YAxis stroke={chartColors.text} />
-        <Tooltip formatter={(value: number) => `₩${value.toLocaleString()}`} contentStyle={tooltip.contentStyle} labelStyle={tooltip.labelStyle} />
+        <Tooltip formatter={(value: number) => `₩${value.toLocaleString()}`} contentStyle={tooltip.contentStyle} labelStyle={tooltip.labelStyle} itemStyle={tooltip.itemStyle} />
         <Legend wrapperStyle={{ color: chartColors.text }} />
         <Line type="monotone" dataKey="수익" stroke={chartColors.success} strokeWidth={2} />
         <Line type="monotone" dataKey="예상수익" stroke={chartColors.primary} strokeWidth={2} strokeDasharray="5 5" />

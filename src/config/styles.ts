@@ -33,6 +33,7 @@ export interface ChartColors {
   text: string;
   border: string;
   bgContainer: string;
+  hoverFill: string;
 }
 
 export function useChartColors(): ChartColors {
@@ -46,12 +47,14 @@ export function useChartColors(): ChartColors {
     text: token.colorText,
     border: token.colorBorderSecondary,
     bgContainer: token.colorBgContainer,
+    hoverFill: token.colorFillSecondary,
   };
 }
 
 export interface ChartTooltipStyle {
   contentStyle: CSSProperties;
   labelStyle: CSSProperties;
+  itemStyle: CSSProperties;
 }
 
 export function useChartTooltipStyle(): ChartTooltipStyle {
@@ -61,9 +64,11 @@ export function useChartTooltipStyle(): ChartTooltipStyle {
       backgroundColor: token.colorBgContainer,
       border: `1px solid ${token.colorBorder}`,
       borderRadius: 6,
-      color: token.colorText,
     },
     labelStyle: {
+      color: token.colorText,
+    },
+    itemStyle: {
       color: token.colorText,
     },
   };

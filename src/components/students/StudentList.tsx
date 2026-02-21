@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { Table, Button, Space, Popconfirm, message, Tag, Input, Select, Row, Col, Empty, theme } from 'antd';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Table, Button, Space, Modal, message, Tag, Input, Select, Row, Col, Empty, Dropdown, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { EditOutlined, DeleteOutlined, PlusCircleOutlined, SearchOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined, PlusCircleOutlined, SearchOutlined, MoreOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import type { Student } from '../../types';
 import { useStudentStore } from '../../stores/studentStore';
@@ -32,15 +32,32 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [searchText, setSearchText] = useState('');
   const [searchField, setSearchField] = useState<string>('all');
+  const [isCompact, setIsCompact] = useState(() => window.innerWidth < 1080);
+
+  useEffect(() => {
+    const onResize = () => setIsCompact(window.innerWidth < 1080);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const handleEdit = useCallback((student: Student) => {
     setSelectedStudent(student);
     setIsModalVisible(true);
   }, []);
 
-  const handleDelete = useCallback((id: string) => {
-    deleteStudent(id);
-    message.success('수강생이 삭제되었습니다.');
+  const handleDelete = useCallback((student: Student) => {
+    Modal.confirm({
+      title: '수강생을 삭제하시겠습니까?',
+      icon: <ExclamationCircleOutlined />,
+      content: `"${student.name}" 수강생을 삭제합니다.`,
+      okText: '삭제',
+      okType: 'danger',
+      cancelText: '취소',
+      onOk() {
+        deleteStudent(student.id);
+        message.success('수강생이 삭제되었습니다.');
+      },
+    });
   }, [deleteStudent]);
 
   const handleEnroll = useCallback((student: Student) => {
@@ -81,24 +98,25 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
   // 필터링
   const filteredRows = useMemo(() => {
     const filtered = studentRows.filter((row) => {
+      if (!searchText) return true;
       const searchLower = searchText.toLowerCase();
-      let matchesSearch = !searchText;
-      if (searchText) {
-        switch (searchField) {
-          case 'name':
-            matchesSearch = row.student.name.toLowerCase().includes(searchLower);
-            break;
-          case 'phone':
-            matchesSearch = row.student.phone.includes(searchText);
-            break;
-          default:
-            matchesSearch =
-              row.student.name.toLowerCase().includes(searchLower) ||
-              row.student.phone.includes(searchText);
-        }
+      switch (searchField) {
+        case 'name':
+          return row.student.name.toLowerCase().includes(searchLower);
+        case 'phone':
+          return row.student.phone.includes(searchText);
+        case 'course':
+          return row.courses.some((c) => c.name.toLowerCase().includes(searchLower));
+        case 'address':
+          return (row.student.address || '').toLowerCase().includes(searchLower);
+        default:
+          return (
+            row.student.name.toLowerCase().includes(searchLower) ||
+            row.student.phone.includes(searchText) ||
+            row.courses.some((c) => c.name.toLowerCase().includes(searchLower)) ||
+            (row.student.address || '').toLowerCase().includes(searchLower)
+          );
       }
-
-      return matchesSearch;
     });
 
     // 필터링 후 인덱스 재부여
@@ -109,7 +127,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
     {
       title: 'No.',
       key: 'index',
-      width: 60,
+      width: 50,
       render: (_, record) => record.index,
     },
     {
@@ -156,32 +174,26 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
     {
       title: '작업',
       key: 'action',
-      render: (_, record) => (
+      align: 'right' as const,
+      render: (_, record) => isCompact ? (
+        <Dropdown
+          menu={{
+            items: [
+              { key: 'enroll', label: '강좌 신청', icon: <PlusCircleOutlined />, onClick: () => handleEnroll(record.student) },
+              { key: 'edit', label: '수정', icon: <EditOutlined />, onClick: () => handleEdit(record.student) },
+              { type: 'divider' },
+              { key: 'delete', label: '삭제', icon: <DeleteOutlined />, danger: true, onClick: () => handleDelete(record.student) },
+            ],
+          }}
+          trigger={['click']}
+        >
+          <Button type="text" icon={<MoreOutlined />} />
+        </Dropdown>
+      ) : (
         <Space size="small">
-          <Button
-            type="link"
-            icon={<PlusCircleOutlined />}
-            onClick={() => handleEnroll(record.student)}
-          >
-            강좌 신청
-          </Button>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record.student)}
-          >
-            수정
-          </Button>
-          <Popconfirm
-            title="정말 삭제하시겠습니까?"
-            onConfirm={() => handleDelete(record.student.id)}
-            okText="삭제"
-            cancelText="취소"
-          >
-            <Button type="link" danger icon={<DeleteOutlined />}>
-              삭제
-            </Button>
-          </Popconfirm>
+          <Button type="link" icon={<PlusCircleOutlined />} onClick={() => handleEnroll(record.student)}>강좌 신청</Button>
+          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record.student)}>수정</Button>
+          <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.student)}>삭제</Button>
         </Space>
       ),
     },
@@ -194,28 +206,35 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
           <Select
             value={searchField}
             onChange={setSearchField}
-            style={{ width: 100 }}
+            style={{ width: 110 }}
           >
             <Select.Option value="all">전체</Select.Option>
             <Select.Option value="name">이름</Select.Option>
             <Select.Option value="phone">전화번호</Select.Option>
+            <Select.Option value="course">강좌</Select.Option>
+            <Select.Option value="address">주소</Select.Option>
           </Select>
         </Col>
         <Col flex="auto" style={{ maxWidth: 300 }}>
           <Input
-            placeholder={searchField === 'all' ? '이름, 전화번호 검색' : searchField === 'name' ? '이름 검색' : '전화번호 검색'}
+            placeholder={
+              searchField === 'name' ? '이름 검색' :
+              searchField === 'phone' ? '전화번호 검색' :
+              searchField === 'course' ? '강좌명 검색' :
+              searchField === 'address' ? '주소 검색' :
+              '이름, 전화번호, 강좌, 주소 검색'
+            }
             prefix={<SearchOutlined />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             allowClear
           />
         </Col>
-        <Col flex="auto" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
-          <span style={{ color: token.colorTextSecondary }}>
-            {filteredRows.length}명
-          </span>
-          {actions}
-        </Col>
+        {actions && (
+          <Col flex="auto" style={{ textAlign: 'right' }}>
+            {actions}
+          </Col>
+        )}
       </Row>
       <Table
         columns={columns}

@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { Table, Button, Space, Tag, message, Progress, Input, Select, Row, Col, Modal, Empty, theme } from 'antd';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Table, Button, Space, Tag, message, Progress, Input, Select, Row, Col, Modal, Empty, Dropdown, theme } from 'antd';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined, MoreOutlined } from '@ant-design/icons';
 import type { Course } from '../../types';
 import { useCourseStore } from '../../stores/courseStore';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
@@ -22,7 +22,13 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [searchText, setSearchText] = useState('');
   const [searchField, setSearchField] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [isCompact, setIsCompact] = useState(() => window.innerWidth < 1080);
+
+  useEffect(() => {
+    const onResize = () => setIsCompact(window.innerWidth < 1080);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const handleEdit = useCallback((course: Course) => {
     setSelectedCourse(course);
@@ -87,34 +93,35 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
+      if (!searchText) return true;
       const searchLower = searchText.toLowerCase();
-      let matchesSearch = !searchText;
-      if (searchText) {
-        switch (searchField) {
-          case 'name':
-            matchesSearch = course.name.toLowerCase().includes(searchLower);
-            break;
-          case 'instructor':
-            matchesSearch = course.instructorName.toLowerCase().includes(searchLower);
-            break;
-          case 'classroom':
-            matchesSearch = course.classroom.toLowerCase().includes(searchLower);
-            break;
-          default:
-            matchesSearch =
-              course.name.toLowerCase().includes(searchLower) ||
-              course.instructorName.toLowerCase().includes(searchLower) ||
-              course.classroom.toLowerCase().includes(searchLower);
-        }
+      switch (searchField) {
+        case 'name':
+          return course.name.toLowerCase().includes(searchLower);
+        case 'classroom':
+          return course.classroom.toLowerCase().includes(searchLower);
+        case 'instructor':
+          return course.instructorName.toLowerCase().includes(searchLower);
+        case 'instructorPhone':
+          return course.instructorPhone.includes(searchText);
+        default:
+          return (
+            course.name.toLowerCase().includes(searchLower) ||
+            course.classroom.toLowerCase().includes(searchLower) ||
+            course.instructorName.toLowerCase().includes(searchLower) ||
+            course.instructorPhone.includes(searchText)
+          );
       }
-
-      const matchesStatus = !statusFilter || getStatus(course) === statusFilter;
-
-      return matchesSearch && matchesStatus;
     });
-  }, [courses, searchText, searchField, statusFilter, getStatus]);
+  }, [courses, searchText, searchField]);
 
   const columns: ColumnsType<Course> = useMemo(() => [
+    {
+      title: 'No.',
+      key: 'index',
+      width: 50,
+      render: (_, __, index) => index + 1,
+    },
     {
       title: '강좌 이름',
       dataIndex: 'name',
@@ -155,17 +162,16 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
         const currentStudents = getEnrollmentCountByCourseId(record.id);
         const percentage = (currentStudents / record.maxStudents) * 100;
         return (
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <span>
-              {currentStudents} / {record.maxStudents}
-            </span>
+          <div style={{ lineHeight: 1.2 }}>
+            <span>{currentStudents} / {record.maxStudents}</span>
             <Progress
               percent={percentage}
               size="small"
               status={percentage >= 100 ? 'exception' : 'normal'}
               showInfo={false}
+              style={{ marginTop: 2, marginBottom: 0 }}
             />
-          </Space>
+          </div>
         );
       },
       sorter: (a, b) => getEnrollmentCountByCourseId(a.id) - getEnrollmentCountByCourseId(b.id),
@@ -173,6 +179,12 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
     {
       title: '상태',
       key: 'status',
+      filters: [
+        { text: '모집 중', value: 'open' },
+        { text: '마감 임박', value: 'almost' },
+        { text: '정원 마감', value: 'full' },
+      ],
+      onFilter: (value, record) => getStatus(record) === value,
       render: (_, record) => {
         const status = getStatus(record);
         if (status === 'full') {
@@ -187,34 +199,30 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
     {
       title: '작업',
       key: 'action',
-      render: (_, record) => (
+      align: 'right' as const,
+      render: (_, record) => isCompact ? (
+        <Dropdown
+          menu={{
+            items: [
+              { key: 'view', label: '상세', icon: <EyeOutlined />, onClick: () => handleView(record.id) },
+              { key: 'edit', label: '수정', icon: <EditOutlined />, onClick: () => handleEdit(record) },
+              { type: 'divider' },
+              { key: 'delete', label: '삭제', icon: <DeleteOutlined />, danger: true, onClick: () => handleDelete(record) },
+            ],
+          }}
+          trigger={['click']}
+        >
+          <Button type="text" icon={<MoreOutlined />} />
+        </Dropdown>
+      ) : (
         <Space size="small">
-          <Button
-            type="link"
-            icon={<EyeOutlined />}
-            onClick={() => handleView(record.id)}
-          >
-            상세
-          </Button>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          >
-            수정
-          </Button>
-          <Button
-            type="link"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(record)}
-          >
-            삭제
-          </Button>
+          <Button type="link" icon={<EyeOutlined />} onClick={() => handleView(record.id)}>상세</Button>
+          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>수정</Button>
+          <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)}>삭제</Button>
         </Space>
       ),
     },
-  ], [handleView, handleEdit, handleDelete, getEnrollmentCountByCourseId, getStatus]);
+  ], [handleView, handleEdit, handleDelete, getEnrollmentCountByCourseId, getStatus, isCompact]);
 
   return (
     <>
@@ -223,45 +231,29 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
           <Select
             value={searchField}
             onChange={setSearchField}
-            style={{ width: 100 }}
+            style={{ width: 110 }}
           >
             <Select.Option value="all">전체</Select.Option>
             <Select.Option value="name">강좌명</Select.Option>
-            <Select.Option value="instructor">강사명</Select.Option>
             <Select.Option value="classroom">강의실</Select.Option>
+            <Select.Option value="instructor">강사명</Select.Option>
+            <Select.Option value="instructorPhone">전화번호</Select.Option>
           </Select>
         </Col>
         <Col flex="auto" style={{ maxWidth: 300 }}>
           <Input
             placeholder={
               searchField === 'name' ? '강좌명 검색' :
-              searchField === 'instructor' ? '강사명 검색' :
               searchField === 'classroom' ? '강의실 검색' :
-              '강좌명, 강사명, 강의실 검색'
+              searchField === 'instructor' ? '강사명 검색' :
+              searchField === 'instructorPhone' ? '전화번호 검색' :
+              '강좌명, 강의실, 강사명, 전화번호 검색'
             }
             prefix={<SearchOutlined />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             allowClear
           />
-        </Col>
-        <Col span={6}>
-          <Select
-            placeholder="상태 필터"
-            value={statusFilter}
-            onChange={setStatusFilter}
-            allowClear
-            style={{ width: '100%' }}
-          >
-            <Select.Option value="open">모집 중</Select.Option>
-            <Select.Option value="almost">마감 임박</Select.Option>
-            <Select.Option value="full">정원 마감</Select.Option>
-          </Select>
-        </Col>
-        <Col>
-          <span style={{ color: token.colorTextSecondary }}>
-            {filteredCourses.length}개
-          </span>
         </Col>
         {actions && <Col flex="auto" style={{ textAlign: 'right' }}>{actions}</Col>}
       </Row>

@@ -1,5 +1,5 @@
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ConfigProvider, App as AntApp, theme as antdTheme } from 'antd';
+import { ConfigProvider, App as AntApp, theme as antdTheme, Modal, Button, Typography, Space, message } from 'antd';
 import koKR from 'antd/locale/ko_KR';
 import Layout from './components/common/Layout';
 import DashboardPage from './pages/DashboardPage';
@@ -13,15 +13,64 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { UpdateChecker } from './components/common/UpdateChecker';
 import { GlobalSearch, useGlobalSearch } from './components/search/GlobalSearch';
 import { useSettingsStore } from './stores/settingsStore';
-import { useEffect, useMemo } from 'react';
+import { useLicenseStore } from './stores/licenseStore';
+import LicenseKeyInput from './components/common/LicenseKeyInput';
+import { useEffect, useMemo, useState } from 'react';
+
+const { Text } = Typography;
 
 function App() {
   const { visible, close } = useGlobalSearch();
   const { theme, fontSize, loadSettings } = useSettingsStore();
+  const { loadLicense, activateLicense, licenseKey } = useLicenseStore();
+  const [welcomeVisible, setWelcomeVisible] = useState(false);
+  const [licenseInput, setLicenseInput] = useState(['', '', '', '']);
+  const [licenseLoaded, setLicenseLoaded] = useState(false);
+  const [activating, setActivating] = useState(false);
 
   useEffect(() => {
     loadSettings();
-  }, [loadSettings]);
+    loadLicense();
+    setLicenseLoaded(true);
+  }, [loadSettings, loadLicense]);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem('welcome-dismissed');
+    if (licenseLoaded && !licenseKey && !dismissed) {
+      setWelcomeVisible(true);
+    }
+  }, [licenseLoaded, licenseKey]);
+
+  const handleActivateLicense = async () => {
+    const key = licenseInput.join('-');
+    if (licenseInput.some((g) => g.length !== 4)) {
+      message.warning('라이선스 키를 모두 입력하세요.');
+      return;
+    }
+    setActivating(true);
+    try {
+      const result = await activateLicense(key);
+      if (result === 'success') {
+        message.success('라이선스가 활성화되었습니다!');
+        localStorage.setItem('welcome-dismissed', 'true');
+        setWelcomeVisible(false);
+        setLicenseInput(['', '', '', '']);
+      } else if (result === 'invalid_format') {
+        message.error('유효하지 않은 형식입니다. 형식: TMKH-XXXX-XXXX-XXXX');
+      } else if (result === 'network_error') {
+        message.error('서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요.');
+      } else {
+        message.error('유효하지 않은 라이선스 키입니다.');
+      }
+    } finally {
+      setActivating(false);
+    }
+  };
+
+  const handleStartTrial = () => {
+    localStorage.setItem('welcome-dismissed', 'true');
+    setWelcomeVisible(false);
+  };
 
   useEffect(() => {
     document.documentElement.style.backgroundColor = theme === 'dark' ? '#141414' : '#ffffff';
@@ -48,6 +97,48 @@ function App() {
     <ErrorBoundary>
       <ConfigProvider locale={koKR} theme={themeConfig}>
         <AntApp>
+          <Modal
+            title="TutorMate에 오신 것을 환영합니다!"
+            open={welcomeVisible}
+            onCancel={() => setWelcomeVisible(false)}
+            footer={null}
+            closable={false}
+            maskClosable={false}
+          >
+            <Space direction="vertical" size="large" style={{ width: '100%', fontSize: '1.05em' }}>
+              <Text style={{ fontSize: '1.05em' }}>
+                수강생 관리를 위한 데스크톱 애플리케이션입니다.
+                강좌 관리, 수강생 등록, 수익 관리 등 다양한 기능을 제공합니다.
+              </Text>
+              <div>
+                <Text strong style={{ fontSize: '1.05em' }}>라이선스 키가 있으신가요?</Text>
+                <br />
+                <Text type="secondary">
+                  키를 직접 입력하거나 전체 붙여넣기 하세요
+                </Text>
+                <div style={{ marginTop: 12 }}>
+                  <LicenseKeyInput value={licenseInput} onChange={setLicenseInput} onPressEnter={handleActivateLicense} />
+                </div>
+                <Button
+                  type="primary"
+                  onClick={handleActivateLicense}
+                  loading={activating}
+                  style={{ marginTop: 16, width: '100%' }}
+                >
+                  라이선스 활성화
+                </Button>
+              </div>
+              <Button
+                block
+                onClick={handleStartTrial}
+              >
+                체험판으로 시작 (강좌 5개, 강좌당 수강생 10명 제한)
+              </Button>
+              <Text type="secondary" style={{ fontSize: '0.85em', textAlign: 'center', display: 'block' }}>
+                라이선스 문의: 010-3556-7586
+              </Text>
+            </Space>
+          </Modal>
           <UpdateChecker autoCheck={true} checkInterval={60} />
           <Router>
             <GlobalSearch visible={visible} onClose={close} />

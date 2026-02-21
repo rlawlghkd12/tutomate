@@ -59,6 +59,12 @@ export type StudentFormData = Omit<Student, 'id' | 'createdAt' | 'updatedAt'>;
 // 수강 신청 폼 데이터 타입
 export type EnrollmentFormData = Omit<Enrollment, 'id' | 'enrolledAt' | 'remainingAmount'>;
 
+// 라이선스 인터페이스
+export interface LicenseInfo {
+  licenseKey: string;
+  activatedAt: string;
+}
+
 // 알림 인터페이스
 export interface Notification {
   id: string;

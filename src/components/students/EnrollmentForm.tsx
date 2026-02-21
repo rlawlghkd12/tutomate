@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import type { Student, EnrollmentFormData } from '../../types';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import { useCourseStore } from '../../stores/courseStore';
+import { useLicenseStore } from '../../stores/licenseStore';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -19,6 +20,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
   const [form] = Form.useForm();
   const { addEnrollment, enrollments } = useEnrollmentStore();
   const { courses, getCourseById } = useCourseStore();
+  const { getPlan, getLimit } = useLicenseStore();
 
   useEffect(() => {
     if (visible) {
@@ -54,6 +56,15 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
       if (currentEnrollmentCount >= course.maxStudents) {
         message.error('강좌 정원이 마감되었습니다.');
         return;
+      }
+
+      // 체험판 강좌당 수강생 수 제한 체크
+      if (getPlan() === 'trial') {
+        const maxStudentsPerCourse = getLimit('maxStudentsPerCourse');
+        if (currentEnrollmentCount >= maxStudentsPerCourse) {
+          message.warning(`체험판은 강좌당 최대 ${maxStudentsPerCourse}명까지 등록 가능합니다. 설정에서 라이선스를 활성화하세요.`);
+          return;
+        }
       }
 
       const paidAmount = values.paidAmount || 0;
@@ -124,7 +135,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
               >
                 {courses.map((course) => {
                   const currentCount = enrollments.filter(e => e.courseId === course.id).length;
-                  const isFull = currentCount >= course.maxStudents;
+                  const trialLimit = getPlan() === 'trial' ? getLimit('maxStudentsPerCourse') : Infinity;
+                  const effectiveMax = Math.min(course.maxStudents, trialLimit);
+                  const isFull = currentCount >= effectiveMax;
                   const isEnrolled = enrollments.some(e => e.studentId === student?.id && e.courseId === course.id);
                   const isDisabled = isFull || isEnrolled;
                   return (

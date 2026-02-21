@@ -67,6 +67,7 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
         <Tooltip
           contentStyle={tooltip.contentStyle}
           labelStyle={tooltip.labelStyle}
+          itemStyle={tooltip.itemStyle}
         />
         <Legend wrapperStyle={{ color: chartColors.text }} />
       </PieChart>

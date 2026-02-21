@@ -51,6 +51,8 @@ export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollme
           formatter={(value: number) => `₩${value.toLocaleString()}`}
           contentStyle={tooltip.contentStyle}
           labelStyle={tooltip.labelStyle}
+          itemStyle={tooltip.itemStyle}
+          cursor={{ fill: chartColors.hoverFill }}
         />
         <Legend wrapperStyle={{ color: chartColors.text }} />
         <Bar dataKey="수익" fill={chartColors.success} />

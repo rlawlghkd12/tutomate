@@ -5,6 +5,7 @@ import type { Student, StudentFormData } from '../../types';
 import { useStudentStore } from '../../stores/studentStore';
 import { useCourseStore } from '../../stores/courseStore';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
+import { useLicenseStore } from '../../stores/licenseStore';
 import dayjs from 'dayjs';
 
 const { TextArea } = Input;
@@ -29,6 +30,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
   const { addStudent, updateStudent, students } = useStudentStore();
   const { courses, getCourseById } = useCourseStore();
   const { enrollments, addEnrollment, deleteEnrollment, updateEnrollment } = useEnrollmentStore();
+  const { getPlan, getLimit } = useLicenseStore();
   const nameInputRef = useRef<any>(null);
   const phoneInputRef = useRef<any>(null);
   const birthDateInputRef = useRef<any>(null);
@@ -281,13 +283,15 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
     }
   };
 
-  // 선택 가능한 강좌 (이미 선택된 것 제외 + 정원 체크)
+  // 선택 가능한 강좌 (이미 선택된 것 제외 + 정원 체크 + 체험판 제한)
   const availableCourses = courses.filter(course => {
     const isSelected = coursePayments.some(cp => cp.courseId === course.id);
     if (isSelected) return false;
 
     const count = enrollments.filter(e => e.courseId === course.id).length;
-    const isFull = count >= course.maxStudents;
+    const maxStudentsLimit = getPlan() === 'trial' ? getLimit('maxStudentsPerCourse') : course.maxStudents;
+    const effectiveMax = Math.min(course.maxStudents, maxStudentsLimit);
+    const isFull = count >= effectiveMax;
 
     // 수정 모드일 때 현재 학생이 이미 등록된 강좌는 표시
     const isCurrentlyEnrolled = editingStudent

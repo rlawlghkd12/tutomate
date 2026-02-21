@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { Layout as AntLayout, theme, Button, Typography } from 'antd';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Layout as AntLayout, theme, Button, Typography, Tag } from 'antd';
 import { MenuFoldOutlined, MenuUnfoldOutlined, RightOutlined } from '@ant-design/icons';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Navigation from './Navigation';
 import { NotificationCenter } from '../notification/NotificationCenter';
-import { useAppVersion, APP_NAME } from '../../config/version';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useLicenseStore } from '../../stores/licenseStore';
 import { FLEX_BETWEEN } from '../../config/styles';
 
 const { Header, Sider, Content } = AntLayout;
@@ -25,12 +25,30 @@ const PAGE_TITLES: Record<string, string> = {
   '/settings': '설정',
 };
 
+const AUTO_COLLAPSE_WIDTH = 860;
+
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { token } = useToken();
-  const [collapsed, setCollapsed] = useState(false);
-  const APP_VERSION = useAppVersion();
+  const [collapsed, setCollapsed] = useState(() => window.innerWidth < AUTO_COLLAPSE_WIDTH);
   const organizationName = useSettingsStore((s) => s.organizationName);
+  const getPlan = useLicenseStore((s) => s.getPlan);
+  const isTrial = getPlan() === 'trial';
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleResize = useCallback(() => {
+    const shouldCollapse = window.innerWidth < AUTO_COLLAPSE_WIDTH;
+    setCollapsed((prev) => {
+      if (shouldCollapse && !prev) return true;
+      if (!shouldCollapse && prev) return false;
+      return prev;
+    });
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [handleResize]);
 
   const pageTitle = useMemo(() => {
     const path = location.pathname;
@@ -65,11 +83,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       >
         <div style={{ height: 16 }} />
         <Navigation collapsed={collapsed} />
-        <div style={{ marginTop: 'auto', padding: '12px 16px', textAlign: 'center' }}>
-          <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
-            {collapsed ? `v${APP_VERSION}` : `${APP_NAME} v${APP_VERSION}`}
-          </span>
-        </div>
+        {isTrial && (
+          <div style={{ marginTop: 'auto', padding: collapsed ? '12px 4px' : '12px 16px', textAlign: 'center' }}>
+            <Tag
+              color="orange"
+              style={{ margin: 0, fontSize: collapsed ? 11 : undefined, cursor: 'pointer' }}
+              onClick={() => navigate('/settings?tab=license')}
+            >체험판</Tag>
+          </div>
+        )}
       </Sider>
       <AntLayout style={{ marginLeft: collapsed ? 60 : 180, transition: 'all 0.2s ease' }}>
         <Header
@@ -87,11 +109,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               onClick={() => setCollapsed(!collapsed)}
               style={{ fontSize: 16 }}
             />
-            <span style={{ fontWeight: 600, fontSize: 15 }}>{organizationName}</span>
+            <span style={{ fontSize: 14, color: token.colorTextTertiary }}>{organizationName}</span>
             {pageTitle && (
               <>
-                <RightOutlined style={{ fontSize: 11, color: token.colorTextQuaternary }} />
-                <Text style={{ fontSize: 15, color: token.colorTextSecondary }}>{pageTitle}</Text>
+                <RightOutlined style={{ fontSize: 10, color: token.colorTextQuaternary }} />
+                <Text style={{ fontSize: 15, fontWeight: 600 }}>{pageTitle}</Text>
               </>
             )}
           </div>

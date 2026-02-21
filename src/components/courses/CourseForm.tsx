@@ -17,6 +17,7 @@ import {
 } from 'antd';
 import type { Course, CourseFormData } from '../../types';
 import { useCourseStore } from '../../stores/courseStore';
+import { useLicenseStore } from '../../stores/licenseStore';
 import dayjs from 'dayjs';
 
 const { Text } = Typography;
@@ -29,7 +30,8 @@ interface CourseFormProps {
 
 const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => {
   const [form] = Form.useForm();
-  const { addCourse, updateCourse } = useCourseStore();
+  const { addCourse, updateCourse, courses } = useCourseStore();
+  const { getPlan, getLimit } = useLicenseStore();
   const [enableSchedule, setEnableSchedule] = useState(false);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,6 +102,14 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
         updateCourse(course.id, courseData);
         message.success('강좌가 수정되었습니다.');
       } else {
+        // 체험판 강좌 수 제한 체크
+        if (getPlan() === 'trial') {
+          const maxCourses = getLimit('maxCourses');
+          if (courses.length >= maxCourses) {
+            message.warning(`체험판은 최대 ${maxCourses}개 강좌까지 생성 가능합니다. 설정에서 라이선스를 활성화하세요.`);
+            return;
+          }
+        }
         addCourse(courseData as CourseFormData);
         message.success('강좌가 생성되었습니다.');
       }
@@ -118,6 +128,8 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
       open={visible}
       onCancel={onClose}
       width={700}
+      centered
+      styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
       footer={[
         <Button key="cancel" onClick={onClose}>
           취소
