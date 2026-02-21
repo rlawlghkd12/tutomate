@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { license_key } = await req.json();
+    const { license_key, device_id } = await req.json();
 
     // 입력 길이 검증
     if (typeof license_key !== 'string' || license_key.length > 19) {
@@ -89,39 +89,115 @@ Deno.serve(async (req) => {
     let organizationId: string;
 
     if (existingOrg) {
-      // 기존 조직 → 좌석 수 확인
-      const { count } = await supabaseAdmin
-        .from('user_organizations')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', existingOrg.id);
-
-      if ((count ?? 0) >= existingOrg.max_seats) {
-        return new Response(
-          JSON.stringify({ error: 'max_seats_reached' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        );
-      }
-
       organizationId = existingOrg.id;
 
-      // 이미 연결되어 있는지 확인
-      const { data: existingLink } = await supabaseAdmin
-        .from('user_organizations')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!existingLink) {
-        // member로 추가
-        const { error: linkError } = await supabaseAdmin
+      // device_id가 있는 경우: 같은 기기 레코드 검색
+      if (device_id) {
+        const { data: existingDevice } = await supabaseAdmin
           .from('user_organizations')
-          .insert({ user_id: user.id, organization_id: organizationId, role: 'member' });
+          .select('user_id, role')
+          .eq('organization_id', existingOrg.id)
+          .eq('device_id', device_id)
+          .single();
 
-        if (linkError) {
+        if (existingDevice) {
+          // 같은 기기 → user_id만 교체 (좌석 불변)
+          const oldUserId = existingDevice.user_id;
+
+          const { error: deleteError } = await supabaseAdmin
+            .from('user_organizations')
+            .delete()
+            .eq('user_id', oldUserId)
+            .eq('organization_id', existingOrg.id);
+
+          if (deleteError) {
+            return new Response(
+              JSON.stringify({ error: 'link_failed' }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            );
+          }
+
+          const { error: insertError } = await supabaseAdmin
+            .from('user_organizations')
+            .insert({
+              user_id: user.id,
+              organization_id: organizationId,
+              role: existingDevice.role,
+              device_id,
+            });
+
+          if (insertError) {
+            return new Response(
+              JSON.stringify({ error: 'link_failed' }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            );
+          }
+
+          // 이전 익명 유저 삭제 (새 유저와 다른 경우만)
+          if (oldUserId !== user.id) {
+            await supabaseAdmin.auth.admin.deleteUser(oldUserId);
+          }
+        } else {
+          // 다른 기기 → 좌석 수 확인 후 추가
+          const { count } = await supabaseAdmin
+            .from('user_organizations')
+            .select('*', { count: 'exact', head: true })
+            .eq('organization_id', existingOrg.id);
+
+          if ((count ?? 0) >= existingOrg.max_seats) {
+            return new Response(
+              JSON.stringify({ error: 'max_seats_reached' }),
+              { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            );
+          }
+
+          const { error: linkError } = await supabaseAdmin
+            .from('user_organizations')
+            .insert({
+              user_id: user.id,
+              organization_id: organizationId,
+              role: 'member',
+              device_id,
+            });
+
+          if (linkError) {
+            return new Response(
+              JSON.stringify({ error: 'link_failed' }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            );
+          }
+        }
+      } else {
+        // device_id 없음 (이전 버전 클라이언트) → 기존 로직
+        const { count } = await supabaseAdmin
+          .from('user_organizations')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', existingOrg.id);
+
+        if ((count ?? 0) >= existingOrg.max_seats) {
           return new Response(
-            JSON.stringify({ error: 'link_failed' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            JSON.stringify({ error: 'max_seats_reached' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
           );
+        }
+
+        const { data: existingLink } = await supabaseAdmin
+          .from('user_organizations')
+          .select('user_id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (!existingLink) {
+          const { error: linkError } = await supabaseAdmin
+            .from('user_organizations')
+            .insert({ user_id: user.id, organization_id: organizationId, role: 'member' });
+
+          if (linkError) {
+            return new Response(
+              JSON.stringify({ error: 'link_failed' }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            );
+          }
         }
       }
     } else {
@@ -146,10 +222,15 @@ Deno.serve(async (req) => {
 
       organizationId = newOrg.id;
 
-      // owner로 연결
+      // owner로 연결 (device_id 포함)
       const { error: linkError } = await supabaseAdmin
         .from('user_organizations')
-        .insert({ user_id: user.id, organization_id: organizationId, role: 'owner' });
+        .insert({
+          user_id: user.id,
+          organization_id: organizationId,
+          role: 'owner',
+          ...(device_id ? { device_id } : {}),
+        });
 
       if (linkError) {
         return new Response(

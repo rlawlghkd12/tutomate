@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::process::Command;
 use tauri::{AppHandle, Manager};
 use zip::write::FileOptions;
 
@@ -382,6 +383,64 @@ fn delete_backup(app: AppHandle, filename: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn get_machine_id() -> Result<String, String> {
+    info!("Getting machine ID");
+
+    #[cfg(target_os = "macos")]
+    {
+        let output = Command::new("ioreg")
+            .args(["-rd1", "-c", "IOPlatformExpertDevice"])
+            .output()
+            .map_err(|e| {
+                error!("Failed to execute ioreg: {}", e);
+                format!("Failed to execute ioreg: {}", e)
+            })?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            if line.contains("IOPlatformUUID") {
+                if let Some(uuid) = line.split('"').nth(3) {
+                    info!("Machine ID retrieved successfully");
+                    return Ok(uuid.to_string());
+                }
+            }
+        }
+
+        error!("IOPlatformUUID not found in ioreg output");
+        Err("IOPlatformUUID not found".to_string())
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let output = Command::new("wmic")
+            .args(["csproduct", "get", "UUID"])
+            .output()
+            .map_err(|e| {
+                error!("Failed to execute wmic: {}", e);
+                format!("Failed to execute wmic: {}", e)
+            })?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines().skip(1) {
+            let trimmed = line.trim();
+            if !trimmed.is_empty() {
+                info!("Machine ID retrieved successfully");
+                return Ok(trimmed.to_string());
+            }
+        }
+
+        error!("UUID not found in wmic output");
+        Err("UUID not found in wmic output".to_string())
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        error!("Unsupported platform for machine ID");
+        Err("Unsupported platform".to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -430,7 +489,8 @@ pub fn run() {
             restore_backup,
             import_backup,
             export_backup_file,
-            delete_backup
+            delete_backup,
+            get_machine_id
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

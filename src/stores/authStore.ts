@@ -1,9 +1,19 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
+import { invoke } from '@tauri-apps/api/core';
 
 import type { PlanType } from '../config/planLimits';
 import { supabase } from '../config/supabase';
 import { logInfo, logError } from '../utils/logger';
+
+async function getDeviceId(): Promise<string> {
+  const machineId = await invoke<string>('get_machine_id');
+  const encoder = new TextEncoder();
+  const data = encoder.encode(machineId);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 interface AuthStore {
   session: Session | null;
@@ -98,10 +108,20 @@ export const useAuthStore = create<AuthStore>((set) => ({
         logInfo('Anonymous sign-in successful', { data: { userId: session.user.id } });
       }
 
-      // 2. Edge Function으로 라이센스 검증 + 조직 연결
+      // 2. 기기 ID 조회
+      let deviceId: string;
+      try {
+        deviceId = await getDeviceId();
+        logInfo('Device ID retrieved', { data: { deviceId: deviceId.slice(0, 8) + '...' } });
+      } catch (error) {
+        logError('Failed to get device ID, aborting activation', { error });
+        return { status: 'error' };
+      }
+
+      // 3. Edge Function으로 라이센스 검증 + 조직 연결
       logInfo('Calling activate-license edge function');
       const { data, error } = await supabase.functions.invoke('activate-license', {
-        body: { license_key: licenseKey },
+        body: { license_key: licenseKey, device_id: deviceId },
       });
 
       if (error) {
