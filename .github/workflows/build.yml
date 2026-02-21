@@ -20,7 +20,7 @@ jobs:
           - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
             artifact_name: 'macos-x86_64'
-          - platform: 'windows-latest'
+          - platform: 'windows-2022'
             args: ''
             artifact_name: 'windows'
 
@@ -29,6 +29,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Disable Windows Defender real-time monitoring
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -53,6 +58,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.7
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
@@ -67,6 +75,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          CARGO_INCREMENTAL: 0
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
         with:
           args: ${{ matrix.args }}
 
@@ -231,7 +242,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, windows-latest]
+        platform: [macos-latest, windows-2022]
 
     runs-on: ${{ matrix.platform }}
 

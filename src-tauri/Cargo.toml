@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.2.1"
+version = "0.2.2"
 description = "A Tauri App"
 authors = ["you"]
 license = ""
@@ -32,3 +32,13 @@ chrono = "0.4"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
+
+[profile.release]
+lto = "thin"
+codegen-units = 16
+opt-level = "s"
+strip = true
+panic = "abort"
+
+[profile.release.build-override]
+opt-level = 3
