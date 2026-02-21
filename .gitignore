@@ -27,6 +27,15 @@ release-files/
 
 # License keys
 scripts/licenses.json
+scripts/.env.admin
+
+# Environment variables
+.env
+.env.production
+.env.local
+
+# Supabase
+supabase/.temp/
 
 # Claude Code
 CLAUDE.md

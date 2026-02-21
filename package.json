@@ -1,7 +1,7 @@
 {
   "name": "student-management",
   "private": true,
-  "version": "0.1.17",
+  "version": "0.1.18",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
+    "@supabase/supabase-js": "^2.97.0",
     "antd": "^6.2.2",
     "dayjs": "^1.11.19",
     "nanoid": "^5.0.9",

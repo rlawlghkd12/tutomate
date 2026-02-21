@@ -3,38 +3,31 @@ import { create } from 'zustand';
 import type { LicenseInfo } from '../types';
 import { PLAN_LIMITS } from '../config/planLimits';
 import type { PlanType, PlanLimitKey } from '../config/planLimits';
+import { useAuthStore } from './authStore';
+import { logError } from '../utils/logger';
+
+export type ActivateResult =
+  | { result: 'success'; isNewOrg: boolean }
+  | { result: 'invalid_format' | 'invalid_key' | 'network_error' | 'max_seats_reached' };
 
 interface LicenseStore {
   licenseKey: string;
   activatedAt: string;
   loadLicense: () => void;
-  activateLicense: (key: string) => Promise<'success' | 'invalid_format' | 'invalid_key' | 'network_error'>;
-  deactivateLicense: () => void;
+  activateLicense: (key: string) => Promise<ActivateResult>;
+  deactivateLicense: () => Promise<void>;
   getPlan: () => PlanType;
   getLimit: (key: PlanLimitKey) => number;
 }
 
 const LICENSE_KEY = 'app-license';
-const GIST_RAW_URL = 'https://gist.githubusercontent.com/4uphwang/816c5190b7c33182932aa9e5a7b55906/raw/licenses.json';
 
 /**
  * 키 형식 검증: TMKH-XXXX-XXXX-XXXX (영숫자 대문자)
  */
 function isValidKeyFormat(key: string): boolean {
-  return /^TMKH-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key);
+  return /^TMK[HA]-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key);
 }
-
-/**
- * Web Crypto API로 SHA-256 해시 계산
- */
-async function sha256(message: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
 
 export const useLicenseStore = create<LicenseStore>((set, get) => ({
   licenseKey: '',
@@ -48,29 +41,31 @@ export const useLicenseStore = create<LicenseStore>((set, get) => ({
         set({ licenseKey: info.licenseKey, activatedAt: info.activatedAt });
       }
     } catch (error) {
-      console.error('Failed to load license:', error);
+      logError('Failed to load license', { error });
     }
   },
 
-  activateLicense: async (key: string) => {
+  activateLicense: async (key: string): Promise<ActivateResult> => {
     const normalized = key.trim().toUpperCase();
 
     if (!isValidKeyFormat(normalized)) {
-      return 'invalid_format';
+      return { result: 'invalid_format' };
     }
 
     try {
-      const keyHash = await sha256(normalized);
-      const response = await fetch(GIST_RAW_URL, { cache: 'no-store' });
+      // Edge Function에서 키 검증 + 조직 연결을 모두 처리
+      const cloudResult = await useAuthStore.getState().activateCloud(normalized);
 
-      if (!response.ok) {
-        return 'network_error';
+      if (cloudResult.status === 'max_seats_reached') {
+        return { result: 'max_seats_reached' };
       }
 
-      const data = await response.json() as { hashes: string[] };
+      if (cloudResult.status === 'invalid_key') {
+        return { result: 'invalid_key' };
+      }
 
-      if (!data.hashes || !data.hashes.includes(keyHash)) {
-        return 'invalid_key';
+      if (cloudResult.status === 'error') {
+        return { result: 'network_error' };
       }
 
       const info: LicenseInfo = {
@@ -80,18 +75,27 @@ export const useLicenseStore = create<LicenseStore>((set, get) => ({
 
       localStorage.setItem(LICENSE_KEY, JSON.stringify(info));
       set({ licenseKey: info.licenseKey, activatedAt: info.activatedAt });
-      return 'success';
+
+      const isNewOrg = cloudResult.status === 'success' ? cloudResult.isNewOrg : false;
+      return { result: 'success', isNewOrg };
     } catch {
-      return 'network_error';
+      return { result: 'network_error' };
     }
   },
 
-  deactivateLicense: () => {
+  deactivateLicense: async () => {
+    // Supabase 로그아웃
+    await useAuthStore.getState().deactivateCloud();
+
     localStorage.removeItem(LICENSE_KEY);
     set({ licenseKey: '', activatedAt: '' });
   },
 
   getPlan: (): PlanType => {
+    const authState = useAuthStore.getState();
+    if (authState.isCloud) {
+      return authState.plan || 'basic';
+    }
     const { licenseKey } = get();
     if (licenseKey && isValidKeyFormat(licenseKey)) {
       return 'basic';

@@ -42,7 +42,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       }
 
       const paidAt = values.paidAt ? values.paidAt.format('YYYY-MM-DD') : undefined;
-      updatePayment(enrollment.id, values.paidAmount, courseFee, paidAt);
+      await updatePayment(enrollment.id, values.paidAmount, courseFee, paidAt);
       message.success('납부 정보가 업데이트되었습니다.');
       form.resetFields();
       onClose();
@@ -51,17 +51,17 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     }
   };
 
-  const handleExempt = () => {
+  const handleExempt = async () => {
     if (!enrollment) return;
-    updatePayment(enrollment.id, 0, courseFee, dayjs().format('YYYY-MM-DD'), true);
+    await updatePayment(enrollment.id, 0, courseFee, dayjs().format('YYYY-MM-DD'), true);
     message.success('수강료가 면제 처리되었습니다.');
     form.resetFields();
     onClose();
   };
 
-  const handleCancelExempt = () => {
+  const handleCancelExempt = async () => {
     if (!enrollment) return;
-    updatePayment(enrollment.id, 0, courseFee, undefined);
+    await updatePayment(enrollment.id, 0, courseFee, undefined);
     message.success('면제가 취소되었습니다.');
     form.resetFields();
     onClose();

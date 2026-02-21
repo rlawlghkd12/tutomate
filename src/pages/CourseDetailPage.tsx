@@ -89,8 +89,8 @@ const CourseDetailPage: React.FC = () => {
   const expectedRevenue = nonExemptEnrollments.length * course.fee;
   const completedPayments = courseEnrollments.filter((e) => e.paymentStatus === 'completed').length;
 
-  const handleRemoveStudent = (enrollmentId: string) => {
-    deleteEnrollment(enrollmentId);
+  const handleRemoveStudent = async (enrollmentId: string) => {
+    await deleteEnrollment(enrollmentId);
     message.success('수강생이 제거되었습니다.');
   };
 

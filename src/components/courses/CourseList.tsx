@@ -50,8 +50,8 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
         okText: '삭제',
         okType: 'danger',
         cancelText: '취소',
-        onOk() {
-          deleteCourse(course.id);
+        async onOk() {
+          await deleteCourse(course.id);
           message.success('강좌가 삭제되었습니다.');
         },
       });
@@ -63,8 +63,8 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
         okText: '삭제',
         okType: 'danger',
         cancelText: '취소',
-        onOk() {
-          deleteCourse(course.id);
+        async onOk() {
+          await deleteCourse(course.id);
           message.success('강좌가 삭제되었습니다.');
         },
       });

@@ -1,4 +1,4 @@
-export type PlanType = 'trial' | 'basic';
+export type PlanType = 'trial' | 'basic' | 'admin';
 
 export const PLAN_LIMITS = {
   trial: {
@@ -6,6 +6,10 @@ export const PLAN_LIMITS = {
     maxStudentsPerCourse: 10,
   },
   basic: {
+    maxCourses: Infinity,
+    maxStudentsPerCourse: Infinity,
+  },
+  admin: {
     maxCourses: Infinity,
     maxStudentsPerCourse: Infinity,
   },

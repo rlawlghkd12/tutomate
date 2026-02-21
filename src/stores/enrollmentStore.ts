@@ -7,30 +7,44 @@ import {
   loadData,
   STORAGE_KEYS,
 } from '../utils/storage';
+import { isCloud, getOrgId } from './authStore';
+import { supabaseLoadData, supabaseInsert, supabaseUpdate, supabaseDelete } from '../utils/supabaseStorage';
+import { mapEnrollmentFromDb, mapEnrollmentToDb, mapEnrollmentUpdateToDb } from '../utils/fieldMapper';
+import type { EnrollmentRow } from '../utils/fieldMapper';
+import { logError } from '../utils/logger';
 import dayjs from 'dayjs';
 
 interface EnrollmentStore {
   enrollments: Enrollment[];
   loadEnrollments: () => Promise<void>;
-  addEnrollment: (enrollmentData: EnrollmentFormData) => void;
-  updateEnrollment: (id: string, enrollmentData: Partial<Enrollment>) => void;
-  deleteEnrollment: (id: string) => void;
+  addEnrollment: (enrollmentData: EnrollmentFormData) => Promise<void>;
+  updateEnrollment: (id: string, enrollmentData: Partial<Enrollment>) => Promise<void>;
+  deleteEnrollment: (id: string) => Promise<void>;
   getEnrollmentById: (id: string) => Enrollment | undefined;
   getEnrollmentsByCourseId: (courseId: string) => Enrollment[];
   getEnrollmentsByStudentId: (studentId: string) => Enrollment[];
   getEnrollmentCountByCourseId: (courseId: string) => number;
-  updatePayment: (id: string, paidAmount: number, totalFee: number, paidAt?: string, isExempt?: boolean) => void;
+  updatePayment: (id: string, paidAmount: number, totalFee: number, paidAt?: string, isExempt?: boolean) => Promise<void>;
 }
 
 export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
   enrollments: [],
 
   loadEnrollments: async () => {
-    const enrollments = await loadData<Enrollment>(STORAGE_KEYS.ENROLLMENTS);
-    set({ enrollments });
+    if (isCloud()) {
+      try {
+        const rows = await supabaseLoadData<EnrollmentRow>('enrollments');
+        set({ enrollments: rows.map(mapEnrollmentFromDb) });
+      } catch (error) {
+        logError('Failed to load enrollments from cloud', { error });
+      }
+    } else {
+      const enrollments = await loadData<Enrollment>(STORAGE_KEYS.ENROLLMENTS);
+      set({ enrollments });
+    }
   },
 
-  addEnrollment: (enrollmentData: EnrollmentFormData) => {
+  addEnrollment: async (enrollmentData: EnrollmentFormData) => {
     const remainingAmount = enrollmentData.courseId
       ? 0
       : enrollmentData.paidAmount || 0;
@@ -41,18 +55,51 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
       enrolledAt: dayjs().toISOString(),
       remainingAmount,
     };
-    const enrollments = addToStorage(STORAGE_KEYS.ENROLLMENTS, newEnrollment);
-    set({ enrollments });
+
+    if (isCloud()) {
+      const orgId = getOrgId();
+      if (!orgId) return;
+      try {
+        await supabaseInsert('enrollments', mapEnrollmentToDb(newEnrollment, orgId));
+        set({ enrollments: [...get().enrollments, newEnrollment] });
+      } catch (error) {
+        logError('Failed to add enrollment to cloud', { error });
+      }
+    } else {
+      const enrollments = addToStorage(STORAGE_KEYS.ENROLLMENTS, newEnrollment);
+      set({ enrollments });
+    }
   },
 
-  updateEnrollment: (id: string, enrollmentData: Partial<Enrollment>) => {
-    const enrollments = updateInStorage(STORAGE_KEYS.ENROLLMENTS, id, enrollmentData);
-    set({ enrollments });
+  updateEnrollment: async (id: string, enrollmentData: Partial<Enrollment>) => {
+    if (isCloud()) {
+      try {
+        await supabaseUpdate('enrollments', id, mapEnrollmentUpdateToDb(enrollmentData));
+        const enrollments = get().enrollments.map((e) =>
+          e.id === id ? { ...e, ...enrollmentData } : e,
+        );
+        set({ enrollments });
+      } catch (error) {
+        logError('Failed to update enrollment in cloud', { error });
+      }
+    } else {
+      const enrollments = updateInStorage(STORAGE_KEYS.ENROLLMENTS, id, enrollmentData);
+      set({ enrollments });
+    }
   },
 
-  deleteEnrollment: (id: string) => {
-    const enrollments = deleteFromStorage<Enrollment>(STORAGE_KEYS.ENROLLMENTS, id);
-    set({ enrollments });
+  deleteEnrollment: async (id: string) => {
+    if (isCloud()) {
+      try {
+        await supabaseDelete('enrollments', id);
+        set({ enrollments: get().enrollments.filter((e) => e.id !== id) });
+      } catch (error) {
+        logError('Failed to delete enrollment from cloud', { error });
+      }
+    } else {
+      const enrollments = deleteFromStorage<Enrollment>(STORAGE_KEYS.ENROLLMENTS, id);
+      set({ enrollments });
+    }
   },
 
   getEnrollmentById: (id: string) => {
@@ -75,9 +122,9 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
     return enrollments.filter((enrollment) => enrollment.courseId === courseId).length;
   },
 
-  updatePayment: (id: string, paidAmount: number, totalFee: number, paidAt?: string, isExempt?: boolean) => {
+  updatePayment: async (id: string, paidAmount: number, totalFee: number, paidAt?: string, isExempt?: boolean) => {
     if (isExempt) {
-      get().updateEnrollment(id, {
+      await get().updateEnrollment(id, {
         paidAmount: 0,
         remainingAmount: 0,
         paymentStatus: 'exempt',
@@ -97,7 +144,7 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
       paymentStatus = 'completed';
     }
 
-    get().updateEnrollment(id, {
+    await get().updateEnrollment(id, {
       paidAmount,
       remainingAmount,
       paymentStatus,

@@ -42,10 +42,10 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
       }
 
       // 각 수강생에게 납부 금액 추가
-      enrollments.forEach((enrollment) => {
+      for (const enrollment of enrollments) {
         const newPaidAmount = enrollment.paidAmount + amountPerStudent;
-        updatePayment(enrollment.id, newPaidAmount, courseFee);
-      });
+        await updatePayment(enrollment.id, newPaidAmount, courseFee);
+      }
 
       message.success(`${totalSelectedStudents}명의 납부 정보가 업데이트되었습니다.`);
       form.resetFields();

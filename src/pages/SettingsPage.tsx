@@ -25,6 +25,9 @@ import {
   ExclamationCircleOutlined,
   ImportOutlined,
   DownloadOutlined,
+  EyeOutlined,
+  EyeInvisibleOutlined,
+  CopyOutlined,
 } from '@ant-design/icons';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
@@ -36,6 +39,10 @@ import LicenseKeyInput from '../components/common/LicenseKeyInput';
 import { PLAN_LIMITS } from '../config/planLimits';
 import { useAppVersion, APP_NAME } from '../config/version';
 import { useBackup, type BackupInfo } from '../hooks/useBackup';
+import { supabase } from '../config/supabase';
+import { useAuthStore } from '../stores/authStore';
+import { MigrationModal } from '../components/common/MigrationModal';
+import AdminTab from '../components/settings/AdminTab';
 
 const { Text } = Typography;
 
@@ -55,9 +62,12 @@ const SettingsPage: React.FC = () => {
   } = useSettingsStore();
 
   const APP_VERSION = useAppVersion();
-  const { getPlan, activateLicense, deactivateLicense, licenseKey } = useLicenseStore();
+  const { getPlan, activateLicense, licenseKey } = useLicenseStore();
+  const [orgNameInput, setOrgNameInput] = useState(organizationName);
+  const [showKey, setShowKey] = useState(false);
   const [licenseInput, setLicenseInput] = useState(['', '', '', '']);
   const [activating, setActivating] = useState(false);
+  const [showMigration, setShowMigration] = useState(false);
   const currentPlan = getPlan();
   const {
     backups,
@@ -109,6 +119,11 @@ const SettingsPage: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadSettings]);
+
+  // 스토어 organizationName이 로드되면 input 동기화
+  useEffect(() => {
+    setOrgNameInput(organizationName);
+  }, [organizationName]);
 
   const checkAndAutoBackup = useCallback(async () => {
     const current = autoBackupRef.current;
@@ -231,13 +246,27 @@ const SettingsPage: React.FC = () => {
     setActivating(true);
     try {
       const result = await activateLicense(key);
-      if (result === 'success') {
+      if (result.result === 'success') {
         message.success('라이선스가 활성화되었습니다!');
         setLicenseInput(['', '', '', '']);
-      } else if (result === 'invalid_format') {
-        message.error('유효하지 않은 형식입니다. 형식: TMKH-XXXX-XXXX-XXXX');
-      } else if (result === 'network_error') {
+        // 새 조직이면 로컬 데이터 마이그레이션 제안
+        if (result.isNewOrg && useAuthStore.getState().isCloud) {
+          try {
+            const courses = JSON.parse(sessionStorage.getItem('courses') || '[]');
+            const students = JSON.parse(sessionStorage.getItem('students') || '[]');
+            if (courses.length > 0 || students.length > 0) {
+              setShowMigration(true);
+            }
+          } catch {
+            // ignore
+          }
+        }
+      } else if (result.result === 'invalid_format') {
+        message.error('유효하지 않은 형식입니다.');
+      } else if (result.result === 'network_error') {
         message.error('서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요.');
+      } else if (result.result === 'max_seats_reached') {
+        message.error('이 라이선스의 최대 사용자 수에 도달했습니다.');
       } else {
         message.error('유효하지 않은 라이선스 키입니다.');
       }
@@ -381,23 +410,42 @@ const SettingsPage: React.FC = () => {
       key: 'general',
       label: '일반',
       children: (
-        <Card style={{ maxWidth: 800 }}>
-          {/* 기관명 */}
+        <Card style={{ maxWidth: 1000 }}>
+          {/* 이름 */}
           <div style={settingRowStyle}>
             <div style={{ flex: 1, marginRight: 24 }}>
-              <Text strong>기관명</Text>
+              <Text strong>이름</Text>
               <br />
               <Text type="secondary" style={{ fontSize: '0.85em' }}>
                 {currentPlan === 'trial' ? '라이선스 활성화 후 변경 가능' : '헤더와 백업 파일명에 표시'}
               </Text>
             </div>
-            <Input
-              value={organizationName}
-              onChange={(e) => setOrganizationName(e.target.value)}
-              placeholder="기관명을 입력하세요"
-              style={{ width: 240 }}
-              disabled={currentPlan === 'trial'}
-            />
+            <Space>
+              <Input
+                value={orgNameInput}
+                onChange={(e) => setOrgNameInput(e.target.value)}
+                placeholder="이름을 입력하세요"
+                style={{ width: 240 }}
+                disabled={currentPlan === 'trial'}
+              />
+              <Button
+                type="primary"
+                icon={<SaveOutlined />}
+                size="small"
+                disabled={currentPlan === 'trial' || orgNameInput === organizationName}
+                onClick={async () => {
+                  setOrganizationName(orgNameInput);
+                  // 클라우드 모드면 Supabase organizations 테이블도 업데이트
+                  const orgId = useAuthStore.getState().organizationId;
+                  if (supabase && orgId) {
+                    await supabase.from('organizations').update({ name: orgNameInput }).eq('id', orgId);
+                  }
+                  message.success('이름이 저장되었습니다.');
+                }}
+              >
+                저장
+              </Button>
+            </Space>
           </div>
 
           <Divider style={{ margin: 0 }} />
@@ -504,7 +552,7 @@ const SettingsPage: React.FC = () => {
       key: 'backup',
       label: '백업',
       children: (
-        <Card style={{ maxWidth: 800 }}>
+        <Card style={{ maxWidth: 1000 }}>
           {/* 수동 백업 */}
           <div style={settingRowStyle}>
             <div>
@@ -602,7 +650,7 @@ const SettingsPage: React.FC = () => {
       key: 'license',
       label: '라이선스',
       children: (
-        <Card style={{ maxWidth: 800 }}>
+        <Card style={{ maxWidth: 1000 }}>
           {/* 현재 플랜 */}
           <div style={settingRowStyle}>
             <div>
@@ -615,10 +663,10 @@ const SettingsPage: React.FC = () => {
               </Text>
             </div>
             <Tag
-              color={currentPlan === 'trial' ? 'orange' : 'green'}
+              color={currentPlan === 'trial' ? 'orange' : currentPlan === 'admin' ? 'red' : 'green'}
               style={{ fontSize: 13, padding: '2px 10px' }}
             >
-              {currentPlan === 'trial' ? '체험판' : 'Basic'}
+              {currentPlan === 'trial' ? '체험판' : currentPlan === 'admin' ? 'Admin' : 'Basic'}
             </Tag>
           </div>
 
@@ -633,15 +681,22 @@ const SettingsPage: React.FC = () => {
                 라이선스 키를 입력하여 모든 기능을 활성화하세요 (문의: 010-3556-7586)
               </Text>
             </div>
-            {currentPlan === 'basic' && licenseKey ? (
+            {currentPlan !== 'trial' && licenseKey ? (
               <Space>
-                <Text code>{licenseKey.slice(0, 9)}****-****</Text>
+                <Text code>{showKey ? licenseKey : `${licenseKey.slice(0, 9)}****-****`}</Text>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={showKey ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+                  onClick={() => setShowKey(!showKey)}
+                />
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<CopyOutlined />}
+                  onClick={() => { navigator.clipboard.writeText(licenseKey); message.success('키가 복사되었습니다.'); }}
+                />
                 <Tag color="green">활성화됨</Tag>
-                {import.meta.env.DEV && (
-                  <Button size="small" danger onClick={() => { deactivateLicense(); message.info('라이선스가 비활성화되었습니다.'); }}>
-                    비활성화 (DEV)
-                  </Button>
-                )}
               </Space>
             ) : (
               <Space direction="vertical" size={8}>
@@ -658,29 +713,26 @@ const SettingsPage: React.FC = () => {
             )}
           </div>
 
-          {import.meta.env.DEV && (
-            <>
-              <Divider style={{ margin: 0 }} />
-              <div style={settingRowStyle}>
-                <div>
-                  <Text strong>웰컴 모달 (DEV)</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: '0.85em' }}>앱 첫 실행 시 뜨는 모달을 다시 표시</Text>
-                </div>
-                <Button size="small" onClick={() => { localStorage.removeItem('welcome-dismissed'); window.location.reload(); }}>
-                  모달 열기
-                </Button>
-              </div>
-            </>
-          )}
         </Card>
       ),
     },
+    // Admin 탭: admin 플랜이거나 DEV 모드일 때 표시
+    ...(currentPlan === 'admin'
+      ? [{
+          key: 'admin',
+          label: 'Admin',
+          children: <AdminTab />,
+        }]
+      : []),
   ];
 
   return (
     <div>
       <Tabs items={tabItems} defaultActiveKey={defaultTab} />
+      <MigrationModal
+        visible={showMigration}
+        onClose={() => setShowMigration(false)}
+      />
     </div>
   );
 };

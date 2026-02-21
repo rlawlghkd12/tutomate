@@ -53,8 +53,8 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
       okText: '삭제',
       okType: 'danger',
       cancelText: '취소',
-      onOk() {
-        deleteStudent(student.id);
+      async onOk() {
+        await deleteStudent(student.id);
         message.success('수강생이 삭제되었습니다.');
       },
     });

@@ -195,20 +195,20 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
 
       if (editingStudent) {
         // 수정 모드 (props 또는 자동완성으로 선택한 기존 수강생)
-        updateStudent(editingStudent.id, formData);
+        await updateStudent(editingStudent.id, formData);
 
         const existingEnrollments = enrollments.filter(e => e.studentId === editingStudent.id);
         const newCourseIds = coursePayments.map(cp => cp.courseId);
 
         // 삭제할 enrollment
-        existingEnrollments
-          .filter(e => !newCourseIds.includes(e.courseId))
-          .forEach(e => deleteEnrollment(e.id));
+        for (const e of existingEnrollments.filter(e => !newCourseIds.includes(e.courseId))) {
+          await deleteEnrollment(e.id);
+        }
 
         // 추가 또는 수정할 enrollment
-        coursePayments.forEach(cp => {
+        for (const cp of coursePayments) {
           const course = getCourseById(cp.courseId);
-          if (!course) return;
+          if (!course) continue;
 
           const existing = existingEnrollments.find(e => e.courseId === cp.courseId);
           const newStatus = getPaymentStatus(cp, course.fee);
@@ -216,7 +216,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
             const existingIsExempt = existing.paymentStatus === 'exempt';
             if (existing.paidAmount !== cp.paidAmount || existingIsExempt !== cp.isExempt) {
               const hasPaid = !cp.isExempt && cp.paidAmount > 0;
-              updateEnrollment(existing.id, {
+              await updateEnrollment(existing.id, {
                 paidAmount: cp.isExempt ? 0 : cp.paidAmount,
                 remainingAmount: cp.isExempt ? 0 : course.fee - cp.paidAmount,
                 paymentStatus: newStatus,
@@ -225,7 +225,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
             }
           } else {
             const hasPaidNew = !cp.isExempt && cp.paidAmount > 0;
-            addEnrollment({
+            await addEnrollment({
               studentId: editingStudent.id,
               courseId: cp.courseId,
               paidAmount: cp.isExempt ? 0 : cp.paidAmount,
@@ -233,7 +233,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
               paidAt: hasPaidNew ? dayjs().format('YYYY-MM-DD') : undefined,
             });
           }
-        });
+        }
 
         message.success('수강생 정보가 수정되었습니다.');
         form.resetFields();
@@ -251,14 +251,14 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
           return;
         }
 
-        const newStudent = addStudent(formData as StudentFormData);
+        const newStudent = await addStudent(formData as StudentFormData);
 
         if (coursePayments.length > 0 && newStudent) {
-          coursePayments.forEach(cp => {
+          for (const cp of coursePayments) {
             const course = getCourseById(cp.courseId);
             if (course) {
               const hasPaidInit = !cp.isExempt && cp.paidAmount > 0;
-              addEnrollment({
+              await addEnrollment({
                 studentId: newStudent.id,
                 courseId: cp.courseId,
                 paidAmount: cp.isExempt ? 0 : cp.paidAmount,
@@ -266,7 +266,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
                 paidAt: hasPaidInit ? dayjs().format('YYYY-MM-DD') : undefined,
               });
             }
-          });
+          }
         }
 
         message.success('수강생이 등록되었습니다.');

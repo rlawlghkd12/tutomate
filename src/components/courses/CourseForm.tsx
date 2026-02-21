@@ -99,7 +99,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
       }
 
       if (course) {
-        updateCourse(course.id, courseData);
+        await updateCourse(course.id, courseData);
         message.success('강좌가 수정되었습니다.');
       } else {
         // 체험판 강좌 수 제한 체크
@@ -110,7 +110,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
             return;
           }
         }
-        addCourse(courseData as CourseFormData);
+        await addCourse(courseData as CourseFormData);
         message.success('강좌가 생성되었습니다.');
       }
 

@@ -65,6 +65,17 @@ export interface LicenseInfo {
   activatedAt: string;
 }
 
+// 조직 인터페이스 (Supabase)
+export interface Organization {
+  id: string;
+  name: string;
+  licenseKey: string;
+  plan: string;
+  maxSeats: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // 알림 인터페이스
 export interface Notification {
   id: string;

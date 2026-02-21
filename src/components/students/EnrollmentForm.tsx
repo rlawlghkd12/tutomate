@@ -87,7 +87,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
         notes: values.notes,
       };
 
-      addEnrollment(enrollmentData);
+      await addEnrollment(enrollmentData);
       message.success('강좌 신청이 완료되었습니다.');
 
       form.resetFields();

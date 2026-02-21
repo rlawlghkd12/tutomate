@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Layout as AntLayout, theme, Button, Typography, Tag } from 'antd';
-import { MenuFoldOutlined, MenuUnfoldOutlined, RightOutlined } from '@ant-design/icons';
+import { Layout as AntLayout, theme, Button, Typography, Tag, Alert } from 'antd';
+import { MenuFoldOutlined, MenuUnfoldOutlined, RightOutlined, WifiOutlined } from '@ant-design/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Navigation from './Navigation';
 import { NotificationCenter } from '../notification/NotificationCenter';
@@ -30,6 +30,8 @@ const AUTO_COLLAPSE_WIDTH = 860;
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { token } = useToken();
   const [collapsed, setCollapsed] = useState(() => window.innerWidth < AUTO_COLLAPSE_WIDTH);
+  const [offline, setOffline] = useState(!navigator.onLine);
+  const [offlineDismissed, setOfflineDismissed] = useState(false);
   const organizationName = useSettingsStore((s) => s.organizationName);
   const getPlan = useLicenseStore((s) => s.getPlan);
   const isTrial = getPlan() === 'trial';
@@ -49,6 +51,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [handleResize]);
+
+  useEffect(() => {
+    const goOffline = () => { setOffline(true); setOfflineDismissed(false); };
+    const goOnline = () => setOffline(false);
+    window.addEventListener('offline', goOffline);
+    window.addEventListener('online', goOnline);
+    return () => {
+      window.removeEventListener('offline', goOffline);
+      window.removeEventListener('online', goOnline);
+    };
+  }, []);
 
   const pageTitle = useMemo(() => {
     const path = location.pathname;
@@ -109,16 +122,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               onClick={() => setCollapsed(!collapsed)}
               style={{ fontSize: 16 }}
             />
-            <span style={{ fontSize: 14, color: token.colorTextTertiary }}>{organizationName}</span>
+            <span style={{ color: token.colorTextTertiary }}>{organizationName}</span>
             {pageTitle && (
               <>
-                <RightOutlined style={{ fontSize: 10, color: token.colorTextQuaternary }} />
-                <Text style={{ fontSize: 15, fontWeight: 600 }}>{pageTitle}</Text>
+                <RightOutlined style={{ fontSize: '0.7em', color: token.colorTextQuaternary }} />
+                <Text style={{ fontWeight: 600 }}>{pageTitle}</Text>
               </>
             )}
           </div>
           <NotificationCenter />
         </Header>
+        {offline && !offlineDismissed && (
+          <Alert
+            message={<><WifiOutlined /> 인터넷에 연결되어 있지 않습니다</>}
+            type="warning"
+            closable
+            onClose={() => setOfflineDismissed(true)}
+            banner
+          />
+        )}
         <Content style={{ margin: '24px 16px 0', overflow: 'initial' }}>
           <div style={{ padding: 24, background: token.colorBgContainer, minHeight: 360 }}>
             {children}
