@@ -17,9 +17,6 @@ jobs:
           - platform: 'macos-latest'
             args: '--target aarch64-apple-darwin'
             artifact_name: 'macos-aarch64'
-          - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
-            artifact_name: 'macos-x86_64'
           - platform: 'windows-2022'
             args: ''
             artifact_name: 'windows'
@@ -43,7 +40,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' || '' }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -136,18 +133,6 @@ jobs:
             echo "Copied aarch64 sig"
           fi
 
-          # macOS x86_64
-          X64_TAR=$(find artifacts/macos-x86_64 -name "*.app.tar.gz" -type f 2>/dev/null | head -1)
-          if [ -n "$X64_TAR" ]; then
-            cp "$X64_TAR" "release-files/TutorMate_${VERSION}_x64.app.tar.gz"
-            echo "Copied x64 tar.gz"
-          fi
-          X64_SIG=$(find artifacts/macos-x86_64 -name "*.app.tar.gz.sig" -type f 2>/dev/null | head -1)
-          if [ -n "$X64_SIG" ]; then
-            cp "$X64_SIG" "release-files/TutorMate_${VERSION}_x64.app.tar.gz.sig"
-            echo "Copied x64 sig"
-          fi
-
           # Windows MSI (Tauri adds _en-US locale suffix)
           WIN_MSI=$(find artifacts/windows -name "*.msi" ! -name "*.msi.sig" -type f 2>/dev/null | head -1)
           if [ -n "$WIN_MSI" ]; then
@@ -172,15 +157,10 @@ jobs:
 
           # Get signature files content
           MAC_AARCH64_SIG=""
-          MAC_X86_64_SIG=""
           WINDOWS_SIG=""
 
           if [ -f "release-files/TutorMate_${VERSION}_aarch64.app.tar.gz.sig" ]; then
             MAC_AARCH64_SIG=$(cat "release-files/TutorMate_${VERSION}_aarch64.app.tar.gz.sig")
-          fi
-
-          if [ -f "release-files/TutorMate_${VERSION}_x64.app.tar.gz.sig" ]; then
-            MAC_X86_64_SIG=$(cat "release-files/TutorMate_${VERSION}_x64.app.tar.gz.sig")
           fi
 
           if [ -f "release-files/TutorMate_${VERSION}_x64.msi.sig" ]; then
@@ -196,10 +176,6 @@ jobs:
               "darwin-aarch64": {
                 "signature": "${MAC_AARCH64_SIG}",
                 "url": "https://github.com/rlawlghkd12/tutomate/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_aarch64.app.tar.gz"
-              },
-              "darwin-x86_64": {
-                "signature": "${MAC_X86_64_SIG}",
-                "url": "https://github.com/rlawlghkd12/tutomate/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_x64.app.tar.gz"
               },
               "windows-x86_64": {
                 "signature": "${WINDOWS_SIG}",
@@ -228,9 +204,8 @@ jobs:
 
           ## 설치 방법
 
-          ### macOS
-          - Apple Silicon (M1/M2): \`TutorMate_*_aarch64.dmg\` 다운로드
-          - Intel Mac: \`TutorMate_*_x64.dmg\` 다운로드
+          ### macOS (Apple Silicon)
+          - \`TutorMate_*_aarch64.dmg\` 다운로드
 
           ### Windows
           - \`.exe\` 또는 \`.msi\` 파일 다운로드" \
