@@ -77,11 +77,11 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
         return;
       }
 
-      // 다운로드 및 설치
+      // 다운로드만 먼저 수행
       let downloaded = 0;
       let contentLength = 0;
 
-      await update.downloadAndInstall((event: any) => {
+      await update.download((event: any) => {
         switch (event.event) {
           case 'Started':
             contentLength = event.data.contentLength ?? 0;
@@ -101,13 +101,18 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
         }
       });
 
-      logInfo('Update installed successfully');
+      logInfo('Download complete, awaiting user confirmation to install');
+      setDownloading(false);
+      setUpdateInfo(null);
 
-      // 설치 완료 후 재시작
-      Modal.success({
-        title: '업데이트 완료',
-        content: '업데이트가 설치되었습니다. 프로그램을 재시작합니다.',
+      // 다운로드 완료 후 설치+재시작 확인
+      Modal.confirm({
+        title: '업데이트 다운로드 완료',
+        content: '업데이트를 설치하고 재시작하시겠습니까?',
+        okText: '설치 및 재시작',
+        cancelText: '나중에',
         onOk: async () => {
+          await update.install();
           await relaunch();
         },
       });
@@ -247,7 +252,8 @@ export function useUpdateChecker() {
           cancelText: '나중에',
           onOk: async () => {
             try {
-              await update.downloadAndInstall();
+              await update.download();
+              await update.install();
               await relaunch();
             } catch (error) {
               handleError(error);

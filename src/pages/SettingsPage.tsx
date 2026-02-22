@@ -209,7 +209,7 @@ const SettingsPage: React.FC = () => {
         let downloaded = 0;
         let contentLength = 0;
 
-        await update.downloadAndInstall((event) => {
+        await update.download((event) => {
           switch (event.event) {
             case 'Started':
               contentLength = event.data.contentLength || 0;
@@ -226,8 +226,17 @@ const SettingsPage: React.FC = () => {
           }
         });
 
-        message.success('업데이트가 완료되었습니다. 앱을 재시작합니다.');
-        await relaunch();
+        setDownloading(false);
+        Modal.confirm({
+          title: '업데이트 다운로드 완료',
+          content: '업데이트를 설치하고 재시작하시겠습니까?',
+          okText: '설치 및 재시작',
+          cancelText: '나중에',
+          onOk: async () => {
+            await update.install();
+            await relaunch();
+          },
+        });
       }
     } catch (error) {
       console.error('Update download failed:', error);
