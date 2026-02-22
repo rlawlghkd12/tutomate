@@ -413,25 +413,24 @@ fn get_machine_id() -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     {
-        let output = Command::new("wmic")
-            .args(["csproduct", "get", "UUID"])
+        // PowerShell Get-CimInstance 사용 (wmic은 Windows 11에서 제거됨)
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command", "(Get-CimInstance -ClassName Win32_ComputerSystemProduct).UUID"])
             .output()
             .map_err(|e| {
-                error!("Failed to execute wmic: {}", e);
-                format!("Failed to execute wmic: {}", e)
+                error!("Failed to execute powershell: {}", e);
+                format!("Failed to execute powershell: {}", e)
             })?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        for line in stdout.lines().skip(1) {
-            let trimmed = line.trim();
-            if !trimmed.is_empty() {
-                info!("Machine ID retrieved successfully");
-                return Ok(trimmed.to_string());
-            }
+        let trimmed = stdout.trim();
+        if !trimmed.is_empty() {
+            info!("Machine ID retrieved successfully");
+            return Ok(trimmed.to_string());
         }
 
-        error!("UUID not found in wmic output");
-        Err("UUID not found in wmic output".to_string())
+        error!("UUID not found in powershell output");
+        Err("UUID not found in powershell output".to_string())
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
