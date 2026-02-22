@@ -46,21 +46,14 @@
                 "displayLanguageSelector": false,
                 "languages": [
                     "Korean"
-                ],
-                "headerImage": null,
-                "sidebarImage": null,
-                "installerIcon": null
-            },
-            "msi": {
-                "createDesktopShortcut": true,
-                "createStartMenuShortcut": true
+                ]
             }
         }
     },
     "plugins": {
         "updater": {
             "windows": {
-                "installMode": "basicUi"
+                "installMode": "passive"
             },
             "endpoints": [
                 "https://github.com/rlawlghkd12/tutomate/releases/latest/download/latest.json"
