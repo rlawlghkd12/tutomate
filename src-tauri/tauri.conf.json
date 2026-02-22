@@ -1,7 +1,7 @@
 {
     "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
     "productName": "TutorMate",
-    "version": "0.2.5",
+    "version": "0.2.6",
     "identifier": "com.student-management.app",
     "build": {
         "frontendDist": "../dist",
@@ -46,14 +46,21 @@
                 "displayLanguageSelector": false,
                 "languages": [
                     "Korean"
-                ]
+                ],
+                "headerImage": null,
+                "sidebarImage": null,
+                "installerIcon": null
+            },
+            "msi": {
+                "createDesktopShortcut": true,
+                "createStartMenuShortcut": true
             }
         }
     },
     "plugins": {
         "updater": {
             "windows": {
-                "installMode": "passive"
+                "installMode": "basicUi"
             },
             "endpoints": [
                 "https://github.com/rlawlghkd12/tutomate/releases/latest/download/latest.json"
