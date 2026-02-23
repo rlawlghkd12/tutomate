@@ -73,99 +73,119 @@ const buildCSVWithHeader = (headerLines: string[], csvHeaders: string[], rows: s
 export const exportStudentsToExcel = (
   students: Student[],
   enrollments: Enrollment[],
-  courses: Course[]
+  courses: Course[],
+  selectedFields?: string[]
 ) => {
-  const data = students.map((student) => {
-    const studentEnrollments = enrollments.filter((e) => e.studentId === student.id);
-    const enrolledCourses = studentEnrollments
-      .map((e) => courses.find((c) => c.id === e.courseId)?.name)
-      .filter(Boolean)
-      .join(', ');
+  const fields = selectedFields
+    ? STUDENT_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key))
+    : STUDENT_EXPORT_FIELDS;
 
-    const totalPaid = studentEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-    const totalRemaining = studentEnrollments.reduce((sum, e) => sum + e.remainingAmount, 0);
-
-    return {
-      이름: student.name,
-      전화번호: student.phone,
-      이메일: student.email || '',
-      주소: student.address || '',
-      생년월일: student.birthDate || '',
-      수강강좌: enrolledCourses,
-      납부금액: totalPaid,
-      잔여금액: totalRemaining,
-      메모: student.notes || '',
-      등록일: dayjs(student.createdAt).format('YYYY-MM-DD'),
-    };
+  const rows = students.map((student) => {
+    const row: Record<string, string | number> = {};
+    fields.forEach((field) => {
+      row[field.label] = field.getValue(student, enrollments, courses);
+    });
+    return row;
   });
 
-  const colWidths = [
-    { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 30 }, { wch: 12 },
-    { wch: 30 }, { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 12 },
-  ];
+  // 합계 행 추가
+  const hasSummable = fields.some((f) => STUDENT_SUMMABLE_FIELDS.has(f.key));
+  if (hasSummable) {
+    const totalRow: Record<string, string | number> = {};
+    fields.forEach((field, idx) => {
+      if (STUDENT_SUMMABLE_FIELDS.has(field.key)) {
+        totalRow[field.label] = students.reduce(
+          (sum, student) => sum + (Number(field.getValue(student, enrollments, courses)) || 0),
+          0,
+        );
+      } else if (idx === 0) {
+        totalRow[field.label] = '합계';
+      } else {
+        totalRow[field.label] = '';
+      }
+    });
+    rows.push(totalRow);
+  }
 
+  const colWidths = fields.map((f) => ({ wch: f.wch }));
   const headerLines = [getOrgName(), `수강생 명단 (${dayjs().format('YYYY-MM-DD')} 기준)`];
-  const worksheet = createSheetWithHeader(headerLines, data, colWidths);
+  const worksheet = createSheetWithHeader(headerLines, rows, colWidths);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, '수강생 명단');
 
   downloadExcel(workbook, '수강생_명단');
 };
 
+// 수익 현황 필드 정의
+export interface RevenueExportField {
+  key: string;
+  label: string;
+  wch: number;
+  getValue: (enrollment: Enrollment, students: Student[], courses: Course[]) => string | number;
+}
+
+const revenuePaymentStatusMap: Record<string, string> = {
+  pending: '미납',
+  partial: '부분납부',
+  completed: '완납',
+  exempt: '면제',
+};
+
+export const REVENUE_EXPORT_FIELDS: RevenueExportField[] = [
+  { key: 'courseName', label: '강좌명', wch: 20, getValue: (e, _, crs) => crs.find((c) => c.id === e.courseId)?.name || '' },
+  { key: 'studentName', label: '수강생', wch: 10, getValue: (e, sts) => sts.find((s) => s.id === e.studentId)?.name || '' },
+  { key: 'phone', label: '전화번호', wch: 15, getValue: (e, sts) => sts.find((s) => s.id === e.studentId)?.phone || '' },
+  { key: 'fee', label: '수강료', wch: 12, getValue: (e, _, crs) => crs.find((c) => c.id === e.courseId)?.fee || 0 },
+  { key: 'paidAmount', label: '납부금액', wch: 12, getValue: (e) => e.paidAmount },
+  { key: 'remainingAmount', label: '잔여금액', wch: 12, getValue: (e) => e.remainingAmount },
+  { key: 'paymentStatus', label: '납부상태', wch: 12, getValue: (e) => revenuePaymentStatusMap[e.paymentStatus] },
+  { key: 'enrolledAt', label: '등록일', wch: 12, getValue: (e) => dayjs(e.enrolledAt).format('YYYY-MM-DD') },
+  { key: 'notes', label: '메모', wch: 30, getValue: (e) => e.notes || '' },
+];
+
+const REVENUE_SUMMABLE_FIELDS = new Set(['fee', 'paidAmount', 'remainingAmount']);
+
 // 수익 현황 Excel 내보내기
 export const exportRevenueToExcel = (
   enrollments: Enrollment[],
   students: Student[],
-  courses: Course[]
+  courses: Course[],
+  selectedFields?: string[]
 ) => {
-  const localPaymentStatusMap: Record<string, string> = {
-    pending: '미납',
-    partial: '부분납부',
-    completed: '완납',
-    exempt: '면제',
-  };
+  const fields = selectedFields
+    ? REVENUE_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key))
+    : REVENUE_EXPORT_FIELDS;
 
-  const data = enrollments.map((enrollment) => {
-    const student = students.find((s) => s.id === enrollment.studentId);
-    const course = courses.find((c) => c.id === enrollment.courseId);
-
-    return {
-      강좌명: course?.name || '',
-      수강생: student?.name || '',
-      전화번호: student?.phone || '',
-      수강료: course?.fee || 0,
-      납부금액: enrollment.paidAmount,
-      잔여금액: enrollment.remainingAmount,
-      납부상태: localPaymentStatusMap[enrollment.paymentStatus],
-      등록일: dayjs(enrollment.enrolledAt).format('YYYY-MM-DD'),
-      메모: enrollment.notes || '',
-    };
+  const rows = enrollments.map((enrollment) => {
+    const row: Record<string, string | number> = {};
+    fields.forEach((field) => {
+      row[field.label] = field.getValue(enrollment, students, courses);
+    });
+    return row;
   });
 
   // 합계 행 추가
-  const totalFee = data.reduce((sum, row) => sum + row.수강료, 0);
-  const totalPaid = data.reduce((sum, row) => sum + row.납부금액, 0);
-  const totalRemaining = data.reduce((sum, row) => sum + row.잔여금액, 0);
+  const hasSummable = fields.some((f) => REVENUE_SUMMABLE_FIELDS.has(f.key));
+  if (hasSummable) {
+    const totalRow: Record<string, string | number> = {};
+    fields.forEach((field, idx) => {
+      if (REVENUE_SUMMABLE_FIELDS.has(field.key)) {
+        totalRow[field.label] = enrollments.reduce(
+          (sum, enrollment) => sum + (Number(field.getValue(enrollment, students, courses)) || 0),
+          0,
+        );
+      } else if (idx === 0) {
+        totalRow[field.label] = '합계';
+      } else {
+        totalRow[field.label] = '';
+      }
+    });
+    rows.push(totalRow);
+  }
 
-  data.push({
-    강좌명: '합계',
-    수강생: '',
-    전화번호: '',
-    수강료: totalFee,
-    납부금액: totalPaid,
-    잔여금액: totalRemaining,
-    납부상태: '',
-    등록일: '',
-    메모: '',
-  });
-
-  const colWidths = [
-    { wch: 20 }, { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
-    { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 30 },
-  ];
-
+  const colWidths = fields.map((f) => ({ wch: f.wch }));
   const headerLines = [getOrgName(), `수익 현황 (${dayjs().format('YYYY-MM-DD')} 기준)`];
-  const worksheet = createSheetWithHeader(headerLines, data, colWidths);
+  const worksheet = createSheetWithHeader(headerLines, rows, colWidths);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, '수익 현황');
 
@@ -177,36 +197,37 @@ export const exportStudentsToCSV = (
   students: Student[],
   enrollments: Enrollment[],
   courses: Course[],
-  encoding: 'utf-8' | 'euc-kr' = 'utf-8'
+  encoding: 'utf-8' | 'euc-kr' = 'utf-8',
+  selectedFields?: string[]
 ) => {
-  const headers = ['이름', '전화번호', '이메일', '주소', '생년월일', '수강강좌', '납부금액', '잔여금액', '메모', '등록일'];
+  const fields = selectedFields
+    ? STUDENT_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key))
+    : STUDENT_EXPORT_FIELDS;
 
-  const rows = students.map((student) => {
-    const studentEnrollments = enrollments.filter((e) => e.studentId === student.id);
-    const enrolledCourses = studentEnrollments
-      .map((e) => courses.find((c) => c.id === e.courseId)?.name)
-      .filter(Boolean)
-      .join('; ');
+  const csvHeaders = fields.map((f) => f.label);
 
-    const totalPaid = studentEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-    const totalRemaining = studentEnrollments.reduce((sum, e) => sum + e.remainingAmount, 0);
+  const rows = students.map((student) =>
+    fields.map((field) => `"${field.getValue(student, enrollments, courses)}"`),
+  );
 
-    return [
-      student.name,
-      student.phone,
-      student.email,
-      student.address || '',
-      student.birthDate || '',
-      enrolledCourses,
-      totalPaid,
-      totalRemaining,
-      student.notes || '',
-      dayjs(student.createdAt).format('YYYY-MM-DD'),
-    ].map((cell) => `"${cell}"`);
-  });
+  // 합계 행 추가
+  const hasSummable = fields.some((f) => STUDENT_SUMMABLE_FIELDS.has(f.key));
+  if (hasSummable) {
+    const totalRow = fields.map((field, idx) => {
+      if (STUDENT_SUMMABLE_FIELDS.has(field.key)) {
+        const sum = students.reduce(
+          (s, student) => s + (Number(field.getValue(student, enrollments, courses)) || 0),
+          0,
+        );
+        return `"${sum}"`;
+      }
+      return idx === 0 ? '"합계"' : '""';
+    });
+    rows.push(totalRow);
+  }
 
   const headerLines = [getOrgName(), `수강생 명단 (${dayjs().format('YYYY-MM-DD')} 기준)`];
-  const csv = buildCSVWithHeader(headerLines, headers, rows);
+  const csv = buildCSVWithHeader(headerLines, csvHeaders, rows);
   downloadCSV(csv, '수강생_명단', encoding);
 };
 
@@ -215,41 +236,78 @@ export const exportRevenueToCSV = (
   enrollments: Enrollment[],
   students: Student[],
   courses: Course[],
-  encoding: 'utf-8' | 'euc-kr' = 'utf-8'
+  encoding: 'utf-8' | 'euc-kr' = 'utf-8',
+  selectedFields?: string[]
 ) => {
-  const headers = ['강좌명', '수강생', '전화번호', '수강료', '납부금액', '잔여금액', '납부상태', '등록일', '메모'];
+  const fields = selectedFields
+    ? REVENUE_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key))
+    : REVENUE_EXPORT_FIELDS;
 
-  const localPaymentStatusMap: Record<string, string> = {
-    pending: '미납',
-    partial: '부분납부',
-    completed: '완납',
-    exempt: '면제',
-  };
+  const csvHeaders = fields.map((f) => f.label);
 
-  const rows = enrollments.map((enrollment) => {
-    const student = students.find((s) => s.id === enrollment.studentId);
-    const course = courses.find((c) => c.id === enrollment.courseId);
+  const rows = enrollments.map((enrollment) =>
+    fields.map((field) => `"${field.getValue(enrollment, students, courses)}"`),
+  );
 
-    return [
-      course?.name || '',
-      student?.name || '',
-      student?.phone || '',
-      course?.fee || 0,
-      enrollment.paidAmount,
-      enrollment.remainingAmount,
-      localPaymentStatusMap[enrollment.paymentStatus],
-      dayjs(enrollment.enrolledAt).format('YYYY-MM-DD'),
-      enrollment.notes || '',
-    ].map((cell) => `"${cell}"`);
-  });
+  // 합계 행 추가
+  const hasSummable = fields.some((f) => REVENUE_SUMMABLE_FIELDS.has(f.key));
+  if (hasSummable) {
+    const totalRow = fields.map((field, idx) => {
+      if (REVENUE_SUMMABLE_FIELDS.has(field.key)) {
+        const sum = enrollments.reduce(
+          (s, enrollment) => s + (Number(field.getValue(enrollment, students, courses)) || 0),
+          0,
+        );
+        return `"${sum}"`;
+      }
+      return idx === 0 ? '"합계"' : '""';
+    });
+    rows.push(totalRow);
+  }
 
   const headerLines = [getOrgName(), `수익 현황 (${dayjs().format('YYYY-MM-DD')} 기준)`];
-  const csv = buildCSVWithHeader(headerLines, headers, rows);
+  const csv = buildCSVWithHeader(headerLines, csvHeaders, rows);
   downloadCSV(csv, '수익_현황', encoding);
 };
 
 // 합계 대상 필드
 const SUMMABLE_FIELDS = new Set(['paidAmount', 'remainingAmount']);
+
+// 수강생 명단 필드 정의
+export interface StudentExportField {
+  key: string;
+  label: string;
+  wch: number;
+  getValue: (student: Student, enrollments: Enrollment[], courses: Course[]) => string | number;
+}
+
+export const STUDENT_EXPORT_FIELDS: StudentExportField[] = [
+  { key: 'name', label: '이름', wch: 10, getValue: (s) => s.name },
+  { key: 'phone', label: '전화번호', wch: 15, getValue: (s) => s.phone },
+  { key: 'email', label: '이메일', wch: 25, getValue: (s) => s.email || '' },
+  { key: 'address', label: '주소', wch: 30, getValue: (s) => s.address || '' },
+  { key: 'birthDate', label: '생년월일', wch: 12, getValue: (s) => s.birthDate || '' },
+  {
+    key: 'enrolledCourses', label: '수강강좌', wch: 30,
+    getValue: (s, enrs, crs) =>
+      enrs.filter((e) => e.studentId === s.id)
+        .map((e) => crs.find((c) => c.id === e.courseId)?.name)
+        .filter(Boolean)
+        .join(', '),
+  },
+  {
+    key: 'totalPaid', label: '납부금액', wch: 12,
+    getValue: (s, enrs) => enrs.filter((e) => e.studentId === s.id).reduce((sum, e) => sum + e.paidAmount, 0),
+  },
+  {
+    key: 'totalRemaining', label: '잔여금액', wch: 12,
+    getValue: (s, enrs) => enrs.filter((e) => e.studentId === s.id).reduce((sum, e) => sum + e.remainingAmount, 0),
+  },
+  { key: 'notes', label: '메모', wch: 30, getValue: (s) => s.notes || '' },
+  { key: 'createdAt', label: '등록일', wch: 12, getValue: (s) => dayjs(s.createdAt).format('YYYY-MM-DD') },
+];
+
+const STUDENT_SUMMABLE_FIELDS = new Set(['totalPaid', 'totalRemaining']);
 
 // 강좌별 수강생 필드 정의
 export interface CourseStudentExportField {

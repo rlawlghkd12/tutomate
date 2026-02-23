@@ -26,6 +26,8 @@ import {
   UserOutlined,
   CheckCircleOutlined,
   DownloadOutlined,
+  FileExcelOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useCourseStore } from '../stores/courseStore';
 import { useStudentStore } from '../stores/studentStore';
@@ -360,19 +362,17 @@ const CourseDetailPage: React.FC = () => {
         title="수강생 내보내기"
         open={isExportModalVisible}
         onCancel={() => setIsExportModalVisible(false)}
-        footer={
-          <Space>
-            <Button onClick={() => setIsExportModalVisible(false)}>취소</Button>
-            <Button type="primary" icon={<DownloadOutlined />} onClick={() => handleExport('excel')}>
-              Excel 내보내기
-            </Button>
-            <Button icon={<DownloadOutlined />} onClick={() => handleExport('csv')}>
-              CSV 내보내기
-            </Button>
-          </Space>
-        }
+        width={320}
+        footer={null}
       >
-        <div style={{ marginBottom: 12 }}>
+        <div style={{
+          padding: '4px 0 8px',
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          marginBottom: 12,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
           <Checkbox
             checked={isAllSelected}
             indeterminate={selectedExportFields.length > 0 && !isAllSelected}
@@ -380,18 +380,56 @@ const CourseDetailPage: React.FC = () => {
           >
             전체 선택
           </Checkbox>
+          <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
+            {selectedExportFields.length}/{allFieldKeys.length}
+          </span>
         </div>
-        <Checkbox.Group
-          value={selectedExportFields}
-          onChange={(values) => setSelectedExportFields(values as string[])}
-          style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
-        >
-          {COURSE_STUDENT_EXPORT_FIELDS.map((field) => (
-            <Checkbox key={field.key} value={field.key}>
-              {field.label}
-            </Checkbox>
-          ))}
-        </Checkbox.Group>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 16 }}>
+          {COURSE_STUDENT_EXPORT_FIELDS.map((field) => {
+            const isChecked = selectedExportFields.includes(field.key);
+            return (
+              <div
+                key={field.key}
+                onClick={() => {
+                  setSelectedExportFields((prev) =>
+                    isChecked ? prev.filter((k: string) => k !== field.key) : [...prev, field.key]
+                  );
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '6px 8px',
+                  borderRadius: token.borderRadius,
+                  cursor: 'pointer',
+                  background: isChecked ? token.colorPrimaryBg : 'transparent',
+                }}
+              >
+                <Checkbox checked={isChecked} />
+                <span style={{ fontSize: 13 }}>{field.label}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button
+            type="primary"
+            icon={<FileExcelOutlined />}
+            onClick={() => handleExport('excel')}
+            block
+          >
+            Excel
+          </Button>
+          <Button
+            icon={<FileTextOutlined />}
+            onClick={() => handleExport('csv')}
+            block
+          >
+            CSV
+          </Button>
+        </div>
       </Modal>
     </div>
   );

@@ -9,21 +9,23 @@ import {
   Typography,
   Button,
   Tabs,
-  Dropdown,
   message,
   DatePicker,
   Space,
   Select,
+  Modal,
+  Checkbox,
   theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import type { MenuProps } from 'antd';
 import {
   DollarOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
   WarningOutlined,
   DownloadOutlined,
+  FileExcelOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { EXEMPT_COLOR } from '../config/styles';
 import { useCourseStore } from '../stores/courseStore';
@@ -31,7 +33,7 @@ import { useStudentStore } from '../stores/studentStore';
 import { useEnrollmentStore } from '../stores/enrollmentStore';
 import PaymentForm from '../components/payment/PaymentForm';
 import type { Enrollment } from '../types';
-import { exportRevenueToExcel, exportRevenueToCSV } from '../utils/export';
+import { exportRevenueToExcel, exportRevenueToCSV, REVENUE_EXPORT_FIELDS } from '../utils/export';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 
@@ -45,6 +47,8 @@ const RevenueManagementPage: React.FC = () => {
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
+  const [isExportModalVisible, setIsExportModalVisible] = useState(false);
+  const [selectedExportFields, setSelectedExportFields] = useState<string[]>(['courseName', 'studentName', 'fee', 'paidAmount', 'remainingAmount', 'paymentStatus']);
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
 
@@ -157,49 +161,33 @@ const RevenueManagementPage: React.FC = () => {
     }
   };
 
-  const handleExport = (type: 'excel' | 'csv-utf8' | 'csv-euckr') => {
+  const handleExport = (type: 'excel' | 'csv') => {
+    if (selectedExportFields.length === 0) {
+      message.warning('내보낼 필드를 1개 이상 선택해주세요.');
+      return;
+    }
+
     if (enrollments.length === 0) {
       message.warning('내보낼 수익 데이터가 없습니다');
       return;
     }
 
     try {
-      switch (type) {
-        case 'excel':
-          exportRevenueToExcel(enrollments, students, courses);
-          message.success('Excel 파일이 다운로드되었습니다');
-          break;
-        case 'csv-utf8':
-          exportRevenueToCSV(enrollments, students, courses, 'utf-8');
-          message.success('CSV 파일(UTF-8)이 다운로드되었습니다');
-          break;
-        case 'csv-euckr':
-          exportRevenueToCSV(enrollments, students, courses, 'euc-kr');
-          message.success('CSV 파일(EUC-KR)이 다운로드되었습니다');
-          break;
+      if (type === 'excel') {
+        exportRevenueToExcel(enrollments, students, courses, selectedExportFields);
+        message.success('Excel 파일이 다운로드되었습니다');
+      } else {
+        exportRevenueToCSV(enrollments, students, courses, 'utf-8', selectedExportFields);
+        message.success('CSV 파일이 다운로드되었습니다');
       }
+      setIsExportModalVisible(false);
     } catch (error) {
       message.error('파일 내보내기에 실패했습니다');
     }
   };
 
-  const exportMenuItems: MenuProps['items'] = [
-    {
-      key: 'excel',
-      label: 'Excel 파일 (.xlsx)',
-      onClick: () => handleExport('excel'),
-    },
-    {
-      key: 'csv-utf8',
-      label: 'CSV 파일 (UTF-8)',
-      onClick: () => handleExport('csv-utf8'),
-    },
-    {
-      key: 'csv-euckr',
-      label: 'CSV 파일 (EUC-KR)',
-      onClick: () => handleExport('csv-euckr'),
-    },
-  ];
+  const allRevenueFieldKeys = useMemo(() => REVENUE_EXPORT_FIELDS.map((f) => f.key), []);
+  const isAllRevenueSelected = selectedExportFields.length === allRevenueFieldKeys.length;
 
   const courseColumns: ColumnsType<typeof courseRevenueData[0]> = [
     {
@@ -416,9 +404,7 @@ const RevenueManagementPage: React.FC = () => {
               </Button>
             </Space>
             </div>
-            <Dropdown menu={{ items: exportMenuItems }} placement="bottomRight">
-              <Button icon={<DownloadOutlined />}>내보내기</Button>
-            </Dropdown>
+            <Button icon={<DownloadOutlined />} onClick={() => setIsExportModalVisible(true)}>내보내기</Button>
           </div>
 
           {/* 결제 상태 필터 */}
@@ -623,6 +609,80 @@ const RevenueManagementPage: React.FC = () => {
           courseFee={getCourseById(selectedEnrollment.courseId)?.fee || 0}
         />
       )}
+
+      <Modal
+        title="수익 현황 내보내기"
+        open={isExportModalVisible}
+        onCancel={() => setIsExportModalVisible(false)}
+        width={320}
+        footer={null}
+      >
+        <div style={{
+          padding: '4px 0 8px',
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          marginBottom: 12,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <Checkbox
+            checked={isAllRevenueSelected}
+            indeterminate={selectedExportFields.length > 0 && !isAllRevenueSelected}
+            onChange={(e) => setSelectedExportFields(e.target.checked ? allRevenueFieldKeys : [])}
+          >
+            전체 선택
+          </Checkbox>
+          <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
+            {selectedExportFields.length}/{allRevenueFieldKeys.length}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 16 }}>
+          {REVENUE_EXPORT_FIELDS.map((field) => {
+            const isChecked = selectedExportFields.includes(field.key);
+            return (
+              <div
+                key={field.key}
+                onClick={() => {
+                  setSelectedExportFields((prev) =>
+                    isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
+                  );
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '6px 8px',
+                  borderRadius: token.borderRadius,
+                  cursor: 'pointer',
+                  background: isChecked ? token.colorPrimaryBg : 'transparent',
+                }}
+              >
+                <Checkbox checked={isChecked} />
+                <span style={{ fontSize: 13 }}>{field.label}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button
+            type="primary"
+            icon={<FileExcelOutlined />}
+            onClick={() => handleExport('excel')}
+            block
+          >
+            Excel
+          </Button>
+          <Button
+            icon={<FileTextOutlined />}
+            onClick={() => handleExport('csv')}
+            block
+          >
+            CSV
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };
