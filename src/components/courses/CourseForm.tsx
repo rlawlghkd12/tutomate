@@ -129,7 +129,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
       onCancel={onClose}
       width={700}
       centered
-      styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
+      styles={{ body: { maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden' } }}
       footer={[
         <Button key="cancel" onClick={onClose}>
           취소
@@ -223,18 +223,17 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
         <Row gutter={16}>
           <Col span={12}>
             <Space wrap>
-              <Button size="small" onClick={() => form.setFieldsValue({ fee: 20000 })}>2만원</Button>
-              <Button size="small" onClick={() => form.setFieldsValue({ fee: 30000 })}>3만원</Button>
-              <Button size="small" onClick={() => form.setFieldsValue({ fee: 50000 })}>5만원</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ fee: (form.getFieldValue('fee') || 0) + 1000 })}>+1천원</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ fee: (form.getFieldValue('fee') || 0) + 5000 })}>+5천원</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ fee: (form.getFieldValue('fee') || 0) + 10000 })}>+1만원</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ fee: (form.getFieldValue('fee') || 0) + 50000 })}>+5만원</Button>
             </Space>
           </Col>
           <Col span={12}>
             <Space wrap>
-              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 15 })}>15명</Button>
-              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 20 })}>20명</Button>
-              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 25 })}>25명</Button>
-              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 30 })}>30명</Button>
-              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 35 })}>35명</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: (form.getFieldValue('maxStudents') || 0) + 1 })}>+1명</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: (form.getFieldValue('maxStudents') || 0) + 5 })}>+5명</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: (form.getFieldValue('maxStudents') || 0) + 10 })}>+10명</Button>
             </Space>
           </Col>
         </Row>

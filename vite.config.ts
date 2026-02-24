@@ -11,7 +11,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 3000, // Tauri 앱은 로컬이라 청크 크기 무관
   },
   server: {
-    port: 5173,
+    port: 3000,
   },
   optimizeDeps: {
     include: [

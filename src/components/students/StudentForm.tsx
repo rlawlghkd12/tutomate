@@ -307,6 +307,8 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
       open={visible}
       onCancel={onClose}
       width={600}
+      centered
+      styles={{ body: { maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden' } }}
       footer={[
         <Button key="cancel" onClick={onClose}>
           취소
