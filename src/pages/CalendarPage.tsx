@@ -147,6 +147,7 @@ const CalendarPage: React.FC = () => {
         onCancel={() => setIsModalVisible(false)}
         footer={null}
         width={700}
+        styles={{ body: { paddingBottom: 24 } }}
       >
         <List
           dataSource={selectedCourses}
@@ -184,7 +185,7 @@ const CalendarPage: React.FC = () => {
                 </Descriptions>
 
                 {course.schedule && (
-                  <div style={{ marginTop: 8, padding: 8, backgroundColor: token.colorBgLayout, borderRadius: 4 }}>
+                  <div style={{ marginTop: 8, padding: 8, backgroundColor: token.colorFillQuaternary, borderRadius: 4 }}>
                     <div style={{ fontSize: '12px', color: token.colorTextSecondary }}>
                       <strong>시작일:</strong> {course.schedule.startDate}
                       {course.schedule.totalSessions && ` (총 ${course.schedule.totalSessions}회)`}

@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
-import { Modal, Form, Select, InputNumber, Button, message, Space, Input, Row, Col, theme } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Modal, Form, Select, InputNumber, Button, message, Space, Input, Row, Col, Radio, theme } from 'antd';
 import dayjs from 'dayjs';
-import type { Student, EnrollmentFormData } from '../../types';
+import type { Student, EnrollmentFormData, PaymentMethod } from '../../types';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import { useCourseStore } from '../../stores/courseStore';
 import { useLicenseStore } from '../../stores/licenseStore';
@@ -21,10 +21,20 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
   const { addEnrollment, enrollments } = useEnrollmentStore();
   const { courses, getCourseById } = useCourseStore();
   const { getPlan, getLimit } = useLicenseStore();
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [isExempt, setIsExempt] = useState(false);
+
+  const selectedCourse = selectedCourseId ? getCourseById(selectedCourseId) : null;
+  const courseFee = selectedCourse?.fee || 0;
+  const effectiveFee = courseFee - discountAmount;
 
   useEffect(() => {
     if (visible) {
       form.resetFields();
+      setSelectedCourseId(null);
+      setDiscountAmount(0);
+      setIsExempt(false);
     }
   }, [visible, form]);
 
@@ -67,12 +77,16 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
         }
       }
 
-      const paidAmount = values.paidAmount || 0;
+      const paidAmount = isExempt ? 0 : (values.paidAmount || 0);
+      const discount = values.discountAmount || 0;
+      const effFee = course.fee - discount;
 
-      let paymentStatus: 'pending' | 'partial' | 'completed' = 'pending';
-      if (paidAmount === 0) {
+      let paymentStatus: 'pending' | 'partial' | 'completed' | 'exempt' = 'pending';
+      if (isExempt) {
+        paymentStatus = 'exempt';
+      } else if (paidAmount === 0) {
         paymentStatus = 'pending';
-      } else if (paidAmount < course.fee) {
+      } else if (paidAmount < effFee) {
         paymentStatus = 'partial';
       } else {
         paymentStatus = 'completed';
@@ -83,7 +97,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
         studentId: student.id,
         paymentStatus,
         paidAmount,
-        paidAt: paidAmount > 0 ? dayjs().format('YYYY-MM-DD') : undefined,
+        paidAt: (paidAmount > 0 || isExempt) ? dayjs().format('YYYY-MM-DD') : undefined,
+        paymentMethod: values.paymentMethod,
+        discountAmount: discount,
         notes: values.notes,
       };
 
@@ -91,6 +107,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
       message.success('강좌 신청이 완료되었습니다.');
 
       form.resetFields();
+      setSelectedCourseId(null);
+      setDiscountAmount(0);
+      setIsExempt(false);
       onClose();
     } catch (error) {
       console.error('Validation failed:', error);
@@ -99,8 +118,32 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
 
   const handleCourseChange = (courseId: string) => {
     const course = getCourseById(courseId);
+    setSelectedCourseId(courseId);
+    setDiscountAmount(0);
+    setIsExempt(false);
     if (course) {
-      form.setFieldsValue({ paidAmount: course.fee });
+      form.setFieldsValue({ paidAmount: course.fee, discountAmount: 0 });
+    }
+  };
+
+  const handleDiscountChange = (value: number | null) => {
+    const discount = value || 0;
+    setDiscountAmount(discount);
+    // 할인 적용 후 납부금액이 할인된 수강료 초과하면 조정
+    const currentPaid = form.getFieldValue('paidAmount') || 0;
+    const newEffectiveFee = courseFee - discount;
+    if (currentPaid > newEffectiveFee) {
+      form.setFieldsValue({ paidAmount: newEffectiveFee });
+    }
+  };
+
+  const handleExemptToggle = () => {
+    const newExempt = !isExempt;
+    setIsExempt(newExempt);
+    if (newExempt) {
+      form.setFieldsValue({ paidAmount: 0 });
+    } else {
+      form.setFieldsValue({ paidAmount: effectiveFee });
     }
   };
 
@@ -109,7 +152,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
       title={`강좌 신청 - ${student?.name || ''}`}
       open={visible}
       onCancel={onClose}
-      width={500}
+      width={520}
+      style={{ top: 40, paddingBottom: 40 }}
       footer={[
         <Button key="cancel" onClick={onClose}>
           취소
@@ -120,40 +164,83 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
       ]}
     >
       <Form form={form} layout="vertical">
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              name="courseId"
-              label="강좌 선택"
-              rules={[{ required: true, message: '강좌를 선택하세요' }]}
-            >
-              <Select
-                placeholder="강좌를 선택하세요"
-                onChange={handleCourseChange}
-                showSearch
-                optionFilterProp="children"
-              >
-                {courses.map((course) => {
-                  const currentCount = enrollments.filter(e => e.courseId === course.id).length;
-                  const trialLimit = getPlan() === 'trial' ? getLimit('maxStudentsPerCourse') : Infinity;
-                  const effectiveMax = Math.min(course.maxStudents, trialLimit);
-                  const isFull = currentCount >= effectiveMax;
-                  const isEnrolled = enrollments.some(e => e.studentId === student?.id && e.courseId === course.id);
-                  const isDisabled = isFull || isEnrolled;
-                  return (
-                    <Option key={course.id} value={course.id} disabled={isDisabled}>
-                      <span style={isEnrolled ? { textDecoration: 'line-through', color: token.colorTextQuaternary } : undefined}>
-                        {course.name} (₩{course.fee.toLocaleString()}) - {currentCount}/{course.maxStudents}명
-                        {isEnrolled && ' [수강중]'}
-                        {isFull && !isEnrolled && ' [정원 마감]'}
-                      </span>
-                    </Option>
-                  );
-                })}
-              </Select>
-            </Form.Item>
-          </Col>
-          <Col span={12}>
+        {/* 강좌 선택 */}
+        <Form.Item
+          name="courseId"
+          label="강좌 선택"
+          rules={[{ required: true, message: '강좌를 선택하세요' }]}
+        >
+          <Select
+            placeholder="강좌를 선택하세요"
+            onChange={handleCourseChange}
+            showSearch
+            optionFilterProp="label"
+          >
+            {courses.map((course) => {
+              const currentCount = enrollments.filter(e => e.courseId === course.id).length;
+              const trialLimit = getPlan() === 'trial' ? getLimit('maxStudentsPerCourse') : Infinity;
+              const effectiveMax = Math.min(course.maxStudents, trialLimit);
+              const isFull = currentCount >= effectiveMax;
+              const isEnrolled = enrollments.some(e => e.studentId === student?.id && e.courseId === course.id);
+              const isDisabled = isFull || isEnrolled;
+              const label = `${course.name} (₩${course.fee.toLocaleString()}) - ${currentCount}/${course.maxStudents}명`;
+              return (
+                <Option key={course.id} value={course.id} disabled={isDisabled} label={label}>
+                  <span style={isEnrolled ? { textDecoration: 'line-through', color: token.colorTextQuaternary } : undefined}>
+                    {label}
+                    {isEnrolled && ' [수강중]'}
+                    {isFull && !isEnrolled && ' [정원 마감]'}
+                  </span>
+                </Option>
+              );
+            })}
+          </Select>
+        </Form.Item>
+
+        {selectedCourseId && (
+          <>
+            {/* 할인 + 면제 */}
+            <Row gutter={16} align="middle">
+              <Col flex="auto">
+                <Form.Item name="discountAmount" label="할인 금액" initialValue={0}>
+                  <InputNumber
+                    style={{ width: '100%' }}
+                    min={0}
+                    max={courseFee}
+                    placeholder="0"
+                    formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                    parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, '')) || 0) as any}
+                    onChange={handleDiscountChange}
+                    disabled={isExempt}
+                  />
+                </Form.Item>
+              </Col>
+              <Col>
+                <Form.Item label=" ">
+                  <Button
+                    type={isExempt ? 'primary' : 'default'}
+                    danger={isExempt}
+                    onClick={handleExemptToggle}
+                  >
+                    {isExempt ? '면제 해제' : '면제'}
+                  </Button>
+                </Form.Item>
+              </Col>
+            </Row>
+
+            {discountAmount > 0 && !isExempt && (
+              <div style={{ marginTop: -12, marginBottom: 16, fontSize: 12, color: token.colorSuccess }}>
+                할인 적용 수강료: ₩{effectiveFee.toLocaleString()}
+              </div>
+            )}
+
+            {isExempt && (
+              <div style={{ marginTop: -12, marginBottom: 16, padding: 8, backgroundColor: token.colorWarningBg, borderRadius: token.borderRadius, fontSize: 12 }}>
+                면제 처리됩니다. 수익에 포함되지 않습니다.
+              </div>
+            )}
+
+            {/* 납부 금액 */}
             <Form.Item
               name="paidAmount"
               label="납부 금액"
@@ -163,21 +250,30 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ visible, onClose, stude
               <InputNumber
                 style={{ width: '100%' }}
                 min={0}
+                max={effectiveFee}
                 placeholder="30000"
                 formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                 parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, '')) || 0) as any}
+                disabled={isExempt}
               />
             </Form.Item>
-          </Col>
-        </Row>
 
-        <Space wrap style={{ marginBottom: 16 }}>
-          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 20000 })}>2만원</Button>
-          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 30000 })}>3만원</Button>
-          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 40000 })}>4만원</Button>
-          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 60000 })}>6만원</Button>
-          <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 90000 })}>9만원</Button>
-        </Space>
+            <Space wrap style={{ marginBottom: 16 }}>
+              <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: effectiveFee })} disabled={isExempt}>완납</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: Math.floor(effectiveFee / 2) })} disabled={isExempt}>절반</Button>
+              <Button size="small" onClick={() => form.setFieldsValue({ paidAmount: 0 })} disabled={isExempt}>미납</Button>
+            </Space>
+
+            {/* 납부 방법 */}
+            <Form.Item name="paymentMethod" label="납부 방법">
+              <Radio.Group disabled={isExempt}>
+                <Radio.Button value="cash">현금</Radio.Button>
+                <Radio.Button value="card">카드</Radio.Button>
+                <Radio.Button value="transfer">계좌이체</Radio.Button>
+              </Radio.Group>
+            </Form.Item>
+          </>
+        )}
 
         <Form.Item name="notes" label="메모">
           <TextArea rows={2} placeholder="추가 정보를 입력하세요" />

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Form, InputNumber, Button, message, Space, Radio, Divider, theme } from 'antd';
-import type { Enrollment } from '../../types';
+import type { Enrollment, PaymentMethod } from '../../types';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import { FLEX_BETWEEN } from '../../config/styles';
 
@@ -23,6 +23,7 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
   const [form] = Form.useForm();
   const { updatePayment } = useEnrollmentStore();
   const [paymentType, setPaymentType] = useState<'fixed' | 'ratio'>('fixed');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(undefined);
 
   const totalSelectedStudents = enrollments.length;
   const totalExpectedAmount = totalSelectedStudents * courseFee;
@@ -44,7 +45,7 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
       // 각 수강생에게 납부 금액 추가
       for (const enrollment of enrollments) {
         const newPaidAmount = enrollment.paidAmount + amountPerStudent;
-        await updatePayment(enrollment.id, newPaidAmount, courseFee);
+        await updatePayment(enrollment.id, newPaidAmount, courseFee, undefined, false, paymentMethod);
       }
 
       message.success(`${totalSelectedStudents}명의 납부 정보가 업데이트되었습니다.`);
@@ -69,9 +70,10 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
         </Button>,
       ]}
       width={600}
+      styles={{ body: { paddingBottom: 24 } }}
     >
       <Form form={form} layout="vertical">
-        <div style={{ marginBottom: 16, padding: 12, backgroundColor: token.colorBgLayout, borderRadius: 4 }}>
+        <div style={{ marginBottom: 16, padding: 12, backgroundColor: token.colorFillQuaternary, borderRadius: 4 }}>
           <Space direction="vertical" size="small" style={{ width: '100%' }}>
             <div style={FLEX_BETWEEN}>
               <span>선택된 수강생:</span>
@@ -175,6 +177,15 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
             </Space>
           </>
         )}
+
+        <Form.Item label="납부 방법">
+          <Radio.Group value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+            <Radio.Button value={undefined}>미지정</Radio.Button>
+            <Radio.Button value="cash">현금</Radio.Button>
+            <Radio.Button value="card">카드</Radio.Button>
+            <Radio.Button value="transfer">계좌이체</Radio.Button>
+          </Radio.Group>
+        </Form.Item>
 
         <div style={{ padding: 12, backgroundColor: token.colorInfoBg, borderRadius: 4, border: `1px solid ${token.colorInfoBorder}` }}>
           <Space direction="vertical" size="small" style={{ width: '100%' }}>

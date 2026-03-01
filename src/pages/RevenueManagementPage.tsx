@@ -26,13 +26,16 @@ import {
   DownloadOutlined,
   FileExcelOutlined,
   FileTextOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons';
 import { EXEMPT_COLOR } from '../config/styles';
 import { useCourseStore } from '../stores/courseStore';
 import { useStudentStore } from '../stores/studentStore';
 import { useEnrollmentStore } from '../stores/enrollmentStore';
+import { useMonthlyPaymentStore } from '../stores/monthlyPaymentStore';
 import PaymentForm from '../components/payment/PaymentForm';
-import type { Enrollment } from '../types';
+import type { Enrollment, PaymentMethod } from '../types';
+import { PAYMENT_METHOD_LABELS } from '../types';
 import { exportRevenueToExcel, exportRevenueToCSV, REVENUE_EXPORT_FIELDS } from '../utils/export';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
@@ -44,6 +47,7 @@ const RevenueManagementPage: React.FC = () => {
   const { courses, loadCourses, getCourseById } = useCourseStore();
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
+  const { payments: monthlyPayments, loadPayments } = useMonthlyPaymentStore();
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
@@ -52,11 +56,14 @@ const RevenueManagementPage: React.FC = () => {
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
 
+  const [selectedMonthForRevenue, setSelectedMonthForRevenue] = useState<string>(dayjs().format('YYYY-MM'));
+
   useEffect(() => {
     loadCourses();
     loadStudents();
     loadEnrollments();
-  }, [loadCourses, loadStudents, loadEnrollments]);
+    loadPayments();
+  }, [loadCourses, loadStudents, loadEnrollments, loadPayments]);
 
   // 날짜 범위 및 결제 상태에 따라 필터링된 수강 신청 목록
   const filteredEnrollments = useMemo(() => {
@@ -132,8 +139,40 @@ const RevenueManagementPage: React.FC = () => {
         studentPhone: student?.phone || '-',
         courseName: course?.name || '-',
         courseFee: course?.fee || 0,
+        paymentMethod: enrollment.paymentMethod,
+        discountAmount: enrollment.discountAmount ?? 0,
       };
     }), [filteredEnrollments, getStudentById, getCourseById]);
+
+  // 월별 납부 현황 (강좌별)
+  const monthlyRevenueData = useMemo(() => {
+    const monthPayments = monthlyPayments.filter((p) => p.month === selectedMonthForRevenue);
+
+    return courses.map((course) => {
+      const courseEnrollments = enrollments.filter((e) => e.courseId === course.id);
+      const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
+      const courseMonthPayments = monthPayments.filter((mp) =>
+        courseEnrollments.some((e) => e.id === mp.enrollmentId),
+      );
+      const paidCount = courseMonthPayments.filter((p) => p.status === 'paid').length;
+      const monthRevenue = courseMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+      const monthExpected = nonExemptEnrollments.length * course.fee;
+
+      return {
+        courseId: course.id,
+        courseName: course.name,
+        studentCount: courseEnrollments.length,
+        paidCount,
+        unpaidCount: nonExemptEnrollments.length - paidCount,
+        monthRevenue,
+        monthExpected,
+        collectionRate: monthExpected > 0 ? (monthRevenue / monthExpected) * 100 : 0,
+      };
+    }).filter((d) => d.studentCount > 0);
+  }, [courses, enrollments, monthlyPayments, selectedMonthForRevenue]);
+
+  const monthlyTotalRevenue = useMemo(() => monthlyRevenueData.reduce((sum, d) => sum + d.monthRevenue, 0), [monthlyRevenueData]);
+  const monthlyTotalExpected = useMemo(() => monthlyRevenueData.reduce((sum, d) => sum + d.monthExpected, 0), [monthlyRevenueData]);
 
   const handlePaymentEdit = (enrollment: Enrollment) => {
     setSelectedEnrollment(enrollment);
@@ -292,6 +331,25 @@ const RevenueManagementPage: React.FC = () => {
       sorter: (a, b) => (a.paidAt || '').localeCompare(b.paidAt || ''),
     },
     {
+      title: '납부 방법',
+      dataIndex: 'paymentMethod',
+      key: 'paymentMethod',
+      render: (method: PaymentMethod | undefined) => method ? PAYMENT_METHOD_LABELS[method] : '-',
+      filters: [
+        { text: '현금', value: 'cash' },
+        { text: '카드', value: 'card' },
+        { text: '계좌이체', value: 'transfer' },
+      ],
+      onFilter: (value, record) => record.paymentMethod === value,
+    },
+    {
+      title: '할인',
+      dataIndex: 'discountAmount',
+      key: 'discountAmount',
+      render: (amount: number) => amount > 0 ? <span style={{ color: token.colorSuccess }}>-₩{amount.toLocaleString()}</span> : '-',
+      sorter: (a, b) => (a.discountAmount ?? 0) - (b.discountAmount ?? 0),
+    },
+    {
       title: '잔여 금액',
       dataIndex: 'remainingAmount',
       key: 'remainingAmount',
@@ -312,6 +370,66 @@ const RevenueManagementPage: React.FC = () => {
       ),
     },
   ];
+
+  const monthlyRevenueColumns: ColumnsType<typeof monthlyRevenueData[0]> = [
+    {
+      title: '강좌명',
+      dataIndex: 'courseName',
+      key: 'courseName',
+    },
+    {
+      title: '수강생',
+      dataIndex: 'studentCount',
+      key: 'studentCount',
+      width: 80,
+    },
+    {
+      title: '납부',
+      dataIndex: 'paidCount',
+      key: 'paidCount',
+      width: 70,
+      render: (count) => <span style={{ color: token.colorSuccess }}>{count}명</span>,
+    },
+    {
+      title: '미납',
+      dataIndex: 'unpaidCount',
+      key: 'unpaidCount',
+      width: 70,
+      render: (count) => <span style={{ color: count > 0 ? token.colorError : token.colorSuccess }}>{count}명</span>,
+    },
+    {
+      title: '월 수익',
+      dataIndex: 'monthRevenue',
+      key: 'monthRevenue',
+      render: (val) => `₩${val.toLocaleString()}`,
+      sorter: (a, b) => a.monthRevenue - b.monthRevenue,
+    },
+    {
+      title: '예상 수익',
+      dataIndex: 'monthExpected',
+      key: 'monthExpected',
+      render: (val) => `₩${val.toLocaleString()}`,
+    },
+    {
+      title: '수납률',
+      dataIndex: 'collectionRate',
+      key: 'collectionRate',
+      render: (rate) => (
+        <span style={{ color: rate >= 100 ? token.colorSuccess : rate >= 50 ? token.colorWarning : token.colorError }}>
+          {rate.toFixed(1)}%
+        </span>
+      ),
+      sorter: (a, b) => a.collectionRate - b.collectionRate,
+    },
+  ];
+
+  const revenueMonths = useMemo(() => {
+    const result: string[] = [];
+    for (let i = -6; i <= 6; i++) {
+      result.push(dayjs().add(i, 'month').format('YYYY-MM'));
+    }
+    return result;
+  }, []);
 
   const tabItems = [
     {
@@ -338,6 +456,62 @@ const RevenueManagementPage: React.FC = () => {
           pagination={false}
           size="small"
         />
+      ),
+    },
+    {
+      key: '3',
+      label: <span><CalendarOutlined /> 월별 납부 현황</span>,
+      children: (
+        <div>
+          <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
+            <Col>
+              <Space>
+                <Select
+                  value={selectedMonthForRevenue}
+                  onChange={setSelectedMonthForRevenue}
+                  style={{ width: 140 }}
+                >
+                  {revenueMonths.map((m) => (
+                    <Select.Option key={m} value={m}>
+                      {dayjs(m + '-01').format('YYYY년 M월')}
+                    </Select.Option>
+                  ))}
+                </Select>
+                <Button
+                  size="small"
+                  onClick={() => setSelectedMonthForRevenue(dayjs().format('YYYY-MM'))}
+                >
+                  이번 달
+                </Button>
+              </Space>
+            </Col>
+            <Col flex="auto" style={{ textAlign: 'right' }}>
+              <Space size="large">
+                <div>
+                  <span style={{ fontSize: 12, color: token.colorTextSecondary }}>월 수익: </span>
+                  <span style={{ fontWeight: 600, color: token.colorSuccess }}>₩{monthlyTotalRevenue.toLocaleString()}</span>
+                </div>
+                <div>
+                  <span style={{ fontSize: 12, color: token.colorTextSecondary }}>예상: </span>
+                  <span style={{ fontWeight: 600 }}>₩{monthlyTotalExpected.toLocaleString()}</span>
+                </div>
+                <div>
+                  <span style={{ fontSize: 12, color: token.colorTextSecondary }}>수납률: </span>
+                  <span style={{ fontWeight: 600, color: monthlyTotalExpected > 0 && monthlyTotalRevenue < monthlyTotalExpected ? token.colorError : token.colorSuccess }}>
+                    {monthlyTotalExpected > 0 ? Math.round((monthlyTotalRevenue / monthlyTotalExpected) * 100) : 0}%
+                  </span>
+                </div>
+              </Space>
+            </Col>
+          </Row>
+          <Table
+            columns={monthlyRevenueColumns}
+            dataSource={monthlyRevenueData}
+            rowKey="courseId"
+            pagination={false}
+            size="small"
+          />
+        </div>
       ),
     },
   ];
@@ -616,6 +790,7 @@ const RevenueManagementPage: React.FC = () => {
         onCancel={() => setIsExportModalVisible(false)}
         width={320}
         footer={null}
+        styles={{ body: { paddingBottom: 24 } }}
       >
         <div style={{
           padding: '4px 0 8px',

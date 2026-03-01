@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
   Table,
+  Tabs,
   Tag,
   Button,
   Space,
@@ -28,6 +29,8 @@ import {
   DownloadOutlined,
   FileExcelOutlined,
   FileTextOutlined,
+  CalendarOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import { useCourseStore } from '../stores/courseStore';
 import { useStudentStore } from '../stores/studentStore';
@@ -35,6 +38,8 @@ import { useEnrollmentStore } from '../stores/enrollmentStore';
 import type { Enrollment } from '../types';
 import PaymentForm from '../components/payment/PaymentForm';
 import BulkPaymentForm from '../components/payment/BulkPaymentForm';
+import MonthlyPaymentTable from '../components/payment/MonthlyPaymentTable';
+import { useMonthlyPaymentStore } from '../stores/monthlyPaymentStore';
 import {
   exportCourseStudentsToExcel,
   exportCourseStudentsToCSV,
@@ -50,6 +55,7 @@ const CourseDetailPage: React.FC = () => {
   const { getCourseById, loadCourses } = useCourseStore();
   const { loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments, deleteEnrollment } = useEnrollmentStore();
+  const { loadPayments } = useMonthlyPaymentStore();
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
@@ -58,11 +64,14 @@ const CourseDetailPage: React.FC = () => {
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState<string[]>(DEFAULT_EXPORT_FIELDS);
 
+  const [activeTab, setActiveTab] = useState<string>('students');
+
   useEffect(() => {
     loadCourses();
     loadStudents();
     loadEnrollments();
-  }, [loadCourses, loadStudents, loadEnrollments]);
+    loadPayments();
+  }, [loadCourses, loadStudents, loadEnrollments, loadPayments]);
 
   if (!id) {
     return <div>강좌를 찾을 수 없습니다.</div>;
@@ -177,6 +186,27 @@ const CourseDetailPage: React.FC = () => {
       key: 'remainingAmount',
       render: (_, record) => `₩${record.remainingAmount.toLocaleString()}`,
       sorter: (a, b) => a.remainingAmount - b.remainingAmount,
+    },
+    {
+      title: '할인',
+      key: 'discountAmount',
+      render: (_, record) => (record.discountAmount ?? 0) > 0 ? <span style={{ color: token.colorSuccess }}>-₩{record.discountAmount.toLocaleString()}</span> : '-',
+      sorter: (a, b) => (a.discountAmount ?? 0) - (b.discountAmount ?? 0),
+    },
+    {
+      title: '납부 방법',
+      key: 'paymentMethod',
+      render: (_, record) => {
+        if (!record.paymentMethod) return '-';
+        const labels: Record<string, string> = { cash: '현금', card: '카드', transfer: '계좌이체' };
+        return labels[record.paymentMethod] || '-';
+      },
+      filters: [
+        { text: '현금', value: 'cash' },
+        { text: '카드', value: 'card' },
+        { text: '계좌이체', value: 'transfer' },
+      ],
+      onFilter: (value, record) => record.paymentMethod === value,
     },
     {
       title: '납부일자',
@@ -313,28 +343,52 @@ const CourseDetailPage: React.FC = () => {
         </Col>
       </Row>
 
-      {selectedRowKeys.length > 0 && (
-        <div style={{ marginBottom: 16, padding: 12, backgroundColor: token.colorInfoBg, borderRadius: 4 }}>
-          <Space>
-            <span>{selectedRowKeys.length}명 선택됨</span>
-            <Button
-              type="primary"
-              onClick={() => setIsBulkPaymentModalVisible(true)}
-            >
-              일괄 납부 처리
-            </Button>
-            <Button onClick={() => setSelectedRowKeys([])}>선택 해제</Button>
-          </Space>
-        </div>
-      )}
-
-      <Table
-        columns={columns}
-        dataSource={enrolledStudents}
-        rowKey="id"
-        pagination={false}
-        size="small"
-        rowSelection={rowSelection}
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            key: 'students',
+            label: <span><TeamOutlined /> 수강생 관리</span>,
+            children: (
+              <>
+                {selectedRowKeys.length > 0 && (
+                  <div style={{ marginBottom: 16, padding: 12, backgroundColor: token.colorInfoBg, borderRadius: 4 }}>
+                    <Space>
+                      <span>{selectedRowKeys.length}명 선택됨</span>
+                      <Button
+                        type="primary"
+                        onClick={() => setIsBulkPaymentModalVisible(true)}
+                      >
+                        일괄 납부 처리
+                      </Button>
+                      <Button onClick={() => setSelectedRowKeys([])}>선택 해제</Button>
+                    </Space>
+                  </div>
+                )}
+                <Table
+                  columns={columns}
+                  dataSource={enrolledStudents}
+                  rowKey="id"
+                  pagination={false}
+                  size="small"
+                  rowSelection={rowSelection}
+                />
+              </>
+            ),
+          },
+          {
+            key: 'monthly',
+            label: <span><CalendarOutlined /> 월별 납부</span>,
+            children: (
+              <MonthlyPaymentTable
+                courseId={id}
+                courseFee={course.fee}
+                enrollments={courseEnrollments}
+              />
+            ),
+          },
+        ]}
       />
 
       <PaymentForm
@@ -363,6 +417,7 @@ const CourseDetailPage: React.FC = () => {
         open={isExportModalVisible}
         onCancel={() => setIsExportModalVisible(false)}
         width={320}
+        styles={{ body: { paddingBottom: 24 } }}
         footer={null}
       >
         <div style={{

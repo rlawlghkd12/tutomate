@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Form, Input, Button, message, Row, Col, Select, InputNumber, Space, Tag, AutoComplete, Alert, theme } from 'antd';
+import { Modal, Form, Input, Button, message, Row, Col, Select, InputNumber, Space, Tag, AutoComplete, Alert, Radio, theme } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
-import type { Student, StudentFormData } from '../../types';
+import type { Student, StudentFormData, PaymentMethod } from '../../types';
+import { PAYMENT_METHOD_LABELS } from '../../types';
 import { useStudentStore } from '../../stores/studentStore';
 import { useCourseStore } from '../../stores/courseStore';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
@@ -16,6 +17,8 @@ interface CoursePayment {
   courseId: string;
   paidAmount: number;
   isExempt: boolean;
+  paymentMethod?: PaymentMethod;
+  discountAmount: number;
 }
 
 interface StudentFormProps {
@@ -54,6 +57,8 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
         courseId: e.courseId,
         paidAmount: e.paidAmount,
         isExempt: e.paymentStatus === 'exempt',
+        paymentMethod: e.paymentMethod,
+        discountAmount: e.discountAmount ?? 0,
       }));
       setCoursePayments(payments);
       setSelectedExistingStudent(null);
@@ -115,6 +120,8 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
       courseId: e.courseId,
       paidAmount: e.paidAmount,
       isExempt: e.paymentStatus === 'exempt',
+      paymentMethod: e.paymentMethod,
+      discountAmount: e.discountAmount ?? 0,
     })));
 
     message.info(`기존 수강생 "${existing.name}"님의 정보를 불러왔습니다.`);
@@ -154,7 +161,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
   const handleAddCourse = (courseId: string) => {
     const course = getCourseById(courseId);
     if (course && !coursePayments.find(cp => cp.courseId === courseId)) {
-      setCoursePayments([...coursePayments, { courseId, paidAmount: course.fee, isExempt: false }]);
+      setCoursePayments([...coursePayments, { courseId, paidAmount: course.fee, isExempt: false, discountAmount: 0 }]);
     }
     setCourseSelectKey(k => k + 1);
   };
@@ -176,10 +183,24 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
     ));
   }, []);
 
+  const handlePaymentMethodChange = useCallback((courseId: string, method: PaymentMethod) => {
+    setCoursePayments(prev => prev.map(cp =>
+      cp.courseId === courseId ? { ...cp, paymentMethod: method } : cp
+    ));
+  }, []);
+
+  const handleDiscountChange = useCallback((courseId: string, discount: number) => {
+    setCoursePayments(prev => prev.map(cp => {
+      if (cp.courseId !== courseId) return cp;
+      return { ...cp, discountAmount: discount };
+    }));
+  }, []);
+
   const getPaymentStatus = (cp: CoursePayment, fee: number): 'pending' | 'partial' | 'completed' | 'exempt' => {
     if (cp.isExempt) return 'exempt';
+    const effectiveFee = fee - (cp.discountAmount || 0);
     if (cp.paidAmount === 0) return 'pending';
-    if (cp.paidAmount < fee) return 'partial';
+    if (cp.paidAmount < effectiveFee) return 'partial';
     return 'completed';
   };
 
@@ -212,15 +233,19 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
 
           const existing = existingEnrollments.find(e => e.courseId === cp.courseId);
           const newStatus = getPaymentStatus(cp, course.fee);
+          const effectiveFee = course.fee - (cp.discountAmount || 0);
           if (existing) {
             const existingIsExempt = existing.paymentStatus === 'exempt';
-            if (existing.paidAmount !== cp.paidAmount || existingIsExempt !== cp.isExempt) {
+            if (existing.paidAmount !== cp.paidAmount || existingIsExempt !== cp.isExempt ||
+                existing.paymentMethod !== cp.paymentMethod || (existing.discountAmount ?? 0) !== cp.discountAmount) {
               const hasPaid = !cp.isExempt && cp.paidAmount > 0;
               await updateEnrollment(existing.id, {
                 paidAmount: cp.isExempt ? 0 : cp.paidAmount,
-                remainingAmount: cp.isExempt ? 0 : course.fee - cp.paidAmount,
+                remainingAmount: cp.isExempt ? 0 : effectiveFee - cp.paidAmount,
                 paymentStatus: newStatus,
                 paidAt: hasPaid ? dayjs().format('YYYY-MM-DD') : undefined,
+                paymentMethod: cp.paymentMethod,
+                discountAmount: cp.discountAmount,
               });
             }
           } else {
@@ -231,6 +256,8 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
               paidAmount: cp.isExempt ? 0 : cp.paidAmount,
               paymentStatus: newStatus,
               paidAt: hasPaidNew ? dayjs().format('YYYY-MM-DD') : undefined,
+              paymentMethod: cp.paymentMethod,
+              discountAmount: cp.discountAmount,
             });
           }
         }
@@ -264,6 +291,8 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
                 paidAmount: cp.isExempt ? 0 : cp.paidAmount,
                 paymentStatus: getPaymentStatus(cp, course.fee),
                 paidAt: hasPaidInit ? dayjs().format('YYYY-MM-DD') : undefined,
+                paymentMethod: cp.paymentMethod,
+                discountAmount: cp.discountAmount,
               });
             }
           }
@@ -283,30 +312,32 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
     }
   };
 
-  // 선택 가능한 강좌 (이미 선택된 것 제외 + 정원 체크 + 체험판 제한)
-  const availableCourses = courses.filter(course => {
-    const isSelected = coursePayments.some(cp => cp.courseId === course.id);
-    if (isSelected) return false;
+  // 강좌 상태 확인 함수
+  const getCourseStatus = (courseId: string) => {
+    const isSelected = coursePayments.some(cp => cp.courseId === courseId);
+    const count = enrollments.filter(e => e.courseId === courseId).length;
+    const course = getCourseById(courseId);
+    if (!course) return { isDisabled: true, label: '' };
 
-    const count = enrollments.filter(e => e.courseId === course.id).length;
     const maxStudentsLimit = getPlan() === 'trial' ? getLimit('maxStudentsPerCourse') : course.maxStudents;
     const effectiveMax = Math.min(course.maxStudents, maxStudentsLimit);
     const isFull = count >= effectiveMax;
 
-    // 수정 모드일 때 현재 학생이 이미 등록된 강좌는 표시
-    const isCurrentlyEnrolled = editingStudent
-      ? enrollments.some(e => e.courseId === course.id && e.studentId === editingStudent.id)
-      : false;
-
-    return !isFull || isCurrentlyEnrolled;
-  });
+    return {
+      isSelected,
+      isFull: isFull && !isSelected,
+      isDisabled: isSelected || isFull,
+      count,
+    };
+  };
 
   return (
     <Modal
       title={editingStudent ? '수강생 정보 수정' : '수강생 등록'}
       open={visible}
       onCancel={onClose}
-      width={600}
+      width={640}
+      style={{ top: 40, paddingBottom: 40 }}
       footer={[
         <Button key="cancel" onClick={onClose}>
           취소
@@ -398,13 +429,24 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
             placeholder="강좌를 선택하세요"
             onChange={handleAddCourse}
             showSearch
-            optionFilterProp="children"
+            optionFilterProp="label"
           >
-            {availableCourses.map(course => {
-              const count = enrollments.filter(e => e.courseId === course.id).length;
+            {courses.map(course => {
+              const status = getCourseStatus(course.id);
+              const count = status.count ?? enrollments.filter(e => e.courseId === course.id).length;
+              const label = `${course.name} (₩${course.fee.toLocaleString()}) - ${count}/${course.maxStudents}명`;
               return (
-                <Option key={course.id} value={course.id}>
-                  {course.name} (₩{course.fee.toLocaleString()}) - {count}/{course.maxStudents}명
+                <Option
+                  key={course.id}
+                  value={course.id}
+                  disabled={status.isDisabled}
+                  label={label}
+                >
+                  <span style={status.isSelected ? { textDecoration: 'line-through', color: token.colorTextQuaternary } : undefined}>
+                    {label}
+                    {status.isSelected && ' [선택됨]'}
+                    {status.isFull && ' [정원 마감]'}
+                  </span>
                 </Option>
               );
             })}
@@ -412,38 +454,64 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
         </Form.Item>
 
         {coursePayments.length > 0 && (
-          <div style={{ marginBottom: 16, padding: 12, backgroundColor: token.colorBgLayout, borderRadius: token.borderRadius }}>
+          <div style={{ marginBottom: 16, padding: 12, backgroundColor: token.colorFillQuaternary, borderRadius: token.borderRadius }}>
             <div style={{ marginBottom: 8, fontWeight: 500 }}>선택된 강좌</div>
             {coursePayments.map(cp => {
               const course = getCourseById(cp.courseId);
               if (!course) return null;
+              const effectiveFee = course.fee - (cp.discountAmount || 0);
               return (
-                <div key={cp.courseId} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                  <div style={{ flex: 1, minWidth: 120 }}>
-                    <div>{course.name}</div>
-                    {cp.isExempt ? (
-                      <Tag color="purple">면제</Tag>
-                    ) : (
-                      <Tag color="blue">₩{course.fee.toLocaleString()}</Tag>
-                    )}
+                <div key={cp.courseId} style={{ marginBottom: 12, padding: 10, backgroundColor: token.colorBgContainer, borderRadius: token.borderRadius, border: `1px solid ${token.colorBorderSecondary}` }}>
+                  {/* 1행: 강좌명 + 금액 + 삭제 */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div>
+                      <span style={{ fontWeight: 500 }}>{course.name}</span>
+                      {cp.isExempt ? (
+                        <Tag color="purple" style={{ marginLeft: 8 }}>면제</Tag>
+                      ) : cp.discountAmount > 0 ? (
+                        <>
+                          <Tag color="blue" style={{ marginLeft: 8 }}>₩{effectiveFee.toLocaleString()}</Tag>
+                          <span style={{ fontSize: 11, color: token.colorTextSecondary }}>(정가 ₩{course.fee.toLocaleString()})</span>
+                        </>
+                      ) : (
+                        <Tag color="blue" style={{ marginLeft: 8 }}>₩{course.fee.toLocaleString()}</Tag>
+                      )}
+                    </div>
+                    <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleRemoveCourse(cp.courseId)} />
                   </div>
-                  <InputNumber
-                    value={cp.paidAmount}
-                    onChange={(value) => handlePaymentChange(cp.courseId, value || 0)}
-                    min={0}
-                    max={course.fee}
-                    formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, '')) || 0) as any}
-                    style={{ width: 140 }}
-                    disabled={cp.isExempt}
-                  />
-                  <Space size="small">
-                    <Button size="small" onClick={() => handlePaymentChange(cp.courseId, course.fee)} disabled={cp.isExempt}>
-                      완납
-                    </Button>
-                    <Button size="small" onClick={() => handlePaymentChange(cp.courseId, 0)} disabled={cp.isExempt}>
-                      미납
-                    </Button>
+
+                  {/* 2행: 납부 금액 + 완납/미납 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, color: token.colorTextSecondary, minWidth: 32 }}>납부</span>
+                    <InputNumber
+                      value={cp.paidAmount}
+                      onChange={(value) => handlePaymentChange(cp.courseId, value || 0)}
+                      min={0}
+                      max={effectiveFee}
+                      size="small"
+                      formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                      parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, '')) || 0) as any}
+                      style={{ width: 130 }}
+                      disabled={cp.isExempt}
+                    />
+                    <Button size="small" onClick={() => handlePaymentChange(cp.courseId, effectiveFee)} disabled={cp.isExempt}>완납</Button>
+                    <Button size="small" onClick={() => handlePaymentChange(cp.courseId, 0)} disabled={cp.isExempt}>미납</Button>
+                  </div>
+
+                  {/* 3행: 할인 + 면제 + 납부방법 (통일된 레이아웃) */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 12, color: token.colorTextSecondary, minWidth: 32 }}>할인</span>
+                    <InputNumber
+                      value={cp.discountAmount}
+                      onChange={(value) => handleDiscountChange(cp.courseId, value || 0)}
+                      min={0}
+                      max={course.fee}
+                      size="small"
+                      formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                      parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, '')) || 0) as any}
+                      style={{ width: 130 }}
+                      disabled={cp.isExempt}
+                    />
                     <Button
                       size="small"
                       type={cp.isExempt ? 'primary' : 'default'}
@@ -452,20 +520,25 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
                     >
                       면제
                     </Button>
-                  </Space>
-                  <Button
-                    size="small"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={() => handleRemoveCourse(cp.courseId)}
-                  >
-                    삭제
-                  </Button>
+                    <div style={{ marginLeft: 'auto' }}>
+                      <Radio.Group
+                        size="small"
+                        value={cp.paymentMethod}
+                        onChange={(e) => handlePaymentMethodChange(cp.courseId, e.target.value)}
+                        disabled={cp.isExempt}
+                      >
+                        <Radio.Button value="cash">현금</Radio.Button>
+                        <Radio.Button value="card">카드</Radio.Button>
+                        <Radio.Button value="transfer">이체</Radio.Button>
+                      </Radio.Group>
+                    </div>
+                  </div>
                 </div>
               );
             })}
-            <div style={{ marginTop: 8, textAlign: 'right', color: token.colorTextSecondary }}>
+            <div style={{ marginTop: 8, textAlign: 'right', color: token.colorTextSecondary, fontSize: 13 }}>
               총 납부: ₩{coursePayments.filter(cp => !cp.isExempt).reduce((sum, cp) => sum + cp.paidAmount, 0).toLocaleString()}
+              {coursePayments.some(cp => cp.discountAmount > 0) && ` (할인 ₩${coursePayments.reduce((sum, cp) => sum + (cp.discountAmount || 0), 0).toLocaleString()})`}
               {coursePayments.some(cp => cp.isExempt) && ` (면제 ${coursePayments.filter(cp => cp.isExempt).length}건)`}
             </div>
           </div>

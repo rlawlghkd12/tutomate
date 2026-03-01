@@ -86,6 +86,7 @@ const StudentsPage: React.FC = () => {
         onCancel={() => setIsExportModalVisible(false)}
         width={320}
         footer={null}
+        styles={{ body: { paddingBottom: 24 } }}
       >
         <div style={{
           padding: '4px 0 8px',
