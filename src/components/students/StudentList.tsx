@@ -109,12 +109,15 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
           return row.courses.some((c) => c.name.toLowerCase().includes(searchLower));
         case 'address':
           return (row.student.address || '').toLowerCase().includes(searchLower);
+        case 'notes':
+          return (row.student.notes || '').toLowerCase().includes(searchLower);
         default:
           return (
             row.student.name.toLowerCase().includes(searchLower) ||
             row.student.phone.includes(searchText) ||
             row.courses.some((c) => c.name.toLowerCase().includes(searchLower)) ||
-            (row.student.address || '').toLowerCase().includes(searchLower)
+            (row.student.address || '').toLowerCase().includes(searchLower) ||
+            (row.student.notes || '').toLowerCase().includes(searchLower)
           );
       }
     });
@@ -172,6 +175,14 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
       render: (_, record) => record.student.address || '-',
     },
     {
+      title: '메모',
+      key: 'notes',
+      ellipsis: true,
+      render: (_, record) => record.student.notes ? (
+        <span style={{ color: token.colorTextSecondary }}>{record.student.notes}</span>
+      ) : '-',
+    },
+    {
       title: '작업',
       key: 'action',
       align: 'right' as const,
@@ -213,6 +224,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
             <Select.Option value="phone">전화번호</Select.Option>
             <Select.Option value="course">강좌</Select.Option>
             <Select.Option value="address">주소</Select.Option>
+            <Select.Option value="notes">메모</Select.Option>
           </Select>
         </Col>
         <Col flex="auto" style={{ maxWidth: 300 }}>
@@ -222,7 +234,8 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
               searchField === 'phone' ? '전화번호 검색' :
               searchField === 'course' ? '강좌명 검색' :
               searchField === 'address' ? '주소 검색' :
-              '이름, 전화번호, 강좌, 주소 검색'
+              searchField === 'notes' ? '메모 검색' :
+              '이름, 전화번호, 강좌, 주소, 메모 검색'
             }
             prefix={<SearchOutlined />}
             value={searchText}

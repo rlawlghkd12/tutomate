@@ -206,7 +206,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
         style={{
           padding: '12px 16px',
           borderTop: `1px solid ${token.colorBorderSecondary}`,
-          background: token.colorBgLayout,
+          background: token.colorFillQuaternary,
           ...FLEX_BETWEEN,
         }}
       >

@@ -96,8 +96,8 @@ function App() {
   };
 
   useEffect(() => {
-    document.documentElement.style.backgroundColor = theme === 'dark' ? '#141414' : '#ffffff';
-    document.body.style.backgroundColor = theme === 'dark' ? '#141414' : '#ffffff';
+    document.documentElement.style.backgroundColor = '';
+    document.body.style.backgroundColor = '';
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 

@@ -141,7 +141,7 @@ export const NotificationCenter: React.FC = () => {
                   transition: 'background 0.2s',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = notification.isRead ? token.colorBgLayout : token.colorPrimaryBgHover;
+                  e.currentTarget.style.background = notification.isRead ? token.colorFillQuaternary : token.colorPrimaryBgHover;
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = notification.isRead ? token.colorBgContainer : token.colorPrimaryBg;

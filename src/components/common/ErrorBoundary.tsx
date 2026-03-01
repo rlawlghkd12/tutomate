@@ -93,7 +93,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 textAlign: 'left',
                 marginTop: '20px',
                 padding: '10px',
-                background: '#f5f5f5',
+                background: 'var(--ant-color-bg-layout, #f5f5f5)',
                 borderRadius: '4px',
                 fontSize: '12px',
                 fontFamily: 'monospace'

@@ -248,6 +248,7 @@ export const STORAGE_KEYS = {
   COURSES: 'courses',
   STUDENTS: 'students',
   ENROLLMENTS: 'enrollments',
+  MONTHLY_PAYMENTS: 'monthly_payments',
 } as const;
 
 // logger import 추가

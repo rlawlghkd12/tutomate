@@ -124,6 +124,9 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
   };
 
   useEffect(() => {
+    // 개발 모드에서는 업데이트 체크 건너뛰기
+    if (import.meta.env.DEV) return;
+
     if (autoCheck) {
       // 앱 시작 시 체크
       checkForUpdates(true);
@@ -242,7 +245,7 @@ export function useUpdateChecker() {
               <p>새로운 버전 {update.version}이(가) 출시되었습니다.</p>
               <p>현재 버전: {update.currentVersion}</p>
               {update.body && (
-                <div style={{ marginTop: 12, padding: 12, background: '#f5f5f5', borderRadius: 4 }}>
+                <div style={{ marginTop: 12, padding: 12, background: 'var(--ant-color-bg-layout, #f5f5f5)', borderRadius: 4 }}>
                   <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{update.body}</pre>
                 </div>
               )}

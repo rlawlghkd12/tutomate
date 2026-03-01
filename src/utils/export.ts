@@ -1,6 +1,7 @@
 // Excel 및 CSV 내보내기 유틸리티
 import * as XLSX from 'xlsx';
-import type { Course, Student, Enrollment } from '../types';
+import type { Course, Student, Enrollment, PaymentMethod } from '../types';
+import { PAYMENT_METHOD_LABELS } from '../types';
 import dayjs from 'dayjs';
 
 import { useSettingsStore } from '../stores/settingsStore';
@@ -136,9 +137,11 @@ export const REVENUE_EXPORT_FIELDS: RevenueExportField[] = [
   { key: 'studentName', label: '수강생', wch: 10, getValue: (e, sts) => sts.find((s) => s.id === e.studentId)?.name || '' },
   { key: 'phone', label: '전화번호', wch: 15, getValue: (e, sts) => sts.find((s) => s.id === e.studentId)?.phone || '' },
   { key: 'fee', label: '수강료', wch: 12, getValue: (e, _, crs) => crs.find((c) => c.id === e.courseId)?.fee || 0 },
+  { key: 'discountAmount', label: '할인금액', wch: 12, getValue: (e) => e.discountAmount ?? 0 },
   { key: 'paidAmount', label: '납부금액', wch: 12, getValue: (e) => e.paidAmount },
   { key: 'remainingAmount', label: '잔여금액', wch: 12, getValue: (e) => e.remainingAmount },
   { key: 'paymentStatus', label: '납부상태', wch: 12, getValue: (e) => revenuePaymentStatusMap[e.paymentStatus] },
+  { key: 'paymentMethod', label: '납부방법', wch: 12, getValue: (e) => e.paymentMethod ? PAYMENT_METHOD_LABELS[e.paymentMethod] : '' },
   { key: 'enrolledAt', label: '등록일', wch: 12, getValue: (e) => dayjs(e.enrolledAt).format('YYYY-MM-DD') },
   { key: 'notes', label: '메모', wch: 30, getValue: (e) => e.notes || '' },
 ];
@@ -331,7 +334,9 @@ export const COURSE_STUDENT_EXPORT_FIELDS: CourseStudentExportField[] = [
   { key: 'birthDate', label: '생년월일', getValue: (s) => s.birthDate || '' },
   { key: 'paymentStatus', label: '납부 현황', getValue: (_, e) => paymentStatusMap[e.paymentStatus] },
   { key: 'paidAmount', label: '납부 금액', getValue: (_, e) => e.paidAmount },
+  { key: 'discountAmount', label: '할인 금액', getValue: (_, e) => e.discountAmount ?? 0 },
   { key: 'remainingAmount', label: '잔여 금액', getValue: (_, e) => e.remainingAmount },
+  { key: 'paymentMethod', label: '납부 방법', getValue: (_, e) => e.paymentMethod ? PAYMENT_METHOD_LABELS[e.paymentMethod] : '' },
   { key: 'paidAt', label: '납부일자', getValue: (_, e) => e.paidAt ? dayjs(e.paidAt).format('YYYY-MM-DD') : '' },
   { key: 'enrolledAt', label: '등록일', getValue: (_, e) => dayjs(e.enrolledAt).format('YYYY-MM-DD') },
   { key: 'notes', label: '메모', getValue: (_, e) => e.notes || '' },

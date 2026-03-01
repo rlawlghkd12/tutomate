@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Enrollment, EnrollmentFormData } from '../types';
+import type { Enrollment, EnrollmentFormData, PaymentMethod } from '../types';
 import {
   addToStorage,
   updateInStorage,
@@ -24,7 +24,7 @@ interface EnrollmentStore {
   getEnrollmentsByCourseId: (courseId: string) => Enrollment[];
   getEnrollmentsByStudentId: (studentId: string) => Enrollment[];
   getEnrollmentCountByCourseId: (courseId: string) => number;
-  updatePayment: (id: string, paidAmount: number, totalFee: number, paidAt?: string, isExempt?: boolean) => Promise<void>;
+  updatePayment: (id: string, paidAmount: number, totalFee: number, paidAt?: string, isExempt?: boolean, paymentMethod?: PaymentMethod, discountAmount?: number) => Promise<void>;
 }
 
 export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
@@ -39,7 +39,12 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
         logError('Failed to load enrollments from cloud', { error });
       }
     } else {
-      const enrollments = await loadData<Enrollment>(STORAGE_KEYS.ENROLLMENTS);
+      const raw = await loadData<Enrollment>(STORAGE_KEYS.ENROLLMENTS);
+      // 기존 데이터 호환: discountAmount 없으면 0으로 기본값
+      const enrollments = raw.map(e => ({
+        ...e,
+        discountAmount: e.discountAmount ?? 0,
+      }));
       set({ enrollments });
     }
   },
@@ -54,6 +59,7 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
       id: crypto.randomUUID(),
       enrolledAt: dayjs().toISOString(),
       remainingAmount,
+      discountAmount: enrollmentData.discountAmount ?? 0,
     };
 
     if (isCloud()) {
@@ -122,23 +128,29 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
     return enrollments.filter((enrollment) => enrollment.courseId === courseId).length;
   },
 
-  updatePayment: async (id: string, paidAmount: number, totalFee: number, paidAt?: string, isExempt?: boolean) => {
+  updatePayment: async (id: string, paidAmount: number, totalFee: number, paidAt?: string, isExempt?: boolean, paymentMethod?: PaymentMethod, discountAmount?: number) => {
+    // 할인 적용된 실제 수강료
+    const discount = discountAmount ?? get().getEnrollmentById(id)?.discountAmount ?? 0;
+    const effectiveFee = totalFee - discount;
+
     if (isExempt) {
       await get().updateEnrollment(id, {
         paidAmount: 0,
         remainingAmount: 0,
         paymentStatus: 'exempt',
         paidAt: paidAt || dayjs().format('YYYY-MM-DD'),
+        ...(paymentMethod !== undefined && { paymentMethod }),
+        ...(discountAmount !== undefined && { discountAmount }),
       });
       return;
     }
 
-    const remainingAmount = totalFee - paidAmount;
+    const remainingAmount = effectiveFee - paidAmount;
     let paymentStatus: 'pending' | 'partial' | 'completed' = 'pending';
 
     if (paidAmount === 0) {
       paymentStatus = 'pending';
-    } else if (paidAmount < totalFee) {
+    } else if (paidAmount < effectiveFee) {
       paymentStatus = 'partial';
     } else {
       paymentStatus = 'completed';
@@ -149,6 +161,8 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
       remainingAmount,
       paymentStatus,
       paidAt: paidAt || dayjs().format('YYYY-MM-DD'),
+      ...(paymentMethod !== undefined && { paymentMethod }),
+      ...(discountAmount !== undefined && { discountAmount }),
     });
   },
 }));

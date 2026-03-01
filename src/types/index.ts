@@ -37,6 +37,9 @@ export interface Student {
   updatedAt: string;
 }
 
+// 납부 방법
+export type PaymentMethod = 'cash' | 'card' | 'transfer';
+
 // 수강 신청 인터페이스
 export interface Enrollment {
   id: string;
@@ -47,6 +50,8 @@ export interface Enrollment {
   paidAmount: number; // 납부 금액
   remainingAmount: number; // 잔여 금액
   paidAt?: string; // 마지막 납부일 YYYY-MM-DD
+  paymentMethod?: PaymentMethod; // 납부 방법 (현금, 카드, 계좌이체)
+  discountAmount: number; // 할인 금액
   notes?: string;
 }
 
@@ -58,6 +63,26 @@ export type StudentFormData = Omit<Student, 'id' | 'createdAt' | 'updatedAt'>;
 
 // 수강 신청 폼 데이터 타입
 export type EnrollmentFormData = Omit<Enrollment, 'id' | 'enrolledAt' | 'remainingAmount'>;
+
+// 납부 방법 라벨 맵
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  cash: '현금',
+  card: '카드',
+  transfer: '계좌이체',
+};
+
+// 월별 납부 기록
+export interface MonthlyPayment {
+  id: string;
+  enrollmentId: string;
+  month: string; // YYYY-MM 형식
+  amount: number; // 해당 월 납부 금액
+  paidAt?: string; // 납부일 YYYY-MM-DD
+  paymentMethod?: PaymentMethod;
+  status: 'pending' | 'paid'; // 미납 / 납부
+  notes?: string;
+  createdAt: string;
+}
 
 // 라이선스 인터페이스
 export interface LicenseInfo {
