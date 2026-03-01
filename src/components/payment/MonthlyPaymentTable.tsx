@@ -5,7 +5,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CalendarOutlined } from '@ant-design/icons';
-import type { MonthlyPayment, PaymentMethod, Enrollment } from '../../types';
+import type { PaymentMethod, Enrollment } from '../../types';
 import { useMonthlyPaymentStore } from '../../stores/monthlyPaymentStore';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import { useStudentStore } from '../../stores/studentStore';
@@ -20,7 +20,7 @@ interface MonthlyPaymentTableProps {
 }
 
 const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
-  courseId,
+  courseId: _courseId,
   courseFee,
   enrollments,
 }) => {
@@ -262,7 +262,7 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
             style={{ width: 140 }}
             value={record.monthPayment?.notes ?? ''}
             placeholder="메모"
-            onChange={(e) => {
+            onChange={() => {
               // 실시간 업데이트는 하지 않고 blur 시에만
             }}
             onBlur={(e) => {

@@ -1,6 +1,6 @@
 // Excel 및 CSV 내보내기 유틸리티
 import * as XLSX from 'xlsx';
-import type { Course, Student, Enrollment, PaymentMethod } from '../types';
+import type { Course, Student, Enrollment } from '../types';
 import { PAYMENT_METHOD_LABELS } from '../types';
 import dayjs from 'dayjs';
 

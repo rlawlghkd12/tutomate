@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Form, Input, Button, message, Row, Col, Select, InputNumber, Space, Tag, AutoComplete, Alert, Radio, theme } from 'antd';
+import { Modal, Form, Input, Button, message, Row, Col, Select, InputNumber, Tag, AutoComplete, Alert, Radio, theme } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import type { Student, StudentFormData, PaymentMethod } from '../../types';
-import { PAYMENT_METHOD_LABELS } from '../../types';
 import { useStudentStore } from '../../stores/studentStore';
 import { useCourseStore } from '../../stores/courseStore';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';

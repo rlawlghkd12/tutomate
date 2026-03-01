@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Form, Select, InputNumber, Button, message, Space, Input, Row, Col, Radio, theme } from 'antd';
 import dayjs from 'dayjs';
-import type { Student, EnrollmentFormData, PaymentMethod } from '../../types';
+import type { Student, EnrollmentFormData } from '../../types';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import { useCourseStore } from '../../stores/courseStore';
 import { useLicenseStore } from '../../stores/licenseStore';
