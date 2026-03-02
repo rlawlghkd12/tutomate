@@ -17,6 +17,7 @@ import {
   Progress,
   Tag,
   Popconfirm,
+  Select,
 } from 'antd';
 import {
   SaveOutlined,
@@ -28,12 +29,14 @@ import {
   EyeOutlined,
   EyeInvisibleOutlined,
   CopyOutlined,
+  LockOutlined,
 } from '@ant-design/icons';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { invoke } from '@tauri-apps/api/core';
 import dayjs from 'dayjs';
 import { useSettingsStore, type FontSize } from '../stores/settingsStore';
+import { useLockStore } from '../stores/lockStore';
 import { useLicenseStore } from '../stores/licenseStore';
 import LicenseKeyInput from '../components/common/LicenseKeyInput';
 import { PLAN_LIMITS } from '../config/planLimits';
@@ -60,6 +63,24 @@ const SettingsPage: React.FC = () => {
     setOrganizationName,
     loadSettings,
   } = useSettingsStore();
+
+  const {
+    isEnabled: lockEnabled,
+    pin: lockPin,
+    autoLockMinutes,
+    setEnabled: setLockEnabled,
+    setPin: setLockPin,
+    setAutoLockMinutes,
+    lock,
+    verifyPin,
+  } = useLockStore();
+
+  // PIN 설정 모달 상태
+  const [pinModalVisible, setPinModalVisible] = useState(false);
+  const [pinStep, setPinStep] = useState<'verify' | 'new' | 'confirm'>('new');
+  const [pinInput, setPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
 
   const APP_VERSION = useAppVersion();
   const { getPlan, activateLicense, deactivateLicense, licenseKey } = useLicenseStore();
@@ -163,6 +184,88 @@ const SettingsPage: React.FC = () => {
       localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify({ enabled: autoBackupEnabled, intervalHours: value, lastBackup: lastAutoBackup }));
     }
   };
+
+  const handleLockToggle = async (checked: boolean) => {
+    if (checked && !lockPin) {
+      // PIN이 없으면 먼저 설정하도록 모달 열기
+      setPinStep('new');
+      setPinInput('');
+      setNewPinInput('');
+      setPinError('');
+      setPinModalVisible(true);
+      return;
+    }
+    setLockEnabled(checked);
+    message.info(checked ? '화면 잠금이 활성화되었습니다' : '화면 잠금이 비활성화되었습니다');
+  };
+
+  const openPinChangeModal = () => {
+    if (lockPin) {
+      setPinStep('verify');
+    } else {
+      setPinStep('new');
+    }
+    setPinInput('');
+    setNewPinInput('');
+    setPinError('');
+    setPinModalVisible(true);
+  };
+
+  const handlePinModalOk = async () => {
+    if (pinStep === 'verify') {
+      const valid = await verifyPin(pinInput);
+      if (!valid) {
+        setPinError('기존 PIN이 올바르지 않습니다.');
+        return;
+      }
+      setPinStep('new');
+      setPinInput('');
+      setPinError('');
+      return;
+    }
+
+    if (pinStep === 'new') {
+      if (pinInput.length < 4 || pinInput.length > 6) {
+        setPinError('PIN은 4~6자리 숫자를 입력하세요.');
+        return;
+      }
+      setPinStep('confirm');
+      setNewPinInput(pinInput);
+      setPinInput('');
+      setPinError('');
+      return;
+    }
+
+    if (pinStep === 'confirm') {
+      if (pinInput !== newPinInput) {
+        setPinError('PIN이 일치하지 않습니다.');
+        setPinInput('');
+        return;
+      }
+      await setLockPin(pinInput);
+      if (!lockEnabled) {
+        setLockEnabled(true);
+      }
+      setPinModalVisible(false);
+      setPinInput('');
+      setNewPinInput('');
+      setPinError('');
+      message.success('PIN이 설정되었습니다.');
+    }
+  };
+
+  const autoLockOptions = [
+    { label: '사용 안 함', value: 0 },
+    { label: '1분', value: 1 },
+    { label: '3분', value: 3 },
+    { label: '5분', value: 5 },
+    { label: '10분', value: 10 },
+    { label: '30분', value: 30 },
+    { label: '1시간', value: 60 },
+    { label: '2시간', value: 120 },
+    { label: '6시간', value: 360 },
+    { label: '24시간', value: 1440 },
+  ];
 
   const fontSizeOptions = [
     { label: '작게', value: 'small' as FontSize },
@@ -511,6 +614,122 @@ const SettingsPage: React.FC = () => {
               unCheckedChildren="꺼짐"
             />
           </div>
+
+          <Divider style={{ margin: 0 }} />
+
+          {/* 화면 잠금 */}
+          <div style={settingRowStyle}>
+            <div>
+              <Text strong>화면 잠금 사용</Text>
+              <br />
+              <Text type="secondary" style={{ fontSize: '0.85em' }}>
+                {lockEnabled ? '화면 잠금이 활성화되어 있습니다' : '자리를 비울 때 화면을 잠급니다'}
+              </Text>
+            </div>
+            <Switch
+              checked={lockEnabled}
+              onChange={handleLockToggle}
+              checkedChildren="켜짐"
+              unCheckedChildren="꺼짐"
+            />
+          </div>
+
+          {lockEnabled && (
+            <>
+              <Divider style={{ margin: 0 }} />
+              <div style={settingRowStyle}>
+                <div>
+                  <Text strong>PIN 설정</Text>
+                  <br />
+                  <Text type="secondary" style={{ fontSize: '0.85em' }}>4~6자리 숫자 PIN</Text>
+                </div>
+                <Button size="small" icon={<LockOutlined />} onClick={openPinChangeModal}>
+                  PIN 변경
+                </Button>
+              </div>
+
+              <Divider style={{ margin: 0 }} />
+              <div style={settingRowStyle}>
+                <div>
+                  <Text strong>자동 잠금</Text>
+                  <br />
+                  <Text type="secondary" style={{ fontSize: '0.85em' }}>미사용 시 자동으로 화면을 잠급니다</Text>
+                </div>
+                <Select
+                  value={autoLockMinutes}
+                  onChange={setAutoLockMinutes}
+                  options={autoLockOptions}
+                  style={{ width: 130 }}
+                  size="small"
+                />
+              </div>
+
+              <Divider style={{ margin: 0 }} />
+              <div style={settingRowStyle}>
+                <div>
+                  <Text strong>지금 잠금</Text>
+                  <br />
+                  <Text type="secondary" style={{ fontSize: '0.85em' }}>화면을 즉시 잠급니다</Text>
+                </div>
+                <Button size="small" icon={<LockOutlined />} onClick={lock}>
+                  잠금
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* PIN 설정 Modal */}
+          <Modal
+            title={
+              pinStep === 'verify'
+                ? '기존 PIN 확인'
+                : pinStep === 'new'
+                  ? '새 PIN 입력'
+                  : 'PIN 확인'
+            }
+            open={pinModalVisible}
+            onOk={handlePinModalOk}
+            onCancel={() => {
+              setPinModalVisible(false);
+              setPinInput('');
+              setNewPinInput('');
+              setPinError('');
+            }}
+            okText={pinStep === 'confirm' ? '설정' : '다음'}
+            cancelText="취소"
+            okButtonProps={{ disabled: pinInput.length < 4 }}
+            destroyOnClose
+          >
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+                {pinStep === 'verify'
+                  ? '기존 PIN을 입력하세요'
+                  : pinStep === 'new'
+                    ? '새 PIN을 입력하세요 (4~6자리 숫자)'
+                    : '새 PIN을 다시 입력하세요'}
+              </Text>
+              <Input.Password
+                value={pinInput}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  if (val.length <= 6) {
+                    setPinInput(val);
+                    setPinError('');
+                  }
+                }}
+                onPressEnter={handlePinModalOk}
+                placeholder="PIN 입력"
+                maxLength={6}
+                style={{ width: 200, textAlign: 'center', fontSize: 20, letterSpacing: 8 }}
+                autoFocus
+              />
+              {pinError && (
+                <div style={{ marginTop: 8 }}>
+                  <Text type="danger">{pinError}</Text>
+                </div>
+              )}
+            </div>
+          </Modal>
 
           <Divider style={{ margin: 0 }} />
 

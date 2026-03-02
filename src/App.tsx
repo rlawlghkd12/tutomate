@@ -13,6 +13,9 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { UpdateChecker } from './components/common/UpdateChecker';
 import { GlobalSearch, useGlobalSearch } from './components/search/GlobalSearch';
 import { useSettingsStore } from './stores/settingsStore';
+import { useLockStore } from './stores/lockStore';
+import { useAutoLock } from './hooks/useAutoLock';
+import LockScreen from './components/common/LockScreen';
 import { useLicenseStore } from './stores/licenseStore';
 import { useAuthStore } from './stores/authStore';
 import LicenseKeyInput from './components/common/LicenseKeyInput';
@@ -26,6 +29,8 @@ function App() {
   const { theme, fontSize, loadSettings } = useSettingsStore();
   const { loadLicense, activateLicense, licenseKey } = useLicenseStore();
   const { initialize, loading: authLoading } = useAuthStore();
+  const { isEnabled: lockEnabled, isLocked } = useLockStore();
+  useAutoLock();
   const [welcomeVisible, setWelcomeVisible] = useState(false);
   const [licenseInput, setLicenseInput] = useState(['', '', '', '']);
   const [licenseLoaded, setLicenseLoaded] = useState(false);
@@ -191,6 +196,7 @@ function App() {
               </Routes>
             </Layout>
           </Router>
+          {isLocked && lockEnabled && <LockScreen />}
         </AntApp>
       </ConfigProvider>
     </ErrorBoundary>
