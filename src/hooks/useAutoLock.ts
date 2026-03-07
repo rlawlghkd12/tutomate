@@ -5,10 +5,14 @@ export function useAutoLock() {
   const { isEnabled, autoLockMinutes, lock, loadLockSettings } = useLockStore();
   const lastActivityRef = useRef(Date.now());
 
-  // 앱 시작 시 설정 로드
+  // 앱 시작 시 설정 로드 + 활성화 상태면 잠금
   useEffect(() => {
     loadLockSettings();
-  }, [loadLockSettings]);
+    const { isEnabled, pin } = useLockStore.getState();
+    if (isEnabled && pin) {
+      lock();
+    }
+  }, [loadLockSettings, lock]);
 
   // 활동 감지 리셋
   const resetActivity = useCallback(() => {
