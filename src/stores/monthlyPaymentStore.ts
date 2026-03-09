@@ -1,18 +1,19 @@
 import { create } from 'zustand';
 import type { MonthlyPayment, PaymentMethod } from '../types';
-import {
-  addToStorage,
-  updateInStorage,
-  deleteFromStorage,
-  loadData,
-  STORAGE_KEYS,
-} from '../utils/storage';
-import { isCloud, getOrgId } from './authStore';
-import { supabaseLoadData, supabaseInsert, supabaseUpdate, supabaseDelete } from '../utils/supabaseStorage';
+import { STORAGE_KEYS } from '../utils/storage';
+import { isCloud } from './authStore';
+import { createDataHelper } from '../utils/dataHelper';
 import { mapMonthlyPaymentFromDb, mapMonthlyPaymentToDb, mapMonthlyPaymentUpdateToDb } from '../utils/fieldMapper';
 import type { MonthlyPaymentRow } from '../utils/fieldMapper';
-import { logError } from '../utils/logger';
 import dayjs from 'dayjs';
+
+const helper = createDataHelper<MonthlyPayment, MonthlyPaymentRow>({
+  table: 'monthly_payments',
+  storageKey: STORAGE_KEYS.MONTHLY_PAYMENTS,
+  fromDb: mapMonthlyPaymentFromDb,
+  toDb: mapMonthlyPaymentToDb,
+  updateToDb: mapMonthlyPaymentUpdateToDb,
+});
 
 interface MonthlyPaymentStore {
   payments: MonthlyPayment[];
@@ -29,17 +30,8 @@ export const useMonthlyPaymentStore = create<MonthlyPaymentStore>((set, get) => 
   payments: [],
 
   loadPayments: async () => {
-    if (isCloud()) {
-      try {
-        const rows = await supabaseLoadData<MonthlyPaymentRow>('monthly_payments');
-        set({ payments: rows.map(mapMonthlyPaymentFromDb) });
-      } catch (error) {
-        logError('Failed to load monthly payments from cloud', { error });
-      }
-    } else {
-      const payments = await loadData<MonthlyPayment>(STORAGE_KEYS.MONTHLY_PAYMENTS);
-      set({ payments });
-    }
+    const payments = await helper.load();
+    set({ payments });
   },
 
   getPaymentsByEnrollmentId: (enrollmentId: string) => {
@@ -66,16 +58,10 @@ export const useMonthlyPaymentStore = create<MonthlyPaymentStore>((set, get) => 
     };
 
     if (isCloud()) {
-      const orgId = getOrgId();
-      if (!orgId) return newPayment;
-      try {
-        await supabaseInsert('monthly_payments', mapMonthlyPaymentToDb(newPayment, orgId));
-        set({ payments: [...get().payments, newPayment] });
-      } catch (error) {
-        logError('Failed to add monthly payment to cloud', { error });
-      }
+      await helper.add(newPayment);
+      set({ payments: [...get().payments, newPayment] });
     } else {
-      const payments = addToStorage(STORAGE_KEYS.MONTHLY_PAYMENTS, newPayment);
+      const payments = await helper.add(newPayment);
       set({ payments });
     }
 
@@ -84,33 +70,20 @@ export const useMonthlyPaymentStore = create<MonthlyPaymentStore>((set, get) => 
 
   updatePayment: async (id, updates) => {
     if (isCloud()) {
-      try {
-        await supabaseUpdate('monthly_payments', id, mapMonthlyPaymentUpdateToDb(updates));
-        const payments = get().payments.map((p) =>
-          p.id === id ? { ...p, ...updates } : p,
-        );
-        set({ payments });
-      } catch (error) {
-        logError('Failed to update monthly payment in cloud', { error });
-      }
+      await helper.update(id, updates);
+      const payments = get().payments.map((p) =>
+        p.id === id ? { ...p, ...updates } : p,
+      );
+      set({ payments });
     } else {
-      const payments = updateInStorage(STORAGE_KEYS.MONTHLY_PAYMENTS, id, updates);
+      const payments = await helper.update(id, updates);
       set({ payments });
     }
   },
 
   deletePayment: async (id) => {
-    if (isCloud()) {
-      try {
-        await supabaseDelete('monthly_payments', id);
-        set({ payments: get().payments.filter((p) => p.id !== id) });
-      } catch (error) {
-        logError('Failed to delete monthly payment from cloud', { error });
-      }
-    } else {
-      const payments = deleteFromStorage<MonthlyPayment>(STORAGE_KEYS.MONTHLY_PAYMENTS, id);
-      set({ payments });
-    }
+    const payments = await helper.remove(id, get().payments);
+    set({ payments });
   },
 
   deletePaymentsByEnrollmentId: async (enrollmentId) => {

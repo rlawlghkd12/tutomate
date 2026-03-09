@@ -244,10 +244,6 @@ fn restore_backup(app: AppHandle, filename: String) -> Result<(), String> {
         return Err(format!("Backup file not found: {}", filename));
     }
 
-    // 기존 데이터 백업 (안전을 위해)
-    let temp_backup = create_backup(app.clone(), None)?;
-    info!("Created safety backup: {}", temp_backup.filename);
-
     // ZIP 파일 열기
     let file =
         fs::File::open(&backup_path).map_err(|e| format!("Failed to open backup file: {}", e))?;

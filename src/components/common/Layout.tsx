@@ -73,7 +73,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [location.pathname]);
 
   return (
-    <AntLayout style={{ minHeight: '100vh' }}>
+    <AntLayout style={{ height: '100vh' }}>
       <Sider
         width={180}
         collapsible
@@ -106,7 +106,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
         )}
       </Sider>
-      <AntLayout style={{ marginLeft: collapsed ? 60 : 180, transition: 'all 0.2s ease' }}>
+      <AntLayout style={{ marginLeft: collapsed ? 60 : 180, transition: 'all 0.2s ease', height: '100vh', display: 'flex', flexDirection: 'column' }}>
         <Header
           style={{
             background: token.colorBgContainer,
@@ -141,7 +141,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             banner
           />
         )}
-        <Content style={{ margin: '24px 16px 0', overflow: 'initial' }}>
+        <Content style={{ margin: '24px 16px 0', flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
           <div style={{ padding: 24, background: token.colorBgContainer, minHeight: 360 }}>
             {children}
           </div>

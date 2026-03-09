@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Switch, InputNumber, Space, Typography, message, Alert } from 'antd';
-import { invoke } from '@tauri-apps/api/core';
 import dayjs from 'dayjs';
 import { FLEX_BETWEEN } from '../../config/styles';
+import { createCloudBackup } from '../../utils/backupHelper';
 
 const { Text } = Typography;
 
@@ -41,7 +41,7 @@ export const AutoBackupScheduler: React.FC = () => {
 
     if (!lastBackupTime || now.diff(lastBackupTime, 'hour') >= current.intervalHours) {
       try {
-        await invoke('create_backup');
+        await createCloudBackup();
         const newSettings: BackupSettings = {
           ...current,
           lastBackup: now.toISOString(),

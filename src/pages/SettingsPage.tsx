@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Card,
@@ -9,39 +9,29 @@ import {
   Divider,
   Tabs,
   Button,
-  Table,
   Input,
-  InputNumber,
   message,
   Modal,
   Progress,
   Tag,
-  Popconfirm,
   Select,
 } from 'antd';
 import {
   SaveOutlined,
-  RollbackOutlined,
-  DeleteOutlined,
   ExclamationCircleOutlined,
-  ImportOutlined,
-  DownloadOutlined,
   EyeOutlined,
   EyeInvisibleOutlined,
   CopyOutlined,
   LockOutlined,
 } from '@ant-design/icons';
-import { check } from '@tauri-apps/plugin-updater';
-import { relaunch } from '@tauri-apps/plugin-process';
-import { invoke } from '@tauri-apps/api/core';
-import dayjs from 'dayjs';
+import { isTauri } from '../utils/tauri';
 import { useSettingsStore, type FontSize } from '../stores/settingsStore';
 import { useLockStore } from '../stores/lockStore';
 import { useLicenseStore } from '../stores/licenseStore';
 import LicenseKeyInput from '../components/common/LicenseKeyInput';
 import { PLAN_LIMITS } from '../config/planLimits';
 import { useAppVersion, APP_NAME } from '../config/version';
-import { useBackup, type BackupInfo } from '../hooks/useBackup';
+// useBackup 제거 (v0.3.0 — 백업 탭 비활성화)
 import { supabase } from '../config/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { MigrationModal } from '../components/common/MigrationModal';
@@ -90,18 +80,7 @@ const SettingsPage: React.FC = () => {
   const [activating, setActivating] = useState(false);
   const [showMigration, setShowMigration] = useState(false);
   const currentPlan = getPlan();
-  const {
-    backups,
-    loading,
-    creating,
-    importing,
-    restoring,
-    createBackup,
-    importBackup,
-    restoreBackup,
-    downloadBackup,
-    deleteBackup,
-  } = useBackup();
+  // 백업 기능 제거 (v0.3.0) — useBackup() 미사용
 
   // 업데이트 관련 상태
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -110,34 +89,9 @@ const SettingsPage: React.FC = () => {
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
 
-  // 자동 백업 상태
-  const AUTO_BACKUP_KEY = 'autoBackupSettings';
-  const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
-  const [autoBackupInterval, setAutoBackupInterval] = useState(24);
-  const [lastAutoBackup, setLastAutoBackup] = useState<string | undefined>();
-  const autoBackupRef = useRef({ enabled: autoBackupEnabled, intervalHours: autoBackupInterval, lastBackup: lastAutoBackup });
-  autoBackupRef.current = { enabled: autoBackupEnabled, intervalHours: autoBackupInterval, lastBackup: lastAutoBackup };
-
-  const nextBackupTime = (() => {
-    if (!autoBackupEnabled) return '';
-    if (lastAutoBackup) {
-      return dayjs(lastAutoBackup).add(autoBackupInterval, 'hour').format('YYYY-MM-DD HH:mm');
-    }
-    return '즉시';
-  })();
-
   useEffect(() => {
     loadSettings();
     useLicenseStore.getState().loadLicense();
-
-    // 자동 백업 설정 로드
-    const saved = localStorage.getItem(AUTO_BACKUP_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setAutoBackupEnabled(parsed.enabled ?? false);
-      setAutoBackupInterval(parsed.intervalHours ?? 24);
-      setLastAutoBackup(parsed.lastBackup);
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadSettings]);
 
@@ -145,45 +99,6 @@ const SettingsPage: React.FC = () => {
   useEffect(() => {
     setOrgNameInput(organizationName);
   }, [organizationName]);
-
-  const checkAndAutoBackup = useCallback(async () => {
-    const current = autoBackupRef.current;
-    if (!current.enabled) return;
-    const now = dayjs();
-    const last = current.lastBackup ? dayjs(current.lastBackup) : null;
-    if (!last || now.diff(last, 'hour') >= current.intervalHours) {
-      try {
-        await invoke('create_backup');
-        const newLast = now.toISOString();
-        setLastAutoBackup(newLast);
-        localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify({ ...current, lastBackup: newLast }));
-        message.success('자동 백업이 완료되었습니다');
-      } catch (error) {
-        message.error('자동 백업 실패: ' + error);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!autoBackupEnabled) return;
-    checkAndAutoBackup();
-    const interval = setInterval(checkAndAutoBackup, 60 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [autoBackupEnabled, autoBackupInterval, checkAndAutoBackup]);
-
-  const handleAutoBackupToggle = (checked: boolean) => {
-    setAutoBackupEnabled(checked);
-    const settings = { enabled: checked, intervalHours: autoBackupInterval, lastBackup: checked ? lastAutoBackup : undefined };
-    localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify(settings));
-    message.info(checked ? '자동 백업이 활성화되었습니다' : '자동 백업이 비활성화되었습니다');
-  };
-
-  const handleAutoBackupIntervalChange = (value: number | null) => {
-    if (value && value > 0) {
-      setAutoBackupInterval(value);
-      localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify({ enabled: autoBackupEnabled, intervalHours: value, lastBackup: lastAutoBackup }));
-    }
-  };
 
   const handleLockToggle = async (checked: boolean) => {
     if (checked && !lockPin) {
@@ -276,10 +191,12 @@ const SettingsPage: React.FC = () => {
 
   // 업데이트 확인
   const handleCheckUpdate = async () => {
+    if (!isTauri()) { message.warning('업데이트는 데스크톱 앱에서만 사용 가능합니다'); return; }
     setCheckingUpdate(true);
     setUpdateAvailable(null);
     setIsLatest(false);
     try {
+      const { check } = await import('@tauri-apps/plugin-updater');
       const update = await check();
       if (update && update.version !== APP_VERSION) {
         setUpdateAvailable({
@@ -304,9 +221,11 @@ const SettingsPage: React.FC = () => {
 
   // 업데이트 다운로드 및 설치
   const handleDownloadUpdate = async () => {
+    if (!isTauri()) return;
     setDownloading(true);
     setDownloadProgress(0);
     try {
+      const { check } = await import('@tauri-apps/plugin-updater');
       const update = await check();
       if (update) {
         let downloaded = 0;
@@ -337,6 +256,7 @@ const SettingsPage: React.FC = () => {
           cancelText: '나중에',
           onOk: async () => {
             await update.install();
+            const { relaunch } = await import('@tauri-apps/plugin-process');
             await relaunch();
           },
         });
@@ -386,129 +306,6 @@ const SettingsPage: React.FC = () => {
       setActivating(false);
     }
   };
-
-  const handleImportBackup = async () => {
-    const result = await importBackup();
-    if (!result) return;
-
-    Modal.confirm({
-      title: '백업 파일 복원',
-      icon: <ExclamationCircleOutlined />,
-      content: (
-        <div>
-          <p>백업 파일을 불러왔습니다. 바로 복원하시겠습니까?</p>
-          <p><Text type="danger">현재 데이터가 백업 데이터로 교체됩니다. 현재 데이터는 자동 백업됩니다.</Text></p>
-        </div>
-      ),
-      okText: '복원',
-      okType: 'danger',
-      cancelText: '나중에',
-      onOk: () => restoreBackup(result.filename),
-      onCancel: () => {
-        message.info('백업 목록에 추가되었습니다. 나중에 복원할 수 있습니다.');
-      },
-    });
-  };
-
-  const handleRestore = (filename: string) => {
-    Modal.confirm({
-      title: '백업 복원',
-      icon: <ExclamationCircleOutlined />,
-      content: (
-        <div>
-          <p>정말로 이 백업을 복원하시겠습니까?</p>
-          <p>
-            <Text type="danger">
-              현재 데이터가 백업 시점으로 되돌아갑니다. 복원 전 자동으로 현재 데이터를 백업합니다.
-            </Text>
-          </p>
-        </div>
-      ),
-      okText: '복원',
-      okType: 'danger',
-      cancelText: '취소',
-      onOk: () => restoreBackup(filename),
-    });
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-  };
-
-  const backupColumns = [
-    {
-      title: '백업 파일명',
-      dataIndex: 'filename',
-      key: 'filename',
-      render: (text: string) => <Text strong>{text}</Text>,
-    },
-    {
-      title: '파일 크기',
-      dataIndex: 'size',
-      key: 'size',
-      render: (size: number) => formatFileSize(size),
-    },
-    {
-      title: '생성 일시',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      render: (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm:ss'),
-    },
-    {
-      title: '상태',
-      key: 'status',
-      render: (_: any, record: BackupInfo) => {
-        const now = dayjs();
-        const createdAt = dayjs(record.created_at);
-        const hoursAgo = now.diff(createdAt, 'hour');
-
-        if (hoursAgo < 24) {
-          return <Tag color="green">최신</Tag>;
-        } else if (hoursAgo < 168) {
-          return <Tag color="blue">1주일 이내</Tag>;
-        } else {
-          return <Tag color="default">오래됨</Tag>;
-        }
-      },
-    },
-    {
-      title: '작업',
-      key: 'action',
-      render: (_: any, record: BackupInfo) => (
-        <Space>
-          <Button
-            type="primary"
-            icon={<RollbackOutlined />}
-            onClick={() => handleRestore(record.filename)}
-            loading={restoring === record.filename}
-            disabled={restoring !== null}
-          >
-            복원
-          </Button>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={() => downloadBackup(record.filename)}
-          >
-            다운로드
-          </Button>
-          <Popconfirm
-            title="백업 삭제"
-            description="정말로 이 백업을 삭제하시겠습니까?"
-            onConfirm={() => deleteBackup(record.filename)}
-            okText="삭제"
-            cancelText="취소"
-            okButtonProps={{ danger: true }}
-          >
-            <Button danger icon={<DeleteOutlined />}>
-              삭제
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
 
   const settingRowStyle: React.CSSProperties = {
     display: 'flex',
@@ -776,104 +573,7 @@ const SettingsPage: React.FC = () => {
         </Card>
       ),
     },
-    {
-      key: 'backup',
-      label: '백업',
-      children: (
-        <Card style={{ maxWidth: 1000 }}>
-          {/* 수동 백업 */}
-          <div style={settingRowStyle}>
-            <div>
-              <Text strong>수동 백업</Text>
-              <br />
-              <Text type="secondary" style={{ fontSize: '0.85em' }}>데이터를 백업하거나 외부 파일을 불러옵니다</Text>
-            </div>
-            <Space>
-              <Button
-                type="primary"
-                icon={<SaveOutlined />}
-                onClick={createBackup}
-                loading={creating}
-                size="small"
-              >
-                {creating ? '생성 중...' : '지금 백업'}
-              </Button>
-              <Button
-                icon={<ImportOutlined />}
-                onClick={handleImportBackup}
-                loading={importing}
-                size="small"
-              >
-                {importing ? '불러오는 중...' : '불러오기'}
-              </Button>
-            </Space>
-          </div>
-
-          <Divider style={{ margin: 0 }} />
-
-          {/* 자동 백업 */}
-          <div style={settingRowStyle}>
-            <div>
-              <Text strong>자동 백업</Text>
-              <br />
-              <Text type="secondary" style={{ fontSize: '0.85em' }}>
-                {autoBackupEnabled
-                  ? lastAutoBackup
-                    ? `다음 백업: ${nextBackupTime}`
-                    : '즉시 백업 예정'
-                  : '앱 실행 중 주기적으로 자동 백업'}
-              </Text>
-            </div>
-            <Space>
-              {autoBackupEnabled && (
-                <InputNumber
-                  min={1}
-                  max={168}
-                  value={autoBackupInterval}
-                  onChange={handleAutoBackupIntervalChange}
-                  style={{ width: 80 }}
-                  size="small"
-                  addonAfter="시간"
-                />
-              )}
-              <Switch
-                checked={autoBackupEnabled}
-                onChange={handleAutoBackupToggle}
-                checkedChildren="켜짐"
-                unCheckedChildren="꺼짐"
-              />
-            </Space>
-          </div>
-
-          {creating && (
-            <>
-              <Divider style={{ margin: 0 }} />
-              <div style={{ padding: '12px 0' }}>
-                <Progress percent={100} status="active" />
-                <Text type="secondary">데이터를 백업하고 있습니다...</Text>
-              </div>
-            </>
-          )}
-
-          <Divider style={{ margin: 0 }} />
-
-          {/* 백업 목록 */}
-          <div style={{ paddingTop: 16 }}>
-            <Table
-              columns={backupColumns}
-              dataSource={backups}
-              rowKey="filename"
-              loading={loading}
-              pagination={false}
-              size="small"
-              locale={{
-                emptyText: '백업이 없습니다. "지금 백업" 버튼을 눌러 첫 백업을 생성하세요.',
-              }}
-            />
-          </div>
-        </Card>
-      ),
-    },
+    // 백업 탭 제거 — Supabase 전환 완료 (v0.3.0)
     {
       key: 'license',
       label: '라이선스',

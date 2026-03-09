@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Modal, Button, Progress, Typography, Space, theme } from 'antd';
 import { DownloadOutlined, CloseOutlined } from '@ant-design/icons';
-import { check } from '@tauri-apps/plugin-updater';
-import { relaunch } from '@tauri-apps/plugin-process';
 import { logInfo, logError } from '../../utils/logger';
 import { handleError } from '../../utils/errors';
+import { isTauri } from '../../utils/tauri';
+
+// 동적 Tauri 임포트
+const getUpdater = () => isTauri() ? import('@tauri-apps/plugin-updater') : null;
+const getProcess = () => isTauri() ? import('@tauri-apps/plugin-process') : null;
 
 const { Text, Paragraph } = Typography;
 
@@ -24,9 +27,11 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
   const modalVisible = updateInfo !== null;
 
   const checkForUpdates = async (silent = false) => {
+    const updater = await getUpdater();
+    if (!updater) return;
     try {
       logInfo('Checking for updates');
-      const update = await check();
+      const update = await updater.check();
 
       if (update) {
         logInfo('Update available', {
@@ -65,12 +70,14 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
   };
 
   const downloadAndInstall = async () => {
+    const updater = await getUpdater();
+    if (!updater) return;
     try {
       setDownloading(true);
       setDownloadProgress(0);
 
       logInfo('Starting update download');
-      const update = await check();
+      const update = await updater.check();
 
       if (!update) {
         logInfo('No update found during download attempt');
@@ -113,7 +120,8 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
         cancelText: '나중에',
         onOk: async () => {
           await update.install();
-          await relaunch();
+          const proc = await getProcess();
+          if (proc) await proc.relaunch();
         },
       });
     } catch (error) {
@@ -225,10 +233,12 @@ export function useUpdateChecker() {
   const [checking, setChecking] = useState(false);
 
   const checkForUpdates = async () => {
+    const updater = await getUpdater();
+    if (!updater) return;
     setChecking(true);
     try {
       logInfo('Manual update check triggered');
-      const update = await check();
+      const update = await updater.check();
 
       if (update) {
         logInfo('Update available', {
@@ -257,7 +267,8 @@ export function useUpdateChecker() {
             try {
               await update.download();
               await update.install();
-              await relaunch();
+              const proc = await getProcess();
+              if (proc) await proc.relaunch();
             } catch (error) {
               handleError(error);
             }

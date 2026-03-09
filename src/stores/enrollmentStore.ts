@@ -1,18 +1,19 @@
 import { create } from 'zustand';
 import type { Enrollment, EnrollmentFormData, PaymentMethod } from '../types';
-import {
-  addToStorage,
-  updateInStorage,
-  deleteFromStorage,
-  loadData,
-  STORAGE_KEYS,
-} from '../utils/storage';
-import { isCloud, getOrgId } from './authStore';
-import { supabaseLoadData, supabaseInsert, supabaseUpdate, supabaseDelete } from '../utils/supabaseStorage';
+import { STORAGE_KEYS } from '../utils/storage';
+import { isCloud } from './authStore';
+import { createDataHelper } from '../utils/dataHelper';
 import { mapEnrollmentFromDb, mapEnrollmentToDb, mapEnrollmentUpdateToDb } from '../utils/fieldMapper';
 import type { EnrollmentRow } from '../utils/fieldMapper';
-import { logError } from '../utils/logger';
 import dayjs from 'dayjs';
+
+const helper = createDataHelper<Enrollment, EnrollmentRow>({
+  table: 'enrollments',
+  storageKey: STORAGE_KEYS.ENROLLMENTS,
+  fromDb: mapEnrollmentFromDb,
+  toDb: mapEnrollmentToDb,
+  updateToDb: mapEnrollmentUpdateToDb,
+});
 
 interface EnrollmentStore {
   enrollments: Enrollment[];
@@ -32,14 +33,10 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 
   loadEnrollments: async () => {
     if (isCloud()) {
-      try {
-        const rows = await supabaseLoadData<EnrollmentRow>('enrollments');
-        set({ enrollments: rows.map(mapEnrollmentFromDb) });
-      } catch (error) {
-        logError('Failed to load enrollments from cloud', { error });
-      }
+      const enrollments = await helper.load();
+      set({ enrollments });
     } else {
-      const raw = await loadData<Enrollment>(STORAGE_KEYS.ENROLLMENTS);
+      const raw = await helper.load();
       // 기존 데이터 호환: discountAmount 없으면 0으로 기본값
       const enrollments = raw.map(e => ({
         ...e,
@@ -63,69 +60,46 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
     };
 
     if (isCloud()) {
-      const orgId = getOrgId();
-      if (!orgId) return;
-      try {
-        await supabaseInsert('enrollments', mapEnrollmentToDb(newEnrollment, orgId));
-        set({ enrollments: [...get().enrollments, newEnrollment] });
-      } catch (error) {
-        logError('Failed to add enrollment to cloud', { error });
-      }
+      await helper.add(newEnrollment);
+      set({ enrollments: [...get().enrollments, newEnrollment] });
     } else {
-      const enrollments = addToStorage(STORAGE_KEYS.ENROLLMENTS, newEnrollment);
+      const enrollments = await helper.add(newEnrollment);
       set({ enrollments });
     }
   },
 
   updateEnrollment: async (id: string, enrollmentData: Partial<Enrollment>) => {
     if (isCloud()) {
-      try {
-        await supabaseUpdate('enrollments', id, mapEnrollmentUpdateToDb(enrollmentData));
-        const enrollments = get().enrollments.map((e) =>
-          e.id === id ? { ...e, ...enrollmentData } : e,
-        );
-        set({ enrollments });
-      } catch (error) {
-        logError('Failed to update enrollment in cloud', { error });
-      }
+      await helper.update(id, enrollmentData);
+      const enrollments = get().enrollments.map((e) =>
+        e.id === id ? { ...e, ...enrollmentData } : e,
+      );
+      set({ enrollments });
     } else {
-      const enrollments = updateInStorage(STORAGE_KEYS.ENROLLMENTS, id, enrollmentData);
+      const enrollments = await helper.update(id, enrollmentData);
       set({ enrollments });
     }
   },
 
   deleteEnrollment: async (id: string) => {
-    if (isCloud()) {
-      try {
-        await supabaseDelete('enrollments', id);
-        set({ enrollments: get().enrollments.filter((e) => e.id !== id) });
-      } catch (error) {
-        logError('Failed to delete enrollment from cloud', { error });
-      }
-    } else {
-      const enrollments = deleteFromStorage<Enrollment>(STORAGE_KEYS.ENROLLMENTS, id);
-      set({ enrollments });
-    }
+    const enrollments = await helper.remove(id, get().enrollments);
+    set({ enrollments });
   },
 
   getEnrollmentById: (id: string) => {
-    const { enrollments } = get();
-    return enrollments.find((enrollment) => enrollment.id === id);
+    return get().enrollments.find((enrollment) => enrollment.id === id);
   },
 
   getEnrollmentsByCourseId: (courseId: string) => {
-    const { enrollments } = get();
-    return enrollments.filter((enrollment) => enrollment.courseId === courseId);
+    return get().enrollments.filter((enrollment) => enrollment.courseId === courseId);
   },
 
   getEnrollmentsByStudentId: (studentId: string) => {
-    const { enrollments } = get();
-    return enrollments.filter((enrollment) => enrollment.studentId === studentId);
+    return get().enrollments.filter((enrollment) => enrollment.studentId === studentId);
   },
 
   getEnrollmentCountByCourseId: (courseId: string) => {
-    const { enrollments } = get();
-    return enrollments.filter((enrollment) => enrollment.courseId === courseId).length;
+    return get().enrollments.filter((enrollment) => enrollment.courseId === courseId).length;
   },
 
   updatePayment: async (id: string, paidAmount: number, totalFee: number, paidAt?: string, isExempt?: boolean, paymentMethod?: PaymentMethod, discountAmount?: number) => {

@@ -1,18 +1,19 @@
 import { create } from 'zustand';
 import type { Student, StudentFormData } from '../types';
-import {
-  addToStorage,
-  updateInStorage,
-  deleteFromStorage,
-  loadData,
-  STORAGE_KEYS,
-} from '../utils/storage';
-import { isCloud, getOrgId } from './authStore';
-import { supabaseLoadData, supabaseInsert, supabaseUpdate, supabaseDelete } from '../utils/supabaseStorage';
+import { STORAGE_KEYS } from '../utils/storage';
+import { isCloud } from './authStore';
+import { createDataHelper } from '../utils/dataHelper';
 import { mapStudentFromDb, mapStudentToDb, mapStudentUpdateToDb } from '../utils/fieldMapper';
 import type { StudentRow } from '../utils/fieldMapper';
-import { logError } from '../utils/logger';
 import dayjs from 'dayjs';
+
+const helper = createDataHelper<Student, StudentRow>({
+  table: 'students',
+  storageKey: STORAGE_KEYS.STUDENTS,
+  fromDb: mapStudentFromDb,
+  toDb: mapStudentToDb,
+  updateToDb: mapStudentUpdateToDb,
+});
 
 interface StudentStore {
   students: Student[];
@@ -27,17 +28,8 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
   students: [],
 
   loadStudents: async () => {
-    if (isCloud()) {
-      try {
-        const rows = await supabaseLoadData<StudentRow>('students');
-        set({ students: rows.map(mapStudentFromDb) });
-      } catch (error) {
-        logError('Failed to load students from cloud', { error });
-      }
-    } else {
-      const students = await loadData<Student>(STORAGE_KEYS.STUDENTS);
-      set({ students });
-    }
+    const students = await helper.load();
+    set({ students });
   },
 
   addStudent: async (studentData: StudentFormData) => {
@@ -49,16 +41,10 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
     };
 
     if (isCloud()) {
-      const orgId = getOrgId();
-      if (!orgId) return newStudent;
-      try {
-        await supabaseInsert('students', mapStudentToDb(newStudent, orgId));
-        set({ students: [...get().students, newStudent] });
-      } catch (error) {
-        logError('Failed to add student to cloud', { error });
-      }
+      await helper.add(newStudent);
+      set({ students: [...get().students, newStudent] });
     } else {
-      const students = addToStorage(STORAGE_KEYS.STUDENTS, newStudent);
+      const students = await helper.add(newStudent);
       set({ students });
     }
 
@@ -69,37 +55,23 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
     const updates = { ...studentData, updatedAt: dayjs().toISOString() };
 
     if (isCloud()) {
-      try {
-        await supabaseUpdate('students', id, mapStudentUpdateToDb(updates));
-        const students = get().students.map((s) =>
-          s.id === id ? { ...s, ...updates } : s,
-        );
-        set({ students });
-      } catch (error) {
-        logError('Failed to update student in cloud', { error });
-      }
+      await helper.update(id, updates);
+      const students = get().students.map((s) =>
+        s.id === id ? { ...s, ...updates } : s,
+      );
+      set({ students });
     } else {
-      const students = updateInStorage(STORAGE_KEYS.STUDENTS, id, updates);
+      const students = await helper.update(id, updates);
       set({ students });
     }
   },
 
   deleteStudent: async (id: string) => {
-    if (isCloud()) {
-      try {
-        await supabaseDelete('students', id);
-        set({ students: get().students.filter((s) => s.id !== id) });
-      } catch (error) {
-        logError('Failed to delete student from cloud', { error });
-      }
-    } else {
-      const students = deleteFromStorage<Student>(STORAGE_KEYS.STUDENTS, id);
-      set({ students });
-    }
+    const students = await helper.remove(id, get().students);
+    set({ students });
   },
 
   getStudentById: (id: string) => {
-    const { students } = get();
-    return students.find((student) => student.id === id);
+    return get().students.find((student) => student.id === id);
   },
 }));

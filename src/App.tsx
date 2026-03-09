@@ -20,7 +20,6 @@ import { useLicenseStore } from './stores/licenseStore';
 import { useAuthStore } from './stores/authStore';
 import LicenseKeyInput from './components/common/LicenseKeyInput';
 import { useEffect, useMemo, useState } from 'react';
-import { MigrationModal } from './components/common/MigrationModal';
 
 const { Text } = Typography;
 
@@ -35,7 +34,6 @@ function App() {
   const [licenseInput, setLicenseInput] = useState(['', '', '', '']);
   const [licenseLoaded, setLicenseLoaded] = useState(false);
   const [activating, setActivating] = useState(false);
-  const [showMigration, setShowMigration] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -62,25 +60,12 @@ function App() {
     try {
       const result = await activateLicense(key);
       if (result.result === 'success') {
-        message.success('라이선스가 활성화되었습니다!');
+        message.success('라이선스가 활성화되었습니다! 플랜이 업그레이드되었습니다.');
         localStorage.setItem('welcome-dismissed', 'true');
         setWelcomeVisible(false);
         setLicenseInput(['', '', '', '']);
-        // 새 조직 생성(첫 번째 유저)일 때만 로컬 데이터 마이그레이션 제안
-        if (result.isNewOrg && useAuthStore.getState().isCloud) {
-          const hasLocalData = sessionStorage.getItem('courses') || sessionStorage.getItem('students');
-          if (hasLocalData) {
-            try {
-              const courses = JSON.parse(sessionStorage.getItem('courses') || '[]');
-              const students = JSON.parse(sessionStorage.getItem('students') || '[]');
-              if (courses.length > 0 || students.length > 0) {
-                setShowMigration(true);
-              }
-            } catch {
-              // ignore parse errors
-            }
-          }
-        }
+        // 체험판에서 이미 Supabase를 사용 중이므로 별도 마이그레이션 불필요
+        // (로컬 데이터는 initialize() 시 자동 마이그레이션됨)
       } else if (result.result === 'invalid_format') {
         message.error('유효하지 않은 형식입니다. 형식: TMKH-XXXX-XXXX-XXXX');
       } else if (result.result === 'network_error') {
@@ -176,10 +161,6 @@ function App() {
               </Text>
             </Space>
           </Modal>
-          <MigrationModal
-            visible={showMigration}
-            onClose={() => setShowMigration(false)}
-          />
           <UpdateChecker autoCheck={true} checkInterval={60} />
           <Router>
             <GlobalSearch visible={visible} onClose={close} />

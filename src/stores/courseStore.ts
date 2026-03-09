@@ -1,18 +1,19 @@
 import { create } from 'zustand';
 import type { Course, CourseFormData } from '../types';
-import {
-  addToStorage,
-  updateInStorage,
-  deleteFromStorage,
-  loadData,
-  STORAGE_KEYS,
-} from '../utils/storage';
-import { isCloud, getOrgId } from './authStore';
-import { supabaseLoadData, supabaseInsert, supabaseUpdate, supabaseDelete } from '../utils/supabaseStorage';
+import { STORAGE_KEYS } from '../utils/storage';
+import { isCloud } from './authStore';
+import { createDataHelper } from '../utils/dataHelper';
 import { mapCourseFromDb, mapCourseToDb, mapCourseUpdateToDb } from '../utils/fieldMapper';
 import type { CourseRow } from '../utils/fieldMapper';
-import { logError } from '../utils/logger';
 import dayjs from 'dayjs';
+
+const helper = createDataHelper<Course, CourseRow>({
+  table: 'courses',
+  storageKey: STORAGE_KEYS.COURSES,
+  fromDb: mapCourseFromDb,
+  toDb: mapCourseToDb,
+  updateToDb: mapCourseUpdateToDb,
+});
 
 interface CourseStore {
   courses: Course[];
@@ -29,17 +30,8 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
   courses: [],
 
   loadCourses: async () => {
-    if (isCloud()) {
-      try {
-        const rows = await supabaseLoadData<CourseRow>('courses');
-        set({ courses: rows.map(mapCourseFromDb) });
-      } catch (error) {
-        logError('Failed to load courses from cloud', { error });
-      }
-    } else {
-      const courses = await loadData<Course>(STORAGE_KEYS.COURSES);
-      set({ courses });
-    }
+    const courses = await helper.load();
+    set({ courses });
   },
 
   addCourse: async (courseData: CourseFormData) => {
@@ -52,16 +44,10 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
     };
 
     if (isCloud()) {
-      const orgId = getOrgId();
-      if (!orgId) return;
-      try {
-        await supabaseInsert('courses', mapCourseToDb(newCourse, orgId));
-        set({ courses: [...get().courses, newCourse] });
-      } catch (error) {
-        logError('Failed to add course to cloud', { error });
-      }
+      await helper.add(newCourse);
+      set({ courses: [...get().courses, newCourse] });
     } else {
-      const courses = addToStorage(STORAGE_KEYS.COURSES, newCourse);
+      const courses = await helper.add(newCourse);
       set({ courses });
     }
   },
@@ -70,38 +56,24 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
     const updates = { ...courseData, updatedAt: dayjs().toISOString() };
 
     if (isCloud()) {
-      try {
-        await supabaseUpdate('courses', id, mapCourseUpdateToDb(updates));
-        const courses = get().courses.map((c) =>
-          c.id === id ? { ...c, ...updates } : c,
-        );
-        set({ courses });
-      } catch (error) {
-        logError('Failed to update course in cloud', { error });
-      }
+      await helper.update(id, updates);
+      const courses = get().courses.map((c) =>
+        c.id === id ? { ...c, ...updates } : c,
+      );
+      set({ courses });
     } else {
-      const courses = updateInStorage(STORAGE_KEYS.COURSES, id, updates);
+      const courses = await helper.update(id, updates);
       set({ courses });
     }
   },
 
   deleteCourse: async (id: string) => {
-    if (isCloud()) {
-      try {
-        await supabaseDelete('courses', id);
-        set({ courses: get().courses.filter((c) => c.id !== id) });
-      } catch (error) {
-        logError('Failed to delete course from cloud', { error });
-      }
-    } else {
-      const courses = deleteFromStorage<Course>(STORAGE_KEYS.COURSES, id);
-      set({ courses });
-    }
+    const courses = await helper.remove(id, get().courses);
+    set({ courses });
   },
 
   getCourseById: (id: string) => {
-    const { courses } = get();
-    return courses.find((course) => course.id === id);
+    return get().courses.find((course) => course.id === id);
   },
 
   incrementCurrentStudents: async (id: string) => {

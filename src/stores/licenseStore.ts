@@ -94,8 +94,10 @@ export const useLicenseStore = create<LicenseStore>((set, get) => ({
   getPlan: (): PlanType => {
     const authState = useAuthStore.getState();
     if (authState.isCloud) {
-      return authState.plan || 'basic';
+      // cloud 모드에서는 서버의 plan을 사용 (trial/basic/admin)
+      return authState.plan || 'trial';
     }
+    // 오프라인 폴백: 로컬 라이선스 키 확인
     const { licenseKey } = get();
     if (licenseKey && isValidKeyFormat(licenseKey)) {
       return 'basic';

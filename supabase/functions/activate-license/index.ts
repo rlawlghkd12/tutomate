@@ -79,7 +79,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. organizations에서 license_key로 조회
+    // 4-a. 유저가 이미 trial org에 속해있는지 확인
+    const { data: userOrgLink } = await supabaseAdmin
+      .from('user_organizations')
+      .select('organization_id, role')
+      .eq('user_id', user.id)
+      .single();
+
+    // 4-b. organizations에서 license_key로 조회 (이미 이 키로 만든 org가 있는지)
     const { data: existingOrg } = await supabaseAdmin
       .from('organizations')
       .select('id, max_seats, plan')
@@ -127,6 +134,15 @@ Deno.serve(async (req) => {
             });
 
           if (insertError) {
+            // insert 실패 → 이전 레코드 복원
+            await supabaseAdmin
+              .from('user_organizations')
+              .insert({
+                user_id: oldUserId,
+                organization_id: existingOrg.id,
+                role: existingDevice.role,
+                device_id,
+              });
             return new Response(
               JSON.stringify({ error: 'link_failed' }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -185,6 +201,7 @@ Deno.serve(async (req) => {
           .from('user_organizations')
           .select('user_id')
           .eq('user_id', user.id)
+          .eq('organization_id', organizationId)
           .single();
 
         if (!existingLink) {
@@ -199,6 +216,35 @@ Deno.serve(async (req) => {
             );
           }
         }
+      }
+    } else if (userOrgLink) {
+      // 유저가 이미 trial org에 속해 있음 → 기존 org를 업그레이드
+      organizationId = userOrgLink.organization_id;
+
+      const { error: upgradeError } = await supabaseAdmin
+        .from('organizations')
+        .update({
+          license_key,
+          plan: licenseRow.plan,
+          max_seats: 5,
+          name: '수강생 관리 프로그램',
+        })
+        .eq('id', organizationId);
+
+      if (upgradeError) {
+        return new Response(
+          JSON.stringify({ error: 'org_upgrade_failed' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      // device_id 업데이트 (없으면 추가)
+      if (device_id) {
+        await supabaseAdmin
+          .from('user_organizations')
+          .update({ device_id })
+          .eq('user_id', user.id)
+          .eq('organization_id', organizationId);
       }
     } else {
       // 새 조직 생성 (license_keys 테이블의 plan 사용)
@@ -240,7 +286,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    const isNewOrg = !existingOrg;
+    // existingOrg: 이 license_key로 이미 생성된 org
+    // userOrgLink + !existingOrg: trial org를 업그레이드한 경우
+    const isNewOrg = !existingOrg && !userOrgLink;
     const plan = existingOrg ? existingOrg.plan : licenseRow.plan;
 
     return new Response(

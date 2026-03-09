@@ -1,7 +1,57 @@
-// Tauri 파일 시스템 유틸리티 함수
-import { invoke } from '@tauri-apps/api/core';
+// Tauri 파일 시스템 유틸리티 함수 (+ 브라우저 localStorage 폴백)
 import { logInfo, logWarn, logError, logDebug } from './logger';
 import { AppError, ErrorType, errorHandler } from './errors';
+import { isTauri } from './tauri';
+
+// Tauri invoke를 동적 임포트 (브라우저에서 모듈 로드 에러 방지)
+let invoke: typeof import('@tauri-apps/api/core').invoke | null = null;
+
+if (isTauri()) {
+  import('@tauri-apps/api/core').then((mod) => {
+    invoke = mod.invoke;
+  });
+}
+
+// ─── localStorage 폴백 헬퍼 ────────────────────────────────
+const LS_PREFIX = 'tutomate_';
+
+const lsLoad = <T>(key: string): T[] => {
+  try {
+    const raw = localStorage.getItem(LS_PREFIX + key);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+// ─── 퍼시스턴스 레이어 (Tauri invoke → localStorage) ───────
+const persistSave = (key: string, jsonData: string): void => {
+  if (isTauri() && invoke) {
+    invoke('save_data', { key, data: jsonData })
+      .then(() => logInfo(`Persisted to file system: ${key}`))
+      .catch((_error) => {
+        logWarn(`Tauri save failed, falling back to localStorage: ${key}`);
+        localStorage.setItem(LS_PREFIX + key, jsonData);
+      });
+  } else {
+    localStorage.setItem(LS_PREFIX + key, jsonData);
+  }
+};
+
+const persistLoad = async <T>(key: string): Promise<T[]> => {
+  if (isTauri() && invoke) {
+    try {
+      const data = await invoke<string>('load_data', { key });
+      return data ? JSON.parse(data) : [];
+    } catch {
+      logWarn(`Tauri load failed, falling back to localStorage: ${key}`);
+      return lsLoad<T>(key);
+    }
+  }
+  return lsLoad<T>(key);
+};
+
+// ─── 공개 API (기존 인터페이스 유지) ───────────────────────
 
 /**
  * 파일 시스템에서 데이터 가져오기 (동기, 캐시에서만)
@@ -9,9 +59,20 @@ import { AppError, ErrorType, errorHandler } from './errors';
 export const getFromStorage = <T>(key: string): T[] => {
   try {
     const cachedData = sessionStorage.getItem(key);
-    const result = cachedData ? JSON.parse(cachedData) : [];
-    logDebug(`Retrieved ${result.length} items from session cache for key: ${key}`);
-    return result;
+    if (cachedData) {
+      const result = JSON.parse(cachedData) as T[];
+      logDebug(`Retrieved ${result.length} items from session cache for key: ${key}`);
+      return result;
+    }
+    // sessionStorage에 없으면 localStorage에서 시도
+    if (!isTauri()) {
+      const lsData = lsLoad<T>(key);
+      if (lsData.length > 0) {
+        sessionStorage.setItem(key, JSON.stringify(lsData));
+      }
+      return lsData;
+    }
+    return [];
   } catch (error) {
     logError(`Error reading from storage key "${key}"`, { error });
     const appError = new AppError({
@@ -31,30 +92,12 @@ export const getFromStorage = <T>(key: string): T[] => {
  */
 export const saveToStorage = <T>(key: string, data: T[]): void => {
   try {
-    // 세션 캐시에 저장
     const jsonData = JSON.stringify(data);
+    // 세션 캐시에 저장
     sessionStorage.setItem(key, jsonData);
     logDebug(`Saved ${data.length} items to session cache for key: ${key}`);
-
-    // Tauri 백엔드에 비동기로 저장
-    invoke('save_data', {
-      key,
-      data: jsonData
-    })
-      .then(() => {
-        logInfo(`Successfully persisted ${data.length} items for key: ${key}`);
-      })
-      .catch(error => {
-        logError(`Error saving to file system key "${key}"`, { error });
-        const appError = new AppError({
-          type: ErrorType.FILE_WRITE_ERROR,
-          message: `Failed to persist data: ${key}`,
-          originalError: error,
-          component: 'storage',
-          action: 'saveToStorage',
-        });
-        errorHandler.handle(appError);
-      });
+    // 퍼시스턴스 (Tauri 또는 localStorage)
+    persistSave(key, jsonData);
   } catch (error) {
     logError(`Error in saveToStorage for key "${key}"`, { error });
     const appError = new AppError({
@@ -76,8 +119,7 @@ export const loadData = async <T>(key: string): Promise<T[]> => {
 
   try {
     logInfo(`Loading data for key: ${key}`);
-    const data = await invoke<string>('load_data', { key });
-    const parsed = data ? JSON.parse(data) : [];
+    const parsed = await persistLoad<T>(key);
 
     // 세션 캐시에도 저장
     sessionStorage.setItem(key, JSON.stringify(parsed));
@@ -86,7 +128,7 @@ export const loadData = async <T>(key: string): Promise<T[]> => {
     timerEnd();
     return parsed;
   } catch (error) {
-    logError(`Error loading from file system key "${key}"`, { error });
+    logError(`Error loading data for key "${key}"`, { error });
     const appError = new AppError({
       type: ErrorType.FILE_READ_ERROR,
       message: `Failed to load data: ${key}`,
@@ -221,6 +263,7 @@ export const deleteFromStorage = <T extends { id: string }>(
 export const clearStorage = (key: string): void => {
   try {
     sessionStorage.removeItem(key);
+    localStorage.removeItem(LS_PREFIX + key);
     saveToStorage(key, []);
     logInfo(`Cleared storage for key: ${key}`);
   } catch (error) {
@@ -235,6 +278,7 @@ export const clearAllStorage = (): void => {
   try {
     sessionStorage.clear();
     Object.values(STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(LS_PREFIX + key);
       saveToStorage(key, []);
     });
     logInfo('Cleared all storage');

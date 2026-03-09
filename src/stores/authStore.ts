@@ -1,13 +1,44 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
-import { invoke } from '@tauri-apps/api/core';
 
 import type { PlanType } from '../config/planLimits';
 import { supabase } from '../config/supabase';
-import { logInfo, logError } from '../utils/logger';
+import { logInfo, logError, logWarn } from '../utils/logger';
+import { isTauri } from '../utils/tauri';
+import { hasLocalData, migrateLocalToCloud, clearLocalData } from '../utils/migrationHelper';
+
+/**
+ * 마이그레이션 전 로컬 데이터 자동 백업 (1회, UI 미노출)
+ * 로컬 파일이 Supabase로 올라가기 전에 안전하게 ZIP으로 보관
+ */
+async function silentLocalBackup(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('create_backup', { orgName: 'pre-migration' });
+    logInfo('Silent pre-migration backup created');
+  } catch (err) {
+    logWarn(`Silent backup failed (non-critical): ${err}`);
+  }
+}
 
 async function getDeviceId(): Promise<string> {
-  const machineId = await invoke<string>('get_machine_id');
+  let machineId: string;
+
+  if (isTauri()) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    machineId = await invoke<string>('get_machine_id');
+  } else {
+    // 브라우저 폴백: localStorage에 랜덤 ID 저장
+    const stored = localStorage.getItem('tutomate_device_id');
+    if (stored) {
+      machineId = stored;
+    } else {
+      machineId = crypto.randomUUID();
+      localStorage.setItem('tutomate_device_id', machineId);
+    }
+  }
+
   const encoder = new TextEncoder();
   const data = encoder.encode(machineId);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -36,55 +67,115 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   initialize: async () => {
     if (!supabase) {
+      logWarn('Supabase not configured, running in local-only mode');
       set({ loading: false });
       return;
     }
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // 1. 기존 세션 확인 또는 익명 로그인
+      let { data: { session } } = await supabase.auth.getSession();
 
-      if (session) {
-        // 세션 있으면 organizationId 조회
-        const { data } = await supabase
-          .from('user_organizations')
-          .select('organization_id')
-          .eq('user_id', session.user.id)
-          .single();
-
-        if (data) {
-          // 조직 plan 조회
-          const { data: orgData } = await supabase
-            .from('organizations')
-            .select('plan')
-            .eq('id', data.organization_id)
-            .single();
-
-          set({
-            session,
-            organizationId: data.organization_id,
-            plan: (orgData?.plan as PlanType) || 'basic',
-            isCloud: true,
-            loading: false,
-          });
-          logInfo('Cloud session restored', { data: { orgId: data.organization_id } });
+      if (!session) {
+        const { data, error: signInError } = await supabase.auth.signInAnonymously();
+        if (signInError || !data.session) {
+          logError('Anonymous sign-in failed', { error: signInError });
+          set({ loading: false });
           return;
         }
+        session = data.session;
       }
 
-      set({ loading: false });
+      // 2. 기존 조직 연결 확인
+      const { data: orgLink } = await supabase
+        .from('user_organizations')
+        .select('organization_id')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (orgLink) {
+        // 기존 조직 복원 — loading은 마이그레이션 완료 후 해제
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('plan')
+          .eq('id', orgLink.organization_id)
+          .single();
+
+        set({
+          session,
+          organizationId: orgLink.organization_id,
+          plan: (orgData?.plan as PlanType) || 'trial',
+          isCloud: true,
+        });
+        logInfo('Cloud session restored', { data: { orgId: orgLink.organization_id, plan: orgData?.plan } });
+
+        // 이전 마이그레이션 실패로 남아있는 로컬 데이터 재시도
+        if (await hasLocalData()) {
+          await silentLocalBackup();
+          logInfo('Found leftover local data, retrying migration');
+          const result = await migrateLocalToCloud(orgLink.organization_id);
+          if (result.success) {
+            await clearLocalData();
+            logInfo('Retry migration completed', { data: result.counts });
+          } else {
+            logWarn('Retry migration failed, local data preserved');
+          }
+        }
+
+        set({ loading: false });
+      } else {
+        // 3. 조직 없음 → trial org 자동 생성
+        let deviceId: string;
+        try {
+          deviceId = await getDeviceId();
+        } catch (error) {
+          logError('Failed to get device ID', { error });
+          set({ loading: false });
+          return;
+        }
+
+        const { data: trialData, error: trialError } = await supabase.functions.invoke(
+          'create-trial-org',
+          { body: { device_id: deviceId } },
+        );
+
+        if (trialError || trialData?.error) {
+          logError('Trial org creation failed', { error: trialError, data: trialData });
+          set({ loading: false });
+          return;
+        }
+
+        const organizationId = trialData.organization_id as string;
+        const plan = (trialData.plan as PlanType) || 'trial';
+        const isNewOrg = trialData.is_new_org as boolean;
+
+        set({
+          session,
+          organizationId,
+          plan,
+          isCloud: true,
+        });
+        logInfo('Trial cloud activated', { data: { orgId: organizationId, isNewOrg } });
+
+        // 4. 로컬 데이터 있으면 자동 마이그레이션
+        if (await hasLocalData()) {
+          await silentLocalBackup();
+          const result = await migrateLocalToCloud(organizationId);
+          if (result.success) {
+            await clearLocalData();
+            logInfo('Auto-migration completed', { data: result.counts });
+          } else {
+            logWarn('Auto-migration failed, local data preserved');
+          }
+        }
+
+        set({ loading: false });
+      }
     } catch (error) {
       logError('Failed to initialize auth', { error });
       set({ loading: false });
     }
 
-    // 세션 변경 리스너
-    supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        set({ session: null, organizationId: null, plan: null, isCloud: false });
-      } else {
-        set({ session });
-      }
-    });
   },
 
   activateCloud: async (licenseKey: string) => {
@@ -94,7 +185,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
     }
 
     try {
-      // 1. 익명 로그인
+      // 세션은 이미 initialize()에서 생성되어 있어야 함
       let { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
@@ -108,7 +199,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         logInfo('Anonymous sign-in successful', { data: { userId: session.user.id } });
       }
 
-      // 2. 기기 ID 조회
+      // 기기 ID 조회
       let deviceId: string;
       try {
         deviceId = await getDeviceId();
@@ -118,7 +209,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         return { status: 'error' };
       }
 
-      // 3. Edge Function으로 라이센스 검증 + 조직 연결
+      // Edge Function으로 라이센스 검증 + 조직 연결 (trial → licensed 업그레이드 포함)
       logInfo('Calling activate-license edge function');
       const { data, error } = await supabase.functions.invoke('activate-license', {
         body: { license_key: licenseKey, device_id: deviceId },
@@ -155,7 +246,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         isCloud: true,
       });
 
-      logInfo('Cloud activated', { data: { orgId: organizationId, isNewOrg } });
+      logInfo('License activated, cloud upgraded', { data: { orgId: organizationId, isNewOrg, plan } });
       return { status: 'success', isNewOrg };
     } catch (error) {
       logError('activateCloud error', { error });
@@ -182,6 +273,17 @@ export const useAuthStore = create<AuthStore>((set) => ({
     logInfo('Cloud deactivated');
   },
 }));
+
+// 세션 변경 리스너 (모듈 로드 시 1회만 등록)
+if (supabase) {
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if (!session) {
+      useAuthStore.setState({ session: null, organizationId: null, plan: null, isCloud: false });
+    } else {
+      useAuthStore.setState({ session });
+    }
+  });
+}
 
 // 스토어 외부에서 사용하는 헬퍼
 export const isCloud = (): boolean => useAuthStore.getState().isCloud;
