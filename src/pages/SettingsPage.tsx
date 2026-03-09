@@ -24,7 +24,7 @@ import {
   CopyOutlined,
   LockOutlined,
 } from '@ant-design/icons';
-import { isTauri } from '../utils/tauri';
+import { isElectron } from '../utils/tauri';
 import { useSettingsStore, type FontSize } from '../stores/settingsStore';
 import { useLockStore } from '../stores/lockStore';
 import { useLicenseStore } from '../stores/licenseStore';
@@ -191,22 +191,18 @@ const SettingsPage: React.FC = () => {
 
   // 업데이트 확인
   const handleCheckUpdate = async () => {
-    if (!isTauri()) { message.warning('업데이트는 데스크톱 앱에서만 사용 가능합니다'); return; }
+    if (!isElectron()) { message.warning('업데이트는 데스크톱 앱에서만 사용 가능합니다'); return; }
     setCheckingUpdate(true);
     setUpdateAvailable(null);
     setIsLatest(false);
     try {
-      const { check } = await import('@tauri-apps/plugin-updater');
-      const update = await check();
-      if (update && update.version !== APP_VERSION) {
+      const result = await window.electronAPI.checkForUpdates();
+      if (result && result.version !== APP_VERSION) {
         setUpdateAvailable({
-          version: update.version,
-          body: update.body || '새로운 버전이 있습니다.',
+          version: result.version,
+          body: (typeof result.releaseNotes === 'string' ? result.releaseNotes : '') || '새로운 버전이 있습니다.',
         });
-        message.info(`새 버전 v${update.version}이 있습니다! (현재: v${APP_VERSION})`);
-      } else if (update) {
-        setIsLatest(true);
-        message.success(`최신 버전입니다.`);
+        message.info(`새 버전 v${result.version}이 있습니다! (현재: v${APP_VERSION})`);
       } else {
         setIsLatest(true);
         message.success('최신 버전입니다.');
@@ -221,46 +217,31 @@ const SettingsPage: React.FC = () => {
 
   // 업데이트 다운로드 및 설치
   const handleDownloadUpdate = async () => {
-    if (!isTauri()) return;
+    if (!isElectron()) return;
     setDownloading(true);
     setDownloadProgress(0);
     try {
-      const { check } = await import('@tauri-apps/plugin-updater');
-      const update = await check();
-      if (update) {
-        let downloaded = 0;
-        let contentLength = 0;
+      const removeListener = window.electronAPI.onUpdateEvent((type, data) => {
+        if (type === 'download-progress') {
+          setDownloadProgress(Math.round(data.percent));
+        } else if (type === 'update-downloaded') {
+          setDownloadProgress(100);
+        }
+      });
 
-        await update.download((event) => {
-          switch (event.event) {
-            case 'Started':
-              contentLength = event.data.contentLength || 0;
-              break;
-            case 'Progress':
-              downloaded += event.data.chunkLength;
-              if (contentLength > 0) {
-                setDownloadProgress(Math.round((downloaded / contentLength) * 100));
-              }
-              break;
-            case 'Finished':
-              setDownloadProgress(100);
-              break;
-          }
-        });
+      await window.electronAPI.downloadUpdate();
+      removeListener();
 
-        setDownloading(false);
-        Modal.confirm({
-          title: '업데이트 다운로드 완료',
-          content: '업데이트를 설치하고 재시작하시겠습니까?',
-          okText: '설치 및 재시작',
-          cancelText: '나중에',
-          onOk: async () => {
-            await update.install();
-            const { relaunch } = await import('@tauri-apps/plugin-process');
-            await relaunch();
-          },
-        });
-      }
+      setDownloading(false);
+      Modal.confirm({
+        title: '업데이트 다운로드 완료',
+        content: '업데이트를 설치하고 재시작하시겠습니까?',
+        okText: '설치 및 재시작',
+        cancelText: '나중에',
+        onOk: () => {
+          window.electronAPI.installUpdate();
+        },
+      });
     } catch (error) {
       console.error('Update download failed:', error);
       message.error('업데이트 다운로드에 실패했습니다.');

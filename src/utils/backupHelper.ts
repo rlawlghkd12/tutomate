@@ -1,13 +1,13 @@
 /**
  * 클라우드(Supabase) 기반 백업/복원 유틸리티
  *
- * 백업 생성: Supabase → camelCase JSON → Tauri 로컬 파일 → ZIP
- * 백업 복원: ZIP → Tauri 로컬 파일 → migrateLocalToCloud → Supabase
+ * 백업 생성: Supabase → camelCase JSON → Electron 로컬 파일 → ZIP
+ * 백업 복원: ZIP → Electron 로컬 파일 → migrateLocalToCloud → Supabase
  */
 import { supabase } from '../config/supabase';
 import { supabaseLoadData } from './supabaseStorage';
 import { migrateLocalToCloud, clearLocalData } from './migrationHelper';
-import { isTauri } from './tauri';
+import { isElectron } from './tauri';
 import { logInfo, logError } from './logger';
 import {
   mapCourseFromDb,
@@ -21,12 +21,10 @@ import {
 } from './fieldMapper';
 
 /**
- * Supabase 데이터를 Tauri 로컬 파일에 덤프 (백업 ZIP 생성 전 단계)
+ * Supabase 데이터를 Electron 로컬 파일에 덤프 (백업 ZIP 생성 전 단계)
  */
 export async function dumpSupabaseToLocal(): Promise<void> {
-  if (!isTauri() || !supabase) return;
-
-  const { invoke } = await import('@tauri-apps/api/core');
+  if (!isElectron() || !supabase) return;
 
   // Supabase에서 4개 테이블 로드 → fromDb 매퍼로 camelCase 변환
   const [courseRows, studentRows, enrollmentRows, paymentRows] = await Promise.all([
@@ -43,10 +41,10 @@ export async function dumpSupabaseToLocal(): Promise<void> {
 
   // 로컬 파일에 저장
   await Promise.all([
-    invoke('save_data', { key: 'courses', data: JSON.stringify(courses) }),
-    invoke('save_data', { key: 'students', data: JSON.stringify(students) }),
-    invoke('save_data', { key: 'enrollments', data: JSON.stringify(enrollments) }),
-    invoke('save_data', { key: 'monthly_payments', data: JSON.stringify(monthlyPayments) }),
+    window.electronAPI.saveData('courses', JSON.stringify(courses)),
+    window.electronAPI.saveData('students', JSON.stringify(students)),
+    window.electronAPI.saveData('enrollments', JSON.stringify(enrollments)),
+    window.electronAPI.saveData('monthly_payments', JSON.stringify(monthlyPayments)),
   ]);
 
   logInfo('Dumped Supabase data to local files', {
@@ -63,19 +61,17 @@ export async function dumpSupabaseToLocal(): Promise<void> {
  * 클라우드 데이터 기준으로 백업 ZIP 생성
  *
  * 1. Supabase → 로컬 파일 덤프
- * 2. Rust create_backup으로 ZIP 생성
+ * 2. Electron createBackup으로 ZIP 생성
  * 3. 로컬 파일 클리어 (임시 데이터 정리)
  */
 export async function createCloudBackup(orgName?: string): Promise<void> {
-  if (!isTauri()) return;
-
-  const { invoke } = await import('@tauri-apps/api/core');
+  if (!isElectron()) return;
 
   // 1. Supabase 데이터를 로컬 파일에 덤프
   await dumpSupabaseToLocal();
 
-  // 2. Rust로 ZIP 생성
-  await invoke('create_backup', { orgName: orgName || undefined });
+  // 2. ZIP 생성
+  await window.electronAPI.createBackup(orgName || undefined);
   logInfo('Cloud backup created');
 
   // 3. 임시 로컬 파일 클리어
@@ -86,7 +82,7 @@ export async function createCloudBackup(orgName?: string): Promise<void> {
  * 백업 ZIP에서 Supabase로 복원
  *
  * 1. (옵션) 안전 백업 — 현재 Supabase 데이터를 먼저 백업
- * 2. Rust restore_backup으로 ZIP → 로컬 파일 추출
+ * 2. restoreBackup으로 ZIP → 로컬 파일 추출
  * 3. migrateLocalToCloud로 로컬 → Supabase 업로드
  * 4. 로컬 파일 클리어
  *
@@ -99,9 +95,7 @@ export async function restoreCloudBackup(
   orgId: string,
   safetyBackup = true,
 ): Promise<{ success: boolean; error?: string }> {
-  if (!isTauri()) return { success: false, error: 'Tauri 환경이 아닙니다' };
-
-  const { invoke } = await import('@tauri-apps/api/core');
+  if (!isElectron()) return { success: false, error: 'Electron 환경이 아닙니다' };
 
   try {
     // 1. 안전 백업 (현재 Supabase 데이터 기준)
@@ -116,7 +110,7 @@ export async function restoreCloudBackup(
     }
 
     // 2. ZIP → 로컬 파일 추출
-    await invoke('restore_backup', { filename });
+    await window.electronAPI.restoreBackup(filename);
     logInfo('Backup files extracted to local');
 
     // 3. 로컬 파일 → Supabase 업로드 (마이그레이션 재사용)

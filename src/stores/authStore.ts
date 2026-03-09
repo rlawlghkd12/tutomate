@@ -4,7 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import type { PlanType } from '../config/planLimits';
 import { supabase } from '../config/supabase';
 import { logInfo, logError, logWarn } from '../utils/logger';
-import { isTauri } from '../utils/tauri';
+import { isElectron } from '../utils/tauri';
 import { hasLocalData, migrateLocalToCloud, clearLocalData } from '../utils/migrationHelper';
 
 /**
@@ -12,10 +12,9 @@ import { hasLocalData, migrateLocalToCloud, clearLocalData } from '../utils/migr
  * 로컬 파일이 Supabase로 올라가기 전에 안전하게 ZIP으로 보관
  */
 async function silentLocalBackup(): Promise<void> {
-  if (!isTauri()) return;
+  if (!isElectron()) return;
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    await invoke('create_backup', { orgName: 'pre-migration' });
+    await window.electronAPI.createBackup('pre-migration');
     logInfo('Silent pre-migration backup created');
   } catch (err) {
     logWarn(`Silent backup failed (non-critical): ${err}`);
@@ -25,9 +24,8 @@ async function silentLocalBackup(): Promise<void> {
 async function getDeviceId(): Promise<string> {
   let machineId: string;
 
-  if (isTauri()) {
-    const { invoke } = await import('@tauri-apps/api/core');
-    machineId = await invoke<string>('get_machine_id');
+  if (isElectron()) {
+    machineId = await window.electronAPI.getMachineId();
   } else {
     // 브라우저 폴백: localStorage에 랜덤 ID 저장
     const stored = localStorage.getItem('tutomate_device_id');
@@ -38,6 +36,9 @@ async function getDeviceId(): Promise<string> {
       localStorage.setItem('tutomate_device_id', machineId);
     }
   }
+
+  // Tauri(ioreg)는 대문자, node-machine-id는 소문자 반환 → 대문자로 통일
+  machineId = machineId.toUpperCase();
 
   const encoder = new TextEncoder();
   const data = encoder.encode(machineId);

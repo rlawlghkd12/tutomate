@@ -2,12 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { message } from 'antd';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useAuthStore } from '../stores/authStore';
-import { isTauri } from '../utils/tauri';
+import { isElectron } from '../utils/tauri';
 import { createCloudBackup, restoreCloudBackup } from '../utils/backupHelper';
-
-// 동적 Tauri 임포트 헬퍼
-const getTauriCore = () => isTauri() ? import('@tauri-apps/api/core') : null;
-const getTauriDialog = () => isTauri() ? import('@tauri-apps/plugin-dialog') : null;
 
 export interface BackupInfo {
   filename: string;
@@ -24,11 +20,10 @@ export function useBackup() {
   const [restoring, setRestoring] = useState<string | null>(null);
 
   const loadBackups = useCallback(async () => {
-    const core = await getTauriCore();
-    if (!core) { setLoading(false); return; }
+    if (!isElectron()) { setLoading(false); return; }
     setLoading(true);
     try {
-      const result = await core.invoke<BackupInfo[]>('list_backups');
+      const result = await window.electronAPI.listBackups();
       setBackups(result);
     } catch (error) {
       message.error('백업 목록을 불러오는데 실패했습니다: ' + error);
@@ -42,7 +37,7 @@ export function useBackup() {
   }, [loadBackups]);
 
   const createBackup = useCallback(async () => {
-    if (!isTauri()) { message.warning('백업은 데스크톱 앱에서만 사용 가능합니다'); return; }
+    if (!isElectron()) { message.warning('백업은 데스크톱 앱에서만 사용 가능합니다'); return; }
     setCreating(true);
     try {
       await createCloudBackup(organizationName);
@@ -56,20 +51,18 @@ export function useBackup() {
   }, [loadBackups, organizationName]);
 
   const importBackup = useCallback(async (): Promise<BackupInfo | null> => {
-    const core = await getTauriCore();
-    const dialog = await getTauriDialog();
-    if (!core || !dialog) { message.warning('백업은 데스크톱 앱에서만 사용 가능합니다'); return null; }
+    if (!isElectron()) { message.warning('백업은 데스크톱 앱에서만 사용 가능합니다'); return null; }
     try {
-      const selected = await dialog.open({
+      const selected = await window.electronAPI.showOpenDialog({
         title: '백업 파일 선택',
         filters: [{ name: '백업 파일', extensions: ['zip'] }],
-        multiple: false,
+        properties: ['openFile'],
       });
 
       if (!selected) return null;
 
       setImporting(true);
-      const result = await core.invoke<BackupInfo>('import_backup', { sourcePath: selected, orgName: organizationName });
+      const result = await window.electronAPI.importBackup(selected, organizationName);
       await loadBackups();
       return result;
     } catch (error) {
@@ -81,7 +74,7 @@ export function useBackup() {
   }, [loadBackups, organizationName]);
 
   const restoreBackup = useCallback(async (filename: string) => {
-    if (!isTauri()) return;
+    if (!isElectron()) return;
     const orgId = useAuthStore.getState().organizationId;
     if (!orgId) {
       message.error('조직 정보가 없어 복원할 수 없습니다.');
@@ -104,11 +97,9 @@ export function useBackup() {
   }, []);
 
   const downloadBackup = useCallback(async (filename: string) => {
-    const core = await getTauriCore();
-    const dialog = await getTauriDialog();
-    if (!core || !dialog) return;
+    if (!isElectron()) return;
     try {
-      const savePath = await dialog.save({
+      const savePath = await window.electronAPI.showSaveDialog({
         title: '백업 파일 저장',
         defaultPath: filename,
         filters: [{ name: '백업 파일', extensions: ['zip'] }],
@@ -116,7 +107,7 @@ export function useBackup() {
 
       if (!savePath) return;
 
-      await core.invoke('export_backup_file', { filename, destPath: savePath });
+      await window.electronAPI.exportBackupFile(filename, savePath);
       message.success('백업 파일이 저장되었습니다.');
     } catch (error) {
       message.error('백업 파일 다운로드 실패: ' + error);
@@ -124,10 +115,9 @@ export function useBackup() {
   }, []);
 
   const deleteBackup = useCallback(async (filename: string) => {
-    const core = await getTauriCore();
-    if (!core) return;
+    if (!isElectron()) return;
     try {
-      await core.invoke('delete_backup', { filename });
+      await window.electronAPI.deleteBackup(filename);
       message.success('백업이 삭제되었습니다');
       await loadBackups();
     } catch (error) {

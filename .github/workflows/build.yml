@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build & Release
 
 on:
   push:
@@ -6,252 +6,51 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
-            artifact_name: 'macos-aarch64'
-          - platform: 'windows-2022'
-            args: ''
-            artifact_name: 'windows'
+          - os: macos-latest
+            platform: mac
+            artifact_name: macos
+          - os: windows-latest
+            platform: win
+            artifact_name: windows
 
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Disable Windows Defender real-time monitoring
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: Set-MpPreference -DisableRealtimeMonitoring $true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' || '' }}
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 8
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.7
-
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
+          node-version: 22
+          cache: npm
 
       - name: Install dependencies
-        run: pnpm install
+        run: npm ci
 
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0.5
+      - name: Build Electron app
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          CARGO_INCREMENTAL: 0
-          SCCACHE_GHA_ENABLED: "true"
-          RUSTC_WRAPPER: "sccache"
-        with:
-          args: ${{ matrix.args }}
-
-      - name: List built files
-        run: |
-          echo "=== All bundle files ==="
-          find src-tauri/target -type f \( -name "*.tar.gz" -o -name "*.tar.gz.sig" -o -name "*.dmg" -o -name "*.exe" -o -name "*.msi" -o -name "*.msi.sig" \) 2>/dev/null || true
-        shell: bash
+        run: npm run electron:build:${{ matrix.platform }} -- --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            src-tauri/target/**/release/bundle/**/*.dmg
-            src-tauri/target/**/release/bundle/**/*.app.tar.gz
-            src-tauri/target/**/release/bundle/**/*.app.tar.gz.sig
-            src-tauri/target/**/release/bundle/**/*.exe
-            src-tauri/target/**/release/bundle/**/*.msi
-            src-tauri/target/**/release/bundle/**/*.msi.sig
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    if: startsWith(github.ref, 'refs/tags/')
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Display structure of downloaded files
-        run: find artifacts -type f | head -50
-
-      - name: Prepare release files
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          mkdir -p release-files
-
-          echo "=== Artifact structure ==="
-          find artifacts -type f
-
-          # Find and copy tar.gz files with version naming
-          # macOS aarch64
-          AARCH64_TAR=$(find artifacts/macos-aarch64 -name "*.app.tar.gz" -type f 2>/dev/null | head -1)
-          if [ -n "$AARCH64_TAR" ]; then
-            cp "$AARCH64_TAR" "release-files/TutorMate_${VERSION}_aarch64.app.tar.gz"
-            echo "Copied aarch64 tar.gz"
-          fi
-          AARCH64_SIG=$(find artifacts/macos-aarch64 -name "*.app.tar.gz.sig" -type f 2>/dev/null | head -1)
-          if [ -n "$AARCH64_SIG" ]; then
-            cp "$AARCH64_SIG" "release-files/TutorMate_${VERSION}_aarch64.app.tar.gz.sig"
-            echo "Copied aarch64 sig"
-          fi
-
-          # Windows MSI (Tauri adds _en-US locale suffix)
-          WIN_MSI=$(find artifacts/windows -name "*.msi" ! -name "*.msi.sig" -type f 2>/dev/null | head -1)
-          if [ -n "$WIN_MSI" ]; then
-            cp "$WIN_MSI" "release-files/TutorMate_${VERSION}_x64.msi"
-            echo "Copied windows msi"
-          fi
-          WIN_MSI_SIG=$(find artifacts/windows -name "*.msi.sig" -type f 2>/dev/null | head -1)
-          if [ -n "$WIN_MSI_SIG" ]; then
-            cp "$WIN_MSI_SIG" "release-files/TutorMate_${VERSION}_x64.msi.sig"
-            echo "Copied windows msi sig"
-          fi
-
-          # Copy dmg, exe files
-          find artifacts -type f \( -name "*.dmg" -o -name "*.exe" \) -exec cp {} release-files/ \;
-
-          echo "=== Release files ==="
-          ls -la release-files/
-
-      - name: Generate latest.json for updater
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-
-          # Get signature files content
-          MAC_AARCH64_SIG=""
-          WINDOWS_SIG=""
-
-          if [ -f "release-files/TutorMate_${VERSION}_aarch64.app.tar.gz.sig" ]; then
-            MAC_AARCH64_SIG=$(cat "release-files/TutorMate_${VERSION}_aarch64.app.tar.gz.sig")
-          fi
-
-          if [ -f "release-files/TutorMate_${VERSION}_x64.msi.sig" ]; then
-            WINDOWS_SIG=$(cat "release-files/TutorMate_${VERSION}_x64.msi.sig")
-          fi
-
-          cat > release-files/latest.json << EOF
-          {
-            "version": "${VERSION}",
-            "notes": "새로운 버전이 출시되었습니다.",
-            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "platforms": {
-              "darwin-aarch64": {
-                "signature": "${MAC_AARCH64_SIG}",
-                "url": "https://github.com/rlawlghkd12/tutomate/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_aarch64.app.tar.gz"
-              },
-              "windows-x86_64": {
-                "signature": "${WINDOWS_SIG}",
-                "url": "https://github.com/rlawlghkd12/tutomate/releases/download/${GITHUB_REF_NAME}/TutorMate_${VERSION}_x64.msi"
-              }
-            }
-          }
-          EOF
-
-          cat release-files/latest.json
-
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Delete existing release if exists
-          gh release delete ${{ github.ref_name }} --repo ${{ github.repository }} --yes 2>/dev/null || true
-
-          # Create new release with files
-          gh release create ${{ github.ref_name }} \
-            --repo ${{ github.repository }} \
-            --title "수강생 관리 프로그램 ${{ github.ref_name }}" \
-            --notes "새로운 버전이 출시되었습니다.
-
-          자동 업데이트를 통해 최신 버전으로 업데이트하거나, 아래에서 직접 다운로드할 수 있습니다.
-
-          ## 설치 방법
-
-          ### macOS (Apple Silicon)
-          - \`TutorMate_*_aarch64.dmg\` 다운로드
-
-          ### Windows
-          - \`.exe\` 또는 \`.msi\` 파일 다운로드" \
-            release-files/*
-
-  # 테스트 빌드용 (태그 없이 실행)
-  test-build:
-    if: github.event_name == 'workflow_dispatch' && !startsWith(github.ref, 'refs/tags/')
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [macos-latest, windows-2022]
-
-    runs-on: ${{ matrix.platform }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 8
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Build Tauri app
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        run: pnpm run tauri:build
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.platform }}-build
-          path: |
-            src-tauri/target/release/bundle/**/*
+            release/**/*.dmg
+            release/**/*.zip
+            release/**/*.exe
+            release/**/*.yml
+            release/**/*.yaml

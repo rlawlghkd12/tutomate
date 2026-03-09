@@ -1,16 +1,7 @@
-// Tauri 파일 시스템 유틸리티 함수 (+ 브라우저 localStorage 폴백)
+// Electron IPC 파일 시스템 유틸리티 함수 (+ 브라우저 localStorage 폴백)
 import { logInfo, logWarn, logError, logDebug } from './logger';
 import { AppError, ErrorType, errorHandler } from './errors';
-import { isTauri } from './tauri';
-
-// Tauri invoke를 동적 임포트 (브라우저에서 모듈 로드 에러 방지)
-let invoke: typeof import('@tauri-apps/api/core').invoke | null = null;
-
-if (isTauri()) {
-  import('@tauri-apps/api/core').then((mod) => {
-    invoke = mod.invoke;
-  });
-}
+import { isElectron } from './tauri';
 
 // ─── localStorage 폴백 헬퍼 ────────────────────────────────
 const LS_PREFIX = 'tutomate_';
@@ -24,13 +15,13 @@ const lsLoad = <T>(key: string): T[] => {
   }
 };
 
-// ─── 퍼시스턴스 레이어 (Tauri invoke → localStorage) ───────
+// ─── 퍼시스턴스 레이어 (Electron IPC → localStorage) ───────
 const persistSave = (key: string, jsonData: string): void => {
-  if (isTauri() && invoke) {
-    invoke('save_data', { key, data: jsonData })
+  if (isElectron()) {
+    window.electronAPI.saveData(key, jsonData)
       .then(() => logInfo(`Persisted to file system: ${key}`))
       .catch((_error) => {
-        logWarn(`Tauri save failed, falling back to localStorage: ${key}`);
+        logWarn(`Electron save failed, falling back to localStorage: ${key}`);
         localStorage.setItem(LS_PREFIX + key, jsonData);
       });
   } else {
@@ -39,12 +30,12 @@ const persistSave = (key: string, jsonData: string): void => {
 };
 
 const persistLoad = async <T>(key: string): Promise<T[]> => {
-  if (isTauri() && invoke) {
+  if (isElectron()) {
     try {
-      const data = await invoke<string>('load_data', { key });
+      const data = await window.electronAPI.loadData(key);
       return data ? JSON.parse(data) : [];
     } catch {
-      logWarn(`Tauri load failed, falling back to localStorage: ${key}`);
+      logWarn(`Electron load failed, falling back to localStorage: ${key}`);
       return lsLoad<T>(key);
     }
   }
@@ -65,7 +56,7 @@ export const getFromStorage = <T>(key: string): T[] => {
       return result;
     }
     // sessionStorage에 없으면 localStorage에서 시도
-    if (!isTauri()) {
+    if (!isElectron()) {
       const lsData = lsLoad<T>(key);
       if (lsData.length > 0) {
         sessionStorage.setItem(key, JSON.stringify(lsData));
@@ -96,7 +87,7 @@ export const saveToStorage = <T>(key: string, data: T[]): void => {
     // 세션 캐시에 저장
     sessionStorage.setItem(key, jsonData);
     logDebug(`Saved ${data.length} items to session cache for key: ${key}`);
-    // 퍼시스턴스 (Tauri 또는 localStorage)
+    // 퍼시스턴스 (Electron 또는 localStorage)
     persistSave(key, jsonData);
   } catch (error) {
     logError(`Error in saveToStorage for key "${key}"`, { error });

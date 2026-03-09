@@ -3,11 +3,7 @@ import { Modal, Button, Progress, Typography, Space, theme } from 'antd';
 import { DownloadOutlined, CloseOutlined } from '@ant-design/icons';
 import { logInfo, logError } from '../../utils/logger';
 import { handleError } from '../../utils/errors';
-import { isTauri } from '../../utils/tauri';
-
-// 동적 Tauri 임포트
-const getUpdater = () => isTauri() ? import('@tauri-apps/plugin-updater') : null;
-const getProcess = () => isTauri() ? import('@tauri-apps/plugin-process') : null;
+import { isElectron } from '../../utils/tauri';
 
 const { Text, Paragraph } = Typography;
 
@@ -27,30 +23,29 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
   const modalVisible = updateInfo !== null;
 
   const checkForUpdates = async (silent = false) => {
-    const updater = await getUpdater();
-    if (!updater) return;
+    if (!isElectron()) return;
     try {
       logInfo('Checking for updates');
-      const update = await updater.check();
+      const result = await window.electronAPI.checkForUpdates();
 
-      if (update) {
+      if (result) {
         logInfo('Update available', {
           data: {
-            current: update.currentVersion,
-            latest: update.version,
+            current: result.currentVersion,
+            latest: result.version,
           }
         });
 
         const skippedVersion = localStorage.getItem(SKIPPED_VERSION_KEY);
-        if (silent && skippedVersion === update.version) {
-          logInfo('Update skipped by user', { data: { version: update.version } });
+        if (silent && skippedVersion === result.version) {
+          logInfo('Update skipped by user', { data: { version: result.version } });
           return;
         }
 
         setUpdateInfo({
-          currentVersion: update.currentVersion,
-          latestVersion: update.version,
-          body: update.body || '새로운 버전이 출시되었습니다.',
+          currentVersion: result.currentVersion,
+          latestVersion: result.version,
+          body: (typeof result.releaseNotes === 'string' ? result.releaseNotes : '') || '새로운 버전이 출시되었습니다.',
         });
       } else {
         logInfo('No updates available');
@@ -70,45 +65,26 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
   };
 
   const downloadAndInstall = async () => {
-    const updater = await getUpdater();
-    if (!updater) return;
+    if (!isElectron()) return;
     try {
       setDownloading(true);
       setDownloadProgress(0);
 
       logInfo('Starting update download');
-      const update = await updater.check();
 
-      if (!update) {
-        logInfo('No update found during download attempt');
-        return;
-      }
-
-      // 다운로드만 먼저 수행
-      let downloaded = 0;
-      let contentLength = 0;
-
-      await update.download((event: any) => {
-        switch (event.event) {
-          case 'Started':
-            contentLength = event.data.contentLength ?? 0;
-            downloaded = 0;
-            logInfo('Download started', { data: { contentLength } });
-            setDownloadProgress(0);
-            break;
-          case 'Progress':
-            downloaded += event.data.chunkLength;
-            const progress = contentLength ? (downloaded / contentLength) * 100 : 0;
-            setDownloadProgress(Math.min(progress, 100));
-            break;
-          case 'Finished':
-            logInfo('Download finished');
-            setDownloadProgress(100);
-            break;
+      // 다운로드 진행률 이벤트 리스너
+      const removeListener = window.electronAPI.onUpdateEvent((type, data) => {
+        if (type === 'download-progress') {
+          setDownloadProgress(Math.min(data.percent, 100));
+        } else if (type === 'update-downloaded') {
+          setDownloadProgress(100);
         }
       });
 
-      logInfo('Download complete, awaiting user confirmation to install');
+      await window.electronAPI.downloadUpdate();
+
+      removeListener();
+      logInfo('Download complete');
       setDownloading(false);
       setUpdateInfo(null);
 
@@ -118,10 +94,8 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
         content: '업데이트를 설치하고 재시작하시겠습니까?',
         okText: '설치 및 재시작',
         cancelText: '나중에',
-        onOk: async () => {
-          await update.install();
-          const proc = await getProcess();
-          if (proc) await proc.relaunch();
+        onOk: () => {
+          window.electronAPI.installUpdate();
         },
       });
     } catch (error) {
@@ -233,18 +207,17 @@ export function useUpdateChecker() {
   const [checking, setChecking] = useState(false);
 
   const checkForUpdates = async () => {
-    const updater = await getUpdater();
-    if (!updater) return;
+    if (!isElectron()) return;
     setChecking(true);
     try {
       logInfo('Manual update check triggered');
-      const update = await updater.check();
+      const result = await window.electronAPI.checkForUpdates();
 
-      if (update) {
+      if (result) {
         logInfo('Update available', {
           data: {
-            current: update.currentVersion,
-            latest: update.version,
+            current: result.currentVersion,
+            latest: result.version,
           }
         });
 
@@ -252,11 +225,13 @@ export function useUpdateChecker() {
           title: '업데이트 알림',
           content: (
             <div>
-              <p>새로운 버전 {update.version}이(가) 출시되었습니다.</p>
-              <p>현재 버전: {update.currentVersion}</p>
-              {update.body && (
+              <p>새로운 버전 {result.version}이(가) 출시되었습니다.</p>
+              <p>현재 버전: {result.currentVersion}</p>
+              {result.releaseNotes && (
                 <div style={{ marginTop: 12, padding: 12, background: 'var(--ant-color-bg-layout, #f5f5f5)', borderRadius: 4 }}>
-                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{update.body}</pre>
+                  <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                    {typeof result.releaseNotes === 'string' ? result.releaseNotes : ''}
+                  </pre>
                 </div>
               )}
             </div>
@@ -265,10 +240,8 @@ export function useUpdateChecker() {
           cancelText: '나중에',
           onOk: async () => {
             try {
-              await update.download();
-              await update.install();
-              const proc = await getProcess();
-              if (proc) await proc.relaunch();
+              await window.electronAPI.downloadUpdate();
+              window.electronAPI.installUpdate();
             } catch (error) {
               handleError(error);
             }
