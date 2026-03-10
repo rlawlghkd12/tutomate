@@ -60,12 +60,29 @@ function App() {
     try {
       const result = await activateLicense(key);
       if (result.result === 'success') {
-        message.success('라이선스가 활성화되었습니다! 플랜이 업그레이드되었습니다.');
-        localStorage.setItem('welcome-dismissed', 'true');
-        setWelcomeVisible(false);
-        setLicenseInput(['', '', '', '']);
-        // 체험판에서 이미 Supabase를 사용 중이므로 별도 마이그레이션 불필요
-        // (로컬 데이터는 initialize() 시 자동 마이그레이션됨)
+        if (result.orgChanged) {
+          Modal.confirm({
+            title: '기존 라이선스 데이터로 전환',
+            content: '이 라이선스 키에는 기존 데이터가 있습니다. 전환하면 현재 체험판에서 입력한 데이터는 더 이상 표시되지 않습니다. 계속하시겠습니까?',
+            okText: '전환',
+            cancelText: '취소',
+            onCancel: () => {
+              useAuthStore.getState().rollbackOrg();
+              message.info('전환이 취소되었습니다.');
+            },
+            onOk: () => {
+              localStorage.setItem('welcome-dismissed', 'true');
+              setWelcomeVisible(false);
+              setLicenseInput(['', '', '', '']);
+              message.success('라이선스가 활성화되었습니다!');
+            },
+          });
+        } else {
+          message.success('라이선스가 활성화되었습니다! 플랜이 업그레이드되었습니다.');
+          localStorage.setItem('welcome-dismissed', 'true');
+          setWelcomeVisible(false);
+          setLicenseInput(['', '', '', '']);
+        }
       } else if (result.result === 'invalid_format') {
         message.error('유효하지 않은 형식입니다. 형식: TMKH-XXXX-XXXX-XXXX');
       } else if (result.result === 'network_error') {
