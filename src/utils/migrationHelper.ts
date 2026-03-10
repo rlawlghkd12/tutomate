@@ -45,6 +45,24 @@ async function loadFromLocal<T>(key: string): Promise<T[]> {
 }
 
 /**
+ * 로컬 데이터 원본을 JSON 객체로 반환 (DB 백업용)
+ */
+export async function getLocalDataSnapshot(): Promise<Record<string, unknown[]> | null> {
+  if (!isElectron()) return null;
+  try {
+    const courses = await loadFromLocal('courses');
+    const students = await loadFromLocal('students');
+    const enrollments = await loadFromLocal('enrollments');
+    const monthly_payments = await loadFromLocal('monthly_payments');
+    const total = courses.length + students.length + enrollments.length + monthly_payments.length;
+    if (total === 0) return null;
+    return { courses, students, enrollments, monthly_payments };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 로컬 파일시스템에 레거시 로컬 데이터가 있는지 확인
  * courses 또는 students 파일에 데이터가 1건 이상이면 true
  */

@@ -5,7 +5,7 @@ import type { PlanType } from '../config/planLimits';
 import { supabase } from '../config/supabase';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { isElectron } from '../utils/tauri';
-import { hasLocalData, migrateLocalToCloud, clearLocalData } from '../utils/migrationHelper';
+import { hasLocalData, migrateLocalToCloud, clearLocalData, getLocalDataSnapshot } from '../utils/migrationHelper';
 
 /**
  * 마이그레이션 전 로컬 데이터 자동 백업 (1회, UI 미노출)
@@ -53,9 +53,14 @@ interface AuthStore {
   plan: PlanType | null;
   isCloud: boolean;
   loading: boolean;
+  _previousOrg: { organizationId: string; plan: PlanType | null } | null;
 
   initialize: () => Promise<void>;
-  activateCloud: (licenseKey: string) => Promise<{ status: 'success'; isNewOrg: boolean } | { status: 'invalid_key' | 'max_seats_reached' | 'error' }>;
+  activateCloud: (licenseKey: string) => Promise<
+    | { status: 'success'; isNewOrg: boolean; orgChanged: boolean; previousOrgId: string | null }
+    | { status: 'invalid_key' | 'max_seats_reached' | 'error' }
+  >;
+  rollbackOrg: () => void;
   deactivateCloud: () => Promise<void>;
 }
 
@@ -65,6 +70,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   plan: null,
   isCloud: false,
   loading: true,
+  _previousOrg: null,
 
   initialize: async () => {
     if (!supabase) {
@@ -113,6 +119,16 @@ export const useAuthStore = create<AuthStore>((set) => ({
         // 라이선스 유저: 이미 Supabase 데이터가 있으므로 로컬 파일만 정리
         if (await hasLocalData()) {
           await silentLocalBackup();
+
+          // DB에 원본 JSON 백업 저장 (복구용)
+          const snapshot = await getLocalDataSnapshot();
+          if (snapshot && supabase) {
+            await supabase.from('organizations')
+              .update({ local_backup: snapshot })
+              .eq('id', orgLink.organization_id);
+            logInfo('Licensed user: local data snapshot saved to DB');
+          }
+
           await clearLocalData();
           logInfo('Licensed user: cleared leftover local data (Supabase data preserved)');
         }
@@ -155,6 +171,16 @@ export const useAuthStore = create<AuthStore>((set) => ({
         // 4. 로컬 데이터 있으면 자동 마이그레이션
         if (await hasLocalData()) {
           await silentLocalBackup();
+
+          // DB에 원본 JSON 백업 저장 (복구용)
+          const snapshot = await getLocalDataSnapshot();
+          if (snapshot && supabase) {
+            await supabase.from('organizations')
+              .update({ local_backup: snapshot })
+              .eq('id', organizationId);
+            logInfo('Local data snapshot saved to DB');
+          }
+
           const result = await migrateLocalToCloud(organizationId);
           if (result.success) {
             await clearLocalData();
@@ -234,18 +260,34 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const isNewOrg = data.is_new_org as boolean;
       const plan = (data.plan as PlanType) || 'basic';
 
+      const previousOrgId = useAuthStore.getState().organizationId;
+      const orgChanged = previousOrgId !== null && previousOrgId !== organizationId;
+
       set({
         session,
         organizationId,
         plan,
         isCloud: true,
+        _previousOrg: orgChanged ? { organizationId: previousOrgId, plan: useAuthStore.getState().plan } : null,
       });
 
-      logInfo('License activated, cloud upgraded', { data: { orgId: organizationId, isNewOrg, plan } });
-      return { status: 'success', isNewOrg };
+      logInfo('License activated, cloud upgraded', { data: { orgId: organizationId, isNewOrg, plan, orgChanged } });
+      return { status: 'success', isNewOrg, orgChanged, previousOrgId };
     } catch (error) {
       logError('activateCloud error', { error });
       return { status: 'error' };
+    }
+  },
+
+  rollbackOrg: () => {
+    const prev = useAuthStore.getState()._previousOrg;
+    if (prev) {
+      set({
+        organizationId: prev.organizationId,
+        plan: prev.plan,
+        _previousOrg: null,
+      });
+      logInfo('Org rollback to previous trial org', { data: { orgId: prev.organizationId } });
     }
   },
 

@@ -7,7 +7,7 @@ import { useAuthStore } from './authStore';
 import { logError } from '../utils/logger';
 
 export type ActivateResult =
-  | { result: 'success'; isNewOrg: boolean }
+  | { result: 'success'; isNewOrg: boolean; orgChanged: boolean }
   | { result: 'invalid_format' | 'invalid_key' | 'network_error' | 'max_seats_reached' };
 
 interface LicenseStore {
@@ -77,7 +77,8 @@ export const useLicenseStore = create<LicenseStore>((set, get) => ({
       set({ licenseKey: info.licenseKey, activatedAt: info.activatedAt });
 
       const isNewOrg = cloudResult.status === 'success' ? cloudResult.isNewOrg : false;
-      return { result: 'success', isNewOrg };
+      const orgChanged = cloudResult.status === 'success' ? cloudResult.orgChanged : false;
+      return { result: 'success', isNewOrg, orgChanged };
     } catch {
       return { result: 'network_error' };
     }

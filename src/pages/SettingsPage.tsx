@@ -260,18 +260,34 @@ const SettingsPage: React.FC = () => {
     try {
       const result = await activateLicense(key);
       if (result.result === 'success') {
-        message.success('라이선스가 활성화되었습니다!');
-        setLicenseInput(['', '', '', '']);
-        // 새 조직이면 로컬 데이터 마이그레이션 제안
-        if (result.isNewOrg && useAuthStore.getState().isCloud) {
-          try {
-            const courses = JSON.parse(sessionStorage.getItem('courses') || '[]');
-            const students = JSON.parse(sessionStorage.getItem('students') || '[]');
-            if (courses.length > 0 || students.length > 0) {
-              setShowMigration(true);
+        if (result.orgChanged) {
+          Modal.confirm({
+            title: '기존 라이선스 데이터로 전환',
+            content: '이 라이선스 키에는 기존 데이터가 있습니다. 전환하면 현재 체험판에서 입력한 데이터는 더 이상 표시되지 않습니다. 계속하시겠습니까?',
+            okText: '전환',
+            cancelText: '취소',
+            onCancel: () => {
+              useAuthStore.getState().rollbackOrg();
+              message.info('전환이 취소되었습니다.');
+            },
+            onOk: () => {
+              setLicenseInput(['', '', '', '']);
+              message.success('라이선스가 활성화되었습니다!');
+            },
+          });
+        } else {
+          message.success('라이선스가 활성화되었습니다!');
+          setLicenseInput(['', '', '', '']);
+          if (result.isNewOrg && useAuthStore.getState().isCloud) {
+            try {
+              const courses = JSON.parse(sessionStorage.getItem('courses') || '[]');
+              const students = JSON.parse(sessionStorage.getItem('students') || '[]');
+              if (courses.length > 0 || students.length > 0) {
+                setShowMigration(true);
+              }
+            } catch {
+              // ignore
             }
-          } catch {
-            // ignore
           }
         }
       } else if (result.result === 'invalid_format') {
