@@ -110,17 +110,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
         });
         logInfo('Cloud session restored', { data: { orgId: orgLink.organization_id, plan: orgData?.plan } });
 
-        // 이전 마이그레이션 실패로 남아있는 로컬 데이터 재시도
+        // 라이선스 유저: 이미 Supabase 데이터가 있으므로 로컬 파일만 정리
         if (await hasLocalData()) {
           await silentLocalBackup();
-          logInfo('Found leftover local data, retrying migration');
-          const result = await migrateLocalToCloud(orgLink.organization_id);
-          if (result.success) {
-            await clearLocalData();
-            logInfo('Retry migration completed', { data: result.counts });
-          } else {
-            logWarn('Retry migration failed, local data preserved');
-          }
+          await clearLocalData();
+          logInfo('Licensed user: cleared leftover local data (Supabase data preserved)');
         }
 
         set({ loading: false });
