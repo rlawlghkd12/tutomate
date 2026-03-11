@@ -198,7 +198,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   },
 
-  activateCloud: async (licenseKey: string) => {
+  activateCloud: async (licenseKey: string): Promise<
+    | { status: 'success'; isNewOrg: boolean; orgChanged: boolean; previousOrgId: string | null }
+    | { status: 'invalid_key' | 'max_seats_reached' | 'error' }
+  > => {
     if (!supabase) {
       logError('Supabase client not initialized', {});
       return { status: 'error' };
@@ -237,7 +240,15 @@ export const useAuthStore = create<AuthStore>((set) => ({
       });
 
       if (error) {
-        logError('License activation failed', { error, data: { message: error.message } });
+        // FunctionsHttpError의 경우 응답 body에서 상세 에러 추출
+        let detail = error.message;
+        try {
+          if (error.context && typeof error.context.json === 'function') {
+            const body = await error.context.json();
+            detail = JSON.stringify(body);
+          }
+        } catch (_) { /* ignore */ }
+        logError('License activation failed', { error, data: { message: error.message, detail } });
         return { status: 'error' };
       }
 
