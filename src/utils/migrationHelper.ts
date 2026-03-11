@@ -262,8 +262,10 @@ export async function restoreMonthlyPaymentsFromBackup(orgId: string): Promise<b
             await supabaseBulkInsert('monthly_payments', rows);
             logInfo('monthly_payments restored from backup', { data: { count: validPayments.length } });
 
-            // 로컬 파일 정리
-            await invoke('save_data', { key: 'monthly_payments', data: '[]' });
+            // restore_backup이 ZIP 전체를 data/에 풀어놓으므로 전부 정리
+            for (const key of ['courses', 'students', 'enrollments', 'monthly_payments']) {
+              await invoke('save_data', { key, data: '[]' }).catch(() => {});
+            }
             return true;
           }
         }
@@ -273,9 +275,11 @@ export async function restoreMonthlyPaymentsFromBackup(orgId: string): Promise<b
       }
     }
 
-    // 로컬 파일 정리
+    // restore_backup 호출 후 남은 로컬 파일 전부 정리
     try {
-      await invoke('save_data', { key: 'monthly_payments', data: '[]' });
+      for (const key of ['courses', 'students', 'enrollments', 'monthly_payments']) {
+        await invoke('save_data', { key, data: '[]' }).catch(() => {});
+      }
     } catch { /* ignore */ }
 
     logInfo('No monthly_payments data found in any backup');
