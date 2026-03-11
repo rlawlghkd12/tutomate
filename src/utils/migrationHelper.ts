@@ -206,6 +206,87 @@ export async function migrateLocalToCloud(
 }
 
 /**
+ * 로컬 백업 ZIP에서 monthly_payments 데이터만 추출하여 Supabase에 복원
+ * Supabase에 monthly_payments가 0건이고, 백업에 데이터가 있을 때만 실행
+ */
+export async function restoreMonthlyPaymentsFromBackup(orgId: string): Promise<boolean> {
+  if (!isTauri() || !supabase) return false;
+
+  try {
+    // 1. Supabase에 monthly_payments가 이미 있으면 스킵
+    const { count } = await supabase
+      .from('monthly_payments')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', orgId);
+
+    if ((count ?? 0) > 0) {
+      logInfo('monthly_payments already has data, skipping backup restore');
+      return false;
+    }
+
+    // 2. 가장 최신 백업 ZIP 찾기
+    const { invoke } = await import('@tauri-apps/api/core');
+    const backups = await invoke<Array<{ filename: string; created_at: string }>>('list_backups');
+
+    if (!backups || backups.length === 0) {
+      logInfo('No backup files found for monthly_payments restore');
+      return false;
+    }
+
+    // 최신 백업 순 정렬
+    backups.sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+    // 3. 백업에서 로컬로 복원 → monthly_payments.json 로드
+    for (const backup of backups) {
+      try {
+        await invoke('restore_backup', { filename: backup.filename });
+        const payments = await loadFromTauri<MonthlyPayment>('monthly_payments');
+
+        if (payments.length > 0) {
+          logInfo('Found monthly_payments in backup', { data: { filename: backup.filename, count: payments.length } });
+
+          // 4. enrollment_id 매핑: 백업의 enrollment_id가 현재 Supabase에 존재하는지 확인
+          const { data: existingEnrollments } = await supabase
+            .from('enrollments')
+            .select('id')
+            .eq('organization_id', orgId);
+
+          const validEnrollmentIds = new Set((existingEnrollments || []).map(e => e.id));
+
+          const validPayments = payments.filter(mp => validEnrollmentIds.has(mp.enrollmentId));
+
+          if (validPayments.length > 0) {
+            const rows = validPayments.map((mp) =>
+              mapMonthlyPaymentToDb(mp, orgId),
+            );
+            await supabaseBulkInsert('monthly_payments', rows);
+            logInfo('monthly_payments restored from backup', { data: { count: validPayments.length } });
+
+            // 로컬 파일 정리
+            await invoke('save_data', { key: 'monthly_payments', data: '[]' });
+            return true;
+          }
+        }
+      } catch (err) {
+        logWarn(`Failed to read backup ${backup.filename}: ${err}`);
+        continue;
+      }
+    }
+
+    // 로컬 파일 정리
+    try {
+      await invoke('save_data', { key: 'monthly_payments', data: '[]' });
+    } catch { /* ignore */ }
+
+    logInfo('No monthly_payments data found in any backup');
+    return false;
+  } catch (err) {
+    logError('restoreMonthlyPaymentsFromBackup failed', { error: err });
+    return false;
+  }
+}
+
+/**
  * 마이그레이션 완료 후 Tauri 파일시스템의 로컬 데이터 클리어
  * 파일 삭제 대신 빈 배열([])로 덮어쓰기 — 더 안전
  */

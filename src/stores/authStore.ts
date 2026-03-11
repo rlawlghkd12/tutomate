@@ -5,7 +5,7 @@ import type { PlanType } from '../config/planLimits';
 import { supabase } from '../config/supabase';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { isTauri } from '../utils/tauri';
-import { hasLocalData, migrateLocalToCloud, clearLocalData, getLocalDataSnapshot } from '../utils/migrationHelper';
+import { hasLocalData, migrateLocalToCloud, clearLocalData, getLocalDataSnapshot, restoreMonthlyPaymentsFromBackup } from '../utils/migrationHelper';
 
 /**
  * 마이그레이션 전 로컬 데이터 자동 백업 (1회, UI 미노출)
@@ -131,6 +131,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
           await clearLocalData();
           logInfo('Licensed user: cleared leftover local data (Supabase data preserved)');
         }
+
+        // monthly_payments가 Supabase에 없으면 백업 ZIP에서 복원 시도
+        await restoreMonthlyPaymentsFromBackup(orgLink.organization_id);
 
         set({ loading: false });
       } else {
