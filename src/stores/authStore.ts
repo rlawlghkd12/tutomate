@@ -6,6 +6,7 @@ import { supabase } from '../config/supabase';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { isTauri } from '../utils/tauri';
 import { hasLocalData, migrateLocalToCloud, clearLocalData, getLocalDataSnapshot, restoreMonthlyPaymentsFromBackup } from '../utils/migrationHelper';
+import { useSettingsStore } from './settingsStore';
 
 /**
  * 마이그레이션 전 로컬 데이터 자동 백업 (1회, UI 미노출)
@@ -82,6 +83,17 @@ export const useAuthStore = create<AuthStore>((set) => ({
       // 1. 기존 세션 확인 또는 익명 로그인
       let { data: { session } } = await supabase.auth.getSession();
 
+      // 캐시된 세션이 있어도 유저가 실제로 DB에 존재하는지 검증
+      // (PITR 복원 등으로 auth.users가 변경된 경우 대비)
+      if (session) {
+        const { error: verifyError } = await supabase.auth.getUser(session.access_token);
+        if (verifyError) {
+          logWarn(`Cached session invalid, signing out: ${verifyError.message}`);
+          await supabase.auth.signOut();
+          session = null;
+        }
+      }
+
       if (!session) {
         const { data, error: signInError } = await supabase.auth.signInAnonymously();
         if (signInError || !data.session) {
@@ -100,10 +112,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
         .single();
 
       if (orgLink) {
-        // 기존 조직 복원 — loading은 마이그레이션 완료 후 해제
+        // 기존 조직 복원 — UI 즉시 해제, 무거운 작업은 백그라운드
         const { data: orgData } = await supabase
           .from('organizations')
-          .select('plan')
+          .select('plan, name')
           .eq('id', orgLink.organization_id)
           .single();
 
@@ -112,30 +124,52 @@ export const useAuthStore = create<AuthStore>((set) => ({
           organizationId: orgLink.organization_id,
           plan: (orgData?.plan as PlanType) || 'trial',
           isCloud: true,
+          loading: false, // UI를 먼저 해제 — 무거운 작업은 백그라운드로
         });
-        logInfo('Cloud session restored', { data: { orgId: orgLink.organization_id, plan: orgData?.plan } });
 
-        // 라이선스 유저: 이미 Supabase 데이터가 있으므로 로컬 파일만 정리
-        if (await hasLocalData()) {
-          await silentLocalBackup();
-
-          // DB에 원본 JSON 백업 저장 (복구용)
-          const snapshot = await getLocalDataSnapshot();
-          if (snapshot && supabase) {
-            await supabase.from('organizations')
-              .update({ local_backup: snapshot })
-              .eq('id', orgLink.organization_id);
-            logInfo('Licensed user: local data snapshot saved to DB');
-          }
-
-          await clearLocalData();
-          logInfo('Licensed user: cleared leftover local data (Supabase data preserved)');
+        // Supabase의 조직명을 settingsStore에 동기화
+        if (orgData?.name) {
+          useSettingsStore.getState().setOrganizationName(orgData.name);
         }
 
-        // monthly_payments가 Supabase에 없으면 백업 ZIP에서 복원 시도
-        await restoreMonthlyPaymentsFromBackup(orgLink.organization_id);
+        logInfo('Cloud session restored', { data: { orgId: orgLink.organization_id, plan: orgData?.plan, name: orgData?.name } });
 
-        set({ loading: false });
+        // 무거운 작업은 UI 블로킹 없이 백그라운드 실행 (org당 1회만)
+        const bgOrgId = orgLink.organization_id;
+        const migrationKey = `migration-done-${bgOrgId}`;
+
+        if (!localStorage.getItem(migrationKey)) {
+          setTimeout(async () => {
+            try {
+              // 라이선스 유저: 이미 Supabase 데이터가 있으므로 로컬 파일만 정리
+              if (await hasLocalData()) {
+                await silentLocalBackup();
+
+                // DB에 원본 JSON 백업 저장 (복구용)
+                const snapshot = await getLocalDataSnapshot();
+                if (snapshot && supabase) {
+                  await supabase.from('organizations')
+                    .update({ local_backup: snapshot })
+                    .eq('id', bgOrgId);
+                  logInfo('Licensed user: local data snapshot saved to DB');
+                }
+
+                await clearLocalData();
+                logInfo('Licensed user: cleared leftover local data (Supabase data preserved)');
+              }
+
+              // monthly_payments가 Supabase에 없으면 백업 ZIP에서 복원 시도
+              await restoreMonthlyPaymentsFromBackup(bgOrgId);
+
+              // 완료 플래그 → 다음 시작부터 스킵
+              localStorage.setItem(migrationKey, new Date().toISOString());
+              logInfo('Background migration completed, flagged as done');
+            } catch (bgErr) {
+              // 실패 시 플래그 안 세팅 → 다음 시작에 재시도
+              logWarn(`Background migration task failed (will retry next launch): ${bgErr}`);
+            }
+          }, 100);
+        }
       } else {
         // 3. 조직 없음 → trial org 자동 생성
         let deviceId: string;
@@ -167,32 +201,63 @@ export const useAuthStore = create<AuthStore>((set) => ({
           organizationId,
           plan,
           isCloud: true,
+          loading: false, // UI를 먼저 해제
         });
         logInfo('Trial cloud activated', { data: { orgId: organizationId, isNewOrg } });
 
-        // 4. 로컬 데이터 있으면 자동 마이그레이션
-        if (await hasLocalData()) {
-          await silentLocalBackup();
+        // 4. 새 org인 경우에만 로컬→클라우드 마이그레이션 (백그라운드, org당 1회만)
+        //    isNewOrg=false(기존 org 재연결)일 때 migrateLocalToCloud를 실행하면
+        //    기존 Supabase 데이터를 DELETE 후 빈 데이터를 INSERT하는 사고 발생
+        const trialMigrationKey = `migration-done-${organizationId}`;
 
-          // DB에 원본 JSON 백업 저장 (복구용)
-          const snapshot = await getLocalDataSnapshot();
-          if (snapshot && supabase) {
-            await supabase.from('organizations')
-              .update({ local_backup: snapshot })
-              .eq('id', organizationId);
-            logInfo('Local data snapshot saved to DB');
-          }
+        if (isNewOrg && !localStorage.getItem(trialMigrationKey)) {
+          setTimeout(async () => {
+            try {
+              if (await hasLocalData()) {
+                await silentLocalBackup();
 
-          const result = await migrateLocalToCloud(organizationId);
-          if (result.success) {
-            await clearLocalData();
-            logInfo('Auto-migration completed', { data: result.counts });
-          } else {
-            logWarn('Auto-migration failed, local data preserved');
+                // DB에 원본 JSON 백업 저장 (복구용)
+                const snapshot = await getLocalDataSnapshot();
+                if (snapshot && supabase) {
+                  await supabase.from('organizations')
+                    .update({ local_backup: snapshot })
+                    .eq('id', organizationId);
+                  logInfo('Local data snapshot saved to DB');
+                }
+
+                const result = await migrateLocalToCloud(organizationId);
+                if (result.success) {
+                  await clearLocalData();
+                  logInfo('Auto-migration completed', { data: result.counts });
+                } else {
+                  logWarn('Auto-migration failed, local data preserved');
+                  return; // 실패 시 플래그 안 세팅 → 재시도
+                }
+              }
+
+              localStorage.setItem(trialMigrationKey, new Date().toISOString());
+              logInfo('Trial migration completed, flagged as done');
+            } catch (err) {
+              logWarn(`Trial migration failed (will retry next launch): ${err}`);
+            }
+          }, 100);
+        } else if (!isNewOrg) {
+          // 기존 org 재연결: 로컬 데이터만 정리 (마이그레이션 없이)
+          if (!localStorage.getItem(trialMigrationKey)) {
+            setTimeout(async () => {
+              try {
+                if (await hasLocalData()) {
+                  await silentLocalBackup();
+                  await clearLocalData();
+                  logInfo('Existing org reconnect: cleared local data without migration');
+                }
+                localStorage.setItem(trialMigrationKey, new Date().toISOString());
+              } catch (err) {
+                logWarn(`Local cleanup failed: ${err}`);
+              }
+            }, 100);
           }
         }
-
-        set({ loading: false });
       }
     } catch (error) {
       logError('Failed to initialize auth', { error });
@@ -212,11 +277,37 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
     try {
       // 세션 갱신 (만료된 토큰으로 Edge Function 호출 시 401 방지)
-      const { data: refreshData } = await supabase.auth.refreshSession();
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
       let session = refreshData?.session;
+      logInfo('refreshSession result', {
+        data: {
+          hasSession: !!session,
+          refreshError: refreshError?.message || null,
+          userId: session?.user?.id?.slice(0, 8) || null,
+        },
+      });
+
+      // refreshSession 성공해도 유저가 DB에 없을 수 있음 (PITR 복원 후 등)
+      // getUser로 실제 유효성 검증
+      if (session) {
+        const { data: userData, error: verifyError } = await supabase.auth.getUser();
+        logInfo('getUser verification', {
+          data: {
+            verified: !verifyError,
+            error: verifyError?.message || null,
+            userId: userData?.user?.id?.slice(0, 8) || null,
+          },
+        });
+        if (verifyError) {
+          logWarn(`Session token invalid (user may not exist): ${verifyError.message}`);
+          // 기존 세션 정리 후 재로그인
+          await supabase.auth.signOut();
+          session = null;
+        }
+      }
 
       if (!session) {
-        logInfo('No session, attempting anonymous sign-in');
+        logInfo('No valid session, attempting anonymous sign-in');
         const { data, error: signInError } = await supabase.auth.signInAnonymously();
         if (signInError || !data.session) {
           logError('Anonymous sign-in failed', { error: signInError, data: { message: signInError?.message } });
@@ -237,7 +328,15 @@ export const useAuthStore = create<AuthStore>((set) => ({
       }
 
       // Edge Function으로 라이센스 검증 + 조직 연결 (trial → licensed 업그레이드 포함)
-      logInfo('Calling activate-license edge function');
+      // 현재 세션 토큰 확인 로그
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      logInfo('Calling activate-license edge function', {
+        data: {
+          sessionUserId: currentSession?.user?.id?.slice(0, 8) || 'none',
+          tokenPrefix: currentSession?.access_token?.slice(0, 20) || 'none',
+          tokenLength: currentSession?.access_token?.length || 0,
+        },
+      });
       const { data, error } = await supabase.functions.invoke('activate-license', {
         body: { license_key: licenseKey, device_id: deviceId },
       });
@@ -245,13 +344,37 @@ export const useAuthStore = create<AuthStore>((set) => ({
       if (error) {
         // FunctionsHttpError의 경우 응답 body에서 상세 에러 추출
         let detail = error.message;
+        let statusCode: number | null = null;
         try {
-          if (error.context && typeof error.context.json === 'function') {
-            const body = await error.context.json();
-            detail = JSON.stringify(body);
+          // supabase-js v2: FunctionsHttpError has .context (Response object)
+          const ctx = (error as any).context;
+          if (ctx) {
+            statusCode = ctx.status || null;
+            if (typeof ctx.json === 'function') {
+              const body = await ctx.json();
+              detail = JSON.stringify(body);
+            } else if (typeof ctx.text === 'function') {
+              detail = await ctx.text();
+            }
           }
-        } catch (_) { /* ignore */ }
-        logError('License activation failed', { error, data: { message: error.message, detail } });
+        } catch (_) {
+          try {
+            if (typeof (error as any).json === 'function') {
+              const body = await (error as any).json();
+              detail = JSON.stringify(body);
+            }
+          } catch (_2) { /* ignore */ }
+        }
+        logError('License activation failed', {
+          error,
+          data: {
+            message: error.message,
+            detail,
+            statusCode,
+            errorType: error.constructor?.name,
+            errorKeys: Object.keys(error),
+          },
+        });
         return { status: 'error' };
       }
 
@@ -284,6 +407,18 @@ export const useAuthStore = create<AuthStore>((set) => ({
         isCloud: true,
         _previousOrg: orgChanged ? { organizationId: previousOrgId as string, plan: useAuthStore.getState().plan } : null,
       });
+
+      // 활성화된 조직의 이름을 Supabase에서 가져와 동기화
+      if (supabase) {
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('name')
+          .eq('id', organizationId)
+          .single();
+        if (orgData?.name) {
+          useSettingsStore.getState().setOrganizationName(orgData.name);
+        }
+      }
 
       logInfo('License activated, cloud upgraded', { data: { orgId: organizationId, isNewOrg, plan, orgChanged } });
       return { status: 'success', isNewOrg, orgChanged, previousOrgId };

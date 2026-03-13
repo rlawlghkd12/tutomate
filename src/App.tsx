@@ -124,6 +124,19 @@ function App() {
     };
   }, [theme, fontSize]);
 
+  // 잠금 화면이 활성화된 경우, authLoading 중에도 LockScreen을 먼저 표시
+  if (isLocked && lockEnabled) {
+    return (
+      <ErrorBoundary>
+        <ConfigProvider locale={koKR} theme={themeConfig}>
+          <AntApp>
+            <LockScreen />
+          </AntApp>
+        </ConfigProvider>
+      </ErrorBoundary>
+    );
+  }
+
   if (authLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>

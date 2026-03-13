@@ -82,6 +82,7 @@ const Navigation: React.FC<NavigationProps> = ({ collapsed = false }) => {
       selectedKeys={[getSelectedKey()]}
       items={menuItems}
       onClick={handleMenuClick}
+      style={{ borderInlineEnd: 'none' }}
     />
   );
 };

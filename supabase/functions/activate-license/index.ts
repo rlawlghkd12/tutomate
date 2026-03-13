@@ -98,6 +98,31 @@ Deno.serve(async (req) => {
     if (existingOrg) {
       organizationId = existingOrg.id;
 
+      // 유저가 다른 org(예: trial)에 이미 연결된 경우 → 기존 링크 삭제 필요
+      // user_organizations.user_id가 PRIMARY KEY이므로 중복 INSERT 불가
+      const userCurrentOrgId = userOrgLink?.organization_id;
+      if (userCurrentOrgId && userCurrentOrgId !== existingOrg.id) {
+        // 기존 trial org 링크 삭제
+        await supabaseAdmin
+          .from('user_organizations')
+          .delete()
+          .eq('user_id', user.id);
+
+        // trial org에 다른 멤버가 없으면 빈 org 정리
+        const { count: remainingMembers } = await supabaseAdmin
+          .from('user_organizations')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', userCurrentOrgId);
+
+        if ((remainingMembers ?? 0) === 0) {
+          // 빈 trial org 삭제 (cascade로 관련 데이터도 삭제)
+          await supabaseAdmin
+            .from('organizations')
+            .delete()
+            .eq('id', userCurrentOrgId);
+        }
+      }
+
       // device_id가 있는 경우: 같은 기기 레코드 검색
       if (device_id) {
         const { data: existingDevice } = await supabaseAdmin
@@ -119,7 +144,7 @@ Deno.serve(async (req) => {
 
           if (deleteError) {
             return new Response(
-              JSON.stringify({ error: 'link_failed' }),
+              JSON.stringify({ error: 'link_failed', detail: 'delete_old_device' }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
             );
           }
@@ -144,7 +169,7 @@ Deno.serve(async (req) => {
                 device_id,
               });
             return new Response(
-              JSON.stringify({ error: 'link_failed' }),
+              JSON.stringify({ error: 'link_failed', detail: 'insert_new_device' }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
             );
           }
@@ -167,6 +192,7 @@ Deno.serve(async (req) => {
             );
           }
 
+          // 위에서 이미 기존 링크를 삭제했으므로 INSERT 가능
           const { error: linkError } = await supabaseAdmin
             .from('user_organizations')
             .insert({
@@ -178,7 +204,7 @@ Deno.serve(async (req) => {
 
           if (linkError) {
             return new Response(
-              JSON.stringify({ error: 'link_failed' }),
+              JSON.stringify({ error: 'link_failed', detail: 'new_device_insert' }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
             );
           }
@@ -205,13 +231,14 @@ Deno.serve(async (req) => {
           .single();
 
         if (!existingLink) {
+          // 위에서 이미 기존 링크를 삭제했으므로 INSERT 가능
           const { error: linkError } = await supabaseAdmin
             .from('user_organizations')
             .insert({ user_id: user.id, organization_id: organizationId, role: 'member' });
 
           if (linkError) {
             return new Response(
-              JSON.stringify({ error: 'link_failed' }),
+              JSON.stringify({ error: 'link_failed', detail: 'no_device_insert' }),
               { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
             );
           }
@@ -296,8 +323,10 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const errStack = err instanceof Error ? err.stack : undefined;
     return new Response(
-      JSON.stringify({ error: 'internal_error', message: String(err) }),
+      JSON.stringify({ error: 'internal_error', message: errMsg, stack: errStack }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   }
