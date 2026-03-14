@@ -1,0 +1,22 @@
+[
+  {
+    "id": "local-c1",
+    "name": "피아노 초급반",
+    "classroom": "A101",
+    "instructorName": "김영희",
+    "instructorPhone": "010-1234-5678",
+    "fee": 150000,
+    "createdAt": "2025-12-01T09:00:00.000Z",
+    "updatedAt": "2025-12-01T09:00:00.000Z"
+  },
+  {
+    "id": "local-c2",
+    "name": "기타 중급반",
+    "classroom": "B202",
+    "instructorName": "박철수",
+    "instructorPhone": "010-9876-5432",
+    "fee": 200000,
+    "createdAt": "2025-12-05T10:00:00.000Z",
+    "updatedAt": "2025-12-05T10:00:00.000Z"
+  }
+]

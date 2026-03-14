@@ -61,14 +61,12 @@ function App() {
       const result = await activateLicense(key);
       if (result.result === 'success') {
         if (result.orgChanged) {
-          // 기존 데이터가 있는 라이선스 키 → 체험판 데이터 유실 경고
           Modal.confirm({
             title: '기존 라이선스 데이터로 전환',
             content: '이 라이선스 키에는 기존 데이터가 있습니다. 전환하면 현재 체험판에서 입력한 데이터는 더 이상 표시되지 않습니다. 계속하시겠습니까?',
             okText: '전환',
             cancelText: '취소',
             onCancel: () => {
-              // 이전 trial org로 롤백
               useAuthStore.getState().rollbackOrg();
               message.info('전환이 취소되었습니다.');
             },
@@ -125,6 +123,19 @@ function App() {
       },
     };
   }, [theme, fontSize]);
+
+  // 잠금 화면이 활성화된 경우, authLoading 중에도 LockScreen을 먼저 표시
+  if (isLocked && lockEnabled) {
+    return (
+      <ErrorBoundary>
+        <ConfigProvider locale={koKR} theme={themeConfig}>
+          <AntApp>
+            <LockScreen />
+          </AntApp>
+        </ConfigProvider>
+      </ErrorBoundary>
+    );
+  }
 
   if (authLoading) {
     return (

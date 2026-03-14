@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>TutorMate 데이터 생명주기</title>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'dark', flowchart: { curve: 'basis' } });
+</script>
+<style>
+  body { background: #1a1a2e; margin: 0; padding: 32px; font-family: sans-serif; }
+  h1 { color: #e0e0e0; text-align: center; margin-bottom: 24px; font-size: 1.5rem; }
+  .mermaid { display: flex; justify-content: center; }
+</style>
+</head>
+<body>
+<h1>TutorMate 데이터 생명주기</h1>
+<pre class="mermaid">
+flowchart TB
+    subgraph UI["React UI — 페이지/컴포넌트"]
+        Dashboard["DashboardPage"]
+        CoursePage["CoursePage"]
+        StudentPage["StudentPage"]
+        etc["...기타 페이지"]
+    end
+
+    subgraph Store["Zustand Store"]
+        CS["courseStore"]
+        SS["studentStore"]
+        ES["enrollmentStore"]
+        MS["monthlyPaymentStore"]
+    end
+
+    subgraph Helper["dataHelper.ts — 통합 CRUD"]
+        Load["load()"]
+        Add["add()"]
+        Update["update()"]
+        Remove["remove()"]
+    end
+
+    CloudCheck{{"isCloud() ?"}}
+
+    subgraph Cloud["Cloud 경로 — supabaseStorage.ts"]
+        SLoad["supabaseLoadData()"]
+        SInsert["supabaseInsert()"]
+        SUpdate["supabaseUpdate()"]
+        SDelete["supabaseDelete()"]
+        SupaDB[("Supabase PostgreSQL")]
+    end
+
+    subgraph Mapping["fieldMapper.ts"]
+        FromDb["fromDb\nDB Row → 로컬 타입"]
+        ToDb["toDb\n로컬 타입 → DB Row"]
+    end
+
+    subgraph Local["Local 경로 — storage.ts"]
+        LD["loadData()"]
+        ATS["addToStorage()"]
+        UIS["updateInStorage()"]
+        DFS["deleteFromStorage()"]
+        Session["sessionStorage\n메모리 캐시"]
+    end
+
+    TauriCheck{{"isTauri() ?"}}
+    TauriFS["Tauri invoke\n파일시스템 R/W"]
+    LSFallback["localStorage\n브라우저 폴백"]
+
+    %% UI → Store
+    Dashboard --> CS
+    CoursePage --> CS
+    StudentPage --> SS
+    etc --> ES & MS
+
+    %% Store → Helper
+    CS & SS & ES & MS -->|"helper.load\nadd / update / remove"| Load & Add & Update & Remove
+
+    %% Helper → 분기
+    Load & Add & Update & Remove --> CloudCheck
+
+    %% Cloud 경로
+    CloudCheck -->|"YES"| SLoad & SInsert & SUpdate & SDelete
+    SLoad --> FromDb --> SupaDB
+    SInsert --> ToDb --> SupaDB
+    SUpdate --> ToDb
+    SDelete --> SupaDB
+
+    %% Local 경로
+    CloudCheck -->|"NO"| LD & ATS & UIS & DFS
+    LD & ATS & UIS & DFS --> Session
+
+    %% 퍼시스턴스
+    Session -->|"persist"| TauriCheck
+    TauriCheck -->|"YES — 데스크톱"| TauriFS
+    TauriCheck -->|"NO — 브라우저"| LSFallback
+    TauriFS -.->|"실패 시 폴백"| LSFallback
+
+    %% 스타일
+    classDef ui fill:#4A90D9,stroke:#2C5F8A,color:#fff
+    classDef store fill:#7B68EE,stroke:#5A4FCF,color:#fff
+    classDef helper fill:#FF8C42,stroke:#CC6B30,color:#fff
+    classDef cloud fill:#50C878,stroke:#3A9A5C,color:#fff
+    classDef local fill:#E6A817,stroke:#B8860B,color:#000
+    classDef persist fill:#FF6B6B,stroke:#CC4444,color:#fff
+    classDef db fill:#2C3E50,stroke:#1A252F,color:#fff
+    classDef mapper fill:#9B59B6,stroke:#7D3C98,color:#fff
+    classDef check fill:#E74C3C,stroke:#C0392B,color:#fff
+
+    class Dashboard,CoursePage,StudentPage,etc ui
+    class CS,SS,ES,MS store
+    class Load,Add,Update,Remove helper
+    class SLoad,SInsert,SUpdate,SDelete cloud
+    class LD,ATS,UIS,DFS,Session local
+    class TauriCheck,CloudCheck check
+    class TauriFS,LSFallback persist
+    class SupaDB db
+    class FromDb,ToDb mapper
+</pre>
+</body>
+</html>
