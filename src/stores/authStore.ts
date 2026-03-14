@@ -5,21 +5,6 @@ import type { PlanType } from '../config/planLimits';
 import { supabase } from '../config/supabase';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { isElectron } from '../utils/tauri';
-import { hasLocalData, migrateLocalToCloud, clearLocalData, getLocalDataSnapshot } from '../utils/migrationHelper';
-
-/**
- * 마이그레이션 전 로컬 데이터 자동 백업 (1회, UI 미노출)
- * 로컬 파일이 Supabase로 올라가기 전에 안전하게 ZIP으로 보관
- */
-async function silentLocalBackup(): Promise<void> {
-  if (!isElectron()) return;
-  try {
-    await window.electronAPI.createBackup('pre-migration');
-    logInfo('Silent pre-migration backup created');
-  } catch (err) {
-    logWarn(`Silent backup failed (non-critical): ${err}`);
-  }
-}
 
 async function getDeviceId(): Promise<string> {
   let machineId: string;
@@ -27,7 +12,6 @@ async function getDeviceId(): Promise<string> {
   if (isElectron()) {
     machineId = await window.electronAPI.getMachineId();
   } else {
-    // 브라우저 폴백: localStorage에 랜덤 ID 저장
     const stored = localStorage.getItem('tutomate_device_id');
     if (stored) {
       machineId = stored;
@@ -101,7 +85,6 @@ export const useAuthStore = create<AuthStore>((set) => ({
         .single();
 
       if (orgLink) {
-        // 기존 조직 복원 — loading은 마이그레이션 완료 후 해제
         const { data: orgData } = await supabase
           .from('organizations')
           .select('plan')
@@ -113,27 +96,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
           organizationId: orgLink.organization_id,
           plan: (orgData?.plan as PlanType) || 'trial',
           isCloud: true,
+          loading: false,
         });
         logInfo('Cloud session restored', { data: { orgId: orgLink.organization_id, plan: orgData?.plan } });
-
-        // 라이선스 유저: 이미 Supabase 데이터가 있으므로 로컬 파일만 정리
-        if (await hasLocalData()) {
-          await silentLocalBackup();
-
-          // DB에 원본 JSON 백업 저장 (복구용)
-          const snapshot = await getLocalDataSnapshot();
-          if (snapshot && supabase) {
-            await supabase.from('organizations')
-              .update({ local_backup: snapshot })
-              .eq('id', orgLink.organization_id);
-            logInfo('Licensed user: local data snapshot saved to DB');
-          }
-
-          await clearLocalData();
-          logInfo('Licensed user: cleared leftover local data (Supabase data preserved)');
-        }
-
-        set({ loading: false });
       } else {
         // 3. 조직 없음 → trial org 자동 생성
         let deviceId: string;
@@ -165,32 +130,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
           organizationId,
           plan,
           isCloud: true,
+          loading: false,
         });
         logInfo('Trial cloud activated', { data: { orgId: organizationId, isNewOrg } });
-
-        // 4. 로컬 데이터 있으면 자동 마이그레이션
-        if (await hasLocalData()) {
-          await silentLocalBackup();
-
-          // DB에 원본 JSON 백업 저장 (복구용)
-          const snapshot = await getLocalDataSnapshot();
-          if (snapshot && supabase) {
-            await supabase.from('organizations')
-              .update({ local_backup: snapshot })
-              .eq('id', organizationId);
-            logInfo('Local data snapshot saved to DB');
-          }
-
-          const result = await migrateLocalToCloud(organizationId);
-          if (result.success) {
-            await clearLocalData();
-            logInfo('Auto-migration completed', { data: result.counts });
-          } else {
-            logWarn('Auto-migration failed, local data preserved');
-          }
-        }
-
-        set({ loading: false });
       }
     } catch (error) {
       logError('Failed to initialize auth', { error });
@@ -199,7 +141,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   },
 
-  activateCloud: async (licenseKey: string) => {
+  activateCloud: async (licenseKey: string): Promise<
+    | { status: 'success'; isNewOrg: boolean; orgChanged: boolean; previousOrgId: string | null }
+    | { status: 'invalid_key' | 'max_seats_reached' | 'error' }
+  > => {
     if (!supabase) {
       logError('Supabase client not initialized', {});
       return { status: 'error' };
@@ -260,15 +205,15 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const isNewOrg = data.is_new_org as boolean;
       const plan = (data.plan as PlanType) || 'basic';
 
-      const previousOrgId = useAuthStore.getState().organizationId;
-      const orgChanged = previousOrgId !== null && previousOrgId !== organizationId;
+      const previousOrgId: string | null = useAuthStore.getState().organizationId;
+      const orgChanged: boolean = previousOrgId !== null && previousOrgId !== organizationId;
 
       set({
         session,
         organizationId,
         plan,
         isCloud: true,
-        _previousOrg: orgChanged ? { organizationId: previousOrgId, plan: useAuthStore.getState().plan } : null,
+        _previousOrg: orgChanged && previousOrgId ? { organizationId: previousOrgId, plan: useAuthStore.getState().plan } : null,
       });
 
       logInfo('License activated, cloud upgraded', { data: { orgId: organizationId, isNewOrg, plan, orgChanged } });

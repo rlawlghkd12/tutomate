@@ -1,0 +1,108 @@
+---
+title: TutorMate 데이터 생명주기
+---
+flowchart TB
+    subgraph UI["🖥️ React UI (페이지/컴포넌트)"]
+        Dashboard["DashboardPage"]
+        CoursePage["CoursePage"]
+        StudentPage["StudentPage"]
+        etc["...기타 페이지"]
+    end
+
+    subgraph Store["📦 Zustand Store"]
+        CS["courseStore"]
+        SS["studentStore"]
+        ES["enrollmentStore"]
+        MS["monthlyPaymentStore"]
+    end
+
+    subgraph Helper["🔧 dataHelper.ts — 통합 CRUD"]
+        direction TB
+        Load["load()"]
+        Add["add()"]
+        Update["update()"]
+        Remove["remove()"]
+    end
+
+    subgraph Router{"🔀 isCloud() 분기"}
+        direction TB
+        CloudCheck{{"isCloud()?"}}
+    end
+
+    subgraph Cloud["☁️ Cloud 경로 — Supabase"]
+        direction TB
+        SLData["supabaseLoadData()"]
+        SInsert["supabaseInsert()"]
+        SUpdate["supabaseUpdate()"]
+        SDelete["supabaseDelete()"]
+        FM_from["fromDb() 매핑"]
+        FM_to["toDb(orgId) 매핑"]
+        FM_up["updateToDb() 매핑"]
+        SupaDB[("Supabase\nPostgreSQL")]
+    end
+
+    subgraph Local["💾 Local 경로 — storage.ts"]
+        direction TB
+        LD["loadData()"]
+        ATS["addToStorage()"]
+        UIS["updateInStorage()"]
+        DFS["deleteFromStorage()"]
+        SS_cache["sessionStorage\n(메모리 캐시)"]
+    end
+
+    subgraph Persist["🗄️ 퍼시스턴스 레이어"]
+        direction TB
+        TauriCheck{{"isTauri()?"}}
+        TauriFS["Tauri invoke\n(파일시스템 R/W)"]
+        LSFallback["localStorage\n(브라우저 폴백)"]
+    end
+
+    subgraph Mapper["🗺️ fieldMapper.ts"]
+        direction LR
+        MapFrom["mapXxxFromDb()"]
+        MapTo["mapXxxToDb()"]
+        MapUpdate["mapXxxUpdateToDb()"]
+    end
+
+    %% UI → Store
+    Dashboard & CoursePage & StudentPage & etc -->|"호출"| CS & SS & ES & MS
+
+    %% Store → Helper
+    CS & SS & ES & MS -->|"helper.load/add/update/remove"| Load & Add & Update & Remove
+
+    %% Helper → 분기
+    Load & Add & Update & Remove --> CloudCheck
+
+    %% Cloud 경로
+    CloudCheck -->|"YES"| SLData & SInsert & SUpdate & SDelete
+    SLData --> FM_from --> SupaDB
+    SInsert --> FM_to --> SupaDB
+    SUpdate --> FM_up --> SupaDB
+    SDelete --> SupaDB
+
+    %% Local 경로
+    CloudCheck -->|"NO"| LD & ATS & UIS & DFS
+    LD & ATS & UIS & DFS --> SS_cache
+    SS_cache -->|"persist"| TauriCheck
+
+    %% 퍼시스턴스 분기
+    TauriCheck -->|"YES\n(데스크톱)"| TauriFS
+    TauriCheck -->|"NO\n(브라우저)"| LSFallback
+    TauriFS -.->|"실패 시 폴백"| LSFallback
+
+    %% 스타일
+    classDef ui fill:#4A90D9,stroke:#2C5F8A,color:#fff
+    classDef store fill:#7B68EE,stroke:#5A4FCF,color:#fff
+    classDef helper fill:#FF8C42,stroke:#CC6B30,color:#fff
+    classDef cloud fill:#50C878,stroke:#3A9A5C,color:#fff
+    classDef local fill:#FFD700,stroke:#CCA300,color:#000
+    classDef persist fill:#FF6B6B,stroke:#CC4444,color:#fff
+    classDef db fill:#2C3E50,stroke:#1A252F,color:#fff
+
+    class Dashboard,CoursePage,StudentPage,etc ui
+    class CS,SS,ES,MS store
+    class Load,Add,Update,Remove helper
+    class SLData,SInsert,SUpdate,SDelete,FM_from,FM_to,FM_up cloud
+    class LD,ATS,UIS,DFS,SS_cache local
+    class TauriCheck,TauriFS,LSFallback persist
+    class SupaDB db

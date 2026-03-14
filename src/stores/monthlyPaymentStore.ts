@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { MonthlyPayment, PaymentMethod } from '../types';
-import { STORAGE_KEYS } from '../utils/storage';
 import { isCloud } from './authStore';
 import { createDataHelper } from '../utils/dataHelper';
 import { mapMonthlyPaymentFromDb, mapMonthlyPaymentToDb, mapMonthlyPaymentUpdateToDb } from '../utils/fieldMapper';
@@ -9,7 +8,6 @@ import dayjs from 'dayjs';
 
 const helper = createDataHelper<MonthlyPayment, MonthlyPaymentRow>({
   table: 'monthly_payments',
-  storageKey: STORAGE_KEYS.MONTHLY_PAYMENTS,
   fromDb: mapMonthlyPaymentFromDb,
   toDb: mapMonthlyPaymentToDb,
   updateToDb: mapMonthlyPaymentUpdateToDb,

@@ -81,7 +81,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         onCollapse={setCollapsed}
         collapsedWidth={60}
         trigger={null}
-        theme="light"
         style={{
           overflow: 'hidden',
           height: '100vh',
@@ -92,6 +91,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           transition: 'all 0.2s ease',
           display: 'flex',
           flexDirection: 'column',
+          background: token.colorBgContainer,
+          borderInlineEnd: `1px solid ${token.colorBorderSecondary}`,
         }}
       >
         <div style={{ height: 16 }} />
@@ -106,13 +107,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
         )}
       </Sider>
-      <AntLayout style={{ marginLeft: collapsed ? 60 : 180, transition: 'all 0.2s ease', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <AntLayout style={{ marginLeft: collapsed ? 60 : 180, transition: 'all 0.2s ease', height: '100vh', display: 'flex', flexDirection: 'column', background: token.colorBgContainer }}>
         <Header
           style={{
             background: token.colorBgContainer,
             padding: '0 24px',
             ...FLEX_BETWEEN,
-            borderBottom: `1px solid ${token.colorBorder}`,
+            borderBottom: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -141,10 +142,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             banner
           />
         )}
-        <Content style={{ margin: '24px 16px 0', flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-          <div style={{ padding: 24, background: token.colorBgContainer, minHeight: 360 }}>
-            {children}
-          </div>
+        <Content style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', background: token.colorBgContainer, padding: 24 }}>
+          {children}
         </Content>
       </AntLayout>
     </AntLayout>

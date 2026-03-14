@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { Course, CourseFormData } from '../types';
-import { STORAGE_KEYS } from '../utils/storage';
 import { isCloud } from './authStore';
 import { createDataHelper } from '../utils/dataHelper';
 import { mapCourseFromDb, mapCourseToDb, mapCourseUpdateToDb } from '../utils/fieldMapper';
@@ -9,7 +8,6 @@ import dayjs from 'dayjs';
 
 const helper = createDataHelper<Course, CourseRow>({
   table: 'courses',
-  storageKey: STORAGE_KEYS.COURSES,
   fromDb: mapCourseFromDb,
   toDb: mapCourseToDb,
   updateToDb: mapCourseUpdateToDb,

@@ -34,7 +34,6 @@ import { useAppVersion, APP_NAME } from '../config/version';
 // useBackup 제거 (v0.3.0 — 백업 탭 비활성화)
 import { supabase } from '../config/supabase';
 import { useAuthStore } from '../stores/authStore';
-import { MigrationModal } from '../components/common/MigrationModal';
 import AdminTab from '../components/settings/AdminTab';
 
 const { Text } = Typography;
@@ -78,7 +77,6 @@ const SettingsPage: React.FC = () => {
   const [showKey, setShowKey] = useState(false);
   const [licenseInput, setLicenseInput] = useState(['', '', '', '']);
   const [activating, setActivating] = useState(false);
-  const [showMigration, setShowMigration] = useState(false);
   const currentPlan = getPlan();
   // 백업 기능 제거 (v0.3.0) — useBackup() 미사용
 
@@ -278,17 +276,6 @@ const SettingsPage: React.FC = () => {
         } else {
           message.success('라이선스가 활성화되었습니다!');
           setLicenseInput(['', '', '', '']);
-          if (result.isNewOrg && useAuthStore.getState().isCloud) {
-            try {
-              const courses = JSON.parse(sessionStorage.getItem('courses') || '[]');
-              const students = JSON.parse(sessionStorage.getItem('students') || '[]');
-              if (courses.length > 0 || students.length > 0) {
-                setShowMigration(true);
-              }
-            } catch {
-              // ignore
-            }
-          }
         }
       } else if (result.result === 'invalid_format') {
         message.error('유효하지 않은 형식입니다.');
@@ -674,10 +661,6 @@ const SettingsPage: React.FC = () => {
   return (
     <div>
       <Tabs items={tabItems} defaultActiveKey={defaultTab} />
-      <MigrationModal
-        visible={showMigration}
-        onClose={() => setShowMigration(false)}
-      />
     </div>
   );
 };
