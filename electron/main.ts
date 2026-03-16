@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeImage } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerFileHandlers } from './ipc/fileHandler';
@@ -32,6 +32,11 @@ function createWindow() {
   // macOS dock 아이콘 설정 (개발 모드에서도 적용)
   if (process.platform === 'darwin' && app.dock) {
     app.dock.setIcon(appIcon);
+  }
+
+  // Windows/Linux에서 메뉴바 제거 (macOS는 시스템 메뉴 유지)
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null);
   }
 
   mainWindow = new BrowserWindow({
