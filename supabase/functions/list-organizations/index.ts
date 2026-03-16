@@ -76,21 +76,40 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 각 조직의 멤버 수 조회
+    // 각 조직별 멤버·강좌·수강생·등록 수 조회
     const orgIds = (organizations || []).map((o: any) => o.id);
-    const { data: memberCounts } = await supabaseAdmin
-      .from('user_organizations')
-      .select('organization_id')
-      .in('organization_id', orgIds);
 
-    const countMap: Record<string, number> = {};
-    (memberCounts || []).forEach((m: any) => {
-      countMap[m.organization_id] = (countMap[m.organization_id] || 0) + 1;
-    });
+    const [
+      { data: memberRows },
+      { data: courseRows },
+      { data: studentRows },
+      { data: enrollmentRows },
+    ] = await Promise.all([
+      supabaseAdmin.from('user_organizations').select('organization_id').in('organization_id', orgIds),
+      supabaseAdmin.from('courses').select('organization_id').in('organization_id', orgIds),
+      supabaseAdmin.from('students').select('organization_id').in('organization_id', orgIds),
+      supabaseAdmin.from('enrollments').select('organization_id').in('organization_id', orgIds),
+    ]);
+
+    const count = (rows: any[] | null) => {
+      const map: Record<string, number> = {};
+      (rows || []).forEach((r: any) => {
+        map[r.organization_id] = (map[r.organization_id] || 0) + 1;
+      });
+      return map;
+    };
+
+    const memberMap = count(memberRows);
+    const courseMap = count(courseRows);
+    const studentMap = count(studentRows);
+    const enrollmentMap = count(enrollmentRows);
 
     const result = (organizations || []).map((org: any) => ({
       ...org,
-      member_count: countMap[org.id] || 0,
+      member_count: memberMap[org.id] || 0,
+      course_count: courseMap[org.id] || 0,
+      student_count: studentMap[org.id] || 0,
+      enrollment_count: enrollmentMap[org.id] || 0,
     }));
 
     return new Response(

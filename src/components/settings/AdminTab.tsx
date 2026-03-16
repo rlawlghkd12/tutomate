@@ -24,6 +24,9 @@ interface OrgRow {
   plan: string;
   max_seats: number;
   member_count: number;
+  course_count: number;
+  student_count: number;
+  enrollment_count: number;
   created_at: string;
 }
 
@@ -168,9 +171,28 @@ const AdminTab: React.FC = () => {
       key: 'max_seats',
     },
     {
-      title: '멤버 수',
+      title: '멤버',
       dataIndex: 'member_count',
       key: 'member_count',
+      align: 'center' as const,
+    },
+    {
+      title: '강좌',
+      dataIndex: 'course_count',
+      key: 'course_count',
+      align: 'center' as const,
+    },
+    {
+      title: '수강생',
+      dataIndex: 'student_count',
+      key: 'student_count',
+      align: 'center' as const,
+    },
+    {
+      title: '등록',
+      dataIndex: 'enrollment_count',
+      key: 'enrollment_count',
+      align: 'center' as const,
     },
     {
       title: '생성일',
