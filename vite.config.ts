@@ -18,6 +18,20 @@ function copyPreload(): Plugin {
   };
 }
 
+// 앱 아이콘을 dist-electron에 복사 (BrowserWindow icon용)
+function copyIcon(): Plugin {
+  return {
+    name: 'copy-icon',
+    writeBundle() {
+      const src = path.resolve('build/icon.png');
+      const dest = path.resolve('dist-electron/icon.png');
+      if (fs.existsSync(src)) {
+        fs.copyFileSync(src, dest);
+      }
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -32,7 +46,7 @@ export default defineConfig({
               external: ['electron', 'electron-updater', 'electron-log', 'node-machine-id', 'archiver', 'yauzl'],
             },
           },
-          plugins: [copyPreload()],
+          plugins: [copyPreload(), copyIcon()],
         },
       },
     ]),

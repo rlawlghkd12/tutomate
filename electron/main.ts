@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, nativeImage } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerFileHandlers } from './ipc/fileHandler';
@@ -21,13 +21,26 @@ const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
 let mainWindow: BrowserWindow | null = null;
 
+// 개발: project root의 build/icon.png, 프로덕션: dist-electron/icon.png
+const iconPath = VITE_DEV_SERVER_URL
+  ? path.join(__dirname, '..', 'build', 'icon.png')
+  : path.join(__dirname, 'icon.png');
+
 function createWindow() {
+  const appIcon = nativeImage.createFromPath(iconPath);
+
+  // macOS dock 아이콘 설정 (개발 모드에서도 적용)
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(appIcon);
+  }
+
   mainWindow = new BrowserWindow({
     title: '수강생 관리 프로그램',
     width: 1400,
     height: 900,
     minWidth: 800,
     minHeight: 600,
+    icon: appIcon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
