@@ -25,8 +25,9 @@ export const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({ enroll
         dayjs(e.enrolledAt).format('YYYY-MM') === month
       );
 
-      const revenue = monthEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-      const expectedRevenue = monthEnrollments.reduce((sum, e) => {
+      const nonExemptEnrollments = monthEnrollments.filter((e) => e.paymentStatus !== 'exempt');
+      const revenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
+      const expectedRevenue = nonExemptEnrollments.reduce((sum, e) => {
         const course = courses.find((c) => c.id === e.courseId);
         return sum + (course?.fee || 0);
       }, 0);

@@ -52,13 +52,13 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
 
   // 월별 통계
   const monthStats = useMemo(() => {
+    const nonExempt = enrollments.filter((e) => e.paymentStatus !== 'exempt');
+    const nonExemptIds = new Set(nonExempt.map((e) => e.id));
     const monthPayments = payments.filter((p) => p.month === selectedMonth);
-    const coursePayments = monthPayments.filter((p) =>
-      enrollments.some((e) => e.id === p.enrollmentId),
-    );
+    // 면제 수강생의 납부 기록은 통계에서 제외
+    const coursePayments = monthPayments.filter((p) => nonExemptIds.has(p.enrollmentId));
     const paidCount = coursePayments.filter((p) => p.status === 'paid').length;
     const totalPaid = coursePayments.reduce((sum, p) => sum + p.amount, 0);
-    const nonExempt = enrollments.filter((e) => e.paymentStatus !== 'exempt');
     const expectedTotal = nonExempt.reduce((sum, e) => sum + (courseFee - (e.discountAmount ?? 0)), 0);
 
     return { paidCount, totalPaid, expectedTotal, totalStudents: enrollments.length };
