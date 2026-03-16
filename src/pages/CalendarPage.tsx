@@ -192,7 +192,7 @@ const CalendarPage: React.FC = () => {
                     </div>
                     <div style={{ fontSize: '12px', color: token.colorTextSecondary, marginTop: 4 }}>
                       <strong>수업 요일:</strong>{' '}
-                      {course.schedule.daysOfWeek
+                      {[...(Array.isArray(course.schedule.daysOfWeek) ? course.schedule.daysOfWeek : [])]
                         .sort()
                         .map((day) => ['일', '월', '화', '수', '목', '금', '토'][day])
                         .join(', ')}

@@ -95,8 +95,8 @@ const CourseDetailPage: React.FC = () => {
     });
   }, [courseEnrollments, getStudentById]);
 
-  const totalRevenue = courseEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
   const nonExemptEnrollments = courseEnrollments.filter(e => e.paymentStatus !== 'exempt');
+  const totalRevenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
   const expectedRevenue = nonExemptEnrollments.length * course.fee;
   const completedPayments = courseEnrollments.filter((e) => e.paymentStatus === 'completed').length;
 

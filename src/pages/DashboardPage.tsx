@@ -43,9 +43,11 @@ const DashboardPage: React.FC = () => {
   const completedPayments = enrollments.filter((e) => e.paymentStatus === 'completed').length;
   const pendingPayments = enrollments.filter((e) => e.paymentStatus === 'pending').length;
 
-  const totalRevenue = enrollments.reduce((sum, enrollment) => {
-    return sum + enrollment.paidAmount;
-  }, 0);
+  const totalRevenue = enrollments
+    .filter((e) => e.paymentStatus !== 'exempt')
+    .reduce((sum, enrollment) => {
+      return sum + enrollment.paidAmount;
+    }, 0);
 
   const expectedRevenue = enrollments
     .filter((e) => e.paymentStatus !== 'exempt')
