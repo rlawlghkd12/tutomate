@@ -43,7 +43,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron', 'electron-updater', 'electron-log', 'node-machine-id', 'archiver', 'yauzl'],
+              external: ['electron'],
             },
           },
           plugins: [copyPreload(), copyIcon()],
