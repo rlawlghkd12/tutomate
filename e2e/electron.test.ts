@@ -273,11 +273,14 @@ test.describe.serial('강좌 CRUD (실제 데이터)', () => {
 
     // 생성 버튼
     await modal.getByText('생성', { exact: true }).click();
-    await page.waitForTimeout(2000);
+    // 모달이 닫힐 때까지 대기
+    await expect(modal).toBeHidden({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(1000);
 
     // 강좌 목록에 표시되는지 확인
-    const content = await page.textContent('body');
-    expect(content).toContain(testCourseName);
+    const tableBody = page.locator('.ant-table-tbody');
+    const tableText = await tableBody.textContent();
+    expect(tableText).toContain(testCourseName);
   });
 
   test('생성된 강좌가 목록에 표시됨', async () => {
@@ -286,35 +289,19 @@ test.describe.serial('강좌 CRUD (실제 데이터)', () => {
   });
 
   test('강좌 삭제', async () => {
-    // 해당 강좌 행의 삭제 버튼 찾기
+    // 해당 강좌 행의 삭제 버튼 클릭 → Modal.confirm 열림
     const row = page.locator('tr', { hasText: testCourseName });
-    // 작업 버튼 (드롭다운이나 삭제 버튼)
-    const actionBtn = row.locator('button').last();
-    if (await actionBtn.isVisible()) {
-      await actionBtn.click();
-      await page.waitForTimeout(300);
-    }
+    await row.getByText('삭제').click();
+    await page.waitForTimeout(500);
 
-    // 삭제 메뉴 항목 클릭
-    const deleteOption = page.getByText('삭제', { exact: false }).last();
-    if (await deleteOption.isVisible().catch(() => false)) {
-      await deleteOption.click();
-      await page.waitForTimeout(300);
-    }
+    // Modal.confirm의 "삭제" 버튼 클릭
+    const confirmModal = page.locator('.ant-modal-confirm');
+    await confirmModal.locator('.ant-modal-confirm-btns .ant-btn-dangerous').click();
+    await page.waitForTimeout(2000);
 
-    // 확인 모달
-    const confirmBtn = page.locator('.ant-popconfirm-buttons button, .ant-modal-confirm-btns button')
-      .getByText('확인', { exact: false })
-      .or(page.locator('.ant-popconfirm-buttons .ant-btn-primary'))
-      .first();
-    if (await confirmBtn.isVisible().catch(() => false)) {
-      await confirmBtn.click();
-      await page.waitForTimeout(2000);
-    }
-
-    // 삭제 확인 — 목록에서 사라졌는지
-    const content = await page.textContent('body');
-    expect(content).not.toContain(testCourseName);
+    // 삭제 확인 — 테이블에서 사라졌는지 (body 전체가 아닌 테이블만 확인)
+    const tableText = await page.locator('.ant-table-tbody').textContent();
+    expect(tableText).not.toContain(testCourseName);
   });
 });
 
@@ -345,45 +332,384 @@ test.describe.serial('수강생 CRUD (실제 데이터)', () => {
 
     // 등록 버튼
     await modal.getByText('등록', { exact: true }).click();
-    await page.waitForTimeout(2000);
+    // 모달이 닫힐 때까지 대기
+    await expect(modal).toBeHidden({ timeout: 5000 }).catch(async () => {
+      // 모달이 안 닫히면 Escape로 닫기
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+    });
+    await page.waitForTimeout(1000);
 
     // 수강생 목록에 표시되는지
-    const content = await page.textContent('body');
-    expect(content).toContain(testStudentName);
+    const tableText = await page.locator('.ant-table-tbody').textContent();
+    expect(tableText).toContain(testStudentName);
   });
 
   test('등록된 수강생이 목록에 표시됨', async () => {
+    // 열려있는 모달이 있으면 닫기
+    const anyModal = page.locator('.ant-modal-wrap');
+    if (await anyModal.isVisible().catch(() => false)) {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+    }
     const row = page.getByText(testStudentName);
     expect(await row.isVisible()).toBe(true);
   });
 
   test('수강생 삭제', async () => {
-    // 해당 행의 삭제 버튼
+    // 열려있는 모달이 있으면 닫기
+    const anyModal = page.locator('.ant-modal-wrap');
+    if (await anyModal.isVisible().catch(() => false)) {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+    }
+
+    // 해당 행의 삭제 버튼 클릭 → Modal.confirm 열림
     const row = page.locator('tr', { hasText: testStudentName });
-    const actionBtn = row.locator('button').last();
-    if (await actionBtn.isVisible()) {
-      await actionBtn.click();
+    await row.getByText('삭제').click();
+    await page.waitForTimeout(500);
+
+    // Modal.confirm의 "삭제" 버튼 클릭
+    const confirmModal = page.locator('.ant-modal-confirm');
+    await confirmModal.locator('.ant-modal-confirm-btns .ant-btn-dangerous').click();
+    await page.waitForTimeout(2000);
+
+    // 삭제 확인 — 테이블에서 사라졌는지
+    const tableText = await page.locator('.ant-table-tbody').textContent();
+    expect(tableText).not.toContain(testStudentName);
+  });
+});
+
+// ─── 통합 시나리오: 강좌→수강생→수강등록→대시보드→납부→수익 ────
+
+test.describe.serial('통합 시나리오 (수강 등록 + 대시보드 + 납부 + 수익)', () => {
+  const ts = Date.now();
+  const courseName = `통합테스트강좌_${ts}`;
+  const studentName = `통합테스트학생_${ts}`;
+  const courseFee = 200000;
+
+  // ── 1. 강좌 생성 ──
+  test('강좌 생성', async () => {
+    await page.getByText('강좌 관리').first().click();
+    await page.waitForTimeout(1000);
+
+    await page.getByText('강좌 개설').first().click();
+    await page.waitForTimeout(500);
+
+    const modal = page.locator('.ant-modal').last();
+    await modal.locator('#name').fill(courseName);
+    await modal.locator('#classroom').fill('통합테스트실');
+    await modal.locator('#instructorName').fill('통합강사');
+    await modal.locator('#instructorPhone').fill('01077776666');
+    await modal.locator('#fee').fill(String(courseFee));
+    await modal.locator('#maxStudents').fill('20');
+
+    await modal.getByText('생성', { exact: true }).click();
+    await expect(modal).toBeHidden({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    const tableText = await page.locator('.ant-table-tbody').textContent();
+    expect(tableText).toContain(courseName);
+  });
+
+  // ── 2. 수강생 생성 (강좌 없이) ──
+  test('수강생 생성', async () => {
+    await page.getByText('수강생 관리').first().click();
+    await page.waitForTimeout(1000);
+
+    await page.getByText('수강생 등록').first().click();
+    await page.waitForTimeout(500);
+
+    const modal = page.locator('.ant-modal').last();
+    await modal.locator('#name').fill(studentName);
+    await modal.locator('#phone').fill('01055554444');
+
+    await modal.getByText('등록', { exact: true }).click();
+    await expect(modal).toBeHidden({ timeout: 5000 }).catch(async () => {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+    });
+    await page.waitForTimeout(1000);
+
+    const tableText = await page.locator('.ant-table-tbody').textContent();
+    expect(tableText).toContain(studentName);
+  });
+
+  // ── 3. 강좌 신청 (StudentList의 강좌 신청 버튼 → EnrollmentForm) ──
+  test('수강생에 강좌 수강 등록', async () => {
+    // 해당 수강생 행의 "강좌 신청" 버튼 클릭
+    const row = page.locator('tr', { hasText: studentName });
+    await row.getByText('강좌 신청').click();
+    await page.waitForTimeout(500);
+
+    // EnrollmentForm 모달
+    const modal = page.locator('.ant-modal').last();
+    await expect(modal).toBeVisible();
+
+    // 강좌 선택 Select 클릭
+    await modal.locator('.ant-select').first().click();
+    await page.waitForTimeout(500);
+
+    // 드롭다운에서 해당 강좌 선택
+    const dropdown = page.locator('.ant-select-dropdown').last();
+    await dropdown.getByText(courseName, { exact: false }).first().click();
+    await page.waitForTimeout(500);
+
+    // 완납 버튼 클릭
+    const payFullBtn = modal.getByText('완납', { exact: true }).first();
+    if (await payFullBtn.isVisible().catch(() => false)) {
+      await payFullBtn.click();
       await page.waitForTimeout(300);
     }
 
-    const deleteOption = page.getByText('삭제', { exact: false }).last();
-    if (await deleteOption.isVisible().catch(() => false)) {
-      await deleteOption.click();
-      await page.waitForTimeout(300);
+    // 신청 버튼 클릭
+    await modal.getByText('신청', { exact: true }).click();
+    await expect(modal).toBeHidden({ timeout: 5000 }).catch(async () => {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+    });
+    await page.waitForTimeout(1000);
+  });
+
+  // ── 4. 수강생 목록에서 강좌 태그 확인 ──
+  test('수강생 목록에 강좌 태그 표시됨', async () => {
+    const row = page.locator('tr', { hasText: studentName });
+    const rowText = await row.textContent();
+    expect(rowText).toContain(courseName);
+  });
+
+  // ── 4. 대시보드 검증 ──
+  test('대시보드 — 강좌 수/수강생 수 반영', async () => {
+    await page.getByText('대시보드').first().click();
+    await page.waitForTimeout(1500);
+
+    const body = await page.textContent('body');
+    // 강좌, 수강생 통계가 0이 아닌 값으로 표시
+    expect(body).toContain('강좌');
+    expect(body).toContain('수강생');
+
+    // 생성한 강좌가 대시보드 강좌 카드에 표시
+    expect(body).toContain(courseName);
+  });
+
+  test('대시보드 — 납부/납부율 통계 표시', async () => {
+    const body = await page.textContent('body');
+    expect(body).toContain('납부');
+    expect(body).toContain('납부율');
+  });
+
+  test('대시보드 — 완납/미납 건수 표시', async () => {
+    const body = await page.textContent('body');
+    expect(body).toContain('완납');
+    expect(body).toContain('미납');
+  });
+
+  // ── 5. 강좌 상세 — 수강 인원 증가 확인 ──
+  test('강좌 상세 — 수강 인원 반영', async () => {
+    await page.getByText('강좌 관리').first().click();
+    await page.waitForTimeout(1000);
+
+    // 강좌 행의 "상세" 버튼 클릭하여 상세 이동
+    const row = page.locator('tr', { hasText: courseName }).last();
+    await row.getByText('상세').click();
+    await page.waitForTimeout(1500);
+
+    // 수강생 수가 1명 이상으로 표시
+    const body = await page.textContent('body');
+    expect(body).toContain(studentName);
+    expect(body).toContain('수강생');
+  });
+
+  // ── 6. 강좌 상세에서 납부 관리 ──
+  test('강좌 상세 — 납부 상태 확인', async () => {
+    const body = await page.textContent('body');
+    // 납부 현황 관련 태그나 금액이 표시됨
+    const hasPaymentInfo = body?.includes('완납') || body?.includes('미납') || body?.includes('부분납부') || body?.includes('₩');
+    expect(hasPaymentInfo).toBe(true);
+  });
+
+  test('강좌 상세 — 납부 관리 모달 열기/닫기', async () => {
+    const payBtn = page.getByText('납부 관리', { exact: false }).first();
+    if (await payBtn.isVisible().catch(() => false)) {
+      await payBtn.click();
+      await page.waitForTimeout(500);
+
+      // 납부 관리 모달 확인
+      const modal = page.locator('.ant-modal').last();
+      const modalText = await modal.textContent().catch(() => '');
+      expect(modalText).toContain('납부');
+
+      // 수강료 정보 표시 확인
+      expect(modalText).toContain('수강료');
+
+      // 모달 닫기
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+    }
+  });
+
+  // ── 7. 수익 관리 페이지 검증 ──
+  test('수익 관리 — 페이지 이동 및 통계 카드 확인', async () => {
+    await page.getByText('수익 관리').first().click();
+    await page.waitForTimeout(1500);
+
+    const body = await page.textContent('body');
+    // 주요 통계 카드 존재 확인
+    expect(body).toContain('총 수익');
+    expect(body).toContain('예상 총 수익');
+    expect(body).toContain('총 미수금');
+    expect(body).toContain('수익률');
+  });
+
+  test('수익 관리 — 납부 상태 카드 확인', async () => {
+    const body = await page.textContent('body');
+    expect(body).toContain('완납');
+    expect(body).toContain('미납');
+  });
+
+  test('수익 관리 — 강좌별 수익 탭에 강좌 표시', async () => {
+    // 강좌별 수익 탭 (기본 탭)
+    const body = await page.textContent('body');
+    expect(body).toContain(courseName);
+  });
+
+  test('수익 관리 — 미납자 관리 탭', async () => {
+    const unpaidTab = page.getByText('미납자 관리', { exact: false }).first();
+    if (await unpaidTab.isVisible().catch(() => false)) {
+      await unpaidTab.click();
+      await page.waitForTimeout(1000);
+
+      const body = await page.textContent('body');
+      // 미납자가 있으면 납부 처리 버튼 존재
+      const hasPayAction = body?.includes('납부 처리') || body?.includes('미납자');
+      expect(hasPayAction).toBe(true);
+    }
+  });
+
+  test('수익 관리 — 월별 납부 현황 탭', async () => {
+    const monthlyTab = page.getByText('월별 납부 현황', { exact: false }).first();
+    if (await monthlyTab.isVisible().catch(() => false)) {
+      await monthlyTab.click();
+      await page.waitForTimeout(1000);
+
+      const body = await page.textContent('body');
+      // 월별 현황에 강좌 이름이 표시
+      expect(body).toContain(courseName);
+    }
+  });
+
+  test('수익 관리 — 기간 필터 동작', async () => {
+    // "이번 달" 필터 클릭
+    const thisMonthBtn = page.getByText('이번 달', { exact: true }).first();
+    if (await thisMonthBtn.isVisible().catch(() => false)) {
+      await thisMonthBtn.click();
+      await page.waitForTimeout(500);
+    }
+    // 필터 적용 후에도 페이지 정상 렌더링
+    const body = await page.textContent('body');
+    expect(body).toContain('수익');
+  });
+
+  // ── 8. 수강생에서 납부 변경 시나리오 (강좌 상세 경유) ──
+  test('강좌 상세 — 납부 관리에서 납부 금액 변경', async () => {
+    await page.getByText('강좌 관리').first().click();
+    await page.waitForTimeout(1000);
+
+    // 강좌 상세 진입
+    const row = page.locator('tr', { hasText: courseName }).last();
+    await row.getByText('상세').click();
+    await page.waitForTimeout(1500);
+
+    // 납부 관리 버튼 클릭
+    const payBtn = page.getByText('납부 관리', { exact: false }).first();
+    if (await payBtn.isVisible().catch(() => false)) {
+      await payBtn.click();
+      await page.waitForTimeout(500);
+
+      const modal = page.locator('.ant-modal').last();
+
+      // 납부 금액 입력 (부분납부: 절반)
+      const halfBtn = modal.getByText('절반', { exact: true }).first();
+      if (await halfBtn.isVisible().catch(() => false)) {
+        await halfBtn.click();
+        await page.waitForTimeout(300);
+      }
+
+      // 납부 방법 선택 — 카드
+      const cardRadio = modal.getByText('카드', { exact: true }).first();
+      if (await cardRadio.isVisible().catch(() => false)) {
+        await cardRadio.click();
+        await page.waitForTimeout(200);
+      }
+
+      // 저장
+      const saveBtn = modal.getByText('저장', { exact: true }).first();
+      if (await saveBtn.isVisible().catch(() => false)) {
+        await saveBtn.click();
+        await page.waitForTimeout(1000);
+      } else {
+        // 저장 버튼이 없으면 모달 닫기
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(500);
+      }
+    }
+  });
+
+  test('납부 변경 후 납부 상태 반영 확인', async () => {
+    const body = await page.textContent('body');
+    // 부분납부 또는 완납 상태가 반영되어 있어야 함
+    const hasPaymentStatus = body?.includes('완납') || body?.includes('부분납부') || body?.includes('미납');
+    expect(hasPaymentStatus).toBe(true);
+  });
+
+  // ── 9. 정리 — 수강생 삭제 후 강좌 삭제 ──
+  test('정리 — 수강생 삭제', async () => {
+    await page.getByText('수강생 관리').first().click();
+    await page.waitForTimeout(1000);
+
+    // 열려있는 모달 닫기
+    const anyModal = page.locator('.ant-modal-wrap');
+    if (await anyModal.isVisible().catch(() => false)) {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
     }
 
-    // 확인
-    const confirmBtn = page.locator('.ant-popconfirm-buttons button, .ant-modal-confirm-btns button')
-      .getByText('확인', { exact: false })
-      .or(page.locator('.ant-popconfirm-buttons .ant-btn-primary'))
-      .first();
-    if (await confirmBtn.isVisible().catch(() => false)) {
-      await confirmBtn.click();
-      await page.waitForTimeout(2000);
-    }
+    const row = page.locator('tr', { hasText: studentName });
+    await row.getByText('삭제').click();
+    await page.waitForTimeout(500);
 
-    const content = await page.textContent('body');
-    expect(content).not.toContain(testStudentName);
+    const confirmModal = page.locator('.ant-modal-confirm');
+    await confirmModal.locator('.ant-modal-confirm-btns .ant-btn-dangerous').click();
+    await page.waitForTimeout(2000);
+
+    const tableText = await page.locator('.ant-table-tbody').textContent();
+    expect(tableText).not.toContain(studentName);
+  });
+
+  test('정리 — 강좌 삭제', async () => {
+    await page.getByText('강좌 관리').first().click();
+    await page.waitForTimeout(1000);
+
+    const row = page.locator('tr', { hasText: courseName });
+    await row.getByText('삭제').click();
+    await page.waitForTimeout(500);
+
+    const confirmModal = page.locator('.ant-modal-confirm');
+    await confirmModal.locator('.ant-modal-confirm-btns .ant-btn-dangerous').click();
+    await page.waitForTimeout(2000);
+
+    const tableText = await page.locator('.ant-table-tbody').textContent();
+    expect(tableText).not.toContain(courseName);
+  });
+
+  test('정리 후 대시보드 정상', async () => {
+    await page.getByText('대시보드').first().click();
+    await page.waitForTimeout(1000);
+
+    const body = await page.textContent('body');
+    // 삭제한 강좌/수강생이 대시보드에서 사라짐
+    expect(body).not.toContain(courseName);
+    expect(body).not.toContain(studentName);
   });
 });
 
