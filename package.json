@@ -42,7 +42,7 @@
   "lint-staged": {
     "src/**/*.{ts,tsx}": [
       "bash -c 'npx tsc --noEmit'",
-      "npx @biomejs/biome check --write --no-errors-on-unmatched"
+      "npx @biomejs/biome check --write --unsafe --no-errors-on-unmatched --diagnostic-level=error"
     ]
   },
   "devDependencies": {

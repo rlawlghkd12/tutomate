@@ -102,7 +102,7 @@ describe("courseStore", () => {
 			courses: [makeCourse({ currentStudents: 5, maxStudents: 30 })],
 		});
 		await useCourseStore.getState().incrementCurrentStudents("c1");
-		expect(useCourseStore.getState().getCourseById("c1")!.currentStudents).toBe(
+		expect(useCourseStore.getState().getCourseById("c1")?.currentStudents).toBe(
 			6,
 		);
 	});
@@ -112,7 +112,7 @@ describe("courseStore", () => {
 			courses: [makeCourse({ currentStudents: 30, maxStudents: 30 })],
 		});
 		await useCourseStore.getState().incrementCurrentStudents("c1");
-		expect(useCourseStore.getState().getCourseById("c1")!.currentStudents).toBe(
+		expect(useCourseStore.getState().getCourseById("c1")?.currentStudents).toBe(
 			30,
 		);
 	});
@@ -120,7 +120,7 @@ describe("courseStore", () => {
 	it("decrementCurrentStudents → 1 감소", async () => {
 		useCourseStore.setState({ courses: [makeCourse({ currentStudents: 5 })] });
 		await useCourseStore.getState().decrementCurrentStudents("c1");
-		expect(useCourseStore.getState().getCourseById("c1")!.currentStudents).toBe(
+		expect(useCourseStore.getState().getCourseById("c1")?.currentStudents).toBe(
 			4,
 		);
 	});
@@ -128,7 +128,7 @@ describe("courseStore", () => {
 	it("decrementCurrentStudents → 0이면 감소 안됨", async () => {
 		useCourseStore.setState({ courses: [makeCourse({ currentStudents: 0 })] });
 		await useCourseStore.getState().decrementCurrentStudents("c1");
-		expect(useCourseStore.getState().getCourseById("c1")!.currentStudents).toBe(
+		expect(useCourseStore.getState().getCourseById("c1")?.currentStudents).toBe(
 			0,
 		);
 	});
@@ -142,43 +142,38 @@ describe("courseStore", () => {
 
 	// ── 서버 실패 시 state 보호 ──
 
-	it("addCourse — 서버 실패 시 state 미변경", async () => {
+	it("addCourse — 서버 실패해도 로컬에 추가 (optimistic)", async () => {
 		const existing = makeCourse({ id: "c1", name: "기존 강좌" });
 		useCourseStore.setState({ courses: [existing] });
 		mockInsert.mockResolvedValueOnce({ error: { message: "insert failed" } });
 
-		await useCourseStore
-			.getState()
-			.addCourse({
-				name: "새 강좌",
-				classroom: "B",
-				instructorName: "강사",
-				instructorPhone: "010-0000-0000",
-				fee: 100000,
-				maxStudents: 20,
-			})
-			.catch(() => {});
+		await useCourseStore.getState().addCourse({
+			name: "새 강좌",
+			classroom: "B",
+			instructorName: "강사",
+			instructorPhone: "010-0000-0000",
+			fee: 100000,
+			maxStudents: 20,
+		});
 
-		// 기존 데이터 유지, 새 강좌 추가 안 됨
+		// optimistic update: 서버 실패해도 로컬에 추가됨
 		const courses = useCourseStore.getState().courses;
-		expect(courses).toHaveLength(1);
-		expect(courses[0].name).toBe("기존 강좌");
+		expect(courses).toHaveLength(2);
+		expect(courses[1].name).toBe("새 강좌");
 	});
 
-	it("updateCourse — 서버 실패 시 state 미변경", async () => {
+	it("updateCourse — 서버 실패해도 로컬 반영 (optimistic)", async () => {
 		const existing = makeCourse({ id: "c1", name: "원래 이름" });
 		useCourseStore.setState({ courses: [existing] });
 		mockUpdate.mockReturnValueOnce({
 			eq: vi.fn().mockResolvedValue({ error: { message: "update failed" } }),
 		});
 
-		await useCourseStore
-			.getState()
-			.updateCourse("c1", { name: "변경 이름" })
-			.catch(() => {});
+		await useCourseStore.getState().updateCourse("c1", { name: "변경 이름" });
 
-		expect(useCourseStore.getState().getCourseById("c1")!.name).toBe(
-			"원래 이름",
+		// optimistic update: 서버 실패해도 로컬에 반영됨
+		expect(useCourseStore.getState().getCourseById("c1")?.name).toBe(
+			"변경 이름",
 		);
 	});
 });

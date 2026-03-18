@@ -141,25 +141,37 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. 새 trial 조직 생성 (license_key: TRAL-XXXX-XXXX-XXXX 형식)
-    const hex = device_id.replace(/[^A-Z0-9]/gi, '').toUpperCase();
-    const trialKey = `TRAL-${hex.slice(0, 4)}-${hex.slice(4, 8)}-${hex.slice(8, 12)}`;
-    const { data: newOrg, error: orgError } = await supabaseAdmin
+    // 3. 새 trial 조직 생성 (또는 기존 trial key로 찾기)
+    const trialKey = `TRAL-${device_id.slice(0, 4).toUpperCase()}-${device_id.slice(4, 8).toUpperCase()}-${device_id.slice(8, 12).toUpperCase()}`;
+
+    // 같은 license_key로 이미 org가 있으면 재사용
+    const { data: existingOrg } = await supabaseAdmin
       .from('organizations')
-      .insert({
-        license_key: trialKey,
-        name: '체험판',
-        plan: 'trial',
-        max_seats: 1,
-      })
-      .select('id')
+      .select('id, plan')
+      .eq('license_key', trialKey)
       .single();
 
-    if (orgError || !newOrg) {
-      return new Response(
-        JSON.stringify({ error: 'org_creation_failed', details: orgError?.message || 'unknown' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
+    let newOrg: { id: string } | null = existingOrg;
+
+    if (!existingOrg) {
+      const { data: createdOrg, error: orgError } = await supabaseAdmin
+        .from('organizations')
+        .insert({
+          name: '체험판',
+          plan: 'trial',
+          max_seats: 1,
+          license_key: trialKey,
+        })
+        .select('id')
+        .single();
+
+      if (orgError || !createdOrg) {
+        return new Response(
+          JSON.stringify({ error: 'org_creation_failed', details: orgError?.message || 'unknown' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      newOrg = createdOrg;
     }
 
     // owner로 연결
