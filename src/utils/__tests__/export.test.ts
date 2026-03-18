@@ -1,0 +1,354 @@
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../../stores/settingsStore", () => ({
+	useSettingsStore: {
+		getState: () => ({ organizationName: "테스트학원" }),
+	},
+}));
+
+import type { Course, Enrollment, Student } from "../../types";
+import {
+	COURSE_STUDENT_EXPORT_FIELDS,
+	REVENUE_EXPORT_FIELDS,
+	STUDENT_EXPORT_FIELDS,
+} from "../export";
+
+// ─── 테스트 데이터 ───
+
+const student: Student = {
+	id: "s1",
+	name: "홍길동",
+	phone: "010-1234-5678",
+	email: "hong@test.com",
+	address: "서울시 강남구",
+	birthDate: "1990-01-15",
+	notes: "테스트 메모",
+	createdAt: "2026-01-15T00:00:00Z",
+	updatedAt: "2026-01-15T00:00:00Z",
+};
+
+const course: Course = {
+	id: "c1",
+	name: "수학반",
+	classroom: "A101",
+	instructorName: "김강사",
+	instructorPhone: "010-0000-0000",
+	fee: 200000,
+	maxStudents: 20,
+	currentStudents: 5,
+	createdAt: "2026-01-01T00:00:00Z",
+	updatedAt: "2026-01-01T00:00:00Z",
+};
+
+const enrollment: Enrollment = {
+	id: "e1",
+	studentId: "s1",
+	courseId: "c1",
+	paidAmount: 150000,
+	remainingAmount: 50000,
+	paymentStatus: "partial",
+	paymentMethod: "card",
+	paidAt: "2026-03-01",
+	enrolledAt: "2026-02-01T00:00:00Z",
+	discountAmount: 0,
+	notes: "분할 납부",
+};
+
+// ─── STUDENT_EXPORT_FIELDS ───
+
+describe("STUDENT_EXPORT_FIELDS", () => {
+	const getField = (key: string) =>
+		STUDENT_EXPORT_FIELDS.find((f) => f.key === key)!;
+
+	it("이름 필드", () => {
+		expect(getField("name").getValue(student, [], [])).toBe("홍길동");
+	});
+
+	it("전화번호 필드", () => {
+		expect(getField("phone").getValue(student, [], [])).toBe("010-1234-5678");
+	});
+
+	it("이메일 필드", () => {
+		expect(getField("email").getValue(student, [], [])).toBe("hong@test.com");
+	});
+
+	it("이메일 없으면 빈 문자열", () => {
+		expect(
+			getField("email").getValue({ ...student, email: undefined }, [], []),
+		).toBe("");
+	});
+
+	it("주소 필드", () => {
+		expect(getField("address").getValue(student, [], [])).toBe("서울시 강남구");
+	});
+
+	it("생년월일 필드", () => {
+		expect(getField("birthDate").getValue(student, [], [])).toBe("1990-01-15");
+	});
+
+	it("수강강좌 — 여러 강좌 콤마 구분", () => {
+		const course2: Course = { ...course, id: "c2", name: "영어반" };
+		const enr2: Enrollment = { ...enrollment, id: "e2", courseId: "c2" };
+		const result = getField("enrolledCourses").getValue(
+			student,
+			[enrollment, enr2],
+			[course, course2],
+		);
+		expect(result).toBe("수학반, 영어반");
+	});
+
+	it("수강강좌 — 수강 없으면 빈 문자열", () => {
+		expect(getField("enrolledCourses").getValue(student, [], [course])).toBe(
+			"",
+		);
+	});
+
+	it("납부금액 — 합산", () => {
+		const enr2: Enrollment = { ...enrollment, id: "e2", paidAmount: 100000 };
+		expect(
+			getField("totalPaid").getValue(student, [enrollment, enr2], []),
+		).toBe(250000);
+	});
+
+	it("잔여금액 — 합산", () => {
+		const enr2: Enrollment = {
+			...enrollment,
+			id: "e2",
+			remainingAmount: 30000,
+		};
+		expect(
+			getField("totalRemaining").getValue(student, [enrollment, enr2], []),
+		).toBe(80000);
+	});
+
+	it("메모 필드", () => {
+		expect(getField("notes").getValue(student, [], [])).toBe("테스트 메모");
+	});
+
+	it("등록일 — YYYY-MM-DD 형식", () => {
+		expect(getField("createdAt").getValue(student, [], [])).toBe("2026-01-15");
+	});
+});
+
+// ─── REVENUE_EXPORT_FIELDS ───
+
+describe("REVENUE_EXPORT_FIELDS", () => {
+	const getField = (key: string) =>
+		REVENUE_EXPORT_FIELDS.find((f) => f.key === key)!;
+
+	it("강좌명", () => {
+		expect(getField("courseName").getValue(enrollment, [], [course])).toBe(
+			"수학반",
+		);
+	});
+
+	it("수강생 이름", () => {
+		expect(getField("studentName").getValue(enrollment, [student], [])).toBe(
+			"홍길동",
+		);
+	});
+
+	it("전화번호", () => {
+		expect(getField("phone").getValue(enrollment, [student], [])).toBe(
+			"010-1234-5678",
+		);
+	});
+
+	it("수강료", () => {
+		expect(getField("fee").getValue(enrollment, [], [course])).toBe(200000);
+	});
+
+	it("할인금액", () => {
+		expect(getField("discountAmount").getValue(enrollment, [], [])).toBe(0);
+	});
+
+	it("납부금액", () => {
+		expect(getField("paidAmount").getValue(enrollment, [], [])).toBe(150000);
+	});
+
+	it("잔여금액", () => {
+		expect(getField("remainingAmount").getValue(enrollment, [], [])).toBe(
+			50000,
+		);
+	});
+
+	it("납부상태 — 한글 변환", () => {
+		expect(getField("paymentStatus").getValue(enrollment, [], [])).toBe(
+			"부분납부",
+		);
+		expect(
+			getField("paymentStatus").getValue(
+				{ ...enrollment, paymentStatus: "completed" },
+				[],
+				[],
+			),
+		).toBe("완납");
+		expect(
+			getField("paymentStatus").getValue(
+				{ ...enrollment, paymentStatus: "pending" },
+				[],
+				[],
+			),
+		).toBe("미납");
+		expect(
+			getField("paymentStatus").getValue(
+				{ ...enrollment, paymentStatus: "exempt" },
+				[],
+				[],
+			),
+		).toBe("면제");
+	});
+
+	it("납부방법 — 한글 변환", () => {
+		expect(getField("paymentMethod").getValue(enrollment, [], [])).toBe("카드");
+		expect(
+			getField("paymentMethod").getValue(
+				{ ...enrollment, paymentMethod: "cash" },
+				[],
+				[],
+			),
+		).toBe("현금");
+		expect(
+			getField("paymentMethod").getValue(
+				{ ...enrollment, paymentMethod: "transfer" },
+				[],
+				[],
+			),
+		).toBe("계좌이체");
+	});
+
+	it("납부방법 없으면 빈 문자열", () => {
+		expect(
+			getField("paymentMethod").getValue(
+				{ ...enrollment, paymentMethod: undefined },
+				[],
+				[],
+			),
+		).toBe("");
+	});
+
+	it("등록일 — YYYY-MM-DD 형식", () => {
+		expect(getField("enrolledAt").getValue(enrollment, [], [])).toBe(
+			"2026-02-01",
+		);
+	});
+
+	it("메모", () => {
+		expect(getField("notes").getValue(enrollment, [], [])).toBe("분할 납부");
+	});
+
+	it("메모 없으면 빈 문자열", () => {
+		expect(
+			getField("notes").getValue({ ...enrollment, notes: undefined }, [], []),
+		).toBe("");
+	});
+});
+
+// ─── COURSE_STUDENT_EXPORT_FIELDS ───
+
+describe("COURSE_STUDENT_EXPORT_FIELDS", () => {
+	const getField = (key: string) =>
+		COURSE_STUDENT_EXPORT_FIELDS.find((f) => f.key === key)!;
+
+	it("이름", () => {
+		expect(getField("name").getValue(student, enrollment)).toBe("홍길동");
+	});
+
+	it("납부 현황 — 한글 변환", () => {
+		expect(getField("paymentStatus").getValue(student, enrollment)).toBe(
+			"부분납부",
+		);
+	});
+
+	it("납부 금액", () => {
+		expect(getField("paidAmount").getValue(student, enrollment)).toBe(150000);
+	});
+
+	it("할인 금액", () => {
+		expect(getField("discountAmount").getValue(student, enrollment)).toBe(0);
+	});
+
+	it("잔여 금액", () => {
+		expect(getField("remainingAmount").getValue(student, enrollment)).toBe(
+			50000,
+		);
+	});
+
+	it("납부 방법", () => {
+		expect(getField("paymentMethod").getValue(student, enrollment)).toBe(
+			"카드",
+		);
+	});
+
+	it("납부일자 — YYYY-MM-DD", () => {
+		expect(getField("paidAt").getValue(student, enrollment)).toBe("2026-03-01");
+	});
+
+	it("납부일자 없으면 빈 문자열", () => {
+		expect(
+			getField("paidAt").getValue(student, {
+				...enrollment,
+				paidAt: undefined,
+			}),
+		).toBe("");
+	});
+
+	it("등록일 — YYYY-MM-DD", () => {
+		expect(getField("enrolledAt").getValue(student, enrollment)).toBe(
+			"2026-02-01",
+		);
+	});
+
+	it("메모", () => {
+		expect(getField("notes").getValue(student, enrollment)).toBe("분할 납부");
+	});
+});
+
+// ─── 필드 정의 무결성 ───
+
+describe("필드 정의 무결성", () => {
+	it("STUDENT_EXPORT_FIELDS — 모든 필드에 key/label/wch/getValue 존재", () => {
+		for (const field of STUDENT_EXPORT_FIELDS) {
+			expect(field.key).toBeTruthy();
+			expect(field.label).toBeTruthy();
+			expect(field.wch).toBeGreaterThan(0);
+			expect(typeof field.getValue).toBe("function");
+		}
+	});
+
+	it("REVENUE_EXPORT_FIELDS — 모든 필드에 key/label/wch/getValue 존재", () => {
+		for (const field of REVENUE_EXPORT_FIELDS) {
+			expect(field.key).toBeTruthy();
+			expect(field.label).toBeTruthy();
+			expect(field.wch).toBeGreaterThan(0);
+			expect(typeof field.getValue).toBe("function");
+		}
+	});
+
+	it("COURSE_STUDENT_EXPORT_FIELDS — 모든 필드에 key/label/getValue 존재", () => {
+		for (const field of COURSE_STUDENT_EXPORT_FIELDS) {
+			expect(field.key).toBeTruthy();
+			expect(field.label).toBeTruthy();
+			expect(typeof field.getValue).toBe("function");
+		}
+	});
+
+	it("STUDENT_EXPORT_FIELDS 기본 선택 필드 포함 확인", () => {
+		const keys = STUDENT_EXPORT_FIELDS.map((f) => f.key);
+		expect(keys).toContain("name");
+		expect(keys).toContain("phone");
+		expect(keys).toContain("enrolledCourses");
+		expect(keys).toContain("totalPaid");
+		expect(keys).toContain("totalRemaining");
+	});
+
+	it("REVENUE_EXPORT_FIELDS 기본 선택 필드 포함 확인", () => {
+		const keys = REVENUE_EXPORT_FIELDS.map((f) => f.key);
+		expect(keys).toContain("courseName");
+		expect(keys).toContain("studentName");
+		expect(keys).toContain("fee");
+		expect(keys).toContain("paidAmount");
+		expect(keys).toContain("remainingAmount");
+		expect(keys).toContain("paymentStatus");
+	});
+});
