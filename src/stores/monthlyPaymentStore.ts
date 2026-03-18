@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { MonthlyPayment, PaymentMethod } from '../types';
-import { isCloud } from './authStore';
+
 import { createDataHelper } from '../utils/dataHelper';
 import { mapMonthlyPaymentFromDb, mapMonthlyPaymentToDb, mapMonthlyPaymentUpdateToDb } from '../utils/fieldMapper';
 import type { MonthlyPaymentRow } from '../utils/fieldMapper';
@@ -28,8 +28,12 @@ export const useMonthlyPaymentStore = create<MonthlyPaymentStore>((set, get) => 
   payments: [],
 
   loadPayments: async () => {
-    const payments = await helper.load();
-    set({ payments });
+    try {
+      const payments = await helper.load();
+      set({ payments });
+    } catch {
+      // 로드 실패 시 기존 데이터 유지
+    }
   },
 
   getPaymentsByEnrollmentId: (enrollmentId: string) => {
@@ -55,28 +59,18 @@ export const useMonthlyPaymentStore = create<MonthlyPaymentStore>((set, get) => 
       createdAt: dayjs().toISOString(),
     };
 
-    if (isCloud()) {
-      await helper.add(newPayment);
-      set({ payments: [...get().payments, newPayment] });
-    } else {
-      const payments = await helper.add(newPayment);
-      set({ payments });
-    }
+    await helper.add(newPayment);
+    set({ payments: [...get().payments, newPayment] });
 
     return newPayment;
   },
 
   updatePayment: async (id, updates) => {
-    if (isCloud()) {
-      await helper.update(id, updates);
-      const payments = get().payments.map((p) =>
-        p.id === id ? { ...p, ...updates } : p,
-      );
-      set({ payments });
-    } else {
-      const payments = await helper.update(id, updates);
-      set({ payments });
-    }
+    await helper.update(id, updates);
+    const payments = get().payments.map((p) =>
+      p.id === id ? { ...p, ...updates } : p,
+    );
+    set({ payments });
   },
 
   deletePayment: async (id) => {

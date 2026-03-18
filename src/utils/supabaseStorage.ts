@@ -14,15 +14,13 @@ export async function supabaseLoadData<T>(table: TableName): Promise<T[]> {
 
   if (error) {
     logError(`Supabase load error: ${table}`, { error });
-    const appError = new AppError({
+    throw new AppError({
       type: ErrorType.NETWORK_ERROR,
       message: `Failed to load from Supabase: ${table}`,
       originalError: error,
       component: 'supabaseStorage',
       action: 'supabaseLoadData',
     });
-    errorHandler.handle(appError);
-    return [];
   }
 
   logInfo(`Loaded ${data.length} items from Supabase: ${table}`);

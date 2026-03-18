@@ -327,11 +327,17 @@ const SettingsPage: React.FC = () => {
                 size="small"
                 disabled={currentPlan === 'trial' || orgNameInput === organizationName}
                 onClick={async () => {
+                  const prevName = organizationName;
                   setOrganizationName(orgNameInput);
                   // 클라우드 모드면 Supabase organizations 테이블도 업데이트
                   const orgId = useAuthStore.getState().organizationId;
                   if (supabase && orgId) {
-                    await supabase.from('organizations').update({ name: orgNameInput }).eq('id', orgId);
+                    const { error } = await supabase.from('organizations').update({ name: orgNameInput }).eq('id', orgId);
+                    if (error) {
+                      setOrganizationName(prevName);
+                      message.error('이름 저장에 실패했습니다.');
+                      return;
+                    }
                   }
                   message.success('이름이 저장되었습니다.');
                 }}

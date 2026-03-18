@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Course, CourseFormData } from '../types';
-import { isCloud } from './authStore';
+
 import { createDataHelper } from '../utils/dataHelper';
 import { mapCourseFromDb, mapCourseToDb, mapCourseUpdateToDb } from '../utils/fieldMapper';
 import type { CourseRow } from '../utils/fieldMapper';
@@ -28,8 +28,12 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
   courses: [],
 
   loadCourses: async () => {
-    const courses = await helper.load();
-    set({ courses });
+    try {
+      const courses = await helper.load();
+      set({ courses });
+    } catch {
+      // 로드 실패 시 기존 데이터 유지
+    }
   },
 
   addCourse: async (courseData: CourseFormData) => {
@@ -41,28 +45,18 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
       updatedAt: dayjs().toISOString(),
     };
 
-    if (isCloud()) {
-      await helper.add(newCourse);
-      set({ courses: [...get().courses, newCourse] });
-    } else {
-      const courses = await helper.add(newCourse);
-      set({ courses });
-    }
+    await helper.add(newCourse);
+    set({ courses: [...get().courses, newCourse] });
   },
 
   updateCourse: async (id: string, courseData: Partial<Course>) => {
     const updates = { ...courseData, updatedAt: dayjs().toISOString() };
 
-    if (isCloud()) {
-      await helper.update(id, updates);
-      const courses = get().courses.map((c) =>
-        c.id === id ? { ...c, ...updates } : c,
-      );
-      set({ courses });
-    } else {
-      const courses = await helper.update(id, updates);
-      set({ courses });
-    }
+    await helper.update(id, updates);
+    const courses = get().courses.map((c) =>
+      c.id === id ? { ...c, ...updates } : c,
+    );
+    set({ courses });
   },
 
   deleteCourse: async (id: string) => {

@@ -10,7 +10,7 @@ const mockInsert = vi.fn().mockResolvedValue({ error: null });
 const mockUpdate = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
 const mockDelete = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
 
-vi.mock('../../lib/supabase', () => ({
+vi.mock('../../config/supabase', () => ({
   supabase: {
     from: () => ({
       select: mockSelect,
