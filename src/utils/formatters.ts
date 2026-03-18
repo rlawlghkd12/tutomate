@@ -28,5 +28,3 @@ export function parseBirthDate(value: string): string | undefined {
 
 	return `${year}-${mm}-${dd}`;
 }
-// trigger
-// trigger
