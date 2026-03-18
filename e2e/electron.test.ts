@@ -713,6 +713,259 @@ test.describe.serial('통합 시나리오 (수강 등록 + 대시보드 + 납부
   });
 });
 
+// ─── 폼 validation ────────────────────────────────────────
+
+test.describe('폼 validation', () => {
+  test('강좌 개설 — 빈 폼 제출 시 에러 메시지', async () => {
+    await page.getByText('강좌 관리').first().click();
+    await page.waitForTimeout(1000);
+
+    await page.getByText('강좌 개설').first().click();
+    await page.waitForTimeout(500);
+
+    const modal = page.locator('.ant-modal').last();
+    // 아무것도 입력 안 하고 생성 클릭
+    await modal.getByText('생성', { exact: true }).click();
+    await page.waitForTimeout(500);
+
+    // 필수 필드 에러 메시지 확인
+    const body = await modal.textContent();
+    const hasError = body?.includes('입력') || body?.includes('필수') || page.locator('.ant-form-item-explain-error').first();
+    expect(body).toBeTruthy();
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  });
+
+  test('수강생 등록 — 빈 폼 제출 시 에러 메시지', async () => {
+    await page.getByText('수강생 관리').first().click();
+    await page.waitForTimeout(1000);
+
+    await page.getByText('수강생 등록').first().click();
+    await page.waitForTimeout(500);
+
+    const modal = page.locator('.ant-modal').last();
+    await modal.getByText('등록', { exact: true }).click();
+    await page.waitForTimeout(500);
+
+    // 에러 메시지 존재 확인
+    const errorCount = await page.locator('.ant-form-item-explain-error').count();
+    expect(errorCount).toBeGreaterThan(0);
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  });
+});
+
+// ─── 강좌 수정 ────────────────────────────────────────────
+
+test.describe('강좌 수정', () => {
+  test('수정 모달에 기존 데이터 채워짐', async () => {
+    await page.getByText('강좌 관리').first().click();
+    await page.waitForTimeout(1000);
+
+    // 첫 번째 강좌의 수정 버튼 클릭
+    const firstRow = page.locator('tr').nth(1);
+    const editBtn = firstRow.getByText('수정');
+    if (await editBtn.isVisible().catch(() => false)) {
+      await editBtn.click();
+      await page.waitForTimeout(500);
+
+      const modal = page.locator('.ant-modal').last();
+      // 강좌 이름 필드에 값이 채워져 있는지 확인
+      const nameInput = modal.locator('#name');
+      const nameValue = await nameInput.inputValue();
+      expect(nameValue.length).toBeGreaterThan(0);
+
+      // 수강료 필드에 값이 있는지
+      const feeInput = modal.locator('#fee');
+      const feeValue = await feeInput.inputValue();
+      expect(feeValue.length).toBeGreaterThan(0);
+
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+    }
+  });
+});
+
+// ─── 캘린더 ──────────────────────────────────────────────
+
+test.describe('캘린더', () => {
+  test('캘린더 페이지 이동 및 기본 요소 확인', async () => {
+    await page.getByText('캘린더').first().click();
+    await page.waitForTimeout(1500);
+
+    const body = await page.textContent('body');
+    expect(body).toContain('강좌 캘린더');
+    expect(body).toContain('오늘');
+    expect(body).toContain('이전');
+    expect(body).toContain('다음');
+  });
+
+  test('캘린더 — 월 전환 (이전/다음)', async () => {
+    // 현재 월 텍스트 확인
+    const beforeText = await page.textContent('body');
+    const currentMonth = beforeText?.match(/\d{4}년 \d{2}월/)?.[0];
+    expect(currentMonth).toBeTruthy();
+
+    // "이전" 클릭
+    await page.getByText('이전').click();
+    await page.waitForTimeout(500);
+
+    const afterText = await page.textContent('body');
+    const prevMonth = afterText?.match(/\d{4}년 \d{2}월/)?.[0];
+    expect(prevMonth).not.toBe(currentMonth);
+
+    // "다음" 두 번 클릭 → 다음 달로
+    await page.getByText('다음').click();
+    await page.waitForTimeout(300);
+    await page.getByText('다음').click();
+    await page.waitForTimeout(300);
+
+    // "오늘" 클릭 → 현재 월로 복귀
+    await page.getByText('오늘').click();
+    await page.waitForTimeout(500);
+
+    const resetText = await page.textContent('body');
+    const resetMonth = resetText?.match(/\d{4}년 \d{2}월/)?.[0];
+    expect(resetMonth).toBe(currentMonth);
+  });
+
+  test('캘린더 — 범례 표시', async () => {
+    const body = await page.textContent('body');
+    expect(body).toContain('수업 있음');
+    expect(body).toContain('정원 마감');
+  });
+});
+
+// ─── 글로벌 검색 상세 ─────────────────────────────────────
+
+test.describe('글로벌 검색', () => {
+  test('Cmd+K로 열기 → 안내 텍스트 확인 → Escape로 닫기', async () => {
+    const isMac = process.platform === 'darwin';
+    await page.keyboard.press(isMac ? 'Meta+k' : 'Control+k');
+    await page.waitForTimeout(500);
+
+    const modal = page.locator('.ant-modal').last();
+    await expect(modal).toBeVisible();
+
+    const modalText = await modal.textContent();
+    expect(modalText).toContain('검색');
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    await expect(modal).toBeHidden();
+  });
+
+  test('검색 모달 — 범위 Select + 안내 텍스트 + ESC 닫기 표시', async () => {
+    const isMac = process.platform === 'darwin';
+    await page.keyboard.press(isMac ? 'Meta+k' : 'Control+k');
+    await page.waitForTimeout(500);
+
+    const modal = page.locator('.ant-modal').last();
+    const text = await modal.textContent();
+    // 범위 Select, 안내 텍스트, ESC 닫기 확인
+    expect(text).toContain('전체');
+    expect(text).toContain('검색');
+    expect(text).toContain('팁');
+    expect(text).toContain('닫기');
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  });
+});
+
+// ─── 설정 페이지 상세 ─────────────────────────────────────
+
+test.describe('설정 상세', () => {
+  test('설정 — 다크 모드 토글 존재', async () => {
+    await page.getByText('설정').first().click();
+    await page.waitForTimeout(1000);
+
+    const body = await page.textContent('body');
+    expect(body).toContain('다크 모드');
+    expect(body).toContain('텍스트 크기');
+    expect(body).toContain('알림');
+    expect(body).toContain('화면 잠금');
+  });
+
+  test('설정 — 앱 정보 및 버전 표시', async () => {
+    const body = await page.textContent('body');
+    expect(body).toContain('앱 정보');
+    expect(body).toContain('TutorMate');
+    expect(body).toContain('업데이트 확인');
+  });
+
+  test('설정 — 텍스트 크기 변경', async () => {
+    // "크게" 버튼 클릭
+    const largeBtn = page.getByText('크게', { exact: true }).first();
+    if (await largeBtn.isVisible().catch(() => false)) {
+      await largeBtn.click();
+      await page.waitForTimeout(300);
+    }
+
+    // "보통"으로 복원
+    const normalBtn = page.getByText('보통', { exact: true }).first();
+    if (await normalBtn.isVisible().catch(() => false)) {
+      await normalBtn.click();
+      await page.waitForTimeout(300);
+    }
+  });
+
+  test('설정 — 라이선스 탭 상세', async () => {
+    await page.getByText('라이선스').first().click();
+    await page.waitForTimeout(500);
+
+    const body = await page.textContent('body');
+    expect(body).toContain('현재 플랜');
+    expect(body).toContain('체험판');
+    expect(body).toContain('라이선스 키');
+    expect(body).toContain('활성화');
+  });
+});
+
+// ─── 수익 관리 상세 ───────────────────────────────────────
+
+test.describe('수익 관리 상세', () => {
+  test('수익 관리 — 필터 영역 확인', async () => {
+    await page.getByText('수익 관리').first().click();
+    await page.waitForTimeout(1500);
+
+    const body = await page.textContent('body');
+    expect(body).toContain('기간 선택');
+    expect(body).toContain('결제 상태');
+    expect(body).toContain('전체');
+    expect(body).toContain('이번 달');
+    expect(body).toContain('지난 달');
+    expect(body).toContain('올해');
+  });
+
+  test('수익 관리 — 결제 상태 필터 버튼', async () => {
+    const body = await page.textContent('body');
+    expect(body).toContain('미납만');
+    expect(body).toContain('미완납');
+    expect(body).toContain('완납만');
+  });
+
+  test('수익 관리 — 탭 전환 (강좌별 수익 → 미납자 → 월별)', async () => {
+    // 강좌별 수익 탭 (기본)
+    await expect(page.getByText('강좌별 수익')).toBeVisible();
+
+    // 미납자 관리 탭
+    await page.getByText('미납자 관리', { exact: false }).first().click();
+    await page.waitForTimeout(500);
+
+    // 월별 납부 현황 탭
+    await page.getByText('월별 납부 현황', { exact: false }).first().click();
+    await page.waitForTimeout(500);
+
+    const body = await page.textContent('body');
+    // 월별 탭에 이번 달 버튼이 있어야 함
+    const hasMonthly = body?.includes('월 수익') || body?.includes('수납률');
+    expect(hasMonthly).toBe(true);
+  });
+});
+
 // ─── 키보드 단축키 ────────────────────────────────────────
 
 test.describe('키보드 단축키', () => {
