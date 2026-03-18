@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Student, StudentFormData } from '../types';
-import { isCloud } from './authStore';
+
 import { createDataHelper } from '../utils/dataHelper';
 import { mapStudentFromDb, mapStudentToDb, mapStudentUpdateToDb } from '../utils/fieldMapper';
 import type { StudentRow } from '../utils/fieldMapper';
@@ -26,8 +26,12 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
   students: [],
 
   loadStudents: async () => {
-    const students = await helper.load();
-    set({ students });
+    try {
+      const students = await helper.load();
+      set({ students });
+    } catch {
+      // 로드 실패 시 기존 데이터 유지
+    }
   },
 
   addStudent: async (studentData: StudentFormData) => {
@@ -38,13 +42,8 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
       updatedAt: dayjs().toISOString(),
     };
 
-    if (isCloud()) {
-      await helper.add(newStudent);
-      set({ students: [...get().students, newStudent] });
-    } else {
-      const students = await helper.add(newStudent);
-      set({ students });
-    }
+    await helper.add(newStudent);
+    set({ students: [...get().students, newStudent] });
 
     return newStudent;
   },
@@ -52,16 +51,11 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
   updateStudent: async (id: string, studentData: Partial<Student>) => {
     const updates = { ...studentData, updatedAt: dayjs().toISOString() };
 
-    if (isCloud()) {
-      await helper.update(id, updates);
-      const students = get().students.map((s) =>
-        s.id === id ? { ...s, ...updates } : s,
-      );
-      set({ students });
-    } else {
-      const students = await helper.update(id, updates);
-      set({ students });
-    }
+    await helper.update(id, updates);
+    const students = get().students.map((s) =>
+      s.id === id ? { ...s, ...updates } : s,
+    );
+    set({ students });
   },
 
   deleteStudent: async (id: string) => {

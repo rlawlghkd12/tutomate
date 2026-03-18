@@ -25,8 +25,8 @@ interface DataHelperConfig<TLocal extends { id: string }, TRow> {
 
 export interface DataHelper<TLocal extends { id: string }, _TRow = unknown> {
   load: () => Promise<TLocal[]>;
-  add: (item: TLocal) => Promise<TLocal[]>;
-  update: (id: string, updates: Partial<TLocal>) => Promise<TLocal[]>;
+  add: (item: TLocal) => Promise<void>;
+  update: (id: string, updates: Partial<TLocal>) => Promise<void>;
   remove: (id: string, currentItems: TLocal[]) => Promise<TLocal[]>;
 }
 
@@ -37,35 +37,20 @@ export function createDataHelper<TLocal extends { id: string }, TRow>(
 
   return {
     async load(): Promise<TLocal[]> {
-      try {
-        const rows = await supabaseLoadData<TRow>(table);
-        return rows.map(fromDb);
-      } catch (error) {
-        logError(`Failed to load ${table} from cloud`, { error });
-        return [];
-      }
+      const rows = await supabaseLoadData<TRow>(table);
+      return rows.map(fromDb);
     },
 
-    async add(item: TLocal): Promise<TLocal[]> {
+    async add(item: TLocal): Promise<void> {
       const orgId = getOrgId();
-      if (!orgId) return [];
-      try {
-        await supabaseInsert(table, toDb(item, orgId));
-        return [];
-      } catch (error) {
-        logError(`Failed to add to ${table} in cloud`, { error });
-        return [];
+      if (!orgId) {
+        throw new Error(`No orgId — cannot insert into ${table}`);
       }
+      await supabaseInsert(table, toDb(item, orgId));
     },
 
-    async update(id: string, updates: Partial<TLocal>): Promise<TLocal[]> {
-      try {
-        await supabaseUpdate(table, id, updateToDb(updates));
-        return [];
-      } catch (error) {
-        logError(`Failed to update ${table} in cloud`, { error });
-        return [];
-      }
+    async update(id: string, updates: Partial<TLocal>): Promise<void> {
+      await supabaseUpdate(table, id, updateToDb(updates));
     },
 
     async remove(id: string, currentItems: TLocal[]): Promise<TLocal[]> {

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Enrollment, EnrollmentFormData, PaymentMethod } from '../types';
-import { isCloud } from './authStore';
+
 import { createDataHelper } from '../utils/dataHelper';
 import { mapEnrollmentFromDb, mapEnrollmentToDb, mapEnrollmentUpdateToDb } from '../utils/fieldMapper';
 import type { EnrollmentRow } from '../utils/fieldMapper';
@@ -30,17 +30,15 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
   enrollments: [],
 
   loadEnrollments: async () => {
-    if (isCloud()) {
-      const enrollments = await helper.load();
-      set({ enrollments });
-    } else {
+    try {
       const raw = await helper.load();
-      // 기존 데이터 호환: discountAmount 없으면 0으로 기본값
       const enrollments = raw.map(e => ({
         ...e,
         discountAmount: e.discountAmount ?? 0,
       }));
       set({ enrollments });
+    } catch {
+      // 로드 실패 시 기존 데이터 유지
     }
   },
 
@@ -57,26 +55,16 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
       discountAmount: enrollmentData.discountAmount ?? 0,
     };
 
-    if (isCloud()) {
-      await helper.add(newEnrollment);
-      set({ enrollments: [...get().enrollments, newEnrollment] });
-    } else {
-      const enrollments = await helper.add(newEnrollment);
-      set({ enrollments });
-    }
+    await helper.add(newEnrollment);
+    set({ enrollments: [...get().enrollments, newEnrollment] });
   },
 
   updateEnrollment: async (id: string, enrollmentData: Partial<Enrollment>) => {
-    if (isCloud()) {
-      await helper.update(id, enrollmentData);
-      const enrollments = get().enrollments.map((e) =>
-        e.id === id ? { ...e, ...enrollmentData } : e,
-      );
-      set({ enrollments });
-    } else {
-      const enrollments = await helper.update(id, enrollmentData);
-      set({ enrollments });
-    }
+    await helper.update(id, enrollmentData);
+    const enrollments = get().enrollments.map((e) =>
+      e.id === id ? { ...e, ...enrollmentData } : e,
+    );
+    set({ enrollments });
   },
 
   deleteEnrollment: async (id: string) => {
