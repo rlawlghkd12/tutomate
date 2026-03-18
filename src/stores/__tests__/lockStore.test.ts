@@ -104,4 +104,50 @@ describe('lockStore', () => {
     // should not throw, state unchanged
     expect(useLockStore.getState().isEnabled).toBe(false);
   });
+
+  // ── PIN 실패 횟수 및 잠금 ──
+
+  it('unlock 실패 시 false 반환, 여전히 잠긴 상태', async () => {
+    await useLockStore.getState().setPin('1234');
+    useLockStore.getState().setEnabled(true);
+    useLockStore.getState().lock();
+    expect(useLockStore.getState().isLocked).toBe(true);
+
+    const result = await useLockStore.getState().unlock('9999');
+    expect(result).toBe(false);
+    expect(useLockStore.getState().isLocked).toBe(true);
+  });
+
+  it('연속 실패 후에도 올바른 PIN으로 잠금 해제', async () => {
+    await useLockStore.getState().setPin('1234');
+    useLockStore.getState().setEnabled(true);
+    useLockStore.getState().lock();
+
+    await useLockStore.getState().unlock('0000');
+    await useLockStore.getState().unlock('1111');
+    await useLockStore.getState().unlock('2222');
+
+    const result = await useLockStore.getState().unlock('1234');
+    expect(result).toBe(true);
+    expect(useLockStore.getState().isLocked).toBe(false);
+  });
+
+  it('4자리 PIN verifyPin 성공', async () => {
+    await useLockStore.getState().setPin('1234');
+    expect(useLockStore.getState().pin).toBeTruthy();
+
+    const ok = await useLockStore.getState().verifyPin('1234');
+    expect(ok).toBe(true);
+  });
+
+  it('6자리 PIN verifyPin 성공 + 다른 길이 실패', async () => {
+    await useLockStore.getState().setPin('123456');
+    expect(useLockStore.getState().pin).toBeTruthy();
+
+    const ok = await useLockStore.getState().verifyPin('123456');
+    expect(ok).toBe(true);
+
+    const wrong = await useLockStore.getState().verifyPin('1234');
+    expect(wrong).toBe(false);
+  });
 });

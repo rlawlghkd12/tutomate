@@ -18,7 +18,8 @@
     "electron:build:q:win": "npm run build && electron-builder --win --config electron-builder-q.yml",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test e2e/electron.test.ts"
+    "test:e2e": "playwright test e2e/electron.test.ts",
+    "prepare": "husky"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
@@ -38,6 +39,12 @@
     "yauzl": "^3.2.0",
     "zustand": "^5.0.10"
   },
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "bash -c 'npx tsc --noEmit'",
+      "eslint --max-warnings 0"
+    ]
+  },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.58.2",
@@ -53,7 +60,9 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "husky": "^9.1.7",
     "jsdom": "^29.0.0",
+    "lint-staged": "^16.4.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4",

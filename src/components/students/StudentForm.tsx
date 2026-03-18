@@ -7,6 +7,7 @@ import { useCourseStore } from '../../stores/courseStore';
 import { useEnrollmentStore } from '../../stores/enrollmentStore';
 import { useLicenseStore } from '../../stores/licenseStore';
 import dayjs from 'dayjs';
+import { formatPhone, parseBirthDate } from '../../utils/formatters';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -128,33 +129,7 @@ const StudentForm: React.FC<StudentFormProps> = ({ visible, onClose, student }) 
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^0-9]/g, '');
-    let formattedValue = value;
-
-    if (value.length <= 3) {
-      formattedValue = value;
-    } else if (value.length <= 7) {
-      formattedValue = `${value.slice(0, 3)}-${value.slice(3)}`;
-    } else if (value.length <= 11) {
-      formattedValue = `${value.slice(0, 3)}-${value.slice(3, 7)}-${value.slice(7)}`;
-    } else {
-      formattedValue = `${value.slice(0, 3)}-${value.slice(3, 7)}-${value.slice(7, 11)}`;
-    }
-
-    form.setFieldsValue({ phone: formattedValue });
-  };
-
-  const parseBirthDate = (value: string): string | undefined => {
-    if (!value) return undefined;
-    const digits = value.replace(/[^0-9]/g, '');
-    if (digits.length !== 6) return undefined;
-
-    const yy = parseInt(digits.slice(0, 2), 10);
-    const mm = digits.slice(2, 4);
-    const dd = digits.slice(4, 6);
-    const year = yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy;
-
-    return `${year}-${mm}-${dd}`;
+    form.setFieldsValue({ phone: formatPhone(e.target.value) });
   };
 
   const handleAddCourse = (courseId: string) => {
