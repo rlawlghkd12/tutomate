@@ -42,7 +42,7 @@
   "lint-staged": {
     "src/**/*.{ts,tsx}": [
       "bash -c 'npx tsc --noEmit'",
-      "eslint --max-warnings 0"
+      "npx @biomejs/biome check --write --no-errors-on-unmatched"
     ]
   },
   "devDependencies": {
