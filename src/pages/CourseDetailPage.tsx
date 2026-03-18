@@ -101,7 +101,7 @@ const CourseDetailPage: React.FC = () => {
 		(sum, e) => sum + e.paidAmount,
 		0,
 	);
-	const expectedRevenue = nonExemptEnrollments.length * course.fee;
+	const expectedRevenue = nonExemptEnrollments.length * (course?.fee ?? 0);
 	const completedPayments = courseEnrollments.filter(
 		(e) => e.paymentStatus === "completed",
 	).length;
@@ -131,6 +131,7 @@ const CourseDetailPage: React.FC = () => {
 			return;
 		}
 
+		if (!course) return;
 		try {
 			if (type === "excel") {
 				exportCourseStudentsToExcel(course, data, selectedExportFields);
