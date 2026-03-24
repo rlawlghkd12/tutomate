@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Table, Button, Space, Tag, message, Progress, Input, Select, Row, Col, Modal, Empty, Dropdown, theme } from 'antd';
+import { Table, Button, Space, Tag, message, Progress, Input, Select, Row, Col, Modal, Empty, Dropdown, Tabs, Badge, theme } from 'antd';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined, MoreOutlined } from '@ant-design/icons';
@@ -7,6 +7,7 @@ import type { Course } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useNavigate } from 'react-router-dom';
+import dayjs from 'dayjs';
 import CourseForm from './CourseForm';
 
 interface CourseListProps {
@@ -22,6 +23,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [searchText, setSearchText] = useState('');
   const [searchField, setSearchField] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<string>('active');
   const [isCompact, setIsCompact] = useState(() => window.innerWidth < 1080);
 
   useEffect(() => {
@@ -115,6 +117,15 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
     });
   }, [courses, searchText, searchField]);
 
+  const isCourseEnded = useCallback((course: Course): boolean => {
+    if (!course.schedule?.endDate) return false;
+    return course.schedule.endDate < dayjs().format('YYYY-MM-DD');
+  }, []);
+
+  const activeCourses = useMemo(() => filteredCourses.filter(c => !isCourseEnded(c)), [filteredCourses, isCourseEnded]);
+  const endedCourses = useMemo(() => filteredCourses.filter(c => isCourseEnded(c)), [filteredCourses, isCourseEnded]);
+  const displayedCourses = activeTab === 'active' ? activeCourses : endedCourses;
+
   const columns: ColumnsType<Course> = useMemo(() => [
     {
       title: 'No.',
@@ -130,6 +141,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
       render: (name, record) => (
         <a onClick={() => handleView(record.id)} style={{ cursor: 'pointer' }}>
           {name}
+          {isCourseEnded(record) && <Tag color="default" style={{ marginLeft: 8 }}>종료</Tag>}
         </a>
       ),
     },
@@ -222,10 +234,25 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
         </Space>
       ),
     },
-  ], [handleView, handleEdit, handleDelete, getEnrollmentCountByCourseId, getStatus, isCompact]);
+  ], [handleView, handleEdit, handleDelete, getEnrollmentCountByCourseId, getStatus, isCompact, isCourseEnded]);
 
   return (
     <>
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        style={{ marginBottom: 0, marginTop: -16 }}
+        items={[
+          {
+            key: 'active',
+            label: <span>현재 강좌 <Badge count={activeCourses.length} style={{ backgroundColor: token.colorPrimary, marginLeft: 4 }} /></span>,
+          },
+          {
+            key: 'ended',
+            label: <span>종료된 강좌 <Badge count={endedCourses.length} style={{ backgroundColor: token.colorTextDisabled, marginLeft: 4 }} /></span>,
+          },
+        ]}
+      />
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col flex="none">
           <Select
@@ -259,15 +286,22 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
       </Row>
       <Table
         columns={columns}
-        dataSource={filteredCourses}
+        dataSource={displayedCourses}
         rowKey="id"
         pagination={false}
         size="small"
+        rowClassName={(record) => isCourseEnded(record) ? 'ended-course-row' : ''}
         locale={{
           emptyText: (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={courses.length === 0 ? "등록된 강좌가 없습니다" : "검색 결과가 없습니다"}
+              description={
+                courses.length === 0
+                  ? "등록된 강좌가 없습니다"
+                  : activeTab === 'ended'
+                    ? "종료된 강좌가 없습니다"
+                    : "검색 결과가 없습니다"
+              }
             />
           ),
         }}
