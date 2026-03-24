@@ -33,6 +33,7 @@ export interface Student {
   address?: string; // 주소 (선택)
   birthDate?: string; // 생년월일 (선택)
   notes?: string; // 메모
+  isMember?: boolean; // 회원 여부
   createdAt: string;
   updatedAt: string;
 }

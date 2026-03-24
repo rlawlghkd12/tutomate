@@ -12,6 +12,7 @@ import {
 	Radio,
 	Row,
 	Select,
+	Switch,
 	Tag,
 	theme,
 } from "antd";
@@ -25,6 +26,7 @@ import { useMonthlyPaymentStore } from "@tutomate/core";
 import { useStudentStore } from "@tutomate/core";
 import type { PaymentMethod, Student, StudentFormData } from "@tutomate/core";
 import { formatPhone, parseBirthDate } from "@tutomate/core";
+import { appConfig } from "@tutomate/core";
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -93,6 +95,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 			setNameSearch("");
 			form.setFieldsValue({
 				...student,
+				isMember: student.isMember ?? false,
 				birthDate: student.birthDate
 					? student.birthDate.replace(/-/g, "").slice(2)
 					: undefined,
@@ -144,6 +147,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 				: undefined,
 			address: existing.address || "",
 			notes: existing.notes || "",
+			isMember: existing.isMember ?? false,
 		});
 
 		// 기존 수강 정보 로드
@@ -168,15 +172,27 @@ const StudentForm: React.FC<StudentFormProps> = ({
 		form.setFieldsValue({ phone: formatPhone(e.target.value) });
 	};
 
+	const handleMemberChange = (checked: boolean) => {
+		form.setFieldsValue({ isMember: checked });
+		setCoursePayments((prev) =>
+			prev.map((cp) => ({
+				...cp,
+				isExempt: checked,
+				paidAmount: checked ? 0 : cp.paidAmount,
+			})),
+		);
+	};
+
 	const handleAddCourse = (courseId: string) => {
 		const course = getCourseById(courseId);
 		if (course && !coursePayments.find((cp) => cp.courseId === courseId)) {
+			const isMember = form.getFieldValue("isMember");
 			setCoursePayments([
 				...coursePayments,
 				{
 					courseId,
-					paidAmount: course.fee,
-					isExempt: false,
+					paidAmount: isMember ? 0 : course.fee,
+					isExempt: !!isMember,
 					discountAmount: 0,
 				},
 			]);
@@ -254,6 +270,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 			const formData = {
 				...values,
 				birthDate: birthDateParsed,
+				isMember: values.isMember ?? false,
 			};
 
 			if (editingStudent) {
@@ -460,8 +477,8 @@ const StudentForm: React.FC<StudentFormProps> = ({
 					/>
 				)}
 
-				<Row gutter={16}>
-					<Col span={12}>
+				<Row gutter={16} align="bottom">
+					<Col span={appConfig.enableMemberFeature ? 10 : 12}>
 						<Form.Item
 							name="name"
 							label="이름"
@@ -480,7 +497,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 							</AutoComplete>
 						</Form.Item>
 					</Col>
-					<Col span={12}>
+					<Col span={appConfig.enableMemberFeature ? 10 : 12}>
 						<Form.Item
 							name="phone"
 							label="전화번호"
@@ -495,6 +512,17 @@ const StudentForm: React.FC<StudentFormProps> = ({
 							/>
 						</Form.Item>
 					</Col>
+					{appConfig.enableMemberFeature && (
+						<Col span={4}>
+							<Form.Item name="isMember" valuePropName="checked">
+								<Switch
+									checkedChildren="회원"
+									unCheckedChildren="비회원"
+									onChange={handleMemberChange}
+								/>
+							</Form.Item>
+						</Col>
+					)}
 				</Row>
 
 				<Row gutter={16}>
@@ -510,6 +538,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 					</Col>
 				</Row>
 
+				{!appConfig.hideAddressField && (
 				<Form.Item name="address" label="주소">
 					<Input
 						ref={addressInputRef}
@@ -517,6 +546,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 						onPressEnter={() => notesInputRef.current?.focus()}
 					/>
 				</Form.Item>
+				)}
 
 				<Form.Item label="강좌 신청">
 					<Select

@@ -5,6 +5,7 @@ import { EditOutlined, DeleteOutlined, PlusCircleOutlined, SearchOutlined, MoreO
 import { useNavigate } from 'react-router-dom';
 import type { Student } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
+import { appConfig } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
 import StudentForm from './StudentForm';
@@ -137,7 +138,14 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
       title: '이름',
       key: 'name',
       sorter: (a, b) => a.student.name.localeCompare(b.student.name),
-      render: (_, record) => record.student.name,
+      render: (_, record) => (
+        <>
+          {record.student.name}
+          {appConfig.enableMemberFeature && record.student.isMember && (
+            <Tag color="blue" style={{ marginLeft: 4 }}>회원</Tag>
+          )}
+        </>
+      ),
     },
     {
       title: '전화번호',
@@ -169,11 +177,11 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
         );
       },
     },
-    {
+    ...(!appConfig.hideAddressField ? [{
       title: '주소',
       key: 'address',
-      render: (_, record) => record.student.address || '-',
-    },
+      render: (_: unknown, record: StudentRow) => record.student.address || '-',
+    }] : []),
     {
       title: '메모',
       key: 'notes',

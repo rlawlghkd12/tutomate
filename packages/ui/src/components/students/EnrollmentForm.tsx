@@ -56,9 +56,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 			form.resetFields();
 			setSelectedCourseId(null);
 			setDiscountAmount(0);
-			setIsExempt(false);
+			setIsExempt(student?.isMember ? true : false);
 		}
-	}, [visible, form]);
+	}, [visible, form, student]);
 
 	const handleSubmit = async () => {
 		try {
@@ -166,9 +166,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 		const course = getCourseById(courseId);
 		setSelectedCourseId(courseId);
 		setDiscountAmount(0);
-		setIsExempt(false);
+		const memberExempt = !!student?.isMember;
+		setIsExempt(memberExempt);
 		if (course) {
-			form.setFieldsValue({ paidAmount: course.fee, discountAmount: 0 });
+			form.setFieldsValue({
+				paidAmount: memberExempt ? 0 : course.fee,
+				discountAmount: 0,
+			});
 		}
 	};
 
