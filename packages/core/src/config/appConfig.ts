@@ -6,6 +6,8 @@ declare const __APP_CONFIG__: {
   licenseFormatHint: string;
   contactInfo: string;
   welcomeTitle: string;
+  enableMemberFeature?: boolean;
+  hideAddressField?: boolean;
 };
 
 export const appConfig = typeof __APP_CONFIG__ !== 'undefined' ? __APP_CONFIG__ : {
@@ -16,4 +18,6 @@ export const appConfig = typeof __APP_CONFIG__ !== 'undefined' ? __APP_CONFIG__ 
   licenseFormatHint: 'TMKH-XXXX-XXXX-XXXX',
   contactInfo: '010-3556-7586',
   welcomeTitle: 'TutorMate에 오신 것을 환영합니다!',
+  enableMemberFeature: false,
+  hideAddressField: false,
 };

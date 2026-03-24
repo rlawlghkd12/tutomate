@@ -77,6 +77,7 @@ export interface StudentRow {
   address: string | null;
   birth_date: string | null;
   notes: string | null;
+  is_member: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -90,6 +91,7 @@ export function mapStudentFromDb(row: StudentRow): Student {
     address: row.address ?? undefined,
     birthDate: row.birth_date ?? undefined,
     notes: row.notes ?? undefined,
+    isMember: row.is_member ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -108,6 +110,7 @@ export function mapStudentToDb(
     address: student.address ?? null,
     birth_date: student.birthDate ?? null,
     notes: student.notes ?? null,
+    is_member: student.isMember ?? null,
   };
 }
 
@@ -121,6 +124,7 @@ export function mapStudentUpdateToDb(
   if (updates.address !== undefined) mapped.address = updates.address;
   if (updates.birthDate !== undefined) mapped.birth_date = updates.birthDate;
   if (updates.notes !== undefined) mapped.notes = updates.notes;
+  if (updates.isMember !== undefined) mapped.is_member = updates.isMember;
   return mapped;
 }
 
