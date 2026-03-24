@@ -1,73 +1,41 @@
 {
-  "name": "tutomate",
+  "name": "tutomate-workspace",
   "private": true,
-  "version": "0.3.3",
+  "version": "0.3.18",
   "type": "module",
-  "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "electron:dev": "vite",
-    "electron:build": "npm run build && electron-builder --mac --win",
-    "electron:build:mac": "npm run build && electron-builder --mac",
-    "electron:build:win": "npm run build && electron-builder --win",
-    "electron:build:q": "npm run build && electron-builder --mac --win --config electron-builder-q.yml",
-    "electron:build:q:mac": "npm run build && electron-builder --mac --config electron-builder-q.yml",
-    "electron:build:q:win": "npm run build && electron-builder --win --config electron-builder-q.yml",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:e2e": "playwright test e2e/electron.test.ts",
-    "prepare": "husky"
-  },
-  "dependencies": {
-    "@ant-design/icons": "^6.1.0",
-    "@supabase/supabase-js": "^2.97.0",
-    "antd": "^6.2.2",
-    "archiver": "^7.0.1",
-    "dayjs": "^1.11.19",
-    "electron-log": "^5.4.3",
-    "electron-updater": "^6.8.3",
-    "nanoid": "^5.0.9",
-    "node-machine-id": "^1.1.12",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-router-dom": "^7.13.0",
-    "recharts": "^2.15.0",
-    "xlsx": "^0.18.5",
-    "yauzl": "^3.2.0",
-    "zustand": "^5.0.10"
+    "dev": "pnpm --filter @tutomate/app dev",
+    "dev:q": "pnpm --filter @tutomate/app-q dev",
+    "build": "pnpm --filter @tutomate/app build",
+    "build:q": "pnpm --filter @tutomate/app-q build",
+    "electron:build": "pnpm --filter @tutomate/app electron:build",
+    "electron:build:mac": "pnpm --filter @tutomate/app electron:build:mac",
+    "electron:build:win": "pnpm --filter @tutomate/app electron:build:win",
+    "electron:build:q": "pnpm --filter @tutomate/app-q electron:build",
+    "electron:build:q:mac": "pnpm --filter @tutomate/app-q electron:build:mac",
+    "electron:build:q:win": "pnpm --filter @tutomate/app-q electron:build:win",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "test:e2e": "playwright test e2e/electron.test.ts"
   },
   "lint-staged": {
-    "src/**/*.{ts,tsx}": [
-      "bash -c 'npx tsc --noEmit'",
-      "npx @biomejs/biome check --write --unsafe --no-errors-on-unmatched --diagnostic-level=error"
+    "packages/**/*.{ts,tsx}": [
+      "bash -c 'npx tsc -p apps/tutomate/tsconfig.app.json --noEmit'"
+    ],
+    "apps/**/*.{ts,tsx}": [
+      "bash -c 'npx tsc -p apps/tutomate/tsconfig.app.json --noEmit'"
     ]
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.58.2",
-    "@types/archiver": "^7.0.0",
-    "@types/node": "^24.10.1",
-    "@types/react": "^19.2.5",
-    "@types/react-dom": "^19.2.3",
-    "@types/yauzl": "^2.10.3",
-    "@vitejs/plugin-react": "^5.1.1",
-    "electron": "^40.8.0",
-    "electron-builder": "^26.8.1",
-    "eslint": "^9.39.1",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.24",
-    "globals": "^16.5.0",
-    "husky": "^9.1.7",
-    "jsdom": "^29.0.0",
     "lint-staged": "^16.4.0",
-    "typescript": "~5.9.3",
-    "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4",
-    "vite-plugin-electron": "^0.29.0",
-    "vite-plugin-electron-renderer": "^0.14.6",
-    "vitest": "^4.1.0"
+    "typescript": "~5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller",
+      "esbuild"
+    ]
   }
 }

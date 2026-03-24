@@ -4,7 +4,17 @@ on:
   push:
     tags:
       - 'v*'
+      - 'q-v*'
   workflow_dispatch:
+    inputs:
+      variant:
+        description: 'Which variant to build'
+        required: true
+        default: 'tutomate'
+        type: choice
+        options:
+          - tutomate
+          - tutomate-q
 
 permissions:
   contents: write
@@ -24,33 +34,42 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
+    env:
+      # Determine variant from tag or workflow input
+      VARIANT: ${{ startsWith(github.ref, 'refs/tags/q-v') && 'tutomate-q' || inputs.variant || 'tutomate' }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build Electron app
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        run: npm run electron:build:${{ matrix.platform }} -- --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
+        run: pnpm --filter @tutomate/${{ env.VARIANT == 'tutomate-q' && 'app-q' || 'app' }} electron:build:${{ matrix.platform }} -- --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
+          name: ${{ env.VARIANT }}-${{ matrix.artifact_name }}
           path: |
-            release/**/*.dmg
-            release/**/*.zip
-            release/**/*.exe
-            release/**/*.yml
-            release/**/*.yaml
+            apps/${{ env.VARIANT }}/release/**/*.dmg
+            apps/${{ env.VARIANT }}/release/**/*.zip
+            apps/${{ env.VARIANT }}/release/**/*.exe
+            apps/${{ env.VARIANT }}/release/**/*.yml
+            apps/${{ env.VARIANT }}/release/**/*.yaml

@@ -1,0 +1,235 @@
+import {
+	MenuFoldOutlined,
+	MenuUnfoldOutlined,
+	RightOutlined,
+	WifiOutlined,
+} from "@ant-design/icons";
+import {
+	Alert,
+	Layout as AntLayout,
+	Button,
+	Tag,
+	Typography,
+	theme,
+} from "antd";
+import type React from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { FLEX_BETWEEN } from "@tutomate/core";
+import { useLicenseStore } from "@tutomate/core";
+import { useSettingsStore } from "@tutomate/core";
+import { NotificationCenter } from "../notification/NotificationCenter";
+import Navigation from "./Navigation";
+
+const { Header, Sider, Content } = AntLayout;
+const { useToken } = theme;
+const { Text } = Typography;
+
+interface LayoutProps {
+	children: React.ReactNode;
+}
+
+const PAGE_TITLES: Record<string, string> = {
+	"/": "대시보드",
+	"/courses": "강좌 관리",
+	"/students": "수강생 관리",
+	"/calendar": "캘린더",
+	"/revenue": "수익 관리",
+	"/settings": "설정",
+};
+
+const AUTO_COLLAPSE_WIDTH = 860;
+
+const Layout: React.FC<LayoutProps> = ({ children }) => {
+	const { token } = useToken();
+	const [collapsed, setCollapsed] = useState(
+		() => window.innerWidth < AUTO_COLLAPSE_WIDTH,
+	);
+	const [offline, setOffline] = useState(!navigator.onLine);
+	const [offlineDismissed, setOfflineDismissed] = useState(false);
+	const organizationName = useSettingsStore((s) => s.organizationName);
+	const getPlan = useLicenseStore((s) => s.getPlan);
+	const isTrial = getPlan() === "trial";
+	const location = useLocation();
+	const navigate = useNavigate();
+
+	const handleResize = useCallback(() => {
+		const shouldCollapse = window.innerWidth < AUTO_COLLAPSE_WIDTH;
+		setCollapsed((prev) => {
+			if (shouldCollapse && !prev) return true;
+			if (!shouldCollapse && prev) return false;
+			return prev;
+		});
+	}, []);
+
+	useEffect(() => {
+		window.addEventListener("resize", handleResize);
+		return () => window.removeEventListener("resize", handleResize);
+	}, [handleResize]);
+
+	useEffect(() => {
+		const goOffline = () => {
+			setOffline(true);
+			setOfflineDismissed(false);
+		};
+		const goOnline = () => setOffline(false);
+		window.addEventListener("offline", goOffline);
+		window.addEventListener("online", goOnline);
+		return () => {
+			window.removeEventListener("offline", goOffline);
+			window.removeEventListener("online", goOnline);
+		};
+	}, []);
+
+	const pageTitle = useMemo(() => {
+		const path = location.pathname;
+		if (PAGE_TITLES[path]) return PAGE_TITLES[path];
+		// /courses/:id 같은 하위 경로
+		const base = `/${path.split("/").filter(Boolean)[0]}`;
+		if (base === "/courses" && path !== "/courses") return "강좌 관리";
+		return PAGE_TITLES[base] || "";
+	}, [location.pathname]);
+
+	return (
+		<AntLayout style={{ height: "100vh" }}>
+			<Sider
+				width={180}
+				collapsible
+				collapsed={collapsed}
+				onCollapse={setCollapsed}
+				collapsedWidth={60}
+				trigger={null}
+				style={{
+					overflow: "hidden",
+					height: "100vh",
+					position: "fixed",
+					left: 0,
+					top: 0,
+					bottom: 0,
+					transition: "all 0.2s ease",
+					display: "flex",
+					flexDirection: "column",
+					background: token.colorBgContainer,
+					borderInlineEnd: `1px solid ${token.colorBorderSecondary}`,
+				}}
+			>
+				<div style={{ height: 16 }} />
+				<Navigation collapsed={collapsed} />
+				{isTrial && (
+					<div
+						style={{
+							marginTop: "auto",
+							padding: collapsed ? "12px 4px" : "12px 16px",
+							textAlign: "center",
+						}}
+					>
+						<Tag
+							color="orange"
+							style={{
+								margin: 0,
+								fontSize: collapsed ? 11 : undefined,
+								cursor: "pointer",
+							}}
+							onClick={() => navigate("/settings?tab=license")}
+						>
+							체험판
+						</Tag>
+					</div>
+				)}
+			</Sider>
+			<AntLayout
+				style={{
+					marginLeft: collapsed ? 60 : 180,
+					transition: "all 0.2s ease",
+					height: "100vh",
+					display: "flex",
+					flexDirection: "column",
+					background: token.colorBgContainer,
+				}}
+			>
+				<Header
+					style={{
+						background: token.colorBgContainer,
+						padding: "0 16px",
+						height: 48,
+						lineHeight: "48px",
+						...FLEX_BETWEEN,
+						borderBottom: `1px solid ${token.colorBorderSecondary}`,
+					}}
+				>
+					<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+						<Button
+							type="text"
+							icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+							onClick={() => setCollapsed(!collapsed)}
+							style={{ fontSize: 16 }}
+						/>
+						{/* biome-ignore lint/a11y/useSemanticElements: breadcrumb span */}
+						<span
+							role="link"
+							tabIndex={0}
+							style={{ color: token.colorTextTertiary, cursor: "pointer" }}
+							onClick={() => navigate("/")}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") navigate("/");
+							}}
+						>
+							{organizationName}
+						</span>
+						{pageTitle && (
+							<>
+								<RightOutlined
+									style={{
+										fontSize: "0.7em",
+										color: token.colorTextQuaternary,
+									}}
+								/>
+								<Text
+									style={{
+										fontWeight: 600,
+										cursor: location.pathname.includes("/courses/")
+											? "pointer"
+											: undefined,
+									}}
+									onClick={() => {
+										if (location.pathname.includes("/courses/"))
+											navigate("/courses");
+									}}
+								>
+									{pageTitle}
+								</Text>
+							</>
+						)}
+					</div>
+					<NotificationCenter />
+				</Header>
+				{offline && !offlineDismissed && (
+					<Alert
+						message={
+							<>
+								<WifiOutlined /> 인터넷에 연결되어 있지 않습니다
+							</>
+						}
+						type="warning"
+						closable
+						onClose={() => setOfflineDismissed(true)}
+						banner
+					/>
+				)}
+				<Content
+					style={{
+						flex: 1,
+						overflowY: "auto",
+						overflowX: "hidden",
+						background: token.colorBgContainer,
+						padding: 24,
+					}}
+				>
+					{children}
+				</Content>
+			</AntLayout>
+		</AntLayout>
+	);
+};
+
+export default Layout;

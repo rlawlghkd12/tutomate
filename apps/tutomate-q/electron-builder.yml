@@ -1,0 +1,48 @@
+appId: com.tutomate-q.app
+productName: TutorMate Q
+copyright: Copyright © 2024-2026 TutorMate
+
+directories:
+  output: release
+  buildResources: ../../packages/electron-shared/build
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+
+publish:
+  provider: github
+  owner: rlawlghkd12
+  repo: tutomate
+  channel: q-latest
+
+mac:
+  category: public.app-category.education
+  icon: ../../packages/electron-shared/build/icon.icns
+  target:
+    - target: dmg
+      arch:
+        - universal
+    - target: zip
+      arch:
+        - universal
+
+win:
+  icon: ../../packages/electron-shared/build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  language: 1042
+  installerLanguages:
+    - ko
+
+linux:
+  target:
+    - AppImage
+  category: Education
