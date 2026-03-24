@@ -59,6 +59,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
         form.setFieldsValue({
           ...course,
           schedule_startDate: dayjs(course.schedule.startDate),
+          schedule_endDate: course.schedule.endDate ? dayjs(course.schedule.endDate) : undefined,
           schedule_daysOfWeek: course.schedule.daysOfWeek,
           schedule_startTime: dayjs(course.schedule.startTime, 'HH:mm'),
           schedule_endTime: dayjs(course.schedule.endTime, 'HH:mm'),
@@ -90,6 +91,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
       if (enableSchedule && values.schedule_startDate) {
         courseData.schedule = {
           startDate: values.schedule_startDate.format('YYYY-MM-DD'),
+          ...(values.schedule_endDate ? { endDate: values.schedule_endDate.format('YYYY-MM-DD') } : {}),
           daysOfWeek: values.schedule_daysOfWeek || [],
           startTime: values.schedule_startTime.format('HH:mm'),
           endTime: values.schedule_endTime.format('HH:mm'),
@@ -252,15 +254,28 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => 
         {enableSchedule && (
           <div style={{ marginTop: 16 }}>
             <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              {/* 시작일 */}
-              <Form.Item
-                name="schedule_startDate"
-                label="시작일"
-                rules={enableSchedule ? [{ required: true, message: '시작일을 선택하세요' }] : []}
-                style={{ marginBottom: 0 }}
-              >
-                <DatePicker placeholder="시작일" style={{ width: '100%' }} />
-              </Form.Item>
+              {/* 시작일 / 종료일 */}
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    name="schedule_startDate"
+                    label="시작일"
+                    rules={enableSchedule ? [{ required: true, message: '시작일을 선택하세요' }] : []}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <DatePicker placeholder="시작일" style={{ width: '100%' }} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="schedule_endDate"
+                    label="종료일 (선택)"
+                    style={{ marginBottom: 0 }}
+                  >
+                    <DatePicker placeholder="종료일" style={{ width: '100%' }} />
+                  </Form.Item>
+                </Col>
+              </Row>
 
               {/* 수업 요일 */}
               <Form.Item

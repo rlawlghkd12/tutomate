@@ -305,6 +305,166 @@ test.describe.serial('강좌 CRUD (실제 데이터)', () => {
   });
 });
 
+// ─── 종료된 강좌 탭 분리 ─────────────────────────────────
+
+test.describe.serial('종료된 강좌 탭 분리', () => {
+  const endedCourseName = `E2E_종료강좌_${Date.now()}`;
+  const activeCourseName = `E2E_진행강좌_${Date.now()}`;
+
+  test('강좌 관리 페이지 이동', async () => {
+    await page.getByText('강좌 관리').first().click();
+    await page.waitForTimeout(1000);
+  });
+
+  test('현재 강좌 / 종료된 강좌 탭이 존재', async () => {
+    const body = await page.textContent('body');
+    expect(body).toContain('현재 강좌');
+    expect(body).toContain('종료된 강좌');
+
+    // 스크린샷 — 탭 UI 확인
+    await page.screenshot({ path: 'e2e/screenshots/11-course-tabs.png', fullPage: true });
+  });
+
+  test('종료일이 과거인 강좌 생성 (종료 강좌)', async () => {
+    await page.getByText('강좌 개설').first().click();
+    await page.waitForTimeout(500);
+
+    const modal = page.locator('.ant-modal').last();
+    await modal.locator('#name').fill(endedCourseName);
+    await modal.locator('#classroom').fill('E2E종료테스트실');
+    await modal.locator('#instructorName').fill('종료강사');
+    await modal.locator('#instructorPhone').fill('01011110000');
+    await modal.locator('#fee').fill('50000');
+    await modal.locator('#maxStudents').fill('15');
+
+    // 일정 설정 체크박스 클릭
+    await modal.getByText('강좌 일정 설정').click();
+    await page.waitForTimeout(300);
+
+    // 시작일 — 과거 날짜 입력
+    const startDateInput = modal.locator('#schedule_startDate');
+    await startDateInput.click();
+    await page.waitForTimeout(300);
+    // DatePicker 입력 — 직접 타이핑
+    await startDateInput.fill('2024-01-01');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(300);
+
+    // 종료일 — 과거 날짜 입력
+    const endDateInput = modal.locator('#schedule_endDate');
+    await endDateInput.click();
+    await page.waitForTimeout(300);
+    await endDateInput.fill('2024-06-30');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(300);
+
+    // 수업 요일 — 주중 클릭
+    await modal.getByText('주중', { exact: true }).click();
+    await page.waitForTimeout(200);
+
+    // 시작 시간
+    const startTimeInput = modal.locator('#schedule_startTime');
+    await startTimeInput.click();
+    await startTimeInput.fill('09:00');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(200);
+
+    // 종료 시간
+    const endTimeInput = modal.locator('#schedule_endTime');
+    await endTimeInput.click();
+    await endTimeInput.fill('12:00');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(200);
+
+    // 총 회차
+    await modal.locator('#schedule_totalSessions').fill('24');
+
+    // 생성 버튼
+    await modal.getByText('생성', { exact: true }).click();
+    await expect(modal).toBeHidden({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+  });
+
+  test('종료일 없는 진행 강좌 생성', async () => {
+    await page.getByText('강좌 개설').first().click();
+    await page.waitForTimeout(500);
+
+    const modal = page.locator('.ant-modal').last();
+    await modal.locator('#name').fill(activeCourseName);
+    await modal.locator('#classroom').fill('E2E진행테스트실');
+    await modal.locator('#instructorName').fill('진행강사');
+    await modal.locator('#instructorPhone').fill('01022220000');
+    await modal.locator('#fee').fill('60000');
+    await modal.locator('#maxStudents').fill('20');
+
+    await modal.getByText('생성', { exact: true }).click();
+    await expect(modal).toBeHidden({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+  });
+
+  test('현재 강좌 탭에 진행 강좌가 표시됨', async () => {
+    // 현재 강좌 탭 클릭 (기본)
+    await page.getByText('현재 강좌').first().click();
+    await page.waitForTimeout(500);
+
+    const tableText = await page.locator('.ant-table-tbody').textContent();
+    expect(tableText).toContain(activeCourseName);
+
+    // 스크린샷 — 현재 강좌 탭
+    await page.screenshot({ path: 'e2e/screenshots/12-course-tab-active.png', fullPage: true });
+  });
+
+  test('종료된 강좌 탭에 종료 강좌가 표시됨', async () => {
+    await page.getByText('종료된 강좌').first().click();
+    await page.waitForTimeout(500);
+
+    const tableText = await page.locator('.ant-table-tbody').textContent();
+    expect(tableText).toContain(endedCourseName);
+
+    // 종료 태그 확인
+    const body = await page.textContent('body');
+    expect(body).toContain('종료');
+
+    // 스크린샷 — 종료된 강좌 탭
+    await page.screenshot({ path: 'e2e/screenshots/13-course-tab-ended.png', fullPage: true });
+  });
+
+  test('종료 강좌가 현재 강좌 탭에는 표시되지 않음', async () => {
+    await page.getByText('현재 강좌').first().click();
+    await page.waitForTimeout(500);
+
+    const tableText = await page.locator('.ant-table-tbody').textContent();
+    expect(tableText).not.toContain(endedCourseName);
+  });
+
+  test('정리 — 종료 강좌 삭제', async () => {
+    // 종료 탭으로 이동
+    await page.getByText('종료된 강좌').first().click();
+    await page.waitForTimeout(500);
+
+    const row = page.locator('tr', { hasText: endedCourseName });
+    await row.getByText('삭제').click();
+    await page.waitForTimeout(500);
+
+    const confirmModal = page.locator('.ant-modal-confirm');
+    await confirmModal.locator('.ant-modal-confirm-btns .ant-btn-dangerous').click();
+    await page.waitForTimeout(2000);
+  });
+
+  test('정리 — 진행 강좌 삭제', async () => {
+    await page.getByText('현재 강좌').first().click();
+    await page.waitForTimeout(500);
+
+    const row = page.locator('tr', { hasText: activeCourseName });
+    await row.getByText('삭제').click();
+    await page.waitForTimeout(500);
+
+    const confirmModal = page.locator('.ant-modal-confirm');
+    await confirmModal.locator('.ant-modal-confirm-btns .ant-btn-dangerous').click();
+    await page.waitForTimeout(2000);
+  });
+});
+
 // ─── 수강생 실제 CRUD ────────────────────────────────────
 
 test.describe.serial('수강생 CRUD (실제 데이터)', () => {

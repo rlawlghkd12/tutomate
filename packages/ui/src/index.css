@@ -102,6 +102,11 @@ html, body {
   background: transparent;
 }
 
+/* 종료된 강좌 행 스타일 */
+.ended-course-row td {
+  opacity: 0.55;
+}
+
 /* 다크모드 스크롤바 */
 html[data-theme='dark'] ::-webkit-scrollbar-thumb {
   background-color: rgba(255, 255, 255, 0.12);
