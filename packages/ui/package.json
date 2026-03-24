@@ -1,0 +1,28 @@
+{
+  "name": "@tutomate/ui",
+  "version": "0.3.18",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@ant-design/icons": "^6.1.0",
+    "antd": "^6.2.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.13.0",
+    "recharts": "^2.15.0",
+    "xlsx": "^0.18.5",
+    "@tutomate/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "~5.9.3"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

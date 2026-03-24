@@ -1,0 +1,21 @@
+{
+  "name": "@tutomate/electron-shared",
+  "version": "0.3.18",
+  "private": true,
+  "type": "module",
+  "main": "src/main.ts",
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.8.3",
+    "node-machine-id": "^1.1.12",
+    "yauzl": "^3.2.0"
+  },
+  "devDependencies": {
+    "@types/archiver": "^7.0.0",
+    "@types/node": "^24.10.1",
+    "@types/yauzl": "^2.10.3",
+    "electron": "^40.8.0",
+    "typescript": "~5.9.3"
+  }
+}
