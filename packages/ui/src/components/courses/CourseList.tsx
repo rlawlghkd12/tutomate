@@ -1,14 +1,12 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Table, Button, Space, Tag, message, Progress, Input, Select, Row, Col, Modal, Empty, Dropdown, Tabs, Badge, theme } from 'antd';
-import { ExclamationCircleOutlined } from '@ant-design/icons';
+import React, { useState, useMemo, useCallback } from 'react';
+import { Table, Tag, Progress, Input, Select, Row, Col, Empty, Tabs, Badge, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { EditOutlined, DeleteOutlined, EyeOutlined, SearchOutlined, MoreOutlined } from '@ant-design/icons';
+import { SearchOutlined } from '@ant-design/icons';
 import type { Course } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
-import CourseForm from './CourseForm';
 
 interface CourseListProps {
   actions?: React.ReactNode;
@@ -17,70 +15,15 @@ interface CourseListProps {
 const CourseList: React.FC<CourseListProps> = ({ actions }) => {
   const { token } = theme.useToken();
   const navigate = useNavigate();
-  const { courses, deleteCourse } = useCourseStore();
+  const { courses } = useCourseStore();
   const { getEnrollmentCountByCourseId } = useEnrollmentStore();
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [searchText, setSearchText] = useState('');
   const [searchField, setSearchField] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<string>('active');
-  const [isCompact, setIsCompact] = useState(() => window.innerWidth < 1080);
-
-  useEffect(() => {
-    const onResize = () => setIsCompact(window.innerWidth < 1080);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-
-  const handleEdit = useCallback((course: Course) => {
-    setSelectedCourse(course);
-    setIsModalVisible(true);
-  }, []);
-
-  const handleDelete = useCallback((course: Course) => {
-    const currentStudents = getEnrollmentCountByCourseId(course.id);
-    if (currentStudents > 0) {
-      Modal.confirm({
-        title: '⚠️ 수강생이 있는 강좌입니다!',
-        icon: <ExclamationCircleOutlined style={{ color: token.colorError }} />,
-        content: (
-          <div>
-            <p><strong>{course.name}</strong> 강좌에 현재 <strong style={{ color: token.colorError }}>{currentStudents}명</strong>의 수강생이 등록되어 있습니다.</p>
-            <p style={{ marginTop: 8, color: token.colorError }}>삭제 시 해당 수강생들의 수강 기록도 함께 삭제됩니다.</p>
-          </div>
-        ),
-        okText: '삭제',
-        okType: 'danger',
-        cancelText: '취소',
-        async onOk() {
-          await deleteCourse(course.id);
-          message.success('강좌가 삭제되었습니다.');
-        },
-      });
-    } else {
-      Modal.confirm({
-        title: '강좌를 삭제하시겠습니까?',
-        icon: <ExclamationCircleOutlined />,
-        content: `"${course.name}" 강좌를 삭제합니다.`,
-        okText: '삭제',
-        okType: 'danger',
-        cancelText: '취소',
-        async onOk() {
-          await deleteCourse(course.id);
-          message.success('강좌가 삭제되었습니다.');
-        },
-      });
-    }
-  }, [deleteCourse, getEnrollmentCountByCourseId, token]);
 
   const handleView = useCallback((id: string) => {
     navigate(`/courses/${id}`);
   }, [navigate]);
-
-  const handleCloseModal = useCallback(() => {
-    setIsModalVisible(false);
-    setSelectedCourse(null);
-  }, []);
 
   const getStatus = useCallback((course: Course) => {
     const currentStudents = getEnrollmentCountByCourseId(course.id);
@@ -130,7 +73,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
     {
       title: 'No.',
       key: 'index',
-      width: 50,
+      width: 40,
       render: (_, __, index) => index + 1,
     },
     {
@@ -208,33 +151,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
         }
       },
     },
-    {
-      title: '작업',
-      key: 'action',
-      align: 'right' as const,
-      render: (_, record) => isCompact ? (
-        <Dropdown
-          menu={{
-            items: [
-              { key: 'view', label: '상세', icon: <EyeOutlined />, onClick: () => handleView(record.id) },
-              { key: 'edit', label: '수정', icon: <EditOutlined />, onClick: () => handleEdit(record) },
-              { type: 'divider' },
-              { key: 'delete', label: '삭제', icon: <DeleteOutlined />, danger: true, onClick: () => handleDelete(record) },
-            ],
-          }}
-          trigger={['click']}
-        >
-          <Button type="text" icon={<MoreOutlined />} />
-        </Dropdown>
-      ) : (
-        <Space size="small">
-          <Button type="link" icon={<EyeOutlined />} onClick={() => handleView(record.id)}>상세</Button>
-          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>수정</Button>
-          <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)}>삭제</Button>
-        </Space>
-      ),
-    },
-  ], [handleView, handleEdit, handleDelete, getEnrollmentCountByCourseId, getStatus, isCompact, isCourseEnded]);
+  ], [handleView, getEnrollmentCountByCourseId, getStatus, isCourseEnded]);
 
   return (
     <>
@@ -305,11 +222,6 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
             />
           ),
         }}
-      />
-      <CourseForm
-        visible={isModalVisible}
-        onClose={handleCloseModal}
-        course={selectedCourse}
       />
     </>
   );

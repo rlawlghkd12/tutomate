@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Table, Button, Space, Modal, message, Tag, Input, Select, Row, Col, Empty, Dropdown, theme } from 'antd';
+import React, { useState, useMemo, useCallback } from 'react';
+import { Table, Tag, Input, Select, Row, Col, Empty, Space, Tooltip, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { EditOutlined, DeleteOutlined, PlusCircleOutlined, SearchOutlined, MoreOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { SearchOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import type { Student } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
@@ -9,7 +9,6 @@ import { appConfig } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
 import StudentForm from './StudentForm';
-import EnrollmentForm from './EnrollmentForm';
 
 interface StudentRow {
   rowKey: string;
@@ -25,54 +24,21 @@ interface StudentListProps {
 const StudentList: React.FC<StudentListProps> = ({ actions }) => {
   const { token } = theme.useToken();
   const navigate = useNavigate();
-  const { students, deleteStudent } = useStudentStore();
+  const { students } = useStudentStore();
   const { enrollments } = useEnrollmentStore();
   const { courses } = useCourseStore();
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [isEnrollmentModalVisible, setIsEnrollmentModalVisible] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [searchText, setSearchText] = useState('');
   const [searchField, setSearchField] = useState<string>('all');
-  const [isCompact, setIsCompact] = useState(() => window.innerWidth < 1080);
-
-  useEffect(() => {
-    const onResize = () => setIsCompact(window.innerWidth < 1080);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
 
   const handleEdit = useCallback((student: Student) => {
     setSelectedStudent(student);
     setIsModalVisible(true);
   }, []);
 
-  const handleDelete = useCallback((student: Student) => {
-    Modal.confirm({
-      title: '수강생을 삭제하시겠습니까?',
-      icon: <ExclamationCircleOutlined />,
-      content: `"${student.name}" 수강생을 삭제합니다.`,
-      okText: '삭제',
-      okType: 'danger',
-      cancelText: '취소',
-      async onOk() {
-        await deleteStudent(student.id);
-        message.success('수강생이 삭제되었습니다.');
-      },
-    });
-  }, [deleteStudent]);
-
-  const handleEnroll = useCallback((student: Student) => {
-    setSelectedStudent(student);
-    setIsEnrollmentModalVisible(true);
-  }, []);
-
   const handleCloseStudentModal = useCallback(() => {
     setIsModalVisible(false);
-    setSelectedStudent(null);
-  }, []);
-
-  const handleCloseEnrollmentModal = useCallback(() => {
-    setIsEnrollmentModalVisible(false);
     setSelectedStudent(null);
   }, []);
 
@@ -131,19 +97,25 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
     {
       title: 'No.',
       key: 'index',
-      width: 50,
+      width: 40,
       render: (_, record) => record.index,
     },
     {
       title: '이름',
       key: 'name',
       sorter: (a, b) => a.student.name.localeCompare(b.student.name),
-      render: (_, record) => record.student.name,
+      render: (_, record) => (
+        <a
+          onClick={() => handleEdit(record.student)}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          {record.student.name}
+        </a>
+      ),
     },
     ...(appConfig.enableMemberFeature ? [{
       title: '회원',
       key: 'isMember',
-      width: 70,
       filters: [{ text: '회원', value: true }, { text: '비회원', value: false }],
       onFilter: (value: unknown, record: StudentRow) => (record.student.isMember ?? false) === value,
       render: (_: unknown, record: StudentRow) => record.student.isMember
@@ -153,7 +125,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
     {
       title: '전화번호',
       key: 'phone',
-      render: (_, record) => record.student.phone,
+      render: (_, record) => <span style={{ whiteSpace: 'nowrap' }}>{record.student.phone}</span>,
     },
     {
       title: '강좌',
@@ -183,41 +155,22 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
     ...(!appConfig.hideAddressField ? [{
       title: '주소',
       key: 'address',
-      render: (_: unknown, record: StudentRow) => record.student.address || '-',
+      ellipsis: { showTitle: false },
+      render: (_: unknown, record: StudentRow) => record.student.address ? (
+        <Tooltip title={record.student.address} placement="topLeft">
+          <span>{record.student.address}</span>
+        </Tooltip>
+      ) : '-',
     }] : []),
     {
       title: '메모',
       key: 'notes',
-      ellipsis: true,
+      ellipsis: { showTitle: false },
       render: (_, record) => record.student.notes ? (
-        <span style={{ color: token.colorTextSecondary }}>{record.student.notes}</span>
+        <Tooltip title={record.student.notes} placement="topLeft">
+          <span style={{ color: token.colorTextSecondary }}>{record.student.notes}</span>
+        </Tooltip>
       ) : '-',
-    },
-    {
-      title: '작업',
-      key: 'action',
-      align: 'right' as const,
-      render: (_, record) => isCompact ? (
-        <Dropdown
-          menu={{
-            items: [
-              { key: 'enroll', label: '강좌 신청', icon: <PlusCircleOutlined />, onClick: () => handleEnroll(record.student) },
-              { key: 'edit', label: '수정', icon: <EditOutlined />, onClick: () => handleEdit(record.student) },
-              { type: 'divider' },
-              { key: 'delete', label: '삭제', icon: <DeleteOutlined />, danger: true, onClick: () => handleDelete(record.student) },
-            ],
-          }}
-          trigger={['click']}
-        >
-          <Button type="text" icon={<MoreOutlined />} />
-        </Dropdown>
-      ) : (
-        <Space size="small">
-          <Button type="link" icon={<PlusCircleOutlined />} onClick={() => handleEnroll(record.student)}>강좌 신청</Button>
-          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record.student)}>수정</Button>
-          <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.student)}>삭제</Button>
-        </Space>
-      ),
     },
   ];
 
@@ -266,6 +219,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
         rowKey="rowKey"
         pagination={false}
         size="small"
+        tableLayout="auto"
         locale={{
           emptyText: (
             <Empty
@@ -278,11 +232,6 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
       <StudentForm
         visible={isModalVisible}
         onClose={handleCloseStudentModal}
-        student={selectedStudent}
-      />
-      <EnrollmentForm
-        visible={isEnrollmentModalVisible}
-        onClose={handleCloseEnrollmentModal}
         student={selectedStudent}
       />
     </>

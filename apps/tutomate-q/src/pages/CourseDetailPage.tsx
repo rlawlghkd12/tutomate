@@ -9,6 +9,7 @@ import {
 	Table,
 	Tabs,
 	Tag,
+	Tooltip,
 	theme,
 } from "antd";
 import type React from "react";
@@ -19,14 +20,16 @@ const { useToken } = theme;
 
 import {
 	CalendarOutlined,
+	DeleteOutlined,
 	DownloadOutlined,
+	EditOutlined,
 	FileExcelOutlined,
 	FileTextOutlined,
 	TeamOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
-import { BulkPaymentForm, MonthlyPaymentTable, PaymentForm } from "@tutomate/ui";
+import { BulkPaymentForm, CourseForm, MonthlyPaymentTable, PaymentForm } from "@tutomate/ui";
 import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
 import { useMonthlyPaymentStore } from "@tutomate/core";
@@ -56,7 +59,8 @@ const CourseDetailPage: React.FC = () => {
 	const { token } = useToken();
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
-	const { getCourseById, loadCourses } = useCourseStore();
+	const { getCourseById, loadCourses, deleteCourse } = useCourseStore();
+	const { getEnrollmentCountByCourseId } = useEnrollmentStore();
 	const { loadStudents, getStudentById } = useStudentStore();
 	const { enrollments, loadEnrollments, deleteEnrollment } =
 		useEnrollmentStore();
@@ -75,6 +79,7 @@ const CourseDetailPage: React.FC = () => {
 
 	const [activeTab, setActiveTab] = useState<string>("students");
 	const [selectedQuarter, setSelectedQuarter] = useState<string>(getCurrentQuarter());
+	const [isCourseEditVisible, setIsCourseEditVisible] = useState(false);
 
 	useEffect(() => {
 		loadCourses();
@@ -128,6 +133,25 @@ const CourseDetailPage: React.FC = () => {
 		(e) => e.paymentStatus === "completed",
 	).length;
 
+	const handleDeleteCourse = () => {
+		if (!course) return;
+		const studentCount = getEnrollmentCountByCourseId(course.id);
+		Modal.confirm({
+			title: studentCount > 0 ? "수강생이 있는 강좌입니다!" : "강좌를 삭제하시겠습니까?",
+			content: studentCount > 0
+				? `"${course.name}" 강좌에 ${studentCount}명의 수강생이 있습니다. 삭제 시 수강 기록도 함께 삭제됩니다.`
+				: `"${course.name}" 강좌를 삭제합니다.`,
+			okText: "삭제",
+			okType: "danger",
+			cancelText: "취소",
+			async onOk() {
+				await deleteCourse(course.id);
+				message.success("강좌가 삭제되었습니다.");
+				navigate("/courses");
+			},
+		});
+	};
+
 	const handleRemoveStudent = async (enrollmentId: string) => {
 		await deleteEnrollment(enrollmentId);
 		message.success("수강생이 제거되었습니다.");
@@ -175,14 +199,18 @@ const CourseDetailPage: React.FC = () => {
 		{
 			title: "이름",
 			key: "name",
-			render: (_, record) => record.student?.name || "-",
+			render: (_, record) => (
+				<span style={{ whiteSpace: "nowrap" }}>{record.student?.name || "-"}</span>
+			),
 			sorter: (a, b) =>
 				(a.student?.name || "").localeCompare(b.student?.name || ""),
 		},
 		{
 			title: "전화번호",
 			key: "phone",
-			render: (_, record) => record.student?.phone || "-",
+			render: (_, record) => (
+				<span style={{ whiteSpace: "nowrap" }}>{record.student?.phone || "-"}</span>
+			),
 		},
 		...(appConfig.enableQuarterSystem
 			? [
@@ -203,13 +231,13 @@ const CourseDetailPage: React.FC = () => {
 							(record.student?.isMember ?? false) === value,
 					},
 					{
-						title: "수강등록월",
+						title: "등록월",
 						key: "enrolledMonths",
 						render: (_: unknown, record: (typeof enrolledStudents)[0]) =>
 							record.enrolledMonths?.length ? (
 								<Space size={4}>
 									{record.enrolledMonths.map((m: number) => (
-										<Tag key={m}>{m}월</Tag>
+										<Tag key={m} style={{ margin: 0 }}>{m}월</Tag>
 									))}
 								</Space>
 							) : (
@@ -223,7 +251,7 @@ const CourseDetailPage: React.FC = () => {
 							record.paymentStatus === "exempt" ? (
 								<Tag color="purple">면제</Tag>
 							) : (
-								`₩${record.quarterTotalPaid.toLocaleString()}`
+								<span style={{ whiteSpace: "nowrap" }}>₩{record.quarterTotalPaid.toLocaleString()}</span>
 							),
 						sorter: (a: (typeof enrolledStudents)[0], b: (typeof enrolledStudents)[0]) =>
 							a.quarterTotalPaid - b.quarterTotalPaid,
@@ -240,19 +268,27 @@ const CourseDetailPage: React.FC = () => {
 						title: "납부일자",
 						key: "paidAt",
 						render: (_: unknown, record: (typeof enrolledStudents)[0]) =>
-							record.latestPayment?.paidAt
-								? dayjs(record.latestPayment.paidAt).format("YYYY-MM-DD")
-								: "-",
+							record.latestPayment?.paidAt ? (
+								<span style={{ whiteSpace: "nowrap" }}>{dayjs(record.latestPayment.paidAt).format("YYYY-MM-DD")}</span>
+							) : (
+								"-"
+							),
 					},
 					{
 						title: "메모",
 						key: "notes",
+						ellipsis: { showTitle: false },
 						render: (_: unknown, record: (typeof enrolledStudents)[0]) => {
 							const parts: string[] = [];
 							if (record.discountAmount > 0)
 								parts.push(`할인 ₩${record.discountAmount.toLocaleString()}`);
 							if (record.notes) parts.push(record.notes);
-							return parts.join(" / ") || "-";
+							const text = parts.join(" / ");
+							return text ? (
+								<Tooltip title={text} placement="topLeft">
+									<span>{text}</span>
+								</Tooltip>
+							) : "-";
 						},
 					},
 				] as ColumnsType<(typeof enrolledStudents)[0]>
@@ -311,9 +347,9 @@ const CourseDetailPage: React.FC = () => {
 			title: "작업",
 			key: "action",
 			render: (_, record) => (
-				<Space size="small">
-					<Button type="link" onClick={() => handlePaymentEdit(record)}>
-						납부 관리
+				<Space size={0} style={{ whiteSpace: "nowrap" }}>
+					<Button type="link" size="small" onClick={() => handlePaymentEdit(record)}>
+						납부관리
 					</Button>
 					<Popconfirm
 						title="정말 이 수강생을 제거하시겠습니까?"
@@ -321,7 +357,7 @@ const CourseDetailPage: React.FC = () => {
 						okText="제거"
 						cancelText="취소"
 					>
-						<Button type="link" danger>
+						<Button type="link" size="small" danger>
 							제거
 						</Button>
 					</Popconfirm>
@@ -366,14 +402,31 @@ const CourseDetailPage: React.FC = () => {
 					<span style={{ color: token.colorTextQuaternary, fontSize: 12 }}>/</span>
 					<span style={{ fontSize: 15, fontWeight: 600 }}>{course.name}</span>
 				</div>
-				<Button
-					size="small"
-					icon={<DownloadOutlined />}
-					onClick={() => setIsExportModalVisible(true)}
-					disabled={courseEnrollments.length === 0}
-				>
-					내보내기
-				</Button>
+				<Space size="small">
+					<Button
+						size="small"
+						icon={<DownloadOutlined />}
+						onClick={() => setIsExportModalVisible(true)}
+						disabled={courseEnrollments.length === 0}
+					>
+						내보내기
+					</Button>
+					<Button
+						size="small"
+						icon={<EditOutlined />}
+						onClick={() => setIsCourseEditVisible(true)}
+					>
+						수정
+					</Button>
+					<Button
+						size="small"
+						danger
+						icon={<DeleteOutlined />}
+						onClick={handleDeleteCourse}
+					>
+						삭제
+					</Button>
+				</Space>
 			</div>
 
 			{/* 부가 정보 + 통계 — 한 줄 */}
@@ -465,6 +518,7 @@ const CourseDetailPage: React.FC = () => {
 									pagination={false}
 									size="small"
 									rowSelection={rowSelection}
+									tableLayout="auto"
 								/>
 							</>
 						),
@@ -614,6 +668,12 @@ const CourseDetailPage: React.FC = () => {
 					</Button>
 				</div>
 			</Modal>
+
+			<CourseForm
+				visible={isCourseEditVisible}
+				onClose={() => setIsCourseEditVisible(false)}
+				course={course}
+			/>
 		</div>
 	);
 };
