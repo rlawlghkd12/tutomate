@@ -19,6 +19,7 @@ const helper = createDataHelper<Enrollment, EnrollmentRow>({
 interface EnrollmentStore {
 	enrollments: Enrollment[];
 	loadEnrollments: () => Promise<void>;
+	invalidate: () => void;
 	addEnrollment: (enrollmentData: EnrollmentFormData) => Promise<void>;
 	updateEnrollment: (
 		id: string,
@@ -55,6 +56,8 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 			// 로드 실패 시 기존 데이터 유지
 		}
 	},
+
+	invalidate: () => helper.invalidate(),
 
 	addEnrollment: async (enrollmentData: EnrollmentFormData) => {
 		const remainingAmount = enrollmentData.courseId

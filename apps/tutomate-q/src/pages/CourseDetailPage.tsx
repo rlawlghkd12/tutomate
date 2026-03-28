@@ -4,6 +4,7 @@ import {
 	Modal,
 	message,
 	Popconfirm,
+	Select,
 	Space,
 	Table,
 	Tabs,
@@ -30,11 +31,17 @@ import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
 import { useMonthlyPaymentStore } from "@tutomate/core";
 import { useStudentStore } from "@tutomate/core";
+import { appConfig } from "@tutomate/core";
 import type { Enrollment } from "@tutomate/core";
 import {
 	COURSE_STUDENT_EXPORT_FIELDS,
 	exportCourseStudentsToCSV,
 	exportCourseStudentsToExcel,
+	getCurrentQuarter,
+	getQuarterMonths,
+	getQuarterOptions,
+	quarterMonthToYYYYMM,
+	PAYMENT_METHOD_LABELS,
 } from "@tutomate/core";
 
 const DEFAULT_EXPORT_FIELDS = [
@@ -53,7 +60,7 @@ const CourseDetailPage: React.FC = () => {
 	const { loadStudents, getStudentById } = useStudentStore();
 	const { enrollments, loadEnrollments, deleteEnrollment } =
 		useEnrollmentStore();
-	const { loadPayments } = useMonthlyPaymentStore();
+	const { payments, loadPayments } = useMonthlyPaymentStore();
 
 	const [selectedEnrollment, setSelectedEnrollment] =
 		useState<Enrollment | null>(null);
@@ -67,6 +74,7 @@ const CourseDetailPage: React.FC = () => {
 	);
 
 	const [activeTab, setActiveTab] = useState<string>("students");
+	const [selectedQuarter, setSelectedQuarter] = useState<string>(getCurrentQuarter());
 
 	useEffect(() => {
 		loadCourses();
@@ -76,17 +84,38 @@ const CourseDetailPage: React.FC = () => {
 	}, [loadCourses, loadStudents, loadEnrollments, loadPayments]);
 
 	const course = id ? getCourseById(id) : undefined;
-	const courseEnrollments = enrollments.filter((e) => e.courseId === id);
+	const courseEnrollments = appConfig.enableQuarterSystem
+		? enrollments.filter((e) => e.courseId === id && e.quarter === selectedQuarter)
+		: enrollments.filter((e) => e.courseId === id);
 
 	const enrolledStudents = useMemo(() => {
 		return courseEnrollments.map((enrollment) => {
 			const student = getStudentById(enrollment.studentId);
+
+			// 분기 시스템: 등록월 기반 납부 정보 계산
+			let quarterTotalPaid = 0;
+			let latestPayment: { paidAt?: string; paymentMethod?: string } | null = null;
+			if (appConfig.enableQuarterSystem && enrollment.enrolledMonths?.length) {
+				const enrolledYYYYMMs = enrollment.enrolledMonths.map(
+					(m) => quarterMonthToYYYYMM(enrollment.quarter!, m),
+				);
+				const enrollmentPayments = payments
+					.filter(
+						(p) => p.enrollmentId === enrollment.id && enrolledYYYYMMs.includes(p.month),
+					)
+					.sort((a, b) => (b.paidAt || "").localeCompare(a.paidAt || ""));
+				quarterTotalPaid = enrollmentPayments.reduce((sum, p) => sum + p.amount, 0);
+				latestPayment = enrollmentPayments[0] || null;
+			}
+
 			return {
 				...enrollment,
 				student,
+				quarterTotalPaid,
+				latestPayment,
 			};
 		});
-	}, [courseEnrollments, getStudentById]);
+	}, [courseEnrollments, getStudentById, payments]);
 
 	const nonExemptEnrollments = courseEnrollments.filter(
 		(e) => e.paymentStatus !== "exempt",
@@ -155,48 +184,129 @@ const CourseDetailPage: React.FC = () => {
 			key: "phone",
 			render: (_, record) => record.student?.phone || "-",
 		},
-		{
-			title: "이번달",
-			key: "monthlyStatus",
-			render: (_, record) => {
-				if (record.paymentStatus === "exempt") {
-					return <Tag color="purple">면제</Tag>;
-				}
-				const currentMonth = dayjs().format("YYYY-MM");
-				const monthlyPayment = useMonthlyPaymentStore
-					.getState()
-					.payments.find(
-						(p) => p.enrollmentId === record.id && p.month === currentMonth,
-					);
-				if (monthlyPayment && monthlyPayment.status === "paid") {
-					return <Tag color="green">납부</Tag>;
-				}
-				return <Tag color="red">미납</Tag>;
-			},
-			filters: [
-				{ text: "납부", value: "paid" },
-				{ text: "미납", value: "unpaid" },
-				{ text: "면제", value: "exempt" },
-			],
-			onFilter: (value, record) => {
-				if (value === "exempt") return record.paymentStatus === "exempt";
-				const currentMonth = dayjs().format("YYYY-MM");
-				const mp = useMonthlyPaymentStore
-					.getState()
-					.payments.find(
-						(p) => p.enrollmentId === record.id && p.month === currentMonth,
-					);
-				if (value === "paid") return mp?.status === "paid";
-				return !mp || mp.status !== "paid";
-			},
-		},
-		{
-			title: "등록일",
-			key: "enrolledAt",
-			render: (_, record) => new Date(record.enrolledAt).toLocaleDateString(),
-			sorter: (a, b) =>
-				new Date(a.enrolledAt).getTime() - new Date(b.enrolledAt).getTime(),
-		},
+		...(appConfig.enableQuarterSystem
+			? [
+					{
+						title: "회원",
+						key: "isMember",
+						render: (_: unknown, record: (typeof enrolledStudents)[0]) =>
+							record.student?.isMember ? (
+								<Tag color="blue">회원</Tag>
+							) : (
+								<Tag>비회원</Tag>
+							),
+						filters: [
+							{ text: "회원", value: true },
+							{ text: "비회원", value: false },
+						],
+						onFilter: (value: unknown, record: (typeof enrolledStudents)[0]) =>
+							(record.student?.isMember ?? false) === value,
+					},
+					{
+						title: "수강등록월",
+						key: "enrolledMonths",
+						render: (_: unknown, record: (typeof enrolledStudents)[0]) =>
+							record.enrolledMonths?.length ? (
+								<Space size={4}>
+									{record.enrolledMonths.map((m: number) => (
+										<Tag key={m}>{m}월</Tag>
+									))}
+								</Space>
+							) : (
+								"-"
+							),
+					},
+					{
+						title: "납부금액",
+						key: "quarterTotalPaid",
+						render: (_: unknown, record: (typeof enrolledStudents)[0]) =>
+							record.paymentStatus === "exempt" ? (
+								<Tag color="purple">면제</Tag>
+							) : (
+								`₩${record.quarterTotalPaid.toLocaleString()}`
+							),
+						sorter: (a: (typeof enrolledStudents)[0], b: (typeof enrolledStudents)[0]) =>
+							a.quarterTotalPaid - b.quarterTotalPaid,
+					},
+					{
+						title: "납부방법",
+						key: "paymentMethod",
+						render: (_: unknown, record: (typeof enrolledStudents)[0]) =>
+							record.latestPayment?.paymentMethod
+								? PAYMENT_METHOD_LABELS[record.latestPayment.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] || "-"
+								: "-",
+					},
+					{
+						title: "납부일자",
+						key: "paidAt",
+						render: (_: unknown, record: (typeof enrolledStudents)[0]) =>
+							record.latestPayment?.paidAt
+								? dayjs(record.latestPayment.paidAt).format("YYYY-MM-DD")
+								: "-",
+					},
+					{
+						title: "메모",
+						key: "notes",
+						render: (_: unknown, record: (typeof enrolledStudents)[0]) => {
+							const parts: string[] = [];
+							if (record.discountAmount > 0)
+								parts.push(`할인 ₩${record.discountAmount.toLocaleString()}`);
+							if (record.notes) parts.push(record.notes);
+							return parts.join(" / ") || "-";
+						},
+					},
+				] as ColumnsType<(typeof enrolledStudents)[0]>
+			: [
+					{
+						title: "이번달",
+						key: "monthlyStatus",
+						render: (_: unknown, record: (typeof enrolledStudents)[0]) => {
+							if (record.paymentStatus === "exempt") {
+								return <Tag color="purple">면제</Tag>;
+							}
+							const currentMonth = dayjs().format("YYYY-MM");
+							const monthlyPayment = useMonthlyPaymentStore
+								.getState()
+								.payments.find(
+									(p) =>
+										p.enrollmentId === record.id &&
+										p.month === currentMonth,
+								);
+							if (monthlyPayment && monthlyPayment.status === "paid") {
+								return <Tag color="green">납부</Tag>;
+							}
+							return <Tag color="red">미납</Tag>;
+						},
+						filters: [
+							{ text: "납부", value: "paid" },
+							{ text: "미납", value: "unpaid" },
+							{ text: "면제", value: "exempt" },
+						],
+						onFilter: (value: unknown, record: (typeof enrolledStudents)[0]) => {
+							if (value === "exempt")
+								return record.paymentStatus === "exempt";
+							const currentMonth = dayjs().format("YYYY-MM");
+							const mp = useMonthlyPaymentStore
+								.getState()
+								.payments.find(
+									(p) =>
+										p.enrollmentId === record.id &&
+										p.month === currentMonth,
+								);
+							if (value === "paid") return mp?.status === "paid";
+							return !mp || mp.status !== "paid";
+						},
+					},
+					{
+						title: "등록일",
+						key: "enrolledAt",
+						render: (_: unknown, record: (typeof enrolledStudents)[0]) =>
+							new Date(record.enrolledAt).toLocaleDateString(),
+						sorter: (a: (typeof enrolledStudents)[0], b: (typeof enrolledStudents)[0]) =>
+							new Date(a.enrolledAt).getTime() -
+							new Date(b.enrolledAt).getTime(),
+					},
+				] as ColumnsType<(typeof enrolledStudents)[0]>),
 		{
 			title: "작업",
 			key: "action",
@@ -315,6 +425,16 @@ const CourseDetailPage: React.FC = () => {
 						),
 						children: (
 							<>
+								{appConfig.enableQuarterSystem && (
+									<div style={{ marginBottom: 12 }}>
+										<Select
+											value={selectedQuarter}
+											onChange={setSelectedQuarter}
+											style={{ width: 180 }}
+											options={getQuarterOptions()}
+										/>
+									</div>
+								)}
 								{selectedRowKeys.length > 0 && (
 									<div
 										style={{
@@ -358,9 +478,14 @@ const CourseDetailPage: React.FC = () => {
 						),
 						children: (
 							<MonthlyPaymentTable
+								key={appConfig.enableQuarterSystem ? selectedQuarter : undefined}
 								courseId={id}
 								courseFee={course.fee}
 								enrollments={courseEnrollments}
+								quarterMonths={appConfig.enableQuarterSystem
+									? getQuarterMonths(selectedQuarter).map((m) => quarterMonthToYYYYMM(selectedQuarter, m))
+									: undefined
+								}
 							/>
 						),
 					},

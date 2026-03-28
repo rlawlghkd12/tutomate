@@ -44,6 +44,22 @@ export interface DataHelper<TLocal extends { id: string }, _TRow = unknown> {
 // ─── 로컬 캐시 (Electron IPC 또는 localStorage 폴백) ───
 
 const CACHE_PREFIX = 'cache_';
+const CACHE_TABLES = ['courses', 'students', 'enrollments', 'monthly_payments'];
+
+/** 모든 테이블의 로컬 캐시 삭제 */
+export async function clearAllCache(): Promise<void> {
+  for (const table of CACHE_TABLES) {
+    try {
+      if (window.electronAPI?.saveData) {
+        await window.electronAPI.saveData(`${CACHE_PREFIX}${table}`, '[]');
+      } else {
+        localStorage.removeItem(`${CACHE_PREFIX}${table}`);
+      }
+    } catch {
+      // 무시
+    }
+  }
+}
 
 async function saveCache(table: string, data: unknown[]): Promise<void> {
   try {

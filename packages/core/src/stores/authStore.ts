@@ -38,14 +38,11 @@ interface AuthStore {
   plan: PlanType | null;
   isCloud: boolean;
   loading: boolean;
-  _previousOrg: { organizationId: string; plan: PlanType | null } | null;
-
   initialize: () => Promise<void>;
   activateCloud: (licenseKey: string) => Promise<
     | { status: 'success'; isNewOrg: boolean; orgChanged: boolean; previousOrgId: string | null }
     | { status: 'invalid_key' | 'max_seats_reached' | 'error' }
   >;
-  rollbackOrg: () => void;
   deactivateCloud: () => Promise<void>;
 }
 
@@ -55,8 +52,6 @@ export const useAuthStore = create<AuthStore>((set) => ({
   plan: null,
   isCloud: false,
   loading: true,
-  _previousOrg: null,
-
   initialize: async () => {
     if (!supabase) {
       logWarn('Supabase not configured, running in local-only mode');
@@ -214,7 +209,6 @@ export const useAuthStore = create<AuthStore>((set) => ({
         organizationId,
         plan,
         isCloud: true,
-        _previousOrg: orgChanged && previousOrgId ? { organizationId: previousOrgId, plan: useAuthStore.getState().plan } : null,
       });
 
       logInfo('License activated, cloud upgraded', { data: { orgId: organizationId, isNewOrg, plan, orgChanged } });
@@ -225,20 +219,21 @@ export const useAuthStore = create<AuthStore>((set) => ({
     }
   },
 
-  rollbackOrg: () => {
-    const prev = useAuthStore.getState()._previousOrg;
-    if (prev) {
-      set({
-        organizationId: prev.organizationId,
-        plan: prev.plan,
-        _previousOrg: null,
-      });
-      logInfo('Org rollback to previous trial org', { data: { orgId: prev.organizationId } });
-    }
-  },
-
   deactivateCloud: async () => {
     if (!supabase) return;
+
+    try {
+      // org 연결 해제 (재시작 시 새 trial org 생성되도록)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await supabase
+          .from('user_organizations')
+          .delete()
+          .eq('user_id', session.user.id);
+      }
+    } catch (error) {
+      logError('Failed to delete user_organizations', { error });
+    }
 
     try {
       await supabase.auth.signOut();
@@ -272,3 +267,21 @@ if (supabase) {
 export const isCloud = (): boolean => useAuthStore.getState().isCloud;
 export const getOrgId = (): string | null => useAuthStore.getState().organizationId;
 export const getPlan = (): PlanType | null => useAuthStore.getState().plan;
+
+/**
+ * 체험판 → 라이선스 전환 시 기존 데이터의 organization_id 일괄 변경
+ * UI에서 사용자 확인 후 호출
+ */
+export async function migrateOrgData(oldOrgId: string, newOrgId: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase.rpc('migrate_org_data', {
+    old_org_id: oldOrgId,
+    new_org_id: newOrgId,
+  });
+  if (error) {
+    logError('Failed to migrate org data', { error });
+    return false;
+  }
+  logInfo('Org data migrated', { data: { from: oldOrgId, to: newOrgId } });
+  return true;
+}

@@ -124,6 +124,13 @@ Deno.serve(async (req) => {
             );
           }
 
+          // 새 유저의 기존 org 링크 정리 (trial org 등)
+          await supabaseAdmin
+            .from('user_organizations')
+            .delete()
+            .eq('user_id', user.id)
+            .neq('organization_id', organizationId);
+
           const { error: insertError } = await supabaseAdmin
             .from('user_organizations')
             .insert({
@@ -167,6 +174,13 @@ Deno.serve(async (req) => {
             );
           }
 
+          // 기존 org 링크 정리 (trial org 등 다른 org에 연결된 행 삭제)
+          await supabaseAdmin
+            .from('user_organizations')
+            .delete()
+            .eq('user_id', user.id)
+            .neq('organization_id', organizationId);
+
           const { error: linkError } = await supabaseAdmin
             .from('user_organizations')
             .insert({
@@ -205,6 +219,13 @@ Deno.serve(async (req) => {
           .single();
 
         if (!existingLink) {
+          // 기존 org 링크 정리 (trial org 등 다른 org에 연결된 행 삭제)
+          await supabaseAdmin
+            .from('user_organizations')
+            .delete()
+            .eq('user_id', user.id)
+            .neq('organization_id', organizationId);
+
           const { error: linkError } = await supabaseAdmin
             .from('user_organizations')
             .insert({ user_id: user.id, organization_id: organizationId, role: 'member' });

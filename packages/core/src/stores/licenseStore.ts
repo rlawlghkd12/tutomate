@@ -5,9 +5,14 @@ import { PLAN_LIMITS } from '../config/planLimits';
 import type { PlanType, PlanLimitKey } from '../config/planLimits';
 import { useAuthStore } from './authStore';
 import { logError } from '../utils/logger';
+import { clearAllCache } from '../utils/dataHelper';
+import { useCourseStore } from './courseStore';
+import { useStudentStore } from './studentStore';
+import { useEnrollmentStore } from './enrollmentStore';
+import { useMonthlyPaymentStore } from './monthlyPaymentStore';
 
 export type ActivateResult =
-  | { result: 'success'; isNewOrg: boolean; orgChanged: boolean }
+  | { result: 'success'; isNewOrg: boolean; orgChanged: boolean; previousOrgId: string | null }
   | { result: 'invalid_format' | 'invalid_key' | 'network_error' | 'max_seats_reached' };
 
 interface LicenseStore {
@@ -27,6 +32,34 @@ const LICENSE_KEY = 'app-license';
  */
 function isValidKeyFormat(key: string): boolean {
   return /^TMK[HA]-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key);
+}
+
+/** 모든 데이터 스토어의 stale 마킹 — 다음 load 시 서버 재조회 */
+function invalidateAllStores(): void {
+  useCourseStore.getState().invalidate();
+  useStudentStore.getState().invalidate();
+  useEnrollmentStore.getState().invalidate();
+  useMonthlyPaymentStore.getState().invalidate();
+}
+
+/**
+ * org 전환 후 호출: 캐시 초기화 + stale 마킹 + 스토어 비우기 + 서버에서 다시 로드
+ * "이전" / "새로 시작" 모두 사용
+ */
+export async function reloadAllStores(): Promise<void> {
+  await clearAllCache();
+  invalidateAllStores();
+  useCourseStore.setState({ courses: [] });
+  useStudentStore.setState({ students: [] });
+  useEnrollmentStore.setState({ enrollments: [] });
+  useMonthlyPaymentStore.setState({ payments: [] });
+  // 서버에서 새 org 데이터 로드
+  await Promise.all([
+    useCourseStore.getState().loadCourses(),
+    useStudentStore.getState().loadStudents(),
+    useEnrollmentStore.getState().loadEnrollments(),
+    useMonthlyPaymentStore.getState().loadPayments(),
+  ]);
 }
 
 export const useLicenseStore = create<LicenseStore>((set, get) => ({
@@ -78,7 +111,8 @@ export const useLicenseStore = create<LicenseStore>((set, get) => ({
 
       const isNewOrg = cloudResult.status === 'success' ? cloudResult.isNewOrg : false;
       const orgChanged = cloudResult.status === 'success' ? cloudResult.orgChanged : false;
-      return { result: 'success', isNewOrg, orgChanged };
+      const previousOrgId = cloudResult.status === 'success' ? cloudResult.previousOrgId : null;
+      return { result: 'success', isNewOrg, orgChanged, previousOrgId };
     } catch {
       return { result: 'network_error' };
     }
@@ -87,6 +121,14 @@ export const useLicenseStore = create<LicenseStore>((set, get) => ({
   deactivateLicense: async () => {
     // Supabase 로그아웃
     await useAuthStore.getState().deactivateCloud();
+
+    // 로컬 캐시 + stale 마킹 + 스토어 데이터 초기화
+    await clearAllCache();
+    invalidateAllStores();
+    useCourseStore.setState({ courses: [] });
+    useStudentStore.setState({ students: [] });
+    useEnrollmentStore.setState({ enrollments: [] });
+    useMonthlyPaymentStore.setState({ payments: [] });
 
     localStorage.removeItem(LICENSE_KEY);
     set({ licenseKey: '', activatedAt: '' });

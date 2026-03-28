@@ -2,7 +2,7 @@ import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ConfigProvider, App as AntApp, theme as antdTheme, Modal, Button, Typography, Space, message, Spin } from 'antd';
 import koKR from 'antd/locale/ko_KR';
 import { Layout, ErrorBoundary, UpdateChecker, GlobalSearch, useGlobalSearch, LockScreen, LicenseKeyInput } from '@tutomate/ui';
-import { useSettingsStore, useLockStore, useAutoLock, useLicenseStore, useAuthStore, appConfig } from '@tutomate/core';
+import { useSettingsStore, useLockStore, useAutoLock, useLicenseStore, useAuthStore, migrateOrgData, reloadAllStores, appConfig } from '@tutomate/core';
 import DashboardPage from './pages/DashboardPage';
 import CoursesPage from './pages/CoursesPage';
 import CourseDetailPage from './pages/CourseDetailPage';
@@ -51,29 +51,36 @@ function App() {
     try {
       const result = await activateLicense(key);
       if (result.result === 'success') {
-        if (result.orgChanged) {
-          Modal.confirm({
-            title: '기존 라이선스 데이터로 전환',
-            content: '이 라이선스 키에는 기존 데이터가 있습니다. 전환하면 현재 체험판에서 입력한 데이터는 더 이상 표시되지 않습니다. 계속하시겠습니까?',
-            okText: '전환',
-            cancelText: '취소',
-            onCancel: () => {
-              useAuthStore.getState().rollbackOrg();
-              message.info('전환이 취소되었습니다.');
-            },
-            onOk: () => {
-              localStorage.setItem('welcome-dismissed', 'true');
-              setWelcomeVisible(false);
-              setLicenseInput(['', '', '', '']);
-              message.success('라이선스가 활성화되었습니다!');
-            },
+        if (result.orgChanged && result.previousOrgId) {
+          const newOrgId = useAuthStore.getState().organizationId!;
+          const migrate = await new Promise<boolean>((resolve) => {
+            Modal.confirm({
+              title: '체험판 데이터 이전',
+              content: '체험판에서 입력한 데이터를 라이선스 계정으로 이전하시겠습니까? "새로 시작"을 선택하면 빈 상태로 시작합니다.',
+              okText: '이전',
+              cancelText: '새로 시작',
+              onOk: () => resolve(true),
+              onCancel: () => resolve(false),
+            });
           });
+          if (migrate) {
+            const ok = await migrateOrgData(result.previousOrgId, newOrgId);
+            await reloadAllStores();
+            if (ok) {
+              message.success('라이선스가 활성화되었습니다! 기존 데이터가 이전되었습니다.');
+            } else {
+              message.warning('라이선스는 활성화되었지만 데이터 이전에 실패했습니다.');
+            }
+          } else {
+            await reloadAllStores();
+            message.success('라이선스가 활성화되었습니다! 새로 시작합니다.');
+          }
         } else {
           message.success('라이선스가 활성화되었습니다! 플랜이 업그레이드되었습니다.');
-          localStorage.setItem('welcome-dismissed', 'true');
-          setWelcomeVisible(false);
-          setLicenseInput(['', '', '', '']);
         }
+        localStorage.setItem('welcome-dismissed', 'true');
+        setWelcomeVisible(false);
+        setLicenseInput(['', '', '', '']);
       } else if (result.result === 'invalid_format') {
         message.error(`유효하지 않은 형식입니다. 형식: ${appConfig.licenseFormatHint}`);
       } else if (result.result === 'network_error') {

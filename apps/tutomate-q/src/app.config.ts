@@ -8,4 +8,5 @@ export const appConfig = {
   welcomeTitle: 'TutorMate Q에 오신 것을 환영합니다!',
   enableMemberFeature: true,
   hideAddressField: true,
+  enableQuarterSystem: true,
 };

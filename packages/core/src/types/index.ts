@@ -54,6 +54,8 @@ export interface Enrollment {
   paymentMethod?: PaymentMethod; // 납부 방법 (현금, 카드, 계좌이체)
   discountAmount: number; // 할인 금액
   notes?: string;
+  quarter?: string; // 분기 "2026-Q1" 형식
+  enrolledMonths?: number[]; // 분기 내 등록 월 [1,2,3]
 }
 
 // 강좌 폼 데이터 타입

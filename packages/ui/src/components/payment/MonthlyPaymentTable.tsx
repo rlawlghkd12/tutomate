@@ -17,19 +17,24 @@ interface MonthlyPaymentTableProps {
   courseId: string;
   courseFee: number;
   enrollments: Enrollment[];
+  /** 분기 시스템: 표시할 월 목록 (YYYY-MM 형식). 없으면 ±6개월 표시 */
+  quarterMonths?: string[];
 }
 
 const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
   courseId: _courseId,
   courseFee,
   enrollments,
+  quarterMonths,
 }) => {
   const { token } = useToken();
   const { getStudentById } = useStudentStore();
   const { payments, addPayment, updatePayment } = useMonthlyPaymentStore();
   const { updatePayment: updateEnrollmentPayment } = useEnrollmentStore();
 
-  const [selectedMonth, setSelectedMonth] = useState<string>(dayjs().format('YYYY-MM'));
+  const [selectedMonth, setSelectedMonth] = useState<string>(
+    quarterMonths?.[0] ?? dayjs().format('YYYY-MM'),
+  );
 
   // 해당 강좌의 수강생별 월별 납부 현황
   const monthlyData = useMemo(() => {
@@ -306,12 +311,15 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
 
   // 월 이동
   const months = useMemo(() => {
+    if (quarterMonths && quarterMonths.length > 0) {
+      return quarterMonths;
+    }
     const result: string[] = [];
     for (let i = -6; i <= 6; i++) {
       result.push(dayjs().add(i, 'month').format('YYYY-MM'));
     }
     return result;
-  }, []);
+  }, [quarterMonths]);
 
   return (
     <div>
@@ -331,12 +339,14 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
                 </Select.Option>
               ))}
             </Select>
-            <Button
-              size="small"
-              onClick={() => setSelectedMonth(dayjs().format('YYYY-MM'))}
-            >
-              이번 달
-            </Button>
+            {!quarterMonths && (
+              <Button
+                size="small"
+                onClick={() => setSelectedMonth(dayjs().format('YYYY-MM'))}
+              >
+                이번 달
+              </Button>
+            )}
           </Space>
         </Col>
         <Col flex="auto" style={{ textAlign: 'right' }}>

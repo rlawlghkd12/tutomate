@@ -16,12 +16,12 @@ export type { ChartColors, ChartTooltipStyle } from './config/styles';
 // ─── Stores ──────────────────────────────────────────────────────
 export { useSettingsStore } from './stores/settingsStore';
 export type { FontSize, Theme } from './stores/settingsStore';
-export { useAuthStore, isCloud, getOrgId, getPlan } from './stores/authStore';
+export { useAuthStore, isCloud, getOrgId, getPlan, migrateOrgData } from './stores/authStore';
 export { useCourseStore } from './stores/courseStore';
 export { useStudentStore } from './stores/studentStore';
 export { useEnrollmentStore } from './stores/enrollmentStore';
 export { useMonthlyPaymentStore } from './stores/monthlyPaymentStore';
-export { useLicenseStore } from './stores/licenseStore';
+export { useLicenseStore, reloadAllStores } from './stores/licenseStore';
 export type { ActivateResult } from './stores/licenseStore';
 export { useLockStore } from './stores/lockStore';
 export { useNotificationStore } from './stores/notificationStore';
@@ -33,7 +33,7 @@ export {
   restoreCloudBackup,
 } from './utils/backupHelper';
 
-export { createDataHelper } from './utils/dataHelper';
+export { createDataHelper, clearAllCache } from './utils/dataHelper';
 export type { DataHelper } from './utils/dataHelper';
 
 export { default as dayjs } from './utils/dayjs';
@@ -134,6 +134,14 @@ export {
 } from './utils/supabaseStorage';
 
 export { isElectron, isTauri } from './utils/tauri';
+
+export {
+  getCurrentQuarter,
+  getQuarterLabel,
+  getQuarterMonths,
+  getQuarterOptions,
+  quarterMonthToYYYYMM,
+} from './utils/quarterUtils';
 
 // ─── Hooks ───────────────────────────────────────────────────────
 export { useAutoLock } from './hooks/useAutoLock';
