@@ -19,6 +19,7 @@ const helper = createDataHelper<MonthlyPayment, MonthlyPaymentRow>({
 interface MonthlyPaymentStore {
 	payments: MonthlyPayment[];
 	loadPayments: () => Promise<void>;
+	invalidate: () => void;
 	getPaymentsByEnrollmentId: (enrollmentId: string) => MonthlyPayment[];
 	getPaymentsByMonth: (month: string) => MonthlyPayment[];
 	addPayment: (
@@ -49,6 +50,8 @@ export const useMonthlyPaymentStore = create<MonthlyPaymentStore>(
 				// 로드 실패 시 기존 데이터 유지
 			}
 		},
+
+		invalidate: () => helper.invalidate(),
 
 		getPaymentsByEnrollmentId: (enrollmentId: string) => {
 			return get()

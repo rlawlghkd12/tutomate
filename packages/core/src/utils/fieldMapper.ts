@@ -143,6 +143,8 @@ export interface EnrollmentRow {
   payment_method: string | null;
   discount_amount: number;
   notes: string | null;
+  quarter: string | null;
+  enrolled_months: number[] | null;
   created_at: string;
 }
 
@@ -159,6 +161,8 @@ export function mapEnrollmentFromDb(row: EnrollmentRow): Enrollment {
     paymentMethod: (row.payment_method as Enrollment['paymentMethod']) ?? undefined,
     discountAmount: row.discount_amount ?? 0,
     notes: row.notes ?? undefined,
+    quarter: row.quarter ?? undefined,
+    enrolledMonths: row.enrolled_months ?? undefined,
   };
 }
 
@@ -179,6 +183,8 @@ export function mapEnrollmentToDb(
     payment_method: enrollment.paymentMethod ?? null,
     discount_amount: enrollment.discountAmount ?? 0,
     notes: enrollment.notes ?? null,
+    quarter: enrollment.quarter ?? null,
+    enrolled_months: enrollment.enrolledMonths ?? null,
     created_at: enrollment.enrolledAt,
   };
 }
@@ -196,6 +202,8 @@ export function mapEnrollmentUpdateToDb(
   if (updates.paymentMethod !== undefined) mapped.payment_method = updates.paymentMethod;
   if (updates.discountAmount !== undefined) mapped.discount_amount = updates.discountAmount;
   if (updates.notes !== undefined) mapped.notes = updates.notes;
+  if (updates.quarter !== undefined) mapped.quarter = updates.quarter;
+  if (updates.enrolledMonths !== undefined) mapped.enrolled_months = updates.enrolledMonths;
   return mapped;
 }
 

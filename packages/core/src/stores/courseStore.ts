@@ -19,6 +19,7 @@ const helper = createDataHelper<Course, CourseRow>({
 interface CourseStore {
 	courses: Course[];
 	loadCourses: () => Promise<void>;
+	invalidate: () => void;
 	addCourse: (courseData: CourseFormData) => Promise<void>;
 	updateCourse: (id: string, courseData: Partial<Course>) => Promise<void>;
 	deleteCourse: (id: string) => Promise<void>;
@@ -38,6 +39,9 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
 			// 로드 실패 시 기존 데이터 유지
 		}
 	},
+
+	/** stale 마킹 — 다음 loadCourses()에서 서버 재조회 */
+	invalidate: () => helper.invalidate(),
 
 	addCourse: async (courseData: CourseFormData) => {
 		const newCourse: Course = {

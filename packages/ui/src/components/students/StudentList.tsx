@@ -138,15 +138,18 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
       title: '이름',
       key: 'name',
       sorter: (a, b) => a.student.name.localeCompare(b.student.name),
-      render: (_, record) => (
-        <>
-          {record.student.name}
-          {appConfig.enableMemberFeature && record.student.isMember && (
-            <Tag color="blue" style={{ marginLeft: 4 }}>회원</Tag>
-          )}
-        </>
-      ),
+      render: (_, record) => record.student.name,
     },
+    ...(appConfig.enableMemberFeature ? [{
+      title: '회원',
+      key: 'isMember',
+      width: 70,
+      filters: [{ text: '회원', value: true }, { text: '비회원', value: false }],
+      onFilter: (value: unknown, record: StudentRow) => (record.student.isMember ?? false) === value,
+      render: (_: unknown, record: StudentRow) => record.student.isMember
+        ? <Tag color="blue">회원</Tag>
+        : <Tag>비회원</Tag>,
+    }] : []),
     {
       title: '전화번호',
       key: 'phone',

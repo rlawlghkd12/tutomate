@@ -34,7 +34,7 @@ import { PLAN_LIMITS } from '@tutomate/core';
 import { useAppVersion, APP_NAME } from '@tutomate/core';
 // useBackup 제거 (v0.3.0 — 백업 탭 비활성화)
 import { supabase } from '@tutomate/core';
-import { useAuthStore } from '@tutomate/core';
+import { useAuthStore, migrateOrgData, reloadAllStores } from '@tutomate/core';
 
 const { Text } = Typography;
 
@@ -258,25 +258,34 @@ const SettingsPage: React.FC = () => {
     try {
       const result = await activateLicense(key);
       if (result.result === 'success') {
-        if (result.orgChanged) {
-          Modal.confirm({
-            title: '기존 라이선스 데이터로 전환',
-            content: '이 라이선스 키에는 기존 데이터가 있습니다. 전환하면 현재 체험판에서 입력한 데이터는 더 이상 표시되지 않습니다. 계속하시겠습니까?',
-            okText: '전환',
-            cancelText: '취소',
-            onCancel: () => {
-              useAuthStore.getState().rollbackOrg();
-              message.info('전환이 취소되었습니다.');
-            },
-            onOk: () => {
-              setLicenseInput(['', '', '', '']);
-              message.success('라이선스가 활성화되었습니다!');
-            },
+        if (result.orgChanged && result.previousOrgId) {
+          const newOrgId = useAuthStore.getState().organizationId!;
+          const migrate = await new Promise<boolean>((resolve) => {
+            Modal.confirm({
+              title: '체험판 데이터 이전',
+              content: '체험판에서 입력한 데이터를 라이선스 계정으로 이전하시겠습니까? "새로 시작"을 선택하면 빈 상태로 시작합니다.',
+              okText: '이전',
+              cancelText: '새로 시작',
+              onOk: () => resolve(true),
+              onCancel: () => resolve(false),
+            });
           });
+          if (migrate) {
+            const ok = await migrateOrgData(result.previousOrgId, newOrgId);
+            await reloadAllStores();
+            if (ok) {
+              message.success('라이선스가 활성화되었습니다! 기존 데이터가 이전되었습니다.');
+            } else {
+              message.warning('라이선스는 활성화되었지만 데이터 이전에 실패했습니다.');
+            }
+          } else {
+            await reloadAllStores();
+            message.success('라이선스가 활성화되었습니다! 새로 시작합니다.');
+          }
         } else {
           message.success('라이선스가 활성화되었습니다!');
-          setLicenseInput(['', '', '', '']);
         }
+        setLicenseInput(['', '', '', '']);
       } else if (result.result === 'invalid_format') {
         message.error('유효하지 않은 형식입니다.');
       } else if (result.result === 'network_error') {

@@ -12,8 +12,10 @@ dist
 dist-ssr
 dist-electron
 *.local
-release/**/*
-release-q/**/*
+release/
+**/release/
+e2e/screenshots/
+release-q/
 release-files/
 
 # Editor directories and files

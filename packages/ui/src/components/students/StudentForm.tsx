@@ -3,6 +3,7 @@ import {
 	Alert,
 	AutoComplete,
 	Button,
+	Checkbox,
 	Col,
 	Form,
 	Input,
@@ -27,6 +28,11 @@ import { useStudentStore } from "@tutomate/core";
 import type { PaymentMethod, Student, StudentFormData } from "@tutomate/core";
 import { formatPhone, parseBirthDate } from "@tutomate/core";
 import { appConfig } from "@tutomate/core";
+import {
+	getCurrentQuarter,
+	getQuarterMonths,
+	quarterMonthToYYYYMM,
+} from "@tutomate/core";
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -38,6 +44,7 @@ interface CoursePayment {
 	isExempt: boolean;
 	paymentMethod?: PaymentMethod;
 	discountAmount: number;
+	enrolledMonths?: number[];
 }
 
 interface StudentFormProps {
@@ -194,6 +201,9 @@ const StudentForm: React.FC<StudentFormProps> = ({
 					paidAmount: isMember ? 0 : course.fee,
 					isExempt: !!isMember,
 					discountAmount: 0,
+					...(appConfig.enableQuarterSystem && {
+						enrolledMonths: [...getQuarterMonths(getCurrentQuarter())],
+					}),
 				},
 			]);
 		}
@@ -233,6 +243,17 @@ const StudentForm: React.FC<StudentFormProps> = ({
 			setCoursePayments((prev) =>
 				prev.map((cp) =>
 					cp.courseId === courseId ? { ...cp, paymentMethod: method } : cp,
+				),
+			);
+		},
+		[],
+	);
+
+	const handleEnrolledMonthsChange = useCallback(
+		(courseId: string, months: number[]) => {
+			setCoursePayments((prev) =>
+				prev.map((cp) =>
+					cp.courseId === courseId ? { ...cp, enrolledMonths: months } : cp,
 				),
 			);
 		},
@@ -319,6 +340,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 						}
 					} else {
 						const hasPaidNew = !cp.isExempt && cp.paidAmount > 0;
+						const currentQuarter = getCurrentQuarter();
 						await addEnrollment({
 							studentId: editingStudent.id,
 							courseId: cp.courseId,
@@ -327,6 +349,10 @@ const StudentForm: React.FC<StudentFormProps> = ({
 							paidAt: hasPaidNew ? dayjs().format("YYYY-MM-DD") : undefined,
 							paymentMethod: cp.paymentMethod,
 							discountAmount: cp.discountAmount,
+							...(appConfig.enableQuarterSystem && {
+								quarter: currentQuarter,
+								enrolledMonths: cp.enrolledMonths,
+							}),
 						});
 
 						// 월별 납부 레코드 자동 생성
@@ -339,13 +365,29 @@ const StudentForm: React.FC<StudentFormProps> = ({
 							);
 						if (newEnr) {
 							const paidAmt = cp.isExempt ? 0 : cp.paidAmount;
-							await addMonthlyPayment(
-								newEnr.id,
-								dayjs().format("YYYY-MM"),
-								paidAmt,
-								cp.paymentMethod,
-								paidAmt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
-							);
+							if (appConfig.enableQuarterSystem && cp.enrolledMonths?.length) {
+								const perMonth = Math.floor(paidAmt / cp.enrolledMonths.length);
+								const remainder = paidAmt % cp.enrolledMonths.length;
+								for (let i = 0; i < cp.enrolledMonths.length; i++) {
+									const yyyymm = quarterMonthToYYYYMM(currentQuarter, cp.enrolledMonths[i]);
+									const amt = i === 0 ? perMonth + remainder : perMonth;
+									await addMonthlyPayment(
+										newEnr.id,
+										yyyymm,
+										amt,
+										cp.paymentMethod,
+										amt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
+									);
+								}
+							} else {
+								await addMonthlyPayment(
+									newEnr.id,
+									dayjs().format("YYYY-MM"),
+									paidAmt,
+									cp.paymentMethod,
+									paidAmt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
+								);
+							}
 						}
 					}
 				}
@@ -371,7 +413,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 				const newStudent = await addStudent(formData as StudentFormData);
 
 				if (coursePayments.length > 0 && newStudent) {
-					const currentMonth = dayjs().format("YYYY-MM");
+					const currentQuarter = getCurrentQuarter();
 					for (const cp of coursePayments) {
 						const course = getCourseById(cp.courseId);
 						if (course) {
@@ -384,6 +426,10 @@ const StudentForm: React.FC<StudentFormProps> = ({
 								paidAt: hasPaidInit ? dayjs().format("YYYY-MM-DD") : undefined,
 								paymentMethod: cp.paymentMethod,
 								discountAmount: cp.discountAmount,
+								...(appConfig.enableQuarterSystem && {
+									quarter: currentQuarter,
+									enrolledMonths: cp.enrolledMonths,
+								}),
 							});
 
 							// 월별 납부 레코드 자동 생성
@@ -395,13 +441,30 @@ const StudentForm: React.FC<StudentFormProps> = ({
 								);
 							if (newEnrollment) {
 								const paidAmt = cp.isExempt ? 0 : cp.paidAmount;
-								await addMonthlyPayment(
-									newEnrollment.id,
-									currentMonth,
-									paidAmt,
-									cp.paymentMethod,
-									paidAmt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
-								);
+								if (appConfig.enableQuarterSystem && cp.enrolledMonths?.length) {
+									const perMonth = Math.floor(paidAmt / cp.enrolledMonths.length);
+									const remainder = paidAmt % cp.enrolledMonths.length;
+									for (let i = 0; i < cp.enrolledMonths.length; i++) {
+										const yyyymm = quarterMonthToYYYYMM(currentQuarter, cp.enrolledMonths[i]);
+										const amt = i === 0 ? perMonth + remainder : perMonth;
+										await addMonthlyPayment(
+											newEnrollment.id,
+											yyyymm,
+											amt,
+											cp.paymentMethod,
+											amt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
+										);
+									}
+								} else {
+									const currentMonth = dayjs().format("YYYY-MM");
+									await addMonthlyPayment(
+										newEnrollment.id,
+										currentMonth,
+										paidAmt,
+										cp.paymentMethod,
+										paidAmt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
+									);
+								}
 							}
 						}
 					}
@@ -656,6 +719,40 @@ const StudentForm: React.FC<StudentFormProps> = ({
 											onClick={() => handleRemoveCourse(cp.courseId)}
 										/>
 									</div>
+
+									{/* 수강등록월 (분기 시스템) */}
+									{appConfig.enableQuarterSystem && (
+										<div
+											style={{
+												display: "flex",
+												alignItems: "center",
+												gap: 8,
+												marginBottom: 8,
+											}}
+										>
+											<span
+												style={{
+													fontSize: 12,
+													color: token.colorTextSecondary,
+													minWidth: 32,
+												}}
+											>
+												등록월
+											</span>
+											<Checkbox.Group
+												value={cp.enrolledMonths || []}
+												onChange={(values) =>
+													handleEnrolledMonthsChange(cp.courseId, values as number[])
+												}
+											>
+												{getQuarterMonths(getCurrentQuarter()).map((m) => (
+													<Checkbox key={m} value={m} style={{ fontSize: 12 }}>
+														{m}월
+													</Checkbox>
+												))}
+											</Checkbox.Group>
+										</div>
+									)}
 
 									{/* 2행: 납부 금액 + 완납/미납 */}
 									<div

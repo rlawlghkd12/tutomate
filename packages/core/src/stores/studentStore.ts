@@ -19,6 +19,7 @@ const helper = createDataHelper<Student, StudentRow>({
 interface StudentStore {
 	students: Student[];
 	loadStudents: () => Promise<void>;
+	invalidate: () => void;
 	addStudent: (studentData: StudentFormData) => Promise<Student>;
 	updateStudent: (id: string, studentData: Partial<Student>) => Promise<void>;
 	deleteStudent: (id: string) => Promise<void>;
@@ -36,6 +37,8 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
 			// 로드 실패 시 기존 데이터 유지
 		}
 	},
+
+	invalidate: () => helper.invalidate(),
 
 	addStudent: async (studentData: StudentFormData) => {
 		const newStudent: Student = {
