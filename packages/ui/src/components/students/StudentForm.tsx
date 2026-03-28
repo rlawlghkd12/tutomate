@@ -60,7 +60,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 }) => {
 	const { token } = useToken();
 	const [form] = Form.useForm();
-	const { addStudent, updateStudent, students } = useStudentStore();
+	const { addStudent, updateStudent, deleteStudent, students } = useStudentStore();
 	const { courses, getCourseById } = useCourseStore();
 	const { enrollments, addEnrollment, deleteEnrollment, updateEnrollment } =
 		useEnrollmentStore();
@@ -506,23 +506,48 @@ const StudentForm: React.FC<StudentFormProps> = ({
 		};
 	};
 
+	const handleDelete = () => {
+		if (!editingStudent) return;
+		const name = editingStudent.name;
+		const id = editingStudent.id;
+		Modal.confirm({
+			title: "수강생을 삭제하시겠습니까?",
+			content: `"${name}" 수강생을 삭제합니다.`,
+			okText: "삭제",
+			okType: "danger",
+			cancelText: "취소",
+			async onOk() {
+				await deleteStudent(id);
+				message.success("수강생이 삭제되었습니다.");
+				onClose();
+			},
+		});
+	};
+
 	return (
 		<Modal
 			title={editingStudent ? "수강생 정보 수정" : "수강생 등록"}
 			open={visible}
 			onCancel={onClose}
-			width={640}
+			width={560}
 			style={{ top: 40, paddingBottom: 40 }}
-			footer={[
-				<Button key="cancel" onClick={onClose}>
-					취소
-				</Button>,
-				<Button key="submit" type="primary" onClick={handleSubmit}>
-					{editingStudent ? "수정" : "등록"}
-				</Button>,
-			]}
+			footer={
+				<div style={{ display: "flex", justifyContent: editingStudent ? "space-between" : "flex-end" }}>
+					{editingStudent && (
+						<Button danger onClick={handleDelete}>
+							삭제
+						</Button>
+					)}
+					<div style={{ display: "flex", gap: 8 }}>
+						<Button onClick={onClose}>취소</Button>
+						<Button type="primary" onClick={handleSubmit}>
+							{editingStudent ? "수정" : "등록"}
+						</Button>
+					</div>
+				</div>
+			}
 		>
-			<Form form={form} layout="vertical">
+			<Form form={form} layout="vertical" size="small">
 				{selectedExistingStudent && (
 					<Alert
 						message={`기존 수강생 "${selectedExistingStudent.name}" (${selectedExistingStudent.phone})의 정보를 수정합니다.`}
@@ -536,16 +561,18 @@ const StudentForm: React.FC<StudentFormProps> = ({
 							form.resetFields();
 							setNameSearch("");
 						}}
-						style={{ marginBottom: 16 }}
+						style={{ marginBottom: 12 }}
 					/>
 				)}
 
-				<Row gutter={16} align="bottom">
-					<Col span={appConfig.enableMemberFeature ? 10 : 12}>
+				{/* 기본 정보 */}
+				<Row gutter={12} align="bottom">
+					<Col flex="1">
 						<Form.Item
 							name="name"
 							label="이름"
 							rules={[{ required: true, message: "이름을 입력하세요" }]}
+							style={{ marginBottom: 12 }}
 						>
 							<AutoComplete
 								options={nameOptions}
@@ -554,17 +581,18 @@ const StudentForm: React.FC<StudentFormProps> = ({
 							>
 								<Input
 									ref={nameInputRef}
-									placeholder="예: 김철수"
+									placeholder="김철수"
 									onPressEnter={() => phoneInputRef.current?.focus()}
 								/>
 							</AutoComplete>
 						</Form.Item>
 					</Col>
-					<Col span={appConfig.enableMemberFeature ? 10 : 12}>
+					<Col flex="1">
 						<Form.Item
 							name="phone"
 							label="전화번호"
 							rules={[{ required: true, message: "전화번호를 입력하세요" }]}
+							style={{ marginBottom: 12 }}
 						>
 							<Input
 								ref={phoneInputRef}
@@ -575,9 +603,19 @@ const StudentForm: React.FC<StudentFormProps> = ({
 							/>
 						</Form.Item>
 					</Col>
+					<Col flex="none" style={{ width: 100 }}>
+						<Form.Item name="birthDate" label="생년월일" style={{ marginBottom: 12 }}>
+							<Input
+								ref={birthDateInputRef}
+								placeholder="630201"
+								maxLength={6}
+								onPressEnter={() => addressInputRef.current?.focus()}
+							/>
+						</Form.Item>
+					</Col>
 					{appConfig.enableMemberFeature && (
-						<Col span={4}>
-							<Form.Item name="isMember" valuePropName="checked">
+						<Col flex="none">
+							<Form.Item name="isMember" valuePropName="checked" style={{ marginBottom: 12 }}>
 								<Switch
 									checkedChildren="회원"
 									unCheckedChildren="비회원"
@@ -588,30 +626,35 @@ const StudentForm: React.FC<StudentFormProps> = ({
 					)}
 				</Row>
 
-				<Row gutter={16}>
-					<Col span={12}>
-						<Form.Item name="birthDate" label="생년월일">
-							<Input
-								ref={birthDateInputRef}
-								placeholder="630201"
-								maxLength={6}
-								onPressEnter={() => addressInputRef.current?.focus()}
-							/>
-						</Form.Item>
-					</Col>
-				</Row>
-
 				{!appConfig.hideAddressField && (
-				<Form.Item name="address" label="주소">
-					<Input
-						ref={addressInputRef}
-						placeholder="예: 서울시 강남구"
-						onPressEnter={() => notesInputRef.current?.focus()}
-					/>
-				</Form.Item>
+					<Form.Item name="address" label="주소" style={{ marginBottom: 12 }}>
+						<Input
+							ref={addressInputRef}
+							placeholder="서울시 강남구"
+							onPressEnter={() => notesInputRef.current?.focus()}
+						/>
+					</Form.Item>
 				)}
 
-				<Form.Item label="강좌 신청">
+				<Form.Item name="notes" label="메모" style={{ marginBottom: 16 }}>
+					<TextArea
+						ref={notesInputRef}
+						rows={2}
+						placeholder="추가 정보"
+						onKeyDown={(e) => {
+							if (e.key === "Enter" && !e.shiftKey) {
+								e.preventDefault();
+								handleSubmit();
+							}
+						}}
+					/>
+				</Form.Item>
+
+				{/* 구분선 */}
+				<div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, margin: "0 0 12px" }} />
+
+				{/* 강좌 */}
+				<Form.Item label="강좌 신청" style={{ marginBottom: coursePayments.length > 0 ? 8 : 0 }}>
 					<Select
 						key={courseSelectKey}
 						placeholder="강좌를 선택하세요"
@@ -653,15 +696,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 				</Form.Item>
 
 				{coursePayments.length > 0 && (
-					<div
-						style={{
-							marginBottom: 16,
-							padding: 12,
-							backgroundColor: token.colorFillQuaternary,
-							borderRadius: token.borderRadius,
-						}}
-					>
-						<div style={{ marginBottom: 8, fontWeight: 500 }}>선택된 강좌</div>
+					<div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 }}>
 						{coursePayments.map((cp) => {
 							const course = getCourseById(cp.courseId);
 							if (!course) return null;
@@ -670,49 +705,31 @@ const StudentForm: React.FC<StudentFormProps> = ({
 								<div
 									key={cp.courseId}
 									style={{
-										marginBottom: 12,
-										padding: 10,
-										backgroundColor: token.colorBgContainer,
+										padding: "8px 10px",
+										backgroundColor: token.colorFillQuaternary,
 										borderRadius: token.borderRadius,
 										border: `1px solid ${token.colorBorderSecondary}`,
 									}}
 								>
-									{/* 1행: 강좌명 + 금액 + 삭제 */}
-									<div
-										style={{
-											display: "flex",
-											alignItems: "center",
-											justifyContent: "space-between",
-											marginBottom: 8,
-										}}
-									>
-										<div>
-											<span style={{ fontWeight: 500 }}>{course.name}</span>
+									{/* 헤더: 강좌명 + 금액 + 삭제 */}
+									<div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+										<div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+											<span style={{ fontWeight: 600, fontSize: 13 }}>{course.name}</span>
 											{cp.isExempt ? (
-												<Tag color="purple" style={{ marginLeft: 8 }}>
-													면제
-												</Tag>
+												<Tag color="purple" style={{ margin: 0 }}>면제</Tag>
 											) : cp.discountAmount > 0 ? (
 												<>
-													<Tag color="blue" style={{ marginLeft: 8 }}>
-														₩{effectiveFee.toLocaleString()}
-													</Tag>
-													<span
-														style={{
-															fontSize: 11,
-															color: token.colorTextSecondary,
-														}}
-													>
-														(정가 ₩{course.fee.toLocaleString()})
+													<Tag color="blue" style={{ margin: 0 }}>₩{effectiveFee.toLocaleString()}</Tag>
+													<span style={{ fontSize: 11, color: token.colorTextQuaternary, textDecoration: "line-through" }}>
+														₩{course.fee.toLocaleString()}
 													</span>
 												</>
 											) : (
-												<Tag color="blue" style={{ marginLeft: 8 }}>
-													₩{course.fee.toLocaleString()}
-												</Tag>
+												<Tag color="blue" style={{ margin: 0 }}>₩{course.fee.toLocaleString()}</Tag>
 											)}
 										</div>
 										<Button
+											type="text"
 											size="small"
 											danger
 											icon={<DeleteOutlined />}
@@ -722,23 +739,8 @@ const StudentForm: React.FC<StudentFormProps> = ({
 
 									{/* 수강등록월 (분기 시스템) */}
 									{appConfig.enableQuarterSystem && (
-										<div
-											style={{
-												display: "flex",
-												alignItems: "center",
-												gap: 8,
-												marginBottom: 8,
-											}}
-										>
-											<span
-												style={{
-													fontSize: 12,
-													color: token.colorTextSecondary,
-													minWidth: 32,
-												}}
-											>
-												등록월
-											</span>
+										<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+											<span style={{ fontSize: 12, color: token.colorTextSecondary, width: 44 }}>등록월</span>
 											<Checkbox.Group
 												value={cp.enrolledMonths || []}
 												onChange={(values) =>
@@ -754,92 +756,48 @@ const StudentForm: React.FC<StudentFormProps> = ({
 										</div>
 									)}
 
-									{/* 2행: 납부 금액 + 완납/미납 */}
-									<div
-										style={{
-											display: "flex",
-											alignItems: "center",
-											gap: 8,
-											marginBottom: 8,
-										}}
-									>
-										<span
-											style={{
-												fontSize: 12,
-												color: token.colorTextSecondary,
-												minWidth: 32,
-											}}
-										>
-											납부
-										</span>
+									{/* 납부 */}
+									<div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+										<span style={{ fontSize: 12, color: token.colorTextSecondary, width: 44 }}>납부</span>
 										<InputNumber
 											value={cp.paidAmount}
-											onChange={(value) =>
-												handlePaymentChange(cp.courseId, value || 0)
-											}
+											onChange={(value) => handlePaymentChange(cp.courseId, value || 0)}
 											min={0}
 											max={effectiveFee}
 											size="small"
-											formatter={(value) =>
-												`₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-											}
-											parser={(value) =>
-												(Number(value?.replace(/₩\s?|(,*)/g, "")) || 0) as any
-											}
-											style={{ width: 130 }}
+											formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+											parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, "")) || 0) as any}
+											style={{ width: 120 }}
 											disabled={cp.isExempt}
 										/>
-										<Button
-											size="small"
-											onClick={() =>
-												handlePaymentChange(cp.courseId, effectiveFee)
-											}
-											disabled={cp.isExempt}
-										>
-											완납
-										</Button>
-										<Button
-											size="small"
-											onClick={() => handlePaymentChange(cp.courseId, 0)}
-											disabled={cp.isExempt}
-										>
-											미납
-										</Button>
+										<Button size="small" onClick={() => handlePaymentChange(cp.courseId, effectiveFee)} disabled={cp.isExempt}>완납</Button>
+										<Button size="small" onClick={() => handlePaymentChange(cp.courseId, 0)} disabled={cp.isExempt}>미납</Button>
+										<div style={{ marginLeft: "auto" }}>
+											<Radio.Group
+												size="small"
+												value={cp.paymentMethod}
+												onChange={(e) => handlePaymentMethodChange(cp.courseId, e.target.value)}
+												disabled={cp.isExempt}
+											>
+												<Radio.Button value="cash">현금</Radio.Button>
+												<Radio.Button value="card">카드</Radio.Button>
+												<Radio.Button value="transfer">이체</Radio.Button>
+											</Radio.Group>
+										</div>
 									</div>
 
-									{/* 3행: 할인 + 면제 + 납부방법 (통일된 레이아웃) */}
-									<div
-										style={{
-											display: "flex",
-											alignItems: "center",
-											gap: 8,
-											flexWrap: "wrap",
-										}}
-									>
-										<span
-											style={{
-												fontSize: 12,
-												color: token.colorTextSecondary,
-												minWidth: 32,
-											}}
-										>
-											할인
-										</span>
+									{/* 할인 + 면제 */}
+									<div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+										<span style={{ fontSize: 12, color: token.colorTextSecondary, width: 44 }}>할인</span>
 										<InputNumber
 											value={cp.discountAmount}
-											onChange={(value) =>
-												handleDiscountChange(cp.courseId, value || 0)
-											}
+											onChange={(value) => handleDiscountChange(cp.courseId, value || 0)}
 											min={0}
 											max={course.fee}
 											size="small"
-											formatter={(value) =>
-												`₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-											}
-											parser={(value) =>
-												(Number(value?.replace(/₩\s?|(,*)/g, "")) || 0) as any
-											}
-											style={{ width: 130 }}
+											formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+											parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, "")) || 0) as any}
+											style={{ width: 120 }}
 											disabled={cp.isExempt}
 										/>
 										<Button
@@ -850,32 +808,13 @@ const StudentForm: React.FC<StudentFormProps> = ({
 										>
 											면제
 										</Button>
-										<div style={{ marginLeft: "auto" }}>
-											<Radio.Group
-												size="small"
-												value={cp.paymentMethod}
-												onChange={(e) =>
-													handlePaymentMethodChange(cp.courseId, e.target.value)
-												}
-												disabled={cp.isExempt}
-											>
-												<Radio.Button value="cash">현금</Radio.Button>
-												<Radio.Button value="card">카드</Radio.Button>
-												<Radio.Button value="transfer">이체</Radio.Button>
-											</Radio.Group>
-										</div>
 									</div>
 								</div>
 							);
 						})}
-						<div
-							style={{
-								marginTop: 8,
-								textAlign: "right",
-								color: token.colorTextSecondary,
-								fontSize: 13,
-							}}
-						>
+
+						{/* 합계 */}
+						<div style={{ textAlign: "right", color: token.colorTextSecondary, fontSize: 12, padding: "2px 4px" }}>
 							총 납부: ₩
 							{coursePayments
 								.filter((cp) => !cp.isExempt)
@@ -888,20 +827,6 @@ const StudentForm: React.FC<StudentFormProps> = ({
 						</div>
 					</div>
 				)}
-
-				<Form.Item name="notes" label="메모">
-					<TextArea
-						ref={notesInputRef}
-						rows={2}
-						placeholder="추가 정보를 입력하세요"
-						onKeyDown={(e) => {
-							if (e.key === "Enter" && !e.shiftKey) {
-								e.preventDefault();
-								handleSubmit();
-							}
-						}}
-					/>
-				</Form.Item>
 			</Form>
 		</Modal>
 	);

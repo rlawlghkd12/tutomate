@@ -18,14 +18,16 @@ const { useToken } = theme;
 
 import {
 	CalendarOutlined,
+	DeleteOutlined,
 	DownloadOutlined,
+	EditOutlined,
 	FileExcelOutlined,
 	FileTextOutlined,
 	TeamOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
-import { BulkPaymentForm, MonthlyPaymentTable, PaymentForm } from "@tutomate/ui";
+import { BulkPaymentForm, CourseForm, MonthlyPaymentTable, PaymentForm } from "@tutomate/ui";
 import {
 	useCourseStore,
 	useEnrollmentStore,
@@ -49,7 +51,8 @@ const CourseDetailPage: React.FC = () => {
 	const { token } = useToken();
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
-	const { getCourseById, loadCourses } = useCourseStore();
+	const { getCourseById, loadCourses, deleteCourse } = useCourseStore();
+	const { getEnrollmentCountByCourseId } = useEnrollmentStore();
 	const { loadStudents, getStudentById } = useStudentStore();
 	const { enrollments, loadEnrollments, deleteEnrollment } =
 		useEnrollmentStore();
@@ -67,6 +70,7 @@ const CourseDetailPage: React.FC = () => {
 	);
 
 	const [activeTab, setActiveTab] = useState<string>("students");
+	const [isCourseEditVisible, setIsCourseEditVisible] = useState(false);
 
 	useEffect(() => {
 		loadCourses();
@@ -98,6 +102,25 @@ const CourseDetailPage: React.FC = () => {
 	const completedPayments = courseEnrollments.filter(
 		(e) => e.paymentStatus === "completed",
 	).length;
+
+	const handleDeleteCourse = () => {
+		if (!course) return;
+		const studentCount = getEnrollmentCountByCourseId(course.id);
+		Modal.confirm({
+			title: studentCount > 0 ? "수강생이 있는 강좌입니다!" : "강좌를 삭제하시겠습니까?",
+			content: studentCount > 0
+				? `"${course.name}" 강좌에 ${studentCount}명의 수강생이 있습니다. 삭제 시 수강 기록도 함께 삭제됩니다.`
+				: `"${course.name}" 강좌를 삭제합니다.`,
+			okText: "삭제",
+			okType: "danger",
+			cancelText: "취소",
+			async onOk() {
+				await deleteCourse(course.id);
+				message.success("강좌가 삭제되었습니다.");
+				navigate("/courses");
+			},
+		});
+	};
 
 	const handleRemoveStudent = async (enrollmentId: string) => {
 		await deleteEnrollment(enrollmentId);
@@ -256,14 +279,31 @@ const CourseDetailPage: React.FC = () => {
 					<span style={{ color: token.colorTextQuaternary, fontSize: 12 }}>/</span>
 					<span style={{ fontSize: 15, fontWeight: 600 }}>{course.name}</span>
 				</div>
-				<Button
-					size="small"
-					icon={<DownloadOutlined />}
-					onClick={() => setIsExportModalVisible(true)}
-					disabled={courseEnrollments.length === 0}
-				>
-					내보내기
-				</Button>
+				<Space size="small">
+					<Button
+						size="small"
+						icon={<DownloadOutlined />}
+						onClick={() => setIsExportModalVisible(true)}
+						disabled={courseEnrollments.length === 0}
+					>
+						내보내기
+					</Button>
+					<Button
+						size="small"
+						icon={<EditOutlined />}
+						onClick={() => setIsCourseEditVisible(true)}
+					>
+						수정
+					</Button>
+					<Button
+						size="small"
+						danger
+						icon={<DeleteOutlined />}
+						onClick={handleDeleteCourse}
+					>
+						삭제
+					</Button>
+				</Space>
 			</div>
 
 			{/* 부가 정보 + 통계 — 한 줄 */}
@@ -489,6 +529,12 @@ const CourseDetailPage: React.FC = () => {
 					</Button>
 				</div>
 			</Modal>
+
+			<CourseForm
+				visible={isCourseEditVisible}
+				onClose={() => setIsCourseEditVisible(false)}
+				course={course}
+			/>
 		</div>
 	);
 };
