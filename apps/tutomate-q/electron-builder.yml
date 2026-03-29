@@ -17,6 +17,7 @@ publish:
   channel: q-latest
 
 mac:
+  artifactName: "TutorMate-Q-${version}-${arch}-mac.${ext}"
   category: public.app-category.education
   icon: ../../packages/electron-shared/build/icon.icns
   target:
@@ -35,6 +36,7 @@ win:
         - x64
 
 nsis:
+  artifactName: "TutorMate-Q-Setup-${version}.${ext}"
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true

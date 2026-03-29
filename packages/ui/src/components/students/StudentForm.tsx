@@ -96,6 +96,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 				isExempt: e.paymentStatus === "exempt",
 				paymentMethod: e.paymentMethod,
 				discountAmount: e.discountAmount ?? 0,
+				enrolledMonths: e.enrolledMonths,
 			}));
 			setCoursePayments(payments);
 			setSelectedExistingStudent(null);
@@ -168,6 +169,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 				isExempt: e.paymentStatus === "exempt",
 				paymentMethod: e.paymentMethod,
 				discountAmount: e.discountAmount ?? 0,
+				enrolledMonths: e.enrolledMonths,
 			})),
 		);
 
@@ -322,11 +324,13 @@ const StudentForm: React.FC<StudentFormProps> = ({
 					const effectiveFee = course.fee - (cp.discountAmount || 0);
 					if (existing) {
 						const existingIsExempt = existing.paymentStatus === "exempt";
+						const needsQuarter = appConfig.enableQuarterSystem && !existing.quarter;
 						if (
 							existing.paidAmount !== cp.paidAmount ||
 							existingIsExempt !== cp.isExempt ||
 							existing.paymentMethod !== cp.paymentMethod ||
-							(existing.discountAmount ?? 0) !== cp.discountAmount
+							(existing.discountAmount ?? 0) !== cp.discountAmount ||
+							needsQuarter
 						) {
 							const hasPaid = !cp.isExempt && cp.paidAmount > 0;
 							await updateEnrollment(existing.id, {
@@ -336,6 +340,10 @@ const StudentForm: React.FC<StudentFormProps> = ({
 								paidAt: hasPaid ? dayjs().format("YYYY-MM-DD") : undefined,
 								paymentMethod: cp.paymentMethod,
 								discountAmount: cp.discountAmount,
+								...(needsQuarter && {
+									quarter: getCurrentQuarter(),
+									enrolledMonths: cp.enrolledMonths || getQuarterMonths(getCurrentQuarter()),
+								}),
 							});
 						}
 					} else {
