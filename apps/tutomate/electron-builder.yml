@@ -39,6 +39,7 @@ win:
         - x64
 
 nsis:
+  artifactName: "TutorMate-Setup-${version}.${ext}"
   oneClick: true
   perMachine: false
   language: 1042

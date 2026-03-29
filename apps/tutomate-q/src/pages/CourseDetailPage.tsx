@@ -90,7 +90,7 @@ const CourseDetailPage: React.FC = () => {
 
 	const course = id ? getCourseById(id) : undefined;
 	const courseEnrollments = appConfig.enableQuarterSystem
-		? enrollments.filter((e) => e.courseId === id && e.quarter === selectedQuarter)
+		? enrollments.filter((e) => e.courseId === id && (e.quarter === selectedQuarter || !e.quarter))
 		: enrollments.filter((e) => e.courseId === id);
 
 	const enrolledStudents = useMemo(() => {
