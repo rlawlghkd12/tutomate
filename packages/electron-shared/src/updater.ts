@@ -8,6 +8,7 @@ export function setupUpdater(mainWindow: BrowserWindow) {
   autoUpdater.logger = log;
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.disableDifferentialDownload = true;
 
   const send = (type: string, data?: any) => {
     mainWindow.webContents.send('update-event', type, data);
@@ -70,7 +71,10 @@ export function setupUpdater(mainWindow: BrowserWindow) {
   });
 
   ipcMain.handle('download-update', async () => {
-    await autoUpdater.downloadUpdate();
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Download timed out')), 5 * 60 * 1000),
+    );
+    await Promise.race([autoUpdater.downloadUpdate(), timeout]);
   });
 
   ipcMain.handle('install-update', () => {
