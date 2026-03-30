@@ -79,12 +79,14 @@ Deno.serve(async (req) => {
     }
 
     // 2. 새 trial 조직 생성
+    const trialLicenseKey = `TRIAL-${crypto.randomUUID()}`;
     const { data: newOrg, error: orgError } = await supabaseAdmin
       .from('organizations')
       .insert({
         name: '체험판',
         plan: 'trial',
         max_seats: 1,
+        license_key: trialLicenseKey,
       })
       .select('id')
       .single();

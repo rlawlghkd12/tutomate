@@ -657,7 +657,7 @@ describe('authStore', () => {
       expect(authStateCallback).toBeTypeOf('function');
     });
 
-    it('session null → state 전체 초기화', () => {
+    it('session null → session만 초기화 (organizationId/plan/isCloud 유지)', () => {
       useAuthStore.setState({
         session: fakeSession,
         organizationId: 'org-abc',
@@ -669,9 +669,10 @@ describe('authStore', () => {
 
       const state = useAuthStore.getState();
       expect(state.session).toBeNull();
-      expect(state.organizationId).toBeNull();
-      expect(state.plan).toBeNull();
-      expect(state.isCloud).toBe(false);
+      // organizationId/plan/isCloud는 deactivateCloud()에서만 초기화
+      expect(state.organizationId).toBe('org-abc');
+      expect(state.plan).toBe('basic');
+      expect(state.isCloud).toBe(true);
     });
 
     it('session 있음 → session만 업데이트', () => {

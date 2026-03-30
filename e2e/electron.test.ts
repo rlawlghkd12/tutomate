@@ -902,6 +902,91 @@ test.describe.serial('통합 시나리오 (수강 등록 + 대시보드 + 납부
   });
 });
 
+// ─── 새로고침 후 데이터 유지 ──────────────────────────────
+
+test.describe.serial('새로고침 후 데이터 유지 (체험판)', () => {
+  const ts = Date.now();
+  const refreshCourseName = `새로고침테스트_${ts}`;
+
+  test('테스트 강좌 생성', async () => {
+    await page.getByText('강좌 관리').first().click();
+    await page.waitForTimeout(1000);
+
+    await page.getByText('강좌 개설').first().click();
+    await page.waitForTimeout(500);
+
+    const modal = page.locator('.ant-modal').last();
+    await modal.locator('#name').fill(refreshCourseName);
+    await modal.locator('#classroom').fill('새로고침테스트실');
+    await modal.locator('#instructorName').fill('새로고침강사');
+    await modal.locator('#instructorPhone').fill('01099990000');
+    await modal.locator('#fee').fill('50000');
+    await modal.locator('#maxStudents').fill('10');
+
+    await modal.getByText('생성', { exact: true }).click();
+    await expect(modal).toBeHidden({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    const tableText = await page.locator('.ant-table-tbody').textContent();
+    expect(tableText).toContain(refreshCourseName);
+  });
+
+  test('페이지 새로고침 후 강좌 데이터 유지', async () => {
+    // 새로고침
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+    // 앱 재초기화 대기 (Supabase auth + org 조회)
+    await page.waitForTimeout(8000);
+
+    // Welcome 모달이 다시 뜨면 닫기
+    const trialButton = page.getByText('체험판으로 시작', { exact: false });
+    if (await trialButton.isVisible().catch(() => false)) {
+      await trialButton.click();
+      await page.waitForTimeout(1000);
+    }
+
+    // 강좌 관리로 이동
+    await page.getByText('강좌 관리').first().click();
+    await page.waitForTimeout(1500);
+
+    // 생성한 강좌가 여전히 존재해야 함
+    const tableText = await page.locator('.ant-table-tbody').textContent();
+    expect(tableText).toContain(refreshCourseName);
+  });
+
+  test('새로고침 후에도 동일 조직(org) 유지 확인', async () => {
+    // 설정 > 라이선스 탭에서 플랜 확인
+    await page.getByText('설정').first().click();
+    await page.waitForTimeout(1000);
+
+    await page.getByText('라이선스').first().click();
+    await page.waitForTimeout(500);
+
+    const body = await page.textContent('body');
+    // 체험판 상태 유지
+    expect(body).toContain('체험판');
+  });
+
+  test('정리 — 테스트 강좌 삭제', async () => {
+    await page.getByText('강좌 관리').first().click();
+    await page.waitForTimeout(1000);
+
+    const row = page.locator('tr', { hasText: refreshCourseName });
+    await row.locator('a').first().click();
+    await page.waitForTimeout(1000);
+
+    await page.locator('.ant-btn-dangerous', { hasText: '삭제' }).first().click();
+    await page.waitForTimeout(500);
+
+    const confirmModal = page.locator('.ant-modal-confirm');
+    await confirmModal.locator('.ant-modal-confirm-btns .ant-btn-dangerous').click();
+    await page.waitForTimeout(2000);
+
+    const tableText = await page.locator('.ant-table-tbody').textContent();
+    expect(tableText).not.toContain(refreshCourseName);
+  });
+});
+
 // ─── 폼 validation ────────────────────────────────────────
 
 test.describe('폼 validation', () => {
