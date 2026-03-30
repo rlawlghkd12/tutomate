@@ -83,6 +83,8 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
           setDownloadProgress(Math.min(data.percent, 100));
         } else if (type === 'update-downloaded') {
           setDownloadProgress(100);
+        } else if (type === 'error') {
+          logError('Update download error event', { error: data?.message });
         }
       });
 
