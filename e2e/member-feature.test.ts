@@ -141,7 +141,7 @@ test.describe.serial('회원 기능 테스트 (tutomate-q)', () => {
   // 5. 수강생 수정 모달에서 isMember 로드 확인
   test('수정 모달에서 회원 상태 유지됨', async () => {
     const row = page.locator('tr', { hasText: memberName });
-    await row.getByText('수정').click();
+    await row.locator('a').first().click();
     await page.waitForTimeout(500);
 
     const modal = page.locator('.ant-modal').last();
@@ -171,7 +171,7 @@ test.describe.serial('회원 기능 테스트 (tutomate-q)', () => {
     await page.getByText('수강생 등록').first().click();
     await page.waitForTimeout(1000);
 
-    const modal = page.locator('.ant-modal').last();
+    const modal = page.locator('.ant-modal-wrap').filter({ has: page.locator('.ant-modal-title', { hasText: '수강생 등록' }) }).locator('.ant-modal');
     await modal.locator('#name').fill(nonMemberName);
     await modal.locator('#phone').fill('01066665555');
 
@@ -201,9 +201,12 @@ test.describe.serial('회원 기능 테스트 (tutomate-q)', () => {
     });
     await page.waitForTimeout(1000);
 
-    // 비회원 수강생 삭제 (정리)
-    const row = page.locator('tr', { hasText: nonMemberName });
-    await row.getByText('삭제').click();
+    // 비회원 수강생 삭제 (정리) — 이름 클릭 → 수정 모달 → 삭제
+    const delRow = page.locator('tr', { hasText: nonMemberName });
+    await delRow.locator('a').first().click();
+    await page.waitForTimeout(500);
+    const delModal = page.locator('.ant-modal-wrap:visible .ant-modal');
+    await delModal.locator('.ant-btn-dangerous', { hasText: '삭제' }).click();
     await page.waitForTimeout(500);
     const confirmModal = page.locator('.ant-modal-confirm');
     await confirmModal.locator('.ant-modal-confirm-btns .ant-btn-dangerous').click();
@@ -213,7 +216,11 @@ test.describe.serial('회원 기능 테스트 (tutomate-q)', () => {
   // 7. 정리 — 회원 수강생 삭제
   test('정리 — 회원 수강생 삭제', async () => {
     const row = page.locator('tr', { hasText: memberName });
-    await row.getByText('삭제').click();
+    await row.locator('a').first().click();
+    await page.waitForTimeout(500);
+
+    const modal = page.locator('.ant-modal').last();
+    await modal.locator('.ant-btn-dangerous', { hasText: '삭제' }).click();
     await page.waitForTimeout(500);
 
     const confirmModal = page.locator('.ant-modal-confirm');
@@ -221,13 +228,16 @@ test.describe.serial('회원 기능 테스트 (tutomate-q)', () => {
     await page.waitForTimeout(2000);
   });
 
-  // 8. 정리 — 강좌 삭제
+  // 8. 정리 — 강좌 삭제 (이름 클릭 → 상세 → 삭제)
   test('정리 — 강좌 삭제', async () => {
     await page.getByText('강좌 관리').first().click();
     await page.waitForTimeout(1000);
 
     const row = page.locator('tr', { hasText: courseName });
-    await row.getByText('삭제').click();
+    await row.locator('a').first().click();
+    await page.waitForTimeout(1000);
+
+    await page.locator('.ant-btn-dangerous', { hasText: '삭제' }).first().click();
     await page.waitForTimeout(500);
 
     const confirmModal = page.locator('.ant-modal-confirm');

@@ -289,9 +289,13 @@ test.describe.serial('강좌 CRUD (실제 데이터)', () => {
   });
 
   test('강좌 삭제', async () => {
-    // 해당 강좌 행의 삭제 버튼 클릭 → Modal.confirm 열림
+    // 강좌 이름 클릭 → 상세 페이지 이동
     const row = page.locator('tr', { hasText: testCourseName });
-    await row.getByText('삭제').click();
+    await row.locator('a').first().click();
+    await page.waitForTimeout(1000);
+
+    // 상세 페이지에서 삭제 버튼 클릭 → Modal.confirm 열림
+    await page.locator('.ant-btn-dangerous', { hasText: '삭제' }).first().click();
     await page.waitForTimeout(500);
 
     // Modal.confirm의 "삭제" 버튼 클릭
@@ -299,7 +303,7 @@ test.describe.serial('강좌 CRUD (실제 데이터)', () => {
     await confirmModal.locator('.ant-modal-confirm-btns .ant-btn-dangerous').click();
     await page.waitForTimeout(2000);
 
-    // 삭제 확인 — 테이블에서 사라졌는지 (body 전체가 아닌 테이블만 확인)
+    // 강좌 목록으로 자동 이동 — 삭제 확인
     const tableText = await page.locator('.ant-table-tbody').textContent();
     expect(tableText).not.toContain(testCourseName);
   });
@@ -442,8 +446,12 @@ test.describe.serial('종료된 강좌 탭 분리', () => {
     await page.getByText('종료된 강좌').first().click();
     await page.waitForTimeout(500);
 
+    // 강좌 이름 클릭 → 상세 페이지 이동
     const row = page.locator('tr', { hasText: endedCourseName });
-    await row.getByText('삭제').click();
+    await row.locator('a').first().click();
+    await page.waitForTimeout(1000);
+
+    await page.locator('.ant-btn-dangerous', { hasText: '삭제' }).first().click();
     await page.waitForTimeout(500);
 
     const confirmModal = page.locator('.ant-modal-confirm');
@@ -452,11 +460,16 @@ test.describe.serial('종료된 강좌 탭 분리', () => {
   });
 
   test('정리 — 진행 강좌 삭제', async () => {
+    // 강좌 목록으로 돌아온 후 현재 강좌 탭
     await page.getByText('현재 강좌').first().click();
     await page.waitForTimeout(500);
 
+    // 강좌 이름 클릭 → 상세 페이지 이동
     const row = page.locator('tr', { hasText: activeCourseName });
-    await row.getByText('삭제').click();
+    await row.locator('a').first().click();
+    await page.waitForTimeout(1000);
+
+    await page.locator('.ant-btn-dangerous', { hasText: '삭제' }).first().click();
     await page.waitForTimeout(500);
 
     const confirmModal = page.locator('.ant-modal-confirm');
@@ -524,9 +537,14 @@ test.describe.serial('수강생 CRUD (실제 데이터)', () => {
       await page.waitForTimeout(500);
     }
 
-    // 해당 행의 삭제 버튼 클릭 → Modal.confirm 열림
+    // 수강생 이름 클릭 → 수정 모달 열기
     const row = page.locator('tr', { hasText: testStudentName });
-    await row.getByText('삭제').click();
+    await row.locator('a').first().click();
+    await page.waitForTimeout(500);
+
+    // 모달 하단의 삭제 버튼 클릭 → Modal.confirm 열림
+    const modal = page.locator('.ant-modal').last();
+    await modal.locator('.ant-btn-dangerous', { hasText: '삭제' }).click();
     await page.waitForTimeout(500);
 
     // Modal.confirm의 "삭제" 버튼 클릭
@@ -595,19 +613,20 @@ test.describe.serial('통합 시나리오 (수강 등록 + 대시보드 + 납부
     expect(tableText).toContain(studentName);
   });
 
-  // ── 3. 강좌 신청 (StudentList의 강좌 신청 버튼 → EnrollmentForm) ──
+  // ── 3. 강좌 신청 (수강생 이름 클릭 → StudentForm 모달 → 강좌 추가) ──
   test('수강생에 강좌 수강 등록', async () => {
-    // 해당 수강생 행의 "강좌 신청" 버튼 클릭
+    // 수강생 이름 클릭 → 수정 모달 열기
     const row = page.locator('tr', { hasText: studentName });
-    await row.getByText('강좌 신청').click();
+    await row.locator('a').first().click();
     await page.waitForTimeout(500);
 
-    // EnrollmentForm 모달
+    // StudentForm 모달
     const modal = page.locator('.ant-modal').last();
     await expect(modal).toBeVisible();
 
-    // 강좌 선택 Select 클릭
-    await modal.locator('.ant-select').first().click();
+    // 강좌 Select 클릭
+    const courseSelect = modal.locator('.ant-select', { hasText: '강좌를 선택하세요' });
+    await courseSelect.click();
     await page.waitForTimeout(500);
 
     // 드롭다운에서 해당 강좌 선택
@@ -622,8 +641,8 @@ test.describe.serial('통합 시나리오 (수강 등록 + 대시보드 + 납부
       await page.waitForTimeout(300);
     }
 
-    // 신청 버튼 클릭
-    await modal.getByText('신청', { exact: true }).click();
+    // 수정 버튼 클릭 (기존 수강생 편집)
+    await modal.getByText('수정', { exact: true }).click();
     await expect(modal).toBeHidden({ timeout: 5000 }).catch(async () => {
       await page.keyboard.press('Escape');
       await page.waitForTimeout(500);
@@ -671,7 +690,7 @@ test.describe.serial('통합 시나리오 (수강 등록 + 대시보드 + 납부
 
     // 강좌 행의 "상세" 버튼 클릭하여 상세 이동
     const row = page.locator('tr', { hasText: courseName }).last();
-    await row.getByText('상세').click();
+    await row.locator('a').first().click();
     await page.waitForTimeout(1500);
 
     // 수강생 수가 1명 이상으로 표시
@@ -777,7 +796,7 @@ test.describe.serial('통합 시나리오 (수강 등록 + 대시보드 + 납부
 
     // 강좌 상세 진입
     const row = page.locator('tr', { hasText: courseName }).last();
-    await row.getByText('상세').click();
+    await row.locator('a').first().click();
     await page.waitForTimeout(1500);
 
     // 납부 관리 버튼 클릭
@@ -834,8 +853,13 @@ test.describe.serial('통합 시나리오 (수강 등록 + 대시보드 + 납부
       await page.waitForTimeout(500);
     }
 
+    // 수강생 이름 클릭 → 수정 모달 → 삭제
     const row = page.locator('tr', { hasText: studentName });
-    await row.getByText('삭제').click();
+    await row.locator('a').first().click();
+    await page.waitForTimeout(500);
+
+    const modal = page.locator('.ant-modal').last();
+    await modal.locator('.ant-btn-dangerous', { hasText: '삭제' }).click();
     await page.waitForTimeout(500);
 
     const confirmModal = page.locator('.ant-modal-confirm');
@@ -850,14 +874,19 @@ test.describe.serial('통합 시나리오 (수강 등록 + 대시보드 + 납부
     await page.getByText('강좌 관리').first().click();
     await page.waitForTimeout(1000);
 
+    // 강좌 이름 클릭 → 상세 페이지 → 삭제
     const row = page.locator('tr', { hasText: courseName });
-    await row.getByText('삭제').click();
+    await row.locator('a').first().click();
+    await page.waitForTimeout(1000);
+
+    await page.locator('.ant-btn-dangerous', { hasText: '삭제' }).first().click();
     await page.waitForTimeout(500);
 
     const confirmModal = page.locator('.ant-modal-confirm');
     await confirmModal.locator('.ant-modal-confirm-btns .ant-btn-dangerous').click();
     await page.waitForTimeout(2000);
 
+    // 강좌 목록으로 자동 이동
     const tableText = await page.locator('.ant-table-tbody').textContent();
     expect(tableText).not.toContain(courseName);
   });
@@ -924,11 +953,15 @@ test.describe('강좌 수정', () => {
     await page.getByText('강좌 관리').first().click();
     await page.waitForTimeout(1000);
 
-    // 첫 번째 강좌의 수정 버튼 클릭
-    const firstRow = page.locator('tr').nth(1);
-    const editBtn = firstRow.getByText('수정');
-    if (await editBtn.isVisible().catch(() => false)) {
-      await editBtn.click();
+    // 강좌가 있는 경우만 테스트
+    const courseLink = page.locator('.ant-table-tbody tr').first().locator('a').first();
+    if (await courseLink.isVisible().catch(() => false)) {
+      // 강좌 이름 클릭 → 상세 페이지 이동
+      await courseLink.click();
+      await page.waitForTimeout(1000);
+
+      // 상세 페이지의 수정 버튼 클릭
+      await page.locator('button', { hasText: '수정' }).first().click();
       await page.waitForTimeout(500);
 
       const modal = page.locator('.ant-modal').last();
@@ -944,6 +977,8 @@ test.describe('강좌 수정', () => {
 
       await page.keyboard.press('Escape');
       await page.waitForTimeout(300);
+      await page.goBack();
+      await page.waitForTimeout(500);
     }
   });
 });

@@ -105,9 +105,9 @@ test.describe.serial('분기별 수강 관리 테스트 (tutomate-q)', () => {
     await page.getByText('강좌 관리').first().click();
     await page.waitForTimeout(1000);
 
-    // 강좌 행의 "상세" 버튼 클릭
+    // 강좌 이름 클릭 → 상세 페이지 이동
     const courseRow = page.locator('tr', { hasText: courseName });
-    await courseRow.getByText('상세').click();
+    await courseRow.locator('a').first().click();
     await page.waitForTimeout(1500);
 
     // 분기 Select가 보이는지 확인 (수강생 관리 탭 내부)
@@ -131,7 +131,7 @@ test.describe.serial('분기별 수강 관리 테스트 (tutomate-q)', () => {
 
     // 분기별 컬럼 존재 확인
     expect(headerStr).toContain('회원');
-    expect(headerStr).toContain('수강등록월');
+    expect(headerStr).toContain('등록월');
     expect(headerStr).toContain('납부금액');
     expect(headerStr).toContain('납부방법');
     expect(headerStr).toContain('납부일자');
@@ -198,7 +198,9 @@ test.describe.serial('분기별 수강 관리 테스트 (tutomate-q)', () => {
       // 스크린샷: 다른 분기에서 수강생 없음
       await page.screenshot({ path: path.join(screenshotDir, 'quarter-05-different-quarter-empty.png'), fullPage: true });
 
-      // 원래 분기로 복원
+      // 툴팁 제거 후 원래 분기로 복원
+      await page.mouse.click(0, 0);
+      await page.waitForTimeout(300);
       await quarterSelect.click();
       await page.waitForTimeout(500);
       const restoreDropdown = page.locator('.ant-select-dropdown').last();
@@ -216,15 +218,15 @@ test.describe.serial('분기별 수강 관리 테스트 (tutomate-q)', () => {
     await page.getByText('수강생 관리').first().click();
     await page.waitForTimeout(1000);
 
-    // 수강생 행의 "강좌 신청" 버튼 클릭
+    // 수강생 이름 클릭 → 수정 모달 열기
     const row = page.locator('tr', { hasText: studentName });
-    await row.getByText('강좌 신청').click();
+    await row.locator('a').first().click();
     await page.waitForTimeout(500);
 
     const modal = page.locator('.ant-modal').last();
 
     // 강좌 선택
-    const courseSelect = modal.locator('.ant-select').first();
+    const courseSelect = modal.locator('.ant-select', { hasText: '강좌를 선택하세요' });
     await courseSelect.click();
     await page.waitForTimeout(500);
 
@@ -247,16 +249,27 @@ test.describe.serial('분기별 수강 관리 테스트 (tutomate-q)', () => {
     }
 
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(1000);
   });
 
-  // 8. 정리 — 수강생 삭제
+  // 8. 정리 — 수강생 삭제 (이름 클릭 → 수정 모달 → 삭제)
   test('정리 — 수강생 삭제', async () => {
+    // 이전 테스트의 모달이 남아있을 수 있으므로 닫기
+    const openModal = page.locator('.ant-modal-wrap:visible');
+    if (await openModal.count() > 0) {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(500);
+    }
+
     await page.getByText('수강생 관리').first().click();
     await page.waitForTimeout(1000);
 
     const row = page.locator('tr', { hasText: studentName });
-    await row.getByText('삭제').click();
+    await row.locator('a').first().click();
+    await page.waitForTimeout(500);
+
+    const modal = page.locator('.ant-modal').last();
+    await modal.locator('.ant-btn-dangerous', { hasText: '삭제' }).click();
     await page.waitForTimeout(500);
 
     const confirmModal = page.locator('.ant-modal-confirm');
@@ -264,13 +277,16 @@ test.describe.serial('분기별 수강 관리 테스트 (tutomate-q)', () => {
     await page.waitForTimeout(2000);
   });
 
-  // 9. 정리 — 강좌 삭제
+  // 9. 정리 — 강좌 삭제 (이름 클릭 → 상세 → 삭제)
   test('정리 — 강좌 삭제', async () => {
     await page.getByText('강좌 관리').first().click();
     await page.waitForTimeout(1000);
 
     const row = page.locator('tr', { hasText: courseName });
-    await row.getByText('삭제').click();
+    await row.locator('a').first().click();
+    await page.waitForTimeout(1000);
+
+    await page.locator('.ant-btn-dangerous', { hasText: '삭제' }).first().click();
     await page.waitForTimeout(500);
 
     const confirmModal = page.locator('.ant-modal-confirm');

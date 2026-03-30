@@ -25,8 +25,11 @@ async function getDeviceId(): Promise<string> {
   // Tauri(ioreg)는 대문자, node-machine-id는 소문자 반환 → 대문자로 통일
   machineId = machineId.toUpperCase();
 
+  // 앱별 고유 device_id: deviceIdKey를 접두사로 사용하여 Q/non-Q 분리
+  const raw = `${appConfig.deviceIdKey}:${machineId}`;
+
   const encoder = new TextEncoder();
-  const data = encoder.encode(machineId);
+  const data = encoder.encode(raw);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -129,6 +132,27 @@ export const useAuthStore = create<AuthStore>((set) => ({
           loading: false,
         });
         logInfo('Trial cloud activated', { data: { orgId: organizationId, isNewOrg } });
+      }
+
+      // 자동 재활성화: trial 상태인데 저장된 라이센스 키가 있으면 복구
+      const currentState = useAuthStore.getState();
+      if (currentState.plan === 'trial') {
+        try {
+          const stored = localStorage.getItem('app-license');
+          if (stored) {
+            const { licenseKey } = JSON.parse(stored) as { licenseKey: string };
+            if (licenseKey && /^TMK[HA]-/.test(licenseKey)) {
+              logInfo('Auto-reactivating stored license');
+              const result = await useAuthStore.getState().activateCloud(licenseKey);
+              if (result.status === 'invalid_key') {
+                logWarn('Stored license key is invalid, removing');
+                localStorage.removeItem('app-license');
+              }
+            }
+          }
+        } catch {
+          // 자동 재활성화 실패 → trial 유지
+        }
       }
     } catch (error) {
       logError('Failed to initialize auth', { error });

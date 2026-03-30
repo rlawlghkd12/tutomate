@@ -49,12 +49,19 @@ Deno.serve(async (req) => {
     // 1. 이미 조직에 속해있는지 확인
     const { data: existingLink } = await supabaseAdmin
       .from('user_organizations')
-      .select('organization_id')
+      .select('organization_id, device_id')
       .eq('user_id', user.id)
       .single();
 
     if (existingLink) {
-      // 이미 조직 있으면 해당 정보 반환
+      // device_id가 바뀌었으면 업데이트 (앱별 device_id 마이그레이션)
+      if (existingLink.device_id !== device_id) {
+        await supabaseAdmin
+          .from('user_organizations')
+          .update({ device_id })
+          .eq('user_id', user.id);
+      }
+
       const { data: orgData } = await supabaseAdmin
         .from('organizations')
         .select('plan')
@@ -71,107 +78,22 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. 같은 device_id로 등록된 기존 trial org 찾기
-    const { data: existingDevice } = await supabaseAdmin
-      .from('user_organizations')
-      .select('organization_id, user_id')
-      .eq('device_id', device_id)
-      .single();
-
-    if (existingDevice) {
-      // 같은 기기의 이전 trial org 발견 → user_id 교체
-      const oldUserId = existingDevice.user_id;
-
-      const { error: deleteError } = await supabaseAdmin
-        .from('user_organizations')
-        .delete()
-        .eq('user_id', oldUserId)
-        .eq('organization_id', existingDevice.organization_id);
-
-      if (deleteError) {
-        return new Response(
-          JSON.stringify({ error: 'link_failed' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        );
-      }
-
-      const { error: insertError } = await supabaseAdmin
-        .from('user_organizations')
-        .insert({
-          user_id: user.id,
-          organization_id: existingDevice.organization_id,
-          role: 'owner',
-          device_id,
-        });
-
-      if (insertError) {
-        // insert 실패 → 이전 레코드 복원
-        await supabaseAdmin
-          .from('user_organizations')
-          .insert({
-            user_id: oldUserId,
-            organization_id: existingDevice.organization_id,
-            role: 'owner',
-            device_id,
-          });
-        return new Response(
-          JSON.stringify({ error: 'link_failed' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        );
-      }
-
-      // 이전 익명 유저 삭제
-      if (oldUserId !== user.id) {
-        await supabaseAdmin.auth.admin.deleteUser(oldUserId);
-      }
-
-      const { data: orgData } = await supabaseAdmin
-        .from('organizations')
-        .select('plan')
-        .eq('id', existingDevice.organization_id)
-        .single();
-
-      return new Response(
-        JSON.stringify({
-          organization_id: existingDevice.organization_id,
-          is_new_org: false,
-          plan: orgData?.plan || 'trial',
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
-
-    // 3. 새 trial 조직 생성 (또는 기존 trial key로 찾기)
-    const trialKey = `TRAL-${device_id.slice(0, 4).toUpperCase()}-${device_id.slice(4, 8).toUpperCase()}-${device_id.slice(8, 12).toUpperCase()}`;
-
-    // 같은 license_key로 이미 org가 있으면 재사용
-    const { data: existingOrg } = await supabaseAdmin
+    // 2. 새 trial 조직 생성
+    const { data: newOrg, error: orgError } = await supabaseAdmin
       .from('organizations')
-      .select('id, plan')
-      .eq('license_key', trialKey)
+      .insert({
+        name: '체험판',
+        plan: 'trial',
+        max_seats: 1,
+      })
+      .select('id')
       .single();
 
-    let newOrg: { id: string } | null = existingOrg;
-
-    if (!existingOrg) {
-      const { data: createdOrg, error: orgError } = await supabaseAdmin
-        .from('organizations')
-        .insert({
-          name: '체험판',
-          plan: 'trial',
-          max_seats: 1,
-          license_key: trialKey,
-        })
-        .select('id')
-        .single();
-
-      if (orgError || !createdOrg) {
-        return new Response(
-          JSON.stringify({ error: 'org_creation_failed', details: orgError?.message || 'unknown' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        );
-      }
-      newOrg = createdOrg;
+    if (orgError || !newOrg) {
+      return new Response(
+        JSON.stringify({ error: 'org_creation_failed', details: orgError?.message || 'unknown' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
 
     // owner로 연결
