@@ -77,11 +77,18 @@ export const useAuthStore = create<AuthStore>((set) => ({
       }
 
       // 2. 기존 조직 연결 확인
-      const { data: orgLink } = await supabase
+      const { data: orgLink, error: orgLinkError } = await supabase
         .from('user_organizations')
         .select('organization_id')
         .eq('user_id', session.user.id)
         .single();
+
+      // 쿼리 실패(네트워크 등) vs "org 없음" 구분 — PGRST116은 "no rows"
+      if (orgLinkError && orgLinkError.code !== 'PGRST116') {
+        logError('Failed to query user_organizations', { error: orgLinkError });
+        set({ loading: false });
+        return;
+      }
 
       if (orgLink) {
         const { data: orgData } = await supabase
@@ -277,13 +284,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
 }));
 
 // 세션 변경 리스너 (모듈 로드 시 1회만 등록)
+// organizationId/plan/isCloud는 initialize()/activateCloud()/deactivateCloud()에서만 관리
 if (supabase) {
   supabase.auth.onAuthStateChange((_event, session) => {
-    if (!session) {
-      useAuthStore.setState({ session: null, organizationId: null, plan: null, isCloud: false });
-    } else {
-      useAuthStore.setState({ session });
-    }
+    useAuthStore.setState({ session });
   });
 }
 
