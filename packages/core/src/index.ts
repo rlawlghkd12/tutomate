@@ -25,6 +25,7 @@ export { useCourseStore } from './stores/courseStore';
 export { useStudentStore } from './stores/studentStore';
 export { useEnrollmentStore } from './stores/enrollmentStore';
 export { useMonthlyPaymentStore } from './stores/monthlyPaymentStore';
+export { usePaymentRecordStore } from './stores/paymentRecordStore';
 export { useLicenseStore, reloadAllStores } from './stores/licenseStore';
 export type { ActivateResult } from './stores/licenseStore';
 export { useLockStore } from './stores/lockStore';
@@ -82,12 +83,16 @@ export {
   mapMonthlyPaymentFromDb,
   mapMonthlyPaymentToDb,
   mapMonthlyPaymentUpdateToDb,
+  mapPaymentRecordFromDb,
+  mapPaymentRecordToDb,
+  mapPaymentRecordUpdateToDb,
 } from './utils/fieldMapper';
 export type {
   CourseRow,
   StudentRow,
   EnrollmentRow,
   MonthlyPaymentRow,
+  PaymentRecordRow,
 } from './utils/fieldMapper';
 
 export { formatPhone, parseBirthDate } from './utils/formatters';

@@ -15,7 +15,7 @@ import {
 } from './supabaseStorage';
 import { logError, logInfo, logWarn } from './logger';
 
-type TableName = 'courses' | 'students' | 'enrollments' | 'monthly_payments';
+type TableName = 'courses' | 'students' | 'enrollments' | 'monthly_payments' | 'payment_records';
 
 /** load() 스킵 판단 기준 (밀리초) */
 const STALE_TIME = 3 * 60 * 1000; // 3분
