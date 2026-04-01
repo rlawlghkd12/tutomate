@@ -87,6 +87,17 @@ export interface MonthlyPayment {
   createdAt: string;
 }
 
+// 납부 이력 기록
+export interface PaymentRecord {
+  id: string;
+  enrollmentId: string;
+  amount: number;
+  paidAt: string; // YYYY-MM-DD
+  paymentMethod?: PaymentMethod;
+  notes?: string;
+  createdAt: string;
+}
+
 // 라이선스 인터페이스
 export interface LicenseInfo {
   licenseKey: string;
