@@ -1,6 +1,5 @@
 import {
 	Button,
-	Checkbox,
 	Col,
 	Form,
 	Input,
@@ -19,14 +18,10 @@ import { useEffect, useState } from "react";
 import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
 import { useLicenseStore } from "@tutomate/core";
-import { useMonthlyPaymentStore } from "@tutomate/core";
+import { usePaymentRecordStore } from "@tutomate/core";
 import { appConfig } from "@tutomate/core";
 import type { EnrollmentFormData, Student } from "@tutomate/core";
-import {
-	getCurrentQuarter,
-	getQuarterMonths,
-	quarterMonthToYYYYMM,
-} from "@tutomate/core";
+import { getCurrentQuarter } from "@tutomate/core";
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -45,16 +40,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 	const { token } = theme.useToken();
 	const [form] = Form.useForm();
 	const { addEnrollment, enrollments } = useEnrollmentStore();
-	const { addPayment } = useMonthlyPaymentStore();
+	const { addPayment } = usePaymentRecordStore();
 	const { courses, getCourseById } = useCourseStore();
 	const { getPlan, getLimit } = useLicenseStore();
 	const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 	const [discountAmount, setDiscountAmount] = useState(0);
 	const [isExempt, setIsExempt] = useState(false);
-	const [enrolledMonths, setEnrolledMonths] = useState<number[]>([]);
 
 	const currentQuarter = getCurrentQuarter();
-	const quarterMonths = getQuarterMonths(currentQuarter);
 
 	const selectedCourse = selectedCourseId
 		? getCourseById(selectedCourseId)
@@ -68,7 +61,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 			setSelectedCourseId(null);
 			setDiscountAmount(0);
 			setIsExempt(student?.isMember ? true : false);
-			setEnrolledMonths(appConfig.enableQuarterSystem ? [...quarterMonths] : []);
 		}
 	}, [visible, form, student]);
 
@@ -143,45 +135,25 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 				notes: values.notes,
 				...(appConfig.enableQuarterSystem && {
 					quarter: currentQuarter,
-					enrolledMonths,
 				}),
 			};
 
 			await addEnrollment(enrollmentData);
 
-			// 월별 납부 레코드 자동 생성
+			// 납부 이력 생성
 			const newEnrollment = useEnrollmentStore
 				.getState()
 				.enrollments.find(
 					(e) => e.studentId === student.id && e.courseId === values.courseId,
 				);
-			if (newEnrollment) {
-				if (appConfig.enableQuarterSystem && enrolledMonths.length > 0) {
-					// 분기 시스템: 등록월별로 monthly_payments 생성
-					const perMonth = Math.floor(paidAmount / enrolledMonths.length);
-					const remainder = paidAmount % enrolledMonths.length;
-					for (let i = 0; i < enrolledMonths.length; i++) {
-						const month = enrolledMonths[i];
-						const yyyymm = quarterMonthToYYYYMM(currentQuarter, month);
-						const amt = i === 0 ? perMonth + remainder : perMonth;
-						await addPayment(
-							newEnrollment.id,
-							yyyymm,
-							amt,
-							values.paymentMethod,
-							amt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
-						);
-					}
-				} else {
-					const currentMonth = dayjs().format("YYYY-MM");
-					await addPayment(
-						newEnrollment.id,
-						currentMonth,
-						paidAmount,
-						values.paymentMethod,
-						paidAmount > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
-					);
-				}
+			if (newEnrollment && paidAmount > 0) {
+				await addPayment(
+					newEnrollment.id,
+					paidAmount,
+					course.fee,
+					values.paymentMethod,
+					dayjs().format("YYYY-MM-DD"),
+				);
 			}
 
 			message.success("강좌 신청이 완료되었습니다.");
@@ -190,7 +162,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 			setSelectedCourseId(null);
 			setDiscountAmount(0);
 			setIsExempt(false);
-			setEnrolledMonths([]);
 			onClose();
 		} catch (error) {
 			console.error("Validation failed:", error);
@@ -302,21 +273,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 						})}
 					</Select>
 				</Form.Item>
-
-				{selectedCourseId && appConfig.enableQuarterSystem && (
-					<Form.Item label="수강등록월">
-						<Checkbox.Group
-							value={enrolledMonths}
-							onChange={(values) => setEnrolledMonths(values as number[])}
-						>
-							{quarterMonths.map((m) => (
-								<Checkbox key={m} value={m}>
-									{m}월
-								</Checkbox>
-							))}
-						</Checkbox.Group>
-					</Form.Item>
-				)}
 
 				{selectedCourseId && (
 					<>
