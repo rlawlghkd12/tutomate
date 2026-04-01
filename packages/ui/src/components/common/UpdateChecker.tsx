@@ -117,7 +117,7 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
 
   useEffect(() => {
     // 개발 모드에서는 업데이트 체크 건너뛰기
-    if (import.meta.env.DEV) return;
+    if (import.meta.env.DEV) { setInitialChecking(false); return; }
 
     if (autoCheck) {
       // 앱 시작 시 체크

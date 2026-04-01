@@ -6,6 +6,7 @@ export const appConfig = {
   licenseFormatHint: 'TMKH-XXXX-XXXX-XXXX',
   contactInfo: '010-3556-7586',
   welcomeTitle: 'TutorMate에 오신 것을 환영합니다!',
+  scheme: 'tutomate',
   enableMemberFeature: false,
   hideAddressField: false,
   enableQuarterSystem: false,

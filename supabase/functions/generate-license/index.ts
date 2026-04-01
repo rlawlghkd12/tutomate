@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { plan, memo } = await req.json();
+    const { plan, memo, assigned_email } = await req.json();
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -114,6 +114,7 @@ Deno.serve(async (req) => {
         key,
         plan: plan || 'basic',
         memo: memo || null,
+        assigned_email: assigned_email || null,
       });
 
     if (error) {
@@ -124,7 +125,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ key, plan: plan || 'basic', memo: memo || null }),
+      JSON.stringify({ key, plan: plan || 'basic', memo: memo || null, assigned_email: assigned_email || null }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err) {

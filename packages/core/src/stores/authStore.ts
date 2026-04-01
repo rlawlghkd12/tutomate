@@ -6,6 +6,17 @@ import { supabase } from '../config/supabase';
 import { appConfig } from '../config/appConfig';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { isElectron } from '../utils/tauri';
+import type { OAuthProvider } from '../lib/oauth';
+import { OAUTH_PROVIDERS } from '../lib/oauth';
+
+let _initializing = false;
+let _initialized = false;
+
+/** @internal 테스트 전용 리셋 */
+export function _resetAuthFlags() {
+  _initializing = false;
+  _initialized = false;
+}
 
 async function getDeviceId(): Promise<string> {
   let machineId: string;
@@ -22,12 +33,8 @@ async function getDeviceId(): Promise<string> {
     }
   }
 
-  // Tauri(ioreg)는 대문자, node-machine-id는 소문자 반환 → 대문자로 통일
   machineId = machineId.toUpperCase();
-
-  // 앱별 고유 device_id: deviceIdKey를 접두사로 사용하여 Q/non-Q 분리
   const raw = `${appConfig.deviceIdKey}:${machineId}`;
-
   const encoder = new TextEncoder();
   const data = encoder.encode(raw);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -41,12 +48,16 @@ interface AuthStore {
   plan: PlanType | null;
   isCloud: boolean;
   loading: boolean;
+  needsSetup: boolean; // 로그인됐지만 org 없음 → 라이선스/체험판 화면
   initialize: () => Promise<void>;
   activateCloud: (licenseKey: string) => Promise<
     | { status: 'success'; isNewOrg: boolean; orgChanged: boolean; previousOrgId: string | null }
     | { status: 'invalid_key' | 'max_seats_reached' | 'error' }
   >;
+  startTrial: () => Promise<void>;
   deactivateCloud: () => Promise<void>;
+  signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
+  handleOAuthCallback: (callbackUrl: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
@@ -55,35 +66,40 @@ export const useAuthStore = create<AuthStore>((set) => ({
   plan: null,
   isCloud: false,
   loading: true,
+  needsSetup: false,
+
   initialize: async () => {
+    if (_initializing || _initialized) return;
+    _initializing = true;
+    set({ loading: true, needsSetup: false });
+
     if (!supabase) {
       logWarn('Supabase not configured, running in local-only mode');
       set({ loading: false });
+      _initializing = false;
       return;
     }
 
     try {
-      // 1. 기존 세션 확인 또는 익명 로그인
-      let { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
 
-      if (!session) {
-        const { data, error: signInError } = await supabase.auth.signInAnonymously();
-        if (signInError || !data.session) {
-          logError('Anonymous sign-in failed', { error: signInError });
-          set({ loading: false });
-          return;
+      if (!session || session.user.is_anonymous) {
+        // 세션 없거나 anonymous → 로그인 화면 표시
+        if (session?.user.is_anonymous) {
+          await supabase.auth.signOut();
         }
-        session = data.session;
+        set({ session: null, loading: false });
+        logInfo('No OAuth session, showing login screen');
+        return;
       }
 
-      // 2. 기존 조직 연결 확인
+      // 기존 조직 연결 확인
       const { data: orgLink, error: orgLinkError } = await supabase
         .from('user_organizations')
         .select('organization_id')
         .eq('user_id', session.user.id)
         .single();
 
-      // 쿼리 실패(네트워크 등) vs "org 없음" 구분 — PGRST116은 "no rows"
       if (orgLinkError && orgLinkError.code !== 'PGRST116') {
         logError('Failed to query user_organizations', { error: orgLinkError });
         set({ loading: false });
@@ -104,41 +120,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
           isCloud: true,
           loading: false,
         });
+        _initialized = true;
         logInfo('Cloud session restored', { data: { orgId: orgLink.organization_id, plan: orgData?.plan } });
       } else {
-        // 3. 조직 없음 → trial org 자동 생성
-        let deviceId: string;
-        try {
-          deviceId = await getDeviceId();
-        } catch (error) {
-          logError('Failed to get device ID', { error });
-          set({ loading: false });
-          return;
-        }
-
-        const { data: trialData, error: trialError } = await supabase.functions.invoke(
-          'create-trial-org',
-          { body: { device_id: deviceId } },
-        );
-
-        if (trialError || trialData?.error) {
-          logError('Trial org creation failed', { error: trialError, data: trialData });
-          set({ loading: false });
-          return;
-        }
-
-        const organizationId = trialData.organization_id as string;
-        const plan = (trialData.plan as PlanType) || 'trial';
-        const isNewOrg = trialData.is_new_org as boolean;
-
-        set({
-          session,
-          organizationId,
-          plan,
-          isCloud: true,
-          loading: false,
-        });
-        logInfo('Trial cloud activated', { data: { orgId: organizationId, isNewOrg } });
+        // 로그인됐지만 org 없음 → 라이선스/체험판 화면
+        set({ session, loading: false, needsSetup: true });
+        logInfo('Logged in but no org, showing setup screen');
       }
 
       // 자동 재활성화: trial 상태인데 저장된 라이센스 키가 있으면 복구
@@ -164,8 +151,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
     } catch (error) {
       logError('Failed to initialize auth', { error });
       set({ loading: false });
+    } finally {
+      _initializing = false;
     }
-
   },
 
   activateCloud: async (licenseKey: string): Promise<
@@ -178,21 +166,13 @@ export const useAuthStore = create<AuthStore>((set) => ({
     }
 
     try {
-      // 세션은 이미 initialize()에서 생성되어 있어야 함
-      let { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
-        logInfo('No session, attempting anonymous sign-in');
-        const { data, error: signInError } = await supabase.auth.signInAnonymously();
-        if (signInError || !data.session) {
-          logError('Anonymous sign-in failed', { error: signInError, data: { message: signInError?.message } });
-          return { status: 'error' };
-        }
-        session = data.session;
-        logInfo('Anonymous sign-in successful', { data: { userId: session.user.id } });
+        logError('No session for license activation');
+        return { status: 'error' };
       }
 
-      // 기기 ID 조회
       let deviceId: string;
       try {
         deviceId = await getDeviceId();
@@ -202,7 +182,6 @@ export const useAuthStore = create<AuthStore>((set) => ({
         return { status: 'error' };
       }
 
-      // Edge Function으로 라이센스 검증 + 조직 연결 (trial → licensed 업그레이드 포함)
       logInfo('Calling activate-license edge function');
       const { data, error } = await supabase.functions.invoke('activate-license', {
         body: { license_key: licenseKey, device_id: deviceId },
@@ -240,8 +219,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
         organizationId,
         plan,
         isCloud: true,
+        needsSetup: false,
       });
 
+      _initialized = true;
       logInfo('License activated, cloud upgraded', { data: { orgId: organizationId, isNewOrg, plan, orgChanged } });
       return { status: 'success', isNewOrg, orgChanged, previousOrgId };
     } catch (error) {
@@ -250,11 +231,60 @@ export const useAuthStore = create<AuthStore>((set) => ({
     }
   },
 
+  startTrial: async () => {
+    if (!supabase) return;
+    set({ loading: true });
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        set({ loading: false });
+        return;
+      }
+
+      let deviceId: string;
+      try {
+        deviceId = await getDeviceId();
+      } catch (error) {
+        logError('Failed to get device ID', { error });
+        set({ loading: false });
+        return;
+      }
+
+      const { data: trialData, error: trialError } = await supabase.functions.invoke(
+        'create-trial-org',
+        { body: { device_id: deviceId } },
+      );
+
+      if (trialError || trialData?.error) {
+        logError('Trial org creation failed', { error: trialError, data: trialData });
+        set({ loading: false });
+        return;
+      }
+
+      const organizationId = trialData.organization_id as string;
+      const plan = (trialData.plan as PlanType) || 'trial';
+
+      set({
+        session,
+        organizationId,
+        plan,
+        isCloud: true,
+        loading: false,
+        needsSetup: false,
+      });
+      _initialized = true;
+      logInfo('Trial started', { data: { orgId: organizationId } });
+    } catch (error) {
+      logError('startTrial error', { error });
+      set({ loading: false });
+    }
+  },
+
   deactivateCloud: async () => {
     if (!supabase) return;
 
     try {
-      // org 연결 해제 (재시작 시 새 trial org 생성되도록)
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         await supabase
@@ -277,17 +307,73 @@ export const useAuthStore = create<AuthStore>((set) => ({
       organizationId: null,
       plan: null,
       isCloud: false,
+      needsSetup: false,
     });
 
+    _initialized = false;
     logInfo('Cloud deactivated');
+  },
+
+  signInWithOAuth: async (provider: OAuthProvider) => {
+    if (!supabase) return;
+    set({ loading: true });
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const redirectTo = `${supabaseUrl}/functions/v1/auth-redirect`;
+
+    if (provider === 'naver') {
+      // Naver는 Supabase 네이티브 미지원 → Edge Function 경유
+      const naverClientId = import.meta.env.VITE_NAVER_CLIENT_ID as string;
+      if (!naverClientId) { set({ loading: false }); throw new Error('VITE_NAVER_CLIENT_ID not configured'); }
+      const state = crypto.randomUUID();
+      const callbackUrl = `${supabaseUrl}/functions/v1/naver-auth`;
+      const naverUrl = `https://nid.naver.com/oauth2.0/authorize?client_id=${naverClientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&state=${state}`;
+      logInfo('Naver OAuth URL generated', { data: { url: naverUrl } });
+      if (isElectron()) {
+        await window.electronAPI.openOAuthUrl(naverUrl);
+      }
+    } else {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo, skipBrowserRedirect: true },
+      });
+      if (error) { set({ loading: false }); throw error; }
+      logInfo('OAuth URL generated', { data: { url: data.url, redirectTo } });
+      if (data.url && isElectron()) {
+        await window.electronAPI.openOAuthUrl(data.url);
+      }
+    }
+  },
+
+  handleOAuthCallback: async (callbackData: string) => {
+    if (!supabase) return;
+    if (callbackData === '__cancelled__') {
+      set({ loading: false });
+      return;
+    }
+    // hash fragment에서 토큰 추출: #access_token=...&refresh_token=...
+    const params = new URLSearchParams(callbackData.replace(/^#/, ''));
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    if (!accessToken || !refreshToken) {
+      set({ loading: false });
+      throw new Error(params.get('error_description') || params.get('error') || 'Missing tokens');
+    }
+    await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    // → onAuthStateChange(SIGNED_IN) → initialize() 자동 호출
   },
 }));
 
-// 세션 변경 리스너 (모듈 로드 시 1회만 등록)
-// organizationId/plan/isCloud는 initialize()/activateCloud()/deactivateCloud()에서만 관리
+// 세션 변경 리스너
 if (supabase) {
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
     useAuthStore.setState({ session });
+    if (event === 'SIGNED_IN' && session && !_initialized) {
+      useAuthStore.getState().initialize();
+    }
   });
 }
 
@@ -296,9 +382,23 @@ export const isCloud = (): boolean => useAuthStore.getState().isCloud;
 export const getOrgId = (): string | null => useAuthStore.getState().organizationId;
 export const getPlan = (): PlanType | null => useAuthStore.getState().plan;
 
+export function getAuthProvider(): string {
+  const user = useAuthStore.getState().session?.user;
+  return user?.user_metadata?.auth_provider || user?.app_metadata?.provider || '-';
+}
+
+export function getAuthProviderLabel(): string {
+  const p = getAuthProvider() as OAuthProvider;
+  return OAUTH_PROVIDERS[p]?.label?.replace(/로 로그인$/, '') || p;
+}
+
+export function getAuthProviderColor(): string {
+  const p = getAuthProvider() as OAuthProvider;
+  return OAUTH_PROVIDERS[p]?.tagColor || 'default';
+}
+
 /**
  * 체험판 → 라이선스 전환 시 기존 데이터의 organization_id 일괄 변경
- * UI에서 사용자 확인 후 호출
  */
 export async function migrateOrgData(oldOrgId: string, newOrgId: string): Promise<boolean> {
   if (!supabase) return false;

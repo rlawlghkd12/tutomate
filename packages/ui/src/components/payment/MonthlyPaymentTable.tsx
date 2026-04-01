@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
-  Table, Tag, Button, Space, InputNumber, DatePicker, Radio, Input, message,
+  Table, Tag, Button, Space, InputNumber, DatePicker, Input, message,
   Row, Col, Select, theme, Empty, Tooltip,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -19,6 +19,8 @@ interface MonthlyPaymentTableProps {
   enrollments: Enrollment[];
   /** 분기 시스템: 표시할 월 목록 (YYYY-MM 형식). 없으면 ±6개월 표시 */
   quarterMonths?: string[];
+  /** 강좌 생성일 (이 날짜 이전 월은 선택 불가) */
+  courseCreatedAt?: string;
 }
 
 const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
@@ -26,6 +28,7 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
   courseFee,
   enrollments,
   quarterMonths,
+  courseCreatedAt,
 }) => {
   const { token } = useToken();
   const { getStudentById } = useStudentStore();
@@ -190,26 +193,29 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
     {
       title: '납부 방법',
       key: 'paymentMethod',
-      width: 180,
+      width: 120,
       render: (_, record) => {
         if (record.enrollment.paymentStatus === 'exempt') return '-';
         return (
-          <Radio.Group
+          <Select
             size="small"
-            value={record.monthPayment?.paymentMethod}
-            onChange={(e) => {
+            value={record.monthPayment?.paymentMethod || undefined}
+            placeholder="선택"
+            style={{ width: 100 }}
+            onChange={(value) => {
               handleRecordPayment(
                 record.enrollment,
                 record.monthPayment?.amount ?? 0,
-                e.target.value,
+                value,
                 record.monthPayment?.paidAt,
               );
             }}
-          >
-            <Radio.Button value="cash">현금</Radio.Button>
-            <Radio.Button value="card">카드</Radio.Button>
-            <Radio.Button value="transfer">이체</Radio.Button>
-          </Radio.Group>
+            options={[
+              { value: 'transfer', label: '계좌이체' },
+              { value: 'card', label: '카드' },
+              { value: 'cash', label: '현금' },
+            ]}
+          />
         );
       },
     },
@@ -314,12 +320,15 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
     if (quarterMonths && quarterMonths.length > 0) {
       return quarterMonths;
     }
+    const minMonth = courseCreatedAt ? dayjs(courseCreatedAt).format('YYYY-MM') : null;
     const result: string[] = [];
     for (let i = -6; i <= 6; i++) {
-      result.push(dayjs().add(i, 'month').format('YYYY-MM'));
+      const m = dayjs().add(i, 'month').format('YYYY-MM');
+      if (minMonth && m < minMonth) continue;
+      result.push(m);
     }
     return result;
-  }, [quarterMonths]);
+  }, [quarterMonths, courseCreatedAt]);
 
   return (
     <div>

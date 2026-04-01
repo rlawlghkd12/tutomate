@@ -1,5 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
 import {
   Card,
   Space,
@@ -7,7 +6,6 @@ import {
   Switch,
   Radio,
   Divider,
-  Tabs,
   Button,
   Input,
   message,
@@ -24,23 +22,29 @@ import {
   CopyOutlined,
   LockOutlined,
 } from '@ant-design/icons';
-import { isElectron } from '@tutomate/core';
-import { useSettingsStore } from '@tutomate/core';
+import {
+  isElectron,
+  useSettingsStore,
+  useLockStore,
+  useLicenseStore,
+  PLAN_LIMITS,
+  useAppVersion,
+  APP_NAME,
+  supabase,
+  useAuthStore,
+  migrateOrgData,
+  reloadAllStores,
+  getAuthProviderLabel,
+  getAuthProviderColor,
+  appConfig,
+} from '@tutomate/core';
 import type { FontSize } from '@tutomate/core';
-import { useLockStore } from '@tutomate/core';
-import { useLicenseStore } from '@tutomate/core';
 import { LicenseKeyInput, AdminTab } from '@tutomate/ui';
-import { PLAN_LIMITS } from '@tutomate/core';
-import { useAppVersion, APP_NAME } from '@tutomate/core';
 // useBackup 제거 (v0.3.0 — 백업 탭 비활성화)
-import { supabase } from '@tutomate/core';
-import { useAuthStore, migrateOrgData, reloadAllStores } from '@tutomate/core';
 
 const { Text } = Typography;
 
 const SettingsPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const defaultTab = useMemo(() => searchParams.get('tab') || 'general', [searchParams]);
   const {
     theme: appTheme,
     fontSize,
@@ -72,11 +76,13 @@ const SettingsPage: React.FC = () => {
   const [pinError, setPinError] = useState('');
 
   const APP_VERSION = useAppVersion();
-  const { getPlan, activateLicense, deactivateLicense, licenseKey } = useLicenseStore();
+  const session = useAuthStore((s) => s.session);
+  const { getPlan, activateLicense, licenseKey } = useLicenseStore();
   const [orgNameInput, setOrgNameInput] = useState(organizationName);
   const [showKey, setShowKey] = useState(false);
   const [licenseInput, setLicenseInput] = useState(['', '', '', '']);
   const [activating, setActivating] = useState(false);
+  const [licenseModalVisible, setLicenseModalVisible] = useState(false);
   const currentPlan = getPlan();
   // 백업 기능 제거 (v0.3.0) — useBackup() 미사용
 
@@ -286,6 +292,7 @@ const SettingsPage: React.FC = () => {
           message.success('라이선스가 활성화되었습니다!');
         }
         setLicenseInput(['', '', '', '']);
+        setLicenseModalVisible(false);
       } else if (result.result === 'invalid_format') {
         message.error('유효하지 않은 형식입니다.');
       } else if (result.result === 'network_error') {
@@ -307,378 +314,294 @@ const SettingsPage: React.FC = () => {
     padding: '16px 0',
   };
 
-  const tabItems = [
-    {
-      key: 'general',
-      label: '일반',
-      children: (
-        <Card style={{ maxWidth: 1000 }}>
-          {/* 이름 */}
-          <div style={settingRowStyle}>
-            <div style={{ flex: 1, marginRight: 24 }}>
-              <Text strong>이름</Text>
-              <br />
-              <Text type="secondary" style={{ fontSize: '0.85em' }}>
-                {currentPlan === 'trial' ? '라이선스 활성화 후 변경 가능' : '헤더와 백업 파일명에 표시'}
-              </Text>
-            </div>
-            <Space>
-              <Input
-                value={orgNameInput}
-                onChange={(e) => setOrgNameInput(e.target.value)}
-                placeholder="이름을 입력하세요"
-                style={{ width: 240 }}
-                disabled={currentPlan === 'trial'}
-              />
-              <Button
-                type="primary"
-                icon={<SaveOutlined />}
-                size="small"
-                disabled={currentPlan === 'trial' || orgNameInput === organizationName}
-                onClick={async () => {
-                  const prevName = organizationName;
-                  setOrganizationName(orgNameInput);
-                  // 클라우드 모드면 Supabase organizations 테이블도 업데이트
-                  const orgId = useAuthStore.getState().organizationId;
-                  if (supabase && orgId) {
-                    const { error } = await supabase.from('organizations').update({ name: orgNameInput }).eq('id', orgId);
-                    if (error) {
-                      setOrganizationName(prevName);
-                      message.error('이름 저장에 실패했습니다.');
-                      return;
-                    }
-                  }
-                  message.success('이름이 저장되었습니다.');
-                }}
-              >
-                저장
-              </Button>
-            </Space>
+  return (
+    <div>
+      <Card style={{ maxWidth: 1000 }}>
+        {/* 계정 */}
+        <div style={settingRowStyle}>
+          <div>
+            <Text strong>로그인 계정</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '0.85em' }}>
+              {session?.user?.email || '-'}
+            </Text>
           </div>
-
-          <Divider style={{ margin: 0 }} />
-
-          {/* 다크 모드 */}
-          <div style={settingRowStyle}>
-            <div>
-              <Text strong>다크 모드</Text>
-              <br />
-              <Text type="secondary" style={{ fontSize: '0.85em' }}>앱의 테마를 변경합니다</Text>
-            </div>
-            <Switch
-              checked={appTheme === 'dark'}
-              onChange={(checked) => setTheme(checked ? 'dark' : 'light')}
-              checkedChildren="켜짐"
-              unCheckedChildren="꺼짐"
-            />
-          </div>
-
-          <Divider style={{ margin: 0 }} />
-
-          {/* 텍스트 크기 */}
-          <div style={settingRowStyle}>
-            <div>
-              <Text strong>텍스트 크기</Text>
-              <br />
-              <Text type="secondary" style={{ fontSize: '0.85em' }}>앱 전체의 텍스트 크기를 조절합니다</Text>
-            </div>
-            <Radio.Group
-              value={fontSize}
-              onChange={(e) => setFontSize(e.target.value)}
-              options={fontSizeOptions}
-              optionType="button"
-              buttonStyle="solid"
-              size="small"
-            />
-          </div>
-
-          <Divider style={{ margin: 0 }} />
-
-          {/* 알림 */}
-          <div style={settingRowStyle}>
-            <div>
-              <Text strong>알림</Text>
-              <br />
-              <Text type="secondary" style={{ fontSize: '0.85em' }}>
-                {notificationsEnabled ? '앱 내 알림이 활성화되어 있습니다' : '알림이 비활성화되어 있습니다'}
-              </Text>
-            </div>
-            <Switch
-              checked={notificationsEnabled}
-              onChange={setNotificationsEnabled}
-              checkedChildren="켜짐"
-              unCheckedChildren="꺼짐"
-            />
-          </div>
-
-          <Divider style={{ margin: 0 }} />
-
-          {/* 화면 잠금 */}
-          <div style={settingRowStyle}>
-            <div>
-              <Text strong>화면 잠금 사용</Text>
-              <br />
-              <Text type="secondary" style={{ fontSize: '0.85em' }}>
-                {lockEnabled ? '화면 잠금이 활성화되어 있습니다' : '자리를 비울 때 화면을 잠급니다'}
-              </Text>
-            </div>
-            <Switch
-              checked={lockEnabled}
-              onChange={handleLockToggle}
-              checkedChildren="켜짐"
-              unCheckedChildren="꺼짐"
-            />
-          </div>
-
-          {lockEnabled && (
-            <>
-              <Divider style={{ margin: 0 }} />
-              <div style={settingRowStyle}>
-                <div>
-                  <Text strong>PIN 설정</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: '0.85em' }}>4~6자리 숫자 PIN</Text>
-                </div>
-                <Button size="small" icon={<LockOutlined />} onClick={openPinChangeModal}>
-                  PIN 변경
-                </Button>
-              </div>
-
-              <Divider style={{ margin: 0 }} />
-              <div style={settingRowStyle}>
-                <div>
-                  <Text strong>자동 잠금</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: '0.85em' }}>미사용 시 자동으로 화면을 잠급니다</Text>
-                </div>
-                <Select
-                  value={autoLockMinutes}
-                  onChange={setAutoLockMinutes}
-                  options={autoLockOptions}
-                  style={{ width: 130 }}
-                  size="small"
-                />
-              </div>
-
-              <Divider style={{ margin: 0 }} />
-              <div style={settingRowStyle}>
-                <div>
-                  <Text strong>지금 잠금</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: '0.85em' }}>화면을 즉시 잠급니다</Text>
-                </div>
-                <Button size="small" icon={<LockOutlined />} onClick={lock}>
-                  잠금
-                </Button>
-              </div>
-            </>
-          )}
-
-          {/* PIN 설정 Modal */}
-          <Modal
-            title={
-              pinStep === 'verify'
-                ? '기존 PIN 확인'
-                : pinStep === 'new'
-                  ? '새 PIN 입력'
-                  : 'PIN 확인'
-            }
-            open={pinModalVisible}
-            onOk={handlePinModalOk}
-            onCancel={() => {
-              setPinModalVisible(false);
-              setPinInput('');
-              setNewPinInput('');
-              setPinError('');
-            }}
-            okText={pinStep === 'confirm' ? '설정' : '다음'}
-            cancelText="취소"
-            okButtonProps={{ disabled: pinInput.length < 4 }}
-            destroyOnClose
-          >
-            <div style={{ textAlign: 'center', padding: '16px 0' }}>
-              <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-                {pinStep === 'verify'
-                  ? '기존 PIN을 입력하세요'
-                  : pinStep === 'new'
-                    ? '새 PIN을 입력하세요 (4~6자리 숫자)'
-                    : '새 PIN을 다시 입력하세요'}
-              </Text>
-              <Input.Password
-                value={pinInput}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '');
-                  if (val.length <= 6) {
-                    setPinInput(val);
-                    setPinError('');
-                  }
-                }}
-                onPressEnter={handlePinModalOk}
-                placeholder="PIN 입력"
-                maxLength={6}
-                style={{ width: 200, textAlign: 'center', fontSize: 20, letterSpacing: 8 }}
-                autoFocus
-              />
-              {pinError && (
-                <div style={{ marginTop: 8 }}>
-                  <Text type="danger">{pinError}</Text>
-                </div>
-              )}
-            </div>
-          </Modal>
-
-          <Divider style={{ margin: 0 }} />
-
-          {/* 앱 정보 */}
-          <div style={settingRowStyle}>
-            <div>
-              <Text strong>앱 정보</Text>
-              <br />
-              <Space size={8}>
-                <Text type="secondary" style={{ fontSize: '0.85em' }}>{APP_NAME} v{APP_VERSION}</Text>
-                {isLatest && <Tag color="green" style={{ margin: 0 }}>최신 버전</Tag>}
-              </Space>
-            </div>
+          <Space>
+            <Tag color={getAuthProviderColor()}>{getAuthProviderLabel()}</Tag>
             <Button
-              onClick={handleCheckUpdate}
-              loading={checkingUpdate}
               size="small"
+              danger
+              onClick={() => {
+                Modal.confirm({
+                  title: '로그아웃',
+                  icon: <ExclamationCircleOutlined />,
+                  content: '로그아웃하면 로그인 화면으로 돌아갑니다.',
+                  okText: '로그아웃',
+                  okType: 'danger',
+                  cancelText: '취소',
+                  onOk: async () => {
+                    await useAuthStore.getState().deactivateCloud();
+                    message.success('로그아웃되었습니다.');
+                  },
+                });
+              }}
             >
-              업데이트 확인
+              로그아웃
             </Button>
-          </div>
+          </Space>
+        </div>
 
-          {updateAvailable && (
-            <>
-              <Divider style={{ margin: 0 }} />
-              <div style={{ padding: '16px 0' }}>
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  <Space>
-                    <Tag color="green">새 버전</Tag>
-                    <Text strong>v{updateAvailable.version}</Text>
-                  </Space>
-                  <div
-                    style={{ fontSize: 13, color: 'var(--ant-color-text-secondary)' }}
-                    dangerouslySetInnerHTML={{ __html: updateAvailable.body }}
-                  />
-                  {downloading ? (
-                    <Progress percent={downloadProgress} status="active" />
-                  ) : (
-                    <Button type="primary" onClick={handleDownloadUpdate} size="small">
-                      다운로드 및 설치
-                    </Button>
-                  )}
-                </Space>
-              </div>
-            </>
-          )}
-        </Card>
-      ),
-    },
-    // 백업 탭 제거 — Supabase 전환 완료 (v0.3.0)
-    {
-      key: 'license',
-      label: '라이선스',
-      children: (
-        <Card style={{ maxWidth: 1000 }}>
-          {/* 현재 플랜 */}
-          <div style={settingRowStyle}>
-            <div>
-              <Text strong>현재 플랜</Text>
-              <br />
-              <Text type="secondary" style={{ fontSize: '0.85em' }}>
-                {currentPlan === 'trial'
-                  ? `강좌 ${PLAN_LIMITS.trial.maxCourses}개, 강좌당 수강생 ${PLAN_LIMITS.trial.maxStudentsPerCourse}명 제한`
-                  : '모든 기능을 제한 없이 사용 가능'}
-              </Text>
-            </div>
+        <Divider style={{ margin: 0 }} />
+
+        {/* 현재 플랜 + 라이선스 */}
+        <div style={settingRowStyle}>
+          <div>
+            <Text strong>현재 플랜</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '0.85em' }}>
+              {currentPlan === 'trial'
+                ? `강좌 ${PLAN_LIMITS.trial.maxCourses}개, 강좌당 수강생 ${PLAN_LIMITS.trial.maxStudentsPerCourse}명 제한`
+                : '모든 기능을 제한 없이 사용 가능'}
+            </Text>
+          </div>
+          <Space>
             <Tag
               color={currentPlan === 'trial' ? 'orange' : currentPlan === 'admin' ? 'red' : 'green'}
               style={{ fontSize: 13, padding: '2px 10px' }}
             >
               {currentPlan === 'trial' ? '체험판' : currentPlan === 'admin' ? 'Admin' : 'Basic'}
             </Tag>
-          </div>
-
-          <Divider style={{ margin: 0 }} />
-
-          {/* 라이선스 키 */}
-          <div style={{ padding: '16px 0' }}>
-            <div style={{ marginBottom: 12 }}>
-              <Text strong>라이선스 키</Text>
-              <br />
-              <Text type="secondary" style={{ fontSize: '0.85em' }}>
-                라이선스 키를 입력하여 모든 기능을 활성화하세요 (문의: 010-3556-7586)
-              </Text>
-            </div>
             {currentPlan !== 'trial' && licenseKey ? (
-              <Space>
+              <>
                 <Text code>{showKey ? licenseKey : `${licenseKey.slice(0, 9)}****-****`}</Text>
-                <Button
-                  type="text"
-                  size="small"
-                  icon={showKey ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                  onClick={() => setShowKey(!showKey)}
-                />
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<CopyOutlined />}
-                  onClick={() => { navigator.clipboard.writeText(licenseKey); message.success('키가 복사되었습니다.'); }}
-                />
-                <Tag color="green">활성화됨</Tag>
-                <Button
-                  size="small"
-                  danger
-                  onClick={() => {
-                    Modal.confirm({
-                      title: '로그아웃',
-                      icon: <ExclamationCircleOutlined />,
-                      content: '로그아웃하면 클라우드 동기화가 해제됩니다. 계속하시겠습니까?',
-                      okText: '로그아웃',
-                      okType: 'danger',
-                      cancelText: '취소',
-                      onOk: async () => {
-                        await deactivateLicense();
-                        message.success('로그아웃되었습니다.');
-                      },
-                    });
-                  }}
-                >
-                  로그아웃
-                </Button>
-              </Space>
+                <Button type="text" size="small" icon={showKey ? <EyeInvisibleOutlined /> : <EyeOutlined />} onClick={() => setShowKey(!showKey)} />
+                <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => { navigator.clipboard.writeText(licenseKey); message.success('키가 복사되었습니다.'); }} />
+              </>
             ) : (
-              <Space direction="vertical" size={8}>
-                <Text type="secondary" style={{ fontSize: '0.85em' }}>
-                  키를 직접 입력하거나 전체 붙여넣기 하세요
-                </Text>
-                <Space>
-                  <LicenseKeyInput value={licenseInput} onChange={setLicenseInput} onPressEnter={handleActivateLicense} />
-                  <Button type="primary" onClick={handleActivateLicense} loading={activating}>
-                    활성화
-                  </Button>
-                </Space>
-              </Space>
+              <Button size="small" type="primary" onClick={() => setLicenseModalVisible(true)}>라이선스 활성화</Button>
             )}
+          </Space>
+        </div>
+
+        {/* 라이선스 활성화 모달 */}
+        <Modal
+          title="라이선스 활성화"
+          open={licenseModalVisible}
+          onCancel={() => setLicenseModalVisible(false)}
+          footer={null}
+          destroyOnClose
+        >
+          <Space direction="vertical" size="middle" style={{ width: '100%', paddingTop: 8 }}>
+            <Text type="secondary" style={{ fontSize: '0.85em' }}>
+              키를 직접 입력하거나 전체 붙여넣기 하세요
+            </Text>
+            <LicenseKeyInput value={licenseInput} onChange={setLicenseInput} onPressEnter={handleActivateLicense} />
+            <Button type="primary" block onClick={handleActivateLicense} loading={activating}>
+              활성화
+            </Button>
+            <Text type="secondary" style={{ fontSize: '0.85em', textAlign: 'center', display: 'block' }}>
+              문의: {appConfig.contactInfo}
+            </Text>
+          </Space>
+        </Modal>
+
+        <Divider style={{ margin: 0 }} />
+
+        {/* 이름 */}
+        <div style={settingRowStyle}>
+          <div style={{ flex: 1, marginRight: 24 }}>
+            <Text strong>이름</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '0.85em' }}>
+              {currentPlan === 'trial' ? '라이선스 활성화 후 변경 가능' : '헤더와 백업 파일명에 표시'}
+            </Text>
           </div>
+          <Space>
+            <Input
+              value={orgNameInput}
+              onChange={(e) => setOrgNameInput(e.target.value)}
+              placeholder="이름을 입력하세요"
+              style={{ width: 240 }}
+              disabled={currentPlan === 'trial'}
+            />
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              size="small"
+              disabled={currentPlan === 'trial' || orgNameInput === organizationName}
+              onClick={async () => {
+                const prevName = organizationName;
+                setOrganizationName(orgNameInput);
+                const orgId = useAuthStore.getState().organizationId;
+                if (supabase && orgId) {
+                  const { error } = await supabase.from('organizations').update({ name: orgNameInput }).eq('id', orgId);
+                  if (error) {
+                    setOrganizationName(prevName);
+                    message.error('이름 저장에 실패했습니다.');
+                    return;
+                  }
+                }
+                message.success('이름이 저장되었습니다.');
+              }}
+            >
+              저장
+            </Button>
+          </Space>
+        </div>
 
+        <Divider style={{ margin: 0 }} />
+
+        {/* 다크 모드 */}
+        <div style={settingRowStyle}>
+          <div>
+            <Text strong>다크 모드</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '0.85em' }}>앱의 테마를 변경합니다</Text>
+          </div>
+          <Switch checked={appTheme === 'dark'} onChange={(checked) => setTheme(checked ? 'dark' : 'light')} checkedChildren="켜짐" unCheckedChildren="꺼짐" />
+        </div>
+
+        <Divider style={{ margin: 0 }} />
+
+        {/* 텍스트 크기 */}
+        <div style={settingRowStyle}>
+          <div>
+            <Text strong>텍스트 크기</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '0.85em' }}>앱 전체의 텍스트 크기를 조절합니다</Text>
+          </div>
+          <Radio.Group value={fontSize} onChange={(e) => setFontSize(e.target.value)} options={fontSizeOptions} optionType="button" buttonStyle="solid" size="small" />
+        </div>
+
+        <Divider style={{ margin: 0 }} />
+
+        {/* 알림 */}
+        <div style={settingRowStyle}>
+          <div>
+            <Text strong>알림</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '0.85em' }}>
+              {notificationsEnabled ? '앱 내 알림이 활성화되어 있습니다' : '알림이 비활성화되어 있습니다'}
+            </Text>
+          </div>
+          <Switch checked={notificationsEnabled} onChange={setNotificationsEnabled} checkedChildren="켜짐" unCheckedChildren="꺼짐" />
+        </div>
+
+        <Divider style={{ margin: 0 }} />
+
+        {/* 화면 잠금 */}
+        <div style={settingRowStyle}>
+          <div>
+            <Text strong>화면 잠금 사용</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '0.85em' }}>
+              {lockEnabled ? '화면 잠금이 활성화되어 있습니다' : '자리를 비울 때 화면을 잠급니다'}
+            </Text>
+          </div>
+          <Switch checked={lockEnabled} onChange={handleLockToggle} checkedChildren="켜짐" unCheckedChildren="꺼짐" />
+        </div>
+
+        {lockEnabled && (
+          <>
+            <Divider style={{ margin: 0 }} />
+            <div style={settingRowStyle}>
+              <div>
+                <Text strong>PIN 설정</Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: '0.85em' }}>4~6자리 숫자 PIN</Text>
+              </div>
+              <Button size="small" icon={<LockOutlined />} onClick={openPinChangeModal}>PIN 변경</Button>
+            </div>
+            <Divider style={{ margin: 0 }} />
+            <div style={settingRowStyle}>
+              <div>
+                <Text strong>자동 잠금</Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: '0.85em' }}>미사용 시 자동으로 화면을 잠급니다</Text>
+              </div>
+              <Select value={autoLockMinutes} onChange={setAutoLockMinutes} options={autoLockOptions} style={{ width: 130 }} size="small" />
+            </div>
+            <Divider style={{ margin: 0 }} />
+            <div style={settingRowStyle}>
+              <div>
+                <Text strong>지금 잠금</Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: '0.85em' }}>화면을 즉시 잠급니다</Text>
+              </div>
+              <Button size="small" icon={<LockOutlined />} onClick={lock}>잠금</Button>
+            </div>
+          </>
+        )}
+
+        {/* PIN 설정 Modal */}
+        <Modal
+          title={pinStep === 'verify' ? '기존 PIN 확인' : pinStep === 'new' ? '새 PIN 입력' : 'PIN 확인'}
+          open={pinModalVisible}
+          onOk={handlePinModalOk}
+          onCancel={() => { setPinModalVisible(false); setPinInput(''); setNewPinInput(''); setPinError(''); }}
+          okText={pinStep === 'confirm' ? '설정' : '다음'}
+          cancelText="취소"
+          okButtonProps={{ disabled: pinInput.length < 4 }}
+          destroyOnClose
+        >
+          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+              {pinStep === 'verify' ? '기존 PIN을 입력하세요' : pinStep === 'new' ? '새 PIN을 입력하세요 (4~6자리 숫자)' : '새 PIN을 다시 입력하세요'}
+            </Text>
+            <Input.Password
+              value={pinInput}
+              onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); if (val.length <= 6) { setPinInput(val); setPinError(''); } }}
+              onPressEnter={handlePinModalOk}
+              placeholder="PIN 입력"
+              maxLength={6}
+              style={{ width: 200, textAlign: 'center', fontSize: 20, letterSpacing: 8 }}
+              autoFocus
+            />
+            {pinError && <div style={{ marginTop: 8 }}><Text type="danger">{pinError}</Text></div>}
+          </div>
+        </Modal>
+
+        <Divider style={{ margin: 0 }} />
+
+        {/* 앱 정보 */}
+        <div style={settingRowStyle}>
+          <div>
+            <Text strong>앱 정보</Text>
+            <br />
+            <Space size={8}>
+              <Text type="secondary" style={{ fontSize: '0.85em' }}>{APP_NAME} v{APP_VERSION}</Text>
+              {isLatest && <Tag color="green" style={{ margin: 0 }}>최신 버전</Tag>}
+            </Space>
+          </div>
+          <Button onClick={handleCheckUpdate} loading={checkingUpdate} size="small">업데이트 확인</Button>
+        </div>
+
+        {updateAvailable && (
+          <>
+            <Divider style={{ margin: 0 }} />
+            <div style={{ padding: '16px 0' }}>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Space>
+                  <Tag color="green">새 버전</Tag>
+                  <Text strong>v{updateAvailable.version}</Text>
+                </Space>
+                <div style={{ fontSize: 13, color: 'var(--ant-color-text-secondary)' }} dangerouslySetInnerHTML={{ __html: updateAvailable.body }} />
+                {downloading ? (
+                  <Progress percent={downloadProgress} status="active" />
+                ) : (
+                  <Button type="primary" onClick={handleDownloadUpdate} size="small">다운로드 및 설치</Button>
+                )}
+              </Space>
+            </div>
+          </>
+        )}
+      </Card>
+
+      {currentPlan === 'admin' && (
+        <Card style={{ maxWidth: 1000, marginTop: 16 }}>
+          <AdminTab />
         </Card>
-      ),
-    },
-    // Admin 탭: admin 플랜이거나 DEV 모드일 때 표시
-    ...(currentPlan === 'admin'
-      ? [{
-          key: 'admin',
-          label: 'Admin',
-          children: <AdminTab />,
-        }]
-      : []),
-  ];
-
-  return (
-    <div>
-      <Tabs items={tabItems} defaultActiveKey={defaultTab} />
+      )}
     </div>
   );
 };

@@ -41,6 +41,10 @@ interface ElectronAPI {
 
   // 앱 제어
   relaunch(): Promise<void>;
+
+  // OAuth
+  openOAuthUrl(url: string): Promise<void>;
+  onOAuthCallback(callback: (url: string) => void): () => void;
 }
 
 interface Window {

@@ -44,6 +44,11 @@ nsis:
   installerLanguages:
     - ko
 
+protocols:
+  - name: TutorMate Q
+    schemes:
+      - tutomate-q
+
 linux:
   target:
     - AppImage

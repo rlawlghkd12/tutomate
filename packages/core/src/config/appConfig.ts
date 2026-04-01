@@ -6,6 +6,7 @@ declare const __APP_CONFIG__: {
   licenseFormatHint: string;
   contactInfo: string;
   welcomeTitle: string;
+  scheme?: string;
   enableMemberFeature?: boolean;
   hideAddressField?: boolean;
   enableQuarterSystem?: boolean;
@@ -19,6 +20,7 @@ export const appConfig = typeof __APP_CONFIG__ !== 'undefined' ? __APP_CONFIG__ 
   licenseFormatHint: 'TMKH-XXXX-XXXX-XXXX',
   contactInfo: '010-3556-7586',
   welcomeTitle: 'TutorMate에 오신 것을 환영합니다!',
+  scheme: 'tutomate',
   enableMemberFeature: false,
   hideAddressField: false,
   enableQuarterSystem: false,

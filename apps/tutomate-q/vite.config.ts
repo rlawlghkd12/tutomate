@@ -46,6 +46,9 @@ export default defineConfig({
               external: ['electron'],
             },
           },
+          define: {
+            __APP_SCHEME__: JSON.stringify(appConfig.scheme || 'tutomate-q'),
+          },
           plugins: [copyPreload(), copyIcon()],
         },
       },

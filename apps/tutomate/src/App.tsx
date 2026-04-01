@@ -2,7 +2,8 @@ import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ConfigProvider, App as AntApp, theme as antdTheme, Modal, Button, Typography, Space, message, Spin } from 'antd';
 import koKR from 'antd/locale/ko_KR';
 import { Layout, ErrorBoundary, UpdateChecker, GlobalSearch, useGlobalSearch, LockScreen, LicenseKeyInput } from '@tutomate/ui';
-import { useSettingsStore, useLockStore, useAutoLock, useLicenseStore, useAuthStore, migrateOrgData, reloadAllStores, appConfig } from '@tutomate/core';
+import { useSettingsStore, useLockStore, useAutoLock, useLicenseStore, useAuthStore, migrateOrgData, reloadAllStores, appConfig, isElectron, OAUTH_PROVIDERS } from '@tutomate/core';
+import type { OAuthProvider } from '@tutomate/core';
 import DashboardPage from './pages/DashboardPage';
 import CoursesPage from './pages/CoursesPage';
 import CourseDetailPage from './pages/CourseDetailPage';
@@ -12,34 +13,41 @@ import RevenueManagementPage from './pages/RevenueManagementPage';
 import SettingsPage from './pages/SettingsPage';
 import { useEffect, useMemo, useState } from 'react';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
 function App() {
   const { visible, close } = useGlobalSearch();
   const { theme, fontSize, loadSettings } = useSettingsStore();
-  const { loadLicense, activateLicense, licenseKey } = useLicenseStore();
-  const { initialize, loading: authLoading } = useAuthStore();
+  const { loadLicense, activateLicense } = useLicenseStore();
+  const { initialize, loading: authLoading, session, needsSetup, signInWithOAuth, startTrial } = useAuthStore();
   const { isEnabled: lockEnabled, isLocked } = useLockStore();
   useAutoLock();
-  const [welcomeVisible, setWelcomeVisible] = useState(false);
   const [licenseInput, setLicenseInput] = useState(['', '', '', '']);
-  const [licenseLoaded, setLicenseLoaded] = useState(false);
   const [activating, setActivating] = useState(false);
 
   useEffect(() => {
     loadSettings();
     loadLicense();
-    initialize().then(() => {
-      setLicenseLoaded(true);
-    });
+    initialize();
   }, [loadSettings, loadLicense, initialize]);
 
+  // OAuth deep link 리스너
   useEffect(() => {
-    const dismissed = localStorage.getItem('welcome-dismissed');
-    if (licenseLoaded && !licenseKey && !dismissed) {
-      setWelcomeVisible(true);
+    if (!isElectron()) return;
+    return window.electronAPI.onOAuthCallback((code) => {
+      useAuthStore.getState().handleOAuthCallback(code).catch((err) => {
+        message.error(`로그인 실패: ${err.message}`);
+      });
+    });
+  }, []);
+
+  const handleOAuthLogin = async (provider: OAuthProvider) => {
+    try {
+      await signInWithOAuth(provider);
+    } catch (err: any) {
+      message.error(`로그인 실패: ${err.message}`);
     }
-  }, [licenseLoaded, licenseKey]);
+  };
 
   const handleActivateLicense = async () => {
     const key = licenseInput.join('-');
@@ -55,8 +63,8 @@ function App() {
           const newOrgId = useAuthStore.getState().organizationId!;
           const migrate = await new Promise<boolean>((resolve) => {
             Modal.confirm({
-              title: '체험판 데이터 이전',
-              content: '체험판에서 입력한 데이터를 라이선스 계정으로 이전하시겠습니까? "새로 시작"을 선택하면 빈 상태로 시작합니다.',
+              title: '기존 데이터 이전',
+              content: '기존 데이터를 라이선스 계정으로 이전하시겠습니까? "새로 시작"을 선택하면 빈 상태로 시작합니다.',
               okText: '이전',
               cancelText: '새로 시작',
               onOk: () => resolve(true),
@@ -73,13 +81,11 @@ function App() {
             }
           } else {
             await reloadAllStores();
-            message.success('라이선스가 활성화되었습니다! 새로 시작합니다.');
+            message.success('라이선스가 활성화되었습니다!');
           }
         } else {
-          message.success('라이선스가 활성화되었습니다! 플랜이 업그레이드되었습니다.');
+          message.success('라이선스가 활성화되었습니다!');
         }
-        localStorage.setItem('welcome-dismissed', 'true');
-        setWelcomeVisible(false);
         setLicenseInput(['', '', '', '']);
       } else if (result.result === 'invalid_format') {
         message.error(`유효하지 않은 형식입니다. 형식: ${appConfig.licenseFormatHint}`);
@@ -95,9 +101,12 @@ function App() {
     }
   };
 
-  const handleStartTrial = () => {
-    localStorage.setItem('welcome-dismissed', 'true');
-    setWelcomeVisible(false);
+  const handleStartTrial = async () => {
+    try {
+      await startTrial();
+    } catch (err: any) {
+      message.error(`체험판 시작 실패: ${err.message}`);
+    }
   };
 
   useEffect(() => {
@@ -142,27 +151,80 @@ function App() {
     );
   }
 
+  // Step 1: 로그인 화면 (세션 없음)
+  if (!session) {
+    return (
+      <ErrorBoundary>
+        <ConfigProvider locale={koKR} theme={themeConfig}>
+          <AntApp>
+            <div style={{
+              display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh',
+              background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%)',
+            }}>
+              <div style={{
+                maxWidth: 380, width: '100%', textAlign: 'center',
+                background: '#fff', borderRadius: 16, padding: '48px 36px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+              }}>
+                <img
+                  src="icon.png"
+                  alt="TutorMate"
+                  style={{ width: 64, height: 64, marginBottom: 16, borderRadius: 12 }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+                <Title level={3} style={{ marginBottom: 4 }}>{appConfig.welcomeTitle}</Title>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 28 }}>
+                  소셜 계정으로 로그인하세요
+                </Text>
+                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                  {(Object.keys(OAUTH_PROVIDERS) as OAuthProvider[]).map((provider) => {
+                    const cfg = OAUTH_PROVIDERS[provider];
+                    if (!cfg) return null;
+                    return (
+                      <Button
+                        key={provider}
+                        block
+                        size="large"
+                        onClick={() => handleOAuthLogin(provider)}
+                        style={{
+                          background: cfg.background, color: cfg.color, border: cfg.border,
+                          height: 48, borderRadius: 8, fontWeight: 500,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                        }}
+                      >
+                        <span dangerouslySetInnerHTML={{ __html: cfg.iconSvg }} style={{ display: 'flex', alignItems: 'center' }} />
+                        {cfg.label}
+                      </Button>
+                    );
+                  })}
+                </Space>
+                <Text type="secondary" style={{ display: 'block', marginTop: 24, fontSize: '0.8em' }}>
+                  문의: {appConfig.contactInfo}
+                </Text>
+              </div>
+            </div>
+          </AntApp>
+        </ConfigProvider>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <ConfigProvider locale={koKR} theme={themeConfig}>
         <AntApp>
           <Modal
             title={appConfig.welcomeTitle}
-            open={welcomeVisible}
-            onCancel={() => setWelcomeVisible(false)}
+            open={needsSetup}
             footer={null}
             closable={false}
             maskClosable={false}
           >
-            <Space direction="vertical" size="large" style={{ width: '100%', fontSize: '1.05em' }}>
-              <Text style={{ fontSize: '1.05em' }}>
-                수강생 관리를 위한 데스크톱 애플리케이션입니다.
-                강좌 관리, 수강생 등록, 수익 관리 등 다양한 기능을 제공합니다.
-              </Text>
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
               <div>
-                <Text strong style={{ fontSize: '1.05em' }}>라이선스 키가 있으신가요?</Text>
+                <Text strong>라이선스 키가 있으신가요?</Text>
                 <br />
-                <Text type="secondary">
+                <Text type="secondary" style={{ fontSize: '0.85em' }}>
                   키를 직접 입력하거나 전체 붙여넣기 하세요
                 </Text>
                 <div style={{ marginTop: 12 }}>

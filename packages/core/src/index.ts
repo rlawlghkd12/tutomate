@@ -13,10 +13,14 @@ export {
 } from './config/styles';
 export type { ChartColors, ChartTooltipStyle } from './config/styles';
 
+// ─── OAuth ───────────────────────────────────────────────────────
+export { parseOAuthCallback, OAUTH_PROVIDERS } from './lib/oauth';
+export type { OAuthProvider, OAuthProviderConfig, OAuthCallbackResult, OAuthCallbackError } from './lib/oauth';
+
 // ─── Stores ──────────────────────────────────────────────────────
 export { useSettingsStore } from './stores/settingsStore';
 export type { FontSize, Theme } from './stores/settingsStore';
-export { useAuthStore, isCloud, getOrgId, getPlan, migrateOrgData } from './stores/authStore';
+export { useAuthStore, isCloud, getOrgId, getPlan, migrateOrgData, getAuthProvider, getAuthProviderLabel, getAuthProviderColor } from './stores/authStore';
 export { useCourseStore } from './stores/courseStore';
 export { useStudentStore } from './stores/studentStore';
 export { useEnrollmentStore } from './stores/enrollmentStore';
