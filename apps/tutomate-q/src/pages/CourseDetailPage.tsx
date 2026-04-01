@@ -28,23 +28,19 @@ import {
 	TeamOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
-import dayjs from "dayjs";
-import { BulkPaymentForm, CourseForm, MonthlyPaymentTable, PaymentForm } from "@tutomate/ui";
+import { CourseForm, PaymentManagementTable, StudentForm } from "@tutomate/ui";
 import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
-import { useMonthlyPaymentStore } from "@tutomate/core";
+import { usePaymentRecordStore } from "@tutomate/core";
 import { useStudentStore } from "@tutomate/core";
 import { appConfig } from "@tutomate/core";
-import type { Enrollment } from "@tutomate/core";
+import type { Enrollment, Student } from "@tutomate/core";
 import {
 	COURSE_STUDENT_EXPORT_FIELDS,
 	exportCourseStudentsToCSV,
 	exportCourseStudentsToExcel,
 	getCurrentQuarter,
-	getQuarterMonths,
 	getQuarterOptions,
-	quarterMonthToYYYYMM,
-	PAYMENT_METHOD_LABELS,
 } from "@tutomate/core";
 
 const DEFAULT_EXPORT_FIELDS = [
@@ -64,13 +60,8 @@ const CourseDetailPage: React.FC = () => {
 	const { loadStudents, getStudentById } = useStudentStore();
 	const { enrollments, loadEnrollments, deleteEnrollment } =
 		useEnrollmentStore();
-	const { payments, loadPayments } = useMonthlyPaymentStore();
+	const { loadRecords } = usePaymentRecordStore();
 
-	const [selectedEnrollment, setSelectedEnrollment] =
-		useState<Enrollment | null>(null);
-	const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
-	const [isBulkPaymentModalVisible, setIsBulkPaymentModalVisible] =
-		useState(false);
 	const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 	const [isExportModalVisible, setIsExportModalVisible] = useState(false);
 	const [selectedExportFields, setSelectedExportFields] = useState<string[]>(
@@ -80,13 +71,15 @@ const CourseDetailPage: React.FC = () => {
 	const [activeTab, setActiveTab] = useState<string>("students");
 	const [selectedQuarter, setSelectedQuarter] = useState<string>(getCurrentQuarter());
 	const [isCourseEditVisible, setIsCourseEditVisible] = useState(false);
+	const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+	const [isStudentEditVisible, setIsStudentEditVisible] = useState(false);
 
 	useEffect(() => {
 		loadCourses();
 		loadStudents();
 		loadEnrollments();
-		loadPayments();
-	}, [loadCourses, loadStudents, loadEnrollments, loadPayments]);
+		loadRecords();
+	}, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
 	const course = id ? getCourseById(id) : undefined;
 	const courseEnrollments = appConfig.enableQuarterSystem
@@ -96,31 +89,12 @@ const CourseDetailPage: React.FC = () => {
 	const enrolledStudents = useMemo(() => {
 		return courseEnrollments.map((enrollment) => {
 			const student = getStudentById(enrollment.studentId);
-
-			// 분기 시스템: 등록월 기반 납부 정보 계산
-			let quarterTotalPaid = 0;
-			let latestPayment: { paidAt?: string; paymentMethod?: string } | null = null;
-			if (appConfig.enableQuarterSystem && enrollment.enrolledMonths?.length) {
-				const enrolledYYYYMMs = enrollment.enrolledMonths.map(
-					(m) => quarterMonthToYYYYMM(enrollment.quarter!, m),
-				);
-				const enrollmentPayments = payments
-					.filter(
-						(p) => p.enrollmentId === enrollment.id && enrolledYYYYMMs.includes(p.month),
-					)
-					.sort((a, b) => (b.paidAt || "").localeCompare(a.paidAt || ""));
-				quarterTotalPaid = enrollmentPayments.reduce((sum, p) => sum + p.amount, 0);
-				latestPayment = enrollmentPayments[0] || null;
-			}
-
 			return {
 				...enrollment,
 				student,
-				quarterTotalPaid,
-				latestPayment,
 			};
 		});
-	}, [courseEnrollments, getStudentById, payments]);
+	}, [courseEnrollments, getStudentById]);
 
 	const nonExemptEnrollments = courseEnrollments.filter(
 		(e) => e.paymentStatus !== "exempt",
@@ -152,14 +126,12 @@ const CourseDetailPage: React.FC = () => {
 		});
 	};
 
-	const handleRemoveStudent = async (enrollmentId: string) => {
-		await deleteEnrollment(enrollmentId);
-		message.success("수강생이 제거되었습니다.");
-	};
-
-	const handlePaymentEdit = (enrollment: Enrollment) => {
-		setSelectedEnrollment(enrollment);
-		setIsPaymentModalVisible(true);
+	const handleRemoveStudents = async (enrollmentIds: string[]) => {
+		for (const id of enrollmentIds) {
+			await deleteEnrollment(id);
+		}
+		setSelectedRowKeys([]);
+		message.success(`${enrollmentIds.length}명의 수강생이 제거되었습니다.`);
 	};
 
 	const handleExport = (type: "excel" | "csv") => {
@@ -199,24 +171,35 @@ const CourseDetailPage: React.FC = () => {
 		{
 			title: "이름",
 			key: "name",
-			render: (_, record) => (
-				<span style={{ whiteSpace: "nowrap" }}>{record.student?.name || "-"}</span>
-			),
+			width: 80,
+			render: (_, record) => record.student ? (
+				<a
+					onClick={() => {
+						setSelectedStudent(record.student!);
+						setIsStudentEditVisible(true);
+					}}
+					style={{ whiteSpace: "nowrap" }}
+				>
+					{record.student.name}
+				</a>
+			) : "-",
 			sorter: (a, b) =>
 				(a.student?.name || "").localeCompare(b.student?.name || ""),
 		},
 		{
 			title: "전화번호",
 			key: "phone",
+			width: 120,
 			render: (_, record) => (
 				<span style={{ whiteSpace: "nowrap" }}>{record.student?.phone || "-"}</span>
 			),
 		},
-		...(appConfig.enableQuarterSystem
+		...(appConfig.enableMemberFeature
 			? [
 					{
 						title: "회원",
 						key: "isMember",
+						width: 60,
 						render: (_: unknown, record: (typeof enrolledStudents)[0]) =>
 							record.student?.isMember ? (
 								<Tag color="blue">회원</Tag>
@@ -230,9 +213,14 @@ const CourseDetailPage: React.FC = () => {
 						onFilter: (value: unknown, record: (typeof enrolledStudents)[0]) =>
 							(record.student?.isMember ?? false) === value,
 					},
+				] as ColumnsType<(typeof enrolledStudents)[0]>
+			: []),
+		...(appConfig.enableQuarterSystem
+			? [
 					{
 						title: "등록월",
 						key: "enrolledMonths",
+						width: 110,
 						render: (_: unknown, record: (typeof enrolledStudents)[0]) =>
 							record.enrolledMonths?.length ? (
 								<Space size={4}>
@@ -244,131 +232,19 @@ const CourseDetailPage: React.FC = () => {
 								"-"
 							),
 					},
-					{
-						title: "납부금액",
-						key: "quarterTotalPaid",
-						render: (_: unknown, record: (typeof enrolledStudents)[0]) =>
-							record.paymentStatus === "exempt" ? (
-								<Tag color="purple">면제</Tag>
-							) : (
-								<span style={{ whiteSpace: "nowrap" }}>₩{record.quarterTotalPaid.toLocaleString()}</span>
-							),
-						sorter: (a: (typeof enrolledStudents)[0], b: (typeof enrolledStudents)[0]) =>
-							a.quarterTotalPaid - b.quarterTotalPaid,
-					},
-					{
-						title: "납부방법",
-						key: "paymentMethod",
-						render: (_: unknown, record: (typeof enrolledStudents)[0]) =>
-							record.latestPayment?.paymentMethod
-								? PAYMENT_METHOD_LABELS[record.latestPayment.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] || "-"
-								: "-",
-					},
-					{
-						title: "납부일자",
-						key: "paidAt",
-						render: (_: unknown, record: (typeof enrolledStudents)[0]) =>
-							record.latestPayment?.paidAt ? (
-								<span style={{ whiteSpace: "nowrap" }}>{dayjs(record.latestPayment.paidAt).format("YYYY-MM-DD")}</span>
-							) : (
-								"-"
-							),
-					},
-					{
-						title: "메모",
-						key: "notes",
-						ellipsis: { showTitle: false },
-						render: (_: unknown, record: (typeof enrolledStudents)[0]) => {
-							const parts: string[] = [];
-							if (record.discountAmount > 0)
-								parts.push(`할인 ₩${record.discountAmount.toLocaleString()}`);
-							if (record.notes) parts.push(record.notes);
-							const text = parts.join(" / ");
-							return text ? (
-								<Tooltip title={text} placement="topLeft">
-									<span>{text}</span>
-								</Tooltip>
-							) : "-";
-						},
-					},
 				] as ColumnsType<(typeof enrolledStudents)[0]>
-			: [
-					{
-						title: "이번달",
-						key: "monthlyStatus",
-						render: (_: unknown, record: (typeof enrolledStudents)[0]) => {
-							if (record.paymentStatus === "exempt") {
-								return <Tag color="purple">면제</Tag>;
-							}
-							const currentMonth = dayjs().format("YYYY-MM");
-							const monthlyPayment = useMonthlyPaymentStore
-								.getState()
-								.payments.find(
-									(p) =>
-										p.enrollmentId === record.id &&
-										p.month === currentMonth,
-								);
-							if (monthlyPayment && monthlyPayment.status === "paid") {
-								return <Tag color="green">납부</Tag>;
-							}
-							return <Tag color="red">미납</Tag>;
-						},
-						filters: [
-							{ text: "납부", value: "paid" },
-							{ text: "미납", value: "unpaid" },
-							{ text: "면제", value: "exempt" },
-						],
-						onFilter: (value: unknown, record: (typeof enrolledStudents)[0]) => {
-							if (value === "exempt")
-								return record.paymentStatus === "exempt";
-							const currentMonth = dayjs().format("YYYY-MM");
-							const mp = useMonthlyPaymentStore
-								.getState()
-								.payments.find(
-									(p) =>
-										p.enrollmentId === record.id &&
-										p.month === currentMonth,
-								);
-							if (value === "paid") return mp?.status === "paid";
-							return !mp || mp.status !== "paid";
-						},
-					},
-					{
-						title: "등록일",
-						key: "enrolledAt",
-						render: (_: unknown, record: (typeof enrolledStudents)[0]) =>
-							new Date(record.enrolledAt).toLocaleDateString(),
-						sorter: (a: (typeof enrolledStudents)[0], b: (typeof enrolledStudents)[0]) =>
-							new Date(a.enrolledAt).getTime() -
-							new Date(b.enrolledAt).getTime(),
-					},
-				] as ColumnsType<(typeof enrolledStudents)[0]>),
+			: []),
 		{
-			title: "작업",
-			key: "action",
-			render: (_, record) => (
-				<Space size={0} style={{ whiteSpace: "nowrap" }}>
-					<Button type="link" size="small" onClick={() => handlePaymentEdit(record)}>
-						납부관리
-					</Button>
-					<Popconfirm
-						title="정말 이 수강생을 제거하시겠습니까?"
-						onConfirm={() => handleRemoveStudent(record.id)}
-						okText="제거"
-						cancelText="취소"
-					>
-						<Button type="link" size="small" danger>
-							제거
-						</Button>
-					</Popconfirm>
-				</Space>
-			),
+			title: "메모",
+			key: "notes",
+			ellipsis: { showTitle: false },
+			render: (_, record) => record.notes ? (
+				<Tooltip title={record.notes} placement="topLeft">
+					<span>{record.notes}</span>
+				</Tooltip>
+			) : "-",
 		},
 	];
-
-	const selectedEnrollments = enrolledStudents.filter((student) =>
-		selectedRowKeys.includes(student.id),
-	);
 
 	const rowSelection = {
 		selectedRowKeys,
@@ -478,39 +354,37 @@ const CourseDetailPage: React.FC = () => {
 						),
 						children: (
 							<>
-								{appConfig.enableQuarterSystem && (
-									<div style={{ marginBottom: 12 }}>
-										<Select
-											value={selectedQuarter}
-											onChange={setSelectedQuarter}
-											style={{ width: 180 }}
-											options={getQuarterOptions()}
-										/>
+								<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+									<div>
+										{appConfig.enableQuarterSystem && (
+											<Select
+												value={selectedQuarter}
+												onChange={setSelectedQuarter}
+												style={{ width: 180 }}
+												options={getQuarterOptions()}
+											/>
+										)}
 									</div>
-								)}
-								{selectedRowKeys.length > 0 && (
-									<div
-										style={{
-											marginBottom: 16,
-											padding: 12,
-											backgroundColor: token.colorInfoBg,
-											borderRadius: 4,
-										}}
-									>
+									{selectedRowKeys.length > 0 && (
 										<Space>
-											<span>{selectedRowKeys.length}명 선택됨</span>
-											<Button
-												type="primary"
-												onClick={() => setIsBulkPaymentModalVisible(true)}
+											<span style={{ fontSize: 13, color: token.colorTextSecondary }}>{selectedRowKeys.length}명 선택됨</span>
+											<Popconfirm
+												title={`${selectedRowKeys.length}명의 수강생을 제거하시겠습니까?`}
+												onConfirm={() => handleRemoveStudents(selectedRowKeys as string[])}
+												okText="제거"
+												okType="danger"
+												cancelText="취소"
 											>
-												일괄 납부 처리
-											</Button>
-											<Button onClick={() => setSelectedRowKeys([])}>
+												<Button size="small" danger>
+													선택 제거
+												</Button>
+											</Popconfirm>
+											<Button size="small" onClick={() => setSelectedRowKeys([])}>
 												선택 해제
 											</Button>
 										</Space>
-									</div>
-								)}
+									)}
+								</div>
 								<Table
 									columns={columns}
 									dataSource={enrolledStudents}
@@ -518,53 +392,27 @@ const CourseDetailPage: React.FC = () => {
 									pagination={false}
 									size="small"
 									rowSelection={rowSelection}
-									tableLayout="auto"
+									tableLayout="fixed"
 								/>
 							</>
 						),
 					},
 					{
-						key: "monthly",
+						key: "payments",
 						label: (
 							<span>
-								<CalendarOutlined /> 월별 납부
+								<CalendarOutlined /> 납부 관리
 							</span>
 						),
 						children: (
-							<MonthlyPaymentTable
-								key={appConfig.enableQuarterSystem ? selectedQuarter : undefined}
+							<PaymentManagementTable
 								courseId={id}
 								courseFee={course.fee}
 								enrollments={courseEnrollments}
-								quarterMonths={appConfig.enableQuarterSystem
-									? getQuarterMonths(selectedQuarter).map((m) => quarterMonthToYYYYMM(selectedQuarter, m))
-									: undefined
-								}
-								courseCreatedAt={course.createdAt}
 							/>
 						),
 					},
 				]}
-			/>
-
-			<PaymentForm
-				visible={isPaymentModalVisible}
-				onClose={() => {
-					setIsPaymentModalVisible(false);
-					setSelectedEnrollment(null);
-				}}
-				enrollment={selectedEnrollment}
-				courseFee={course.fee}
-			/>
-
-			<BulkPaymentForm
-				visible={isBulkPaymentModalVisible}
-				onClose={() => {
-					setIsBulkPaymentModalVisible(false);
-					setSelectedRowKeys([]);
-				}}
-				enrollments={selectedEnrollments}
-				courseFee={course.fee}
 			/>
 
 			{/* 내보내기 모달 */}
@@ -669,6 +517,15 @@ const CourseDetailPage: React.FC = () => {
 					</Button>
 				</div>
 			</Modal>
+
+			<StudentForm
+				visible={isStudentEditVisible}
+				onClose={() => {
+					setIsStudentEditVisible(false);
+					setSelectedStudent(null);
+				}}
+				student={selectedStudent}
+			/>
 
 			<CourseForm
 				visible={isCourseEditVisible}
