@@ -147,9 +147,7 @@ export { isElectron, isTauri } from './utils/tauri';
 export {
   getCurrentQuarter,
   getQuarterLabel,
-  getQuarterMonths,
   getQuarterOptions,
-  quarterMonthToYYYYMM,
 } from './utils/quarterUtils';
 
 // ─── Hooks ───────────────────────────────────────────────────────
