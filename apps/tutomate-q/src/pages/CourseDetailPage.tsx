@@ -540,6 +540,7 @@ const CourseDetailPage: React.FC = () => {
 									? getQuarterMonths(selectedQuarter).map((m) => quarterMonthToYYYYMM(selectedQuarter, m))
 									: undefined
 								}
+								courseCreatedAt={course.createdAt}
 							/>
 						),
 					},

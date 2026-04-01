@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     // 라이선스 목록 조회
     const { data: licenses, error: listError } = await supabaseAdmin
       .from('license_keys')
-      .select('key_hash, key, plan, memo, created_at')
+      .select('key_hash, key, plan, memo, assigned_email, created_at')
       .order('created_at', { ascending: false });
 
     if (listError) {
@@ -76,8 +76,22 @@ Deno.serve(async (req) => {
       );
     }
 
+    // 사용 중인 라이선스 키 조회
+    const { data: orgs } = await supabaseAdmin
+      .from('organizations')
+      .select('license_key, name')
+      .not('license_key', 'is', null);
+
+    const usedMap = new Map((orgs || []).map((o: any) => [o.license_key, o.name]));
+
+    const enriched = (licenses || []).map((l: any) => ({
+      ...l,
+      used: usedMap.has(l.key),
+      used_by: usedMap.get(l.key) || null,
+    }));
+
     return new Response(
-      JSON.stringify({ licenses }),
+      JSON.stringify({ licenses: enriched }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (err) {

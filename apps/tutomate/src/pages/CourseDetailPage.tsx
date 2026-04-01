@@ -192,7 +192,16 @@ const CourseDetailPage: React.FC = () => {
 						(p) => p.enrollmentId === record.id && p.month === currentMonth,
 					);
 				if (monthlyPayment && monthlyPayment.status === "paid") {
-					return <Tag color="green">납부</Tag>;
+					return (
+						<Space size={4}>
+							<Tag color="green">납부</Tag>
+							{monthlyPayment.paidAt && (
+								<span style={{ fontSize: 12, color: '#999' }}>
+									{dayjs(monthlyPayment.paidAt).format('M/D')}
+								</span>
+							)}
+						</Space>
+					);
 				}
 				return <Tag color="red">미납</Tag>;
 			},
@@ -401,6 +410,7 @@ const CourseDetailPage: React.FC = () => {
 								courseId={id}
 								courseFee={course.fee}
 								enrollments={courseEnrollments}
+								courseCreatedAt={course.createdAt}
 							/>
 						),
 					},

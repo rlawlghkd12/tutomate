@@ -1,0 +1,1 @@
+ALTER TABLE user_organizations ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'owner';

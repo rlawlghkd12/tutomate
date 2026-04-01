@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, InputNumber, Button, message, Space, DatePicker, Row, Col, Popconfirm, Tag, Radio, Divider, theme } from 'antd';
+import { Modal, Form, InputNumber, Button, message, Space, DatePicker, Row, Col, Popconfirm, Tag, Select, Divider, theme } from 'antd';
 import type { Enrollment } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import dayjs from 'dayjs';
@@ -31,7 +31,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       form.setFieldsValue({
         paidAmount: enrollment.paidAmount,
         paidAt: enrollment.paidAt ? dayjs(enrollment.paidAt) : dayjs(),
-        paymentMethod: enrollment.paymentMethod || undefined,
+        paymentMethod: enrollment.paymentMethod || 'transfer',
         discountAmount: discount,
       });
     }
@@ -219,13 +219,13 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
           </Button>
         </Space>
 
-        {/* 납부 방법 — Radio.Button 통일 */}
-        <Form.Item name="paymentMethod" label="납부 방법">
-          <Radio.Group disabled={isExempt}>
-            <Radio.Button value="cash">현금</Radio.Button>
-            <Radio.Button value="card">카드</Radio.Button>
-            <Radio.Button value="transfer">계좌이체</Radio.Button>
-          </Radio.Group>
+        {/* 납부 방법 */}
+        <Form.Item name="paymentMethod" label="납부 방법" rules={[{ required: true, message: '납부 방법을 선택하세요' }]}>
+          <Select disabled={isExempt} placeholder="납부 방법 선택">
+            <Select.Option value="transfer">계좌이체</Select.Option>
+            <Select.Option value="card">카드</Select.Option>
+            <Select.Option value="cash">현금</Select.Option>
+          </Select>
         </Form.Item>
 
         {/* 변경 후 잔여 금액 */}

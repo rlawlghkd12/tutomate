@@ -51,4 +51,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 앱 제어
   relaunch: () =>
     ipcRenderer.invoke('app-relaunch'),
+
+  // OAuth
+  openOAuthUrl: (url) =>
+    ipcRenderer.invoke('oauth-open-external', url),
+  onOAuthCallback: (callback) => {
+    const handler = (_event, url) => callback(url);
+    ipcRenderer.on('oauth-callback', handler);
+    return () => ipcRenderer.removeListener('oauth-callback', handler);
+  },
 });

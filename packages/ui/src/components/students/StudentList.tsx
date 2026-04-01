@@ -74,8 +74,6 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
           return row.student.phone.includes(searchText);
         case 'course':
           return row.courses.some((c) => c.name.toLowerCase().includes(searchLower));
-        case 'address':
-          return (row.student.address || '').toLowerCase().includes(searchLower);
         case 'notes':
           return (row.student.notes || '').toLowerCase().includes(searchLower);
         default:
@@ -83,7 +81,6 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
             row.student.name.toLowerCase().includes(searchLower) ||
             row.student.phone.includes(searchText) ||
             row.courses.some((c) => c.name.toLowerCase().includes(searchLower)) ||
-            (row.student.address || '').toLowerCase().includes(searchLower) ||
             (row.student.notes || '').toLowerCase().includes(searchLower)
           );
       }
@@ -152,16 +149,6 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
         );
       },
     },
-    ...(!appConfig.hideAddressField ? [{
-      title: '주소',
-      key: 'address',
-      ellipsis: { showTitle: false },
-      render: (_: unknown, record: StudentRow) => record.student.address ? (
-        <Tooltip title={record.student.address} placement="topLeft">
-          <span>{record.student.address}</span>
-        </Tooltip>
-      ) : '-',
-    }] : []),
     {
       title: '메모',
       key: 'notes',
@@ -187,7 +174,6 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
             <Select.Option value="name">이름</Select.Option>
             <Select.Option value="phone">전화번호</Select.Option>
             <Select.Option value="course">강좌</Select.Option>
-            <Select.Option value="address">주소</Select.Option>
             <Select.Option value="notes">메모</Select.Option>
           </Select>
         </Col>
@@ -197,9 +183,8 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
               searchField === 'name' ? '이름 검색' :
               searchField === 'phone' ? '전화번호 검색' :
               searchField === 'course' ? '강좌명 검색' :
-              searchField === 'address' ? '주소 검색' :
               searchField === 'notes' ? '메모 검색' :
-              '이름, 전화번호, 강좌, 주소, 메모 검색'
+              '이름, 전화번호, 강좌, 메모 검색'
             }
             prefix={<SearchOutlined />}
             value={searchText}
