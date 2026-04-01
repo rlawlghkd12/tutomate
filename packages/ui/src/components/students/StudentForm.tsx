@@ -30,9 +30,20 @@ import { formatPhone, parseBirthDate } from "@tutomate/core";
 import { appConfig } from "@tutomate/core";
 import {
 	getCurrentQuarter,
-	getQuarterMonths,
-	quarterMonthToYYYYMM,
 } from "@tutomate/core";
+
+/** 분기에 속하는 월 배열 — "2026-Q1" → [1,2,3] */
+function getQuarterMonths(quarter: string): number[] {
+	const q = Number.parseInt(quarter.split('-Q')[1], 10);
+	const start = (q - 1) * 3 + 1;
+	return [start, start + 1, start + 2];
+}
+
+/** 분기 + 월 → YYYY-MM 형식 — "2026-Q1", 1 → "2026-01" */
+function quarterMonthToYYYYMM(quarter: string, month: number): string {
+	const year = quarter.split('-Q')[0];
+	return `${year}-${String(month).padStart(2, '0')}`;
+}
 
 const { TextArea } = Input;
 const { Option } = Select;
