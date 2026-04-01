@@ -2,7 +2,7 @@ import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ConfigProvider, App as AntApp, theme as antdTheme, Modal, Button, Typography, Space, message, Spin } from 'antd';
 import koKR from 'antd/locale/ko_KR';
 import { Layout, ErrorBoundary, UpdateChecker, GlobalSearch, useGlobalSearch, LockScreen, LicenseKeyInput } from '@tutomate/ui';
-import { useSettingsStore, useLockStore, useAutoLock, useLicenseStore, useAuthStore, migrateOrgData, reloadAllStores, appConfig, isElectron, OAUTH_PROVIDERS } from '@tutomate/core';
+import { useSettingsStore, useLockStore, useAutoLock, useLicenseStore, useAuthStore, migrateOrgData, reloadAllStores, appConfig, isElectron, OAUTH_PROVIDERS, usePaymentRecordStore } from '@tutomate/core';
 import type { OAuthProvider } from '@tutomate/core';
 import DashboardPage from './pages/DashboardPage';
 import CoursesPage from './pages/CoursesPage';
@@ -21,6 +21,7 @@ function App() {
   const { loadLicense, activateLicense } = useLicenseStore();
   const { initialize, loading: authLoading, session, needsSetup, signInWithOAuth, startTrial } = useAuthStore();
   const { isEnabled: lockEnabled, isLocked } = useLockStore();
+  const { loadRecords } = usePaymentRecordStore();
   useAutoLock();
   const [licenseInput, setLicenseInput] = useState(['', '', '', '']);
   const [activating, setActivating] = useState(false);
@@ -29,7 +30,8 @@ function App() {
     loadSettings();
     loadLicense();
     initialize();
-  }, [loadSettings, loadLicense, initialize]);
+    loadRecords();
+  }, [loadSettings, loadLicense, initialize, loadRecords]);
 
   // OAuth deep link 리스너
   useEffect(() => {
@@ -84,6 +86,7 @@ function App() {
             message.success('라이선스가 활성화되었습니다!');
           }
         } else {
+          await reloadAllStores();
           message.success('라이선스가 활성화되었습니다!');
         }
         setLicenseInput(['', '', '', '']);
@@ -250,22 +253,26 @@ function App() {
               </Text>
             </Space>
           </Modal>
-          <UpdateChecker autoCheck={true} checkInterval={60} />
-          <Router>
-            <GlobalSearch visible={visible} onClose={close} />
-            <Layout>
-              <Routes>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/courses" element={<CoursesPage />} />
-                <Route path="/courses/:id" element={<CourseDetailPage />} />
-                <Route path="/students" element={<StudentsPage />} />
-                <Route path="/calendar" element={<CalendarPage />} />
-                <Route path="/revenue" element={<RevenueManagementPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Layout>
-          </Router>
+          {!needsSetup && (
+            <>
+              <UpdateChecker autoCheck={true} checkInterval={60} />
+              <Router>
+                <GlobalSearch visible={visible} onClose={close} />
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<DashboardPage />} />
+                    <Route path="/courses" element={<CoursesPage />} />
+                    <Route path="/courses/:id" element={<CourseDetailPage />} />
+                    <Route path="/students" element={<StudentsPage />} />
+                    <Route path="/calendar" element={<CalendarPage />} />
+                    <Route path="/revenue" element={<RevenueManagementPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Layout>
+              </Router>
+            </>
+          )}
           {isLocked && lockEnabled && <LockScreen />}
         </AntApp>
       </ConfigProvider>
