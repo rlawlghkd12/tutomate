@@ -92,27 +92,32 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
       title: '강의실',
       dataIndex: 'classroom',
       key: 'classroom',
+      width: 80,
     },
     {
       title: '강사',
       dataIndex: 'instructorName',
       key: 'instructorName',
+      width: 80,
     },
     {
       title: '강사 전화번호',
       dataIndex: 'instructorPhone',
       key: 'instructorPhone',
+      width: 130,
     },
     {
       title: '수강료',
       dataIndex: 'fee',
       key: 'fee',
+      width: 110,
       render: (fee: number) => `₩${fee.toLocaleString()}`,
       sorter: (a, b) => a.fee - b.fee,
     },
     {
       title: '수강 인원',
       key: 'students',
+      width: 90,
       render: (_, record) => {
         const currentStudents = getEnrollmentCountByCourseId(record.id);
         const percentage = (currentStudents / record.maxStudents) * 100;
@@ -134,6 +139,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
     {
       title: '상태',
       key: 'status',
+      width: 75,
       filters: [
         { text: '모집 중', value: 'open' },
         { text: '마감 임박', value: 'almost' },

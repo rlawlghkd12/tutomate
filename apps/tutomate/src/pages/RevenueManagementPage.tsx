@@ -101,7 +101,7 @@ const RevenueManagementPage: React.FC = () => {
   const totalRevenue = revenueEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
   const expectedRevenue = revenueEnrollments.reduce((sum, e) => {
     const course = getCourseById(e.courseId);
-    return sum + (course?.fee || 0);
+    return sum + ((course?.fee || 0) - (e.discountAmount ?? 0));
   }, 0);
   const totalUnpaid = expectedRevenue - totalRevenue;
 
@@ -115,7 +115,7 @@ const RevenueManagementPage: React.FC = () => {
     const courseEnrollments = filteredEnrollments.filter((e) => e.courseId === course.id);
     const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
     const revenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-    const expected = nonExemptEnrollments.length * course.fee;
+    const expected = nonExemptEnrollments.reduce((sum, e) => sum + (course.fee - (e.discountAmount ?? 0)), 0);
     const unpaid = expected - revenue;
     const completed = courseEnrollments.filter((e) => e.paymentStatus === 'completed').length;
 
@@ -160,7 +160,7 @@ const RevenueManagementPage: React.FC = () => {
       );
       const paidCount = courseMonthPayments.filter((p) => p.status === 'paid').length;
       const monthRevenue = courseMonthPayments.reduce((sum, p) => sum + p.amount, 0);
-      const monthExpected = nonExemptEnrollments.length * course.fee;
+      const monthExpected = nonExemptEnrollments.reduce((sum, e) => sum + (course.fee - (e.discountAmount ?? 0)), 0);
 
       return {
         courseId: course.id,

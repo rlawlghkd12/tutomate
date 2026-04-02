@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   Table, Tag, Button, Space, InputNumber, DatePicker, Input, Modal, Form,
-  Select, message, Row, Col, Empty, Popconfirm, theme,
+  Select, message, Empty, Popconfirm, theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined } from '@ant-design/icons';
@@ -18,20 +18,29 @@ interface PaymentManagementTableProps {
   courseId: string;
   courseFee: number;
   enrollments: Enrollment[];
+  onStudentClick?: (studentId: string) => void;
+  rowSelection?: {
+    selectedRowKeys: React.Key[];
+    onChange: (keys: React.Key[]) => void;
+  };
 }
 
 const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   courseId: _courseId,
   courseFee,
   enrollments,
+  onStudentClick,
+  rowSelection,
 }) => {
   const { token } = useToken();
   const { getStudentById } = useStudentStore();
-  const { records, addPayment, deletePayment } = usePaymentRecordStore();
+  const { records, addPayment, deletePayment, updateRecord } = usePaymentRecordStore();
   const { updatePayment: updateEnrollmentPayment } = useEnrollmentStore();
 
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
+  const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<string | null>(null);
+  const [modalDiscount, setModalDiscount] = useState(0);
   const [form] = Form.useForm();
 
   // 수강생별 납부 현황
@@ -41,9 +50,10 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       const enrollmentRecords = records
         .filter((r) => r.enrollmentId === enrollment.id)
         .sort((a, b) => (b.paidAt || '').localeCompare(a.paidAt || ''));
-      const totalPaid = enrollmentRecords.reduce((sum, r) => sum + r.amount, 0);
+      // enrollment 데이터를 source of truth로 사용 (payment_records는 이력 표시용)
+      const totalPaid = enrollment.paidAmount;
       const effectiveFee = courseFee - (enrollment.discountAmount ?? 0);
-      const remaining = Math.max(0, effectiveFee - totalPaid);
+      const remaining = Math.max(0, enrollment.remainingAmount);
 
       return {
         key: enrollment.id,
@@ -61,11 +71,27 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   // 통계
   const stats = useMemo(() => {
     const nonExempt = tableData.filter((d) => d.enrollment.paymentStatus !== 'exempt');
-    const paidCount = nonExempt.filter((d) => d.remaining === 0 && d.totalPaid > 0).length;
+    const paidCount = nonExempt.filter((d) => d.enrollment.paymentStatus === 'completed').length;
     const totalPaid = nonExempt.reduce((sum, d) => sum + d.totalPaid, 0);
     const expectedTotal = nonExempt.reduce((sum, d) => sum + d.effectiveFee, 0);
     return { paidCount, totalPaid, expectedTotal, totalStudents: enrollments.length };
   }, [tableData, enrollments.length]);
+
+  // 할인 금액 수정
+  const handleDiscountChange = useCallback(async (enrollment: Enrollment, newDiscount: number) => {
+    const enrollmentRecords = records.filter((r) => r.enrollmentId === enrollment.id);
+    const totalPaid = enrollmentRecords.reduce((sum, r) => sum + r.amount, 0);
+    await updateEnrollmentPayment(
+      enrollment.id,
+      totalPaid,
+      courseFee,
+      enrollment.paidAt,
+      false,
+      enrollment.paymentMethod,
+      newDiscount,
+    );
+    message.success('할인 금액이 업데이트되었습니다.');
+  }, [records, updateEnrollmentPayment, courseFee]);
 
   // 납부 추가
   const handleAddPayment = useCallback(async () => {
@@ -73,14 +99,24 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       const values = await form.validateFields();
       if (!selectedEnrollmentId) return;
 
-      await addPayment(
-        selectedEnrollmentId,
-        values.amount,
-        courseFee,
-        values.paymentMethod,
-        values.paidAt?.format('YYYY-MM-DD'),
-        values.notes,
-      );
+      // 할인 변경 확인
+      const enrollment = enrollments.find((e) => e.id === selectedEnrollmentId);
+      const newDiscount = values.discountAmount ?? 0;
+      if (enrollment && newDiscount !== (enrollment.discountAmount ?? 0)) {
+        await handleDiscountChange(enrollment, newDiscount);
+      }
+
+      // 납부 기록 추가 (금액이 있을 때만)
+      if (values.amount > 0) {
+        await addPayment(
+          selectedEnrollmentId,
+          values.amount,
+          courseFee,
+          values.paymentMethod,
+          values.paidAt?.format('YYYY-MM-DD'),
+          values.notes,
+        );
+      }
 
       message.success('납부가 기록되었습니다.');
       form.resetFields();
@@ -89,7 +125,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
     } catch (error) {
       console.error('Payment failed:', error);
     }
-  }, [selectedEnrollmentId, form, addPayment, courseFee]);
+  }, [selectedEnrollmentId, form, addPayment, courseFee, enrollments, handleDiscountChange]);
 
   // 납부 삭제
   const handleDeletePayment = useCallback(async (recordId: string) => {
@@ -115,22 +151,6 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
     );
     message.success('면제가 취소되었습니다.');
   }, [updateEnrollmentPayment, courseFee, records]);
-
-  // 할인 금액 수정
-  const handleDiscountChange = useCallback(async (enrollment: Enrollment, newDiscount: number) => {
-    const enrollmentRecords = records.filter((r) => r.enrollmentId === enrollment.id);
-    const totalPaid = enrollmentRecords.reduce((sum, r) => sum + r.amount, 0);
-    await updateEnrollmentPayment(
-      enrollment.id,
-      totalPaid,
-      courseFee,
-      enrollment.paidAt,
-      false,
-      enrollment.paymentMethod,
-      newDiscount,
-    );
-    message.success('할인 금액이 업데이트되었습니다.');
-  }, [records, updateEnrollmentPayment, courseFee]);
 
   // 완납 처리
   const handleFullPayment = useCallback(async (enrollment: Enrollment) => {
@@ -167,67 +187,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
     message.success(`${unpaid.length}명의 완납이 처리되었습니다.`);
   }, [tableData, addPayment, courseFee]);
 
-  // 납부 이력 (expandable row)
-  const expandedRowRender = (record: typeof tableData[0]) => {
-    if (record.records.length === 0) {
-      return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="납부 이력이 없습니다" />;
-    }
-
-    const historyColumns: ColumnsType<typeof record.records[0]> = [
-      {
-        title: '납부일',
-        key: 'paidAt',
-        width: 120,
-        render: (_, r) => r.paidAt,
-      },
-      {
-        title: '금액',
-        key: 'amount',
-        width: 120,
-        render: (_, r) => `₩${r.amount.toLocaleString()}`,
-      },
-      {
-        title: '방법',
-        key: 'paymentMethod',
-        width: 80,
-        render: (_, r) => r.paymentMethod
-          ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] || '-'
-          : '-',
-      },
-      {
-        title: '메모',
-        key: 'notes',
-        render: (_, r) => r.notes || '-',
-      },
-      {
-        title: '',
-        key: 'action',
-        width: 40,
-        render: (_, r) => (
-          <Popconfirm
-            title="이 납부 기록을 삭제하시겠습니까?"
-            onConfirm={() => handleDeletePayment(r.id)}
-            okText="삭제"
-            okType="danger"
-            cancelText="취소"
-          >
-            <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        ),
-      },
-    ];
-
-    return (
-      <Table
-        columns={historyColumns}
-        dataSource={record.records}
-        rowKey="id"
-        pagination={false}
-        size="small"
-        style={{ margin: 0 }}
-      />
-    );
-  };
+  // 선택된 수강생 데이터 (납부 모달 + 이력 모달 공용)
+  const selectedData = useMemo(() => {
+    if (!selectedEnrollmentId) return null;
+    return tableData.find((d) => d.key === selectedEnrollmentId) ?? null;
+  }, [selectedEnrollmentId, tableData]);
 
   // 메인 테이블 컬럼
   const columns: ColumnsType<typeof tableData[0]> = [
@@ -235,17 +199,32 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       title: '이름',
       key: 'name',
       width: 80,
-      render: (_, record) => record.studentName,
+      render: (_, record) => onStudentClick && record.student ? (
+        <a onClick={() => onStudentClick(record.student!.id)} style={{ whiteSpace: 'nowrap' }}>
+          {record.studentName}
+        </a>
+      ) : (
+        <span style={{ whiteSpace: 'nowrap' }}>{record.studentName}</span>
+      ),
       sorter: (a, b) => a.studentName.localeCompare(b.studentName),
+    },
+    {
+      title: '전화번호',
+      key: 'phone',
+      width: 120,
+      render: (_, record) => (
+        <span style={{ whiteSpace: 'nowrap' }}>{record.student?.phone || '-'}</span>
+      ),
     },
     {
       title: '납부상태',
       key: 'status',
       width: 80,
       render: (_, record) => {
-        if (record.enrollment.paymentStatus === 'exempt') return <Tag color="purple">면제</Tag>;
-        if (record.remaining === 0 && record.totalPaid > 0) return <Tag color="green">완납</Tag>;
-        if (record.totalPaid > 0) return <Tag color="orange">부분납부</Tag>;
+        const s = record.enrollment.paymentStatus;
+        if (s === 'exempt') return <Tag color="purple">면제</Tag>;
+        if (s === 'completed') return <Tag color="green">완납</Tag>;
+        if (s === 'partial') return <Tag color="orange">부분납부</Tag>;
         return <Tag color="red">미납</Tag>;
       },
       filters: [
@@ -254,23 +233,24 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         { text: '미납', value: 'pending' },
         { text: '면제', value: 'exempt' },
       ],
-      onFilter: (value, record) => {
-        if (value === 'exempt') return record.enrollment.paymentStatus === 'exempt';
-        if (value === 'completed') return record.remaining === 0 && record.totalPaid > 0;
-        if (value === 'partial') return record.totalPaid > 0 && record.remaining > 0;
-        return record.totalPaid === 0 && record.enrollment.paymentStatus !== 'exempt';
-      },
+      onFilter: (value, record) => record.enrollment.paymentStatus === value,
     },
     {
       title: '납부액/수강료',
       key: 'paid',
-      width: 130,
+      width: 140,
       render: (_, record) => {
         if (record.enrollment.paymentStatus === 'exempt') return '-';
+        const discount = record.enrollment.discountAmount ?? 0;
         return (
-          <span style={{ whiteSpace: 'nowrap' }}>
-            ₩{record.totalPaid.toLocaleString()} / ₩{record.effectiveFee.toLocaleString()}
-          </span>
+          <div style={{ whiteSpace: 'nowrap', lineHeight: 1.3 }}>
+            <div>₩{record.totalPaid.toLocaleString()} / ₩{record.effectiveFee.toLocaleString()}</div>
+            {discount > 0 && (
+              <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                할인 ₩{discount.toLocaleString()}
+              </div>
+            )}
+          </div>
         );
       },
     },
@@ -293,59 +273,45 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       sorter: (a, b) => a.remaining - b.remaining,
     },
     {
-      title: '할인',
-      key: 'discount',
-      width: 110,
-      render: (_, record) => {
-        if (record.enrollment.paymentStatus === 'exempt') return '-';
-        return (
-          <InputNumber
-            size="small"
-            style={{ width: '100%' }}
-            min={0}
-            max={courseFee}
-            value={record.enrollment.discountAmount ?? 0}
-            formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-            parser={(value) => value?.replace(/₩\s?|(,*)/g, '') as unknown as number}
-            onBlur={(e) => {
-              const raw = e.target.value?.replace(/₩\s?|(,*)/g, '') || '0';
-              const val = parseInt(raw, 10) || 0;
-              if (val !== (record.enrollment.discountAmount ?? 0)) {
-                handleDiscountChange(record.enrollment, val);
-              }
-            }}
-          />
-        );
-      },
-    },
-    {
       title: '',
       key: 'actions',
-      width: 140,
+      width: 200,
       render: (_, record) => {
+        const openHistory = () => {
+          setSelectedEnrollmentId(record.enrollment.id);
+          setIsHistoryModalVisible(true);
+        };
+
         if (record.enrollment.paymentStatus === 'exempt') {
           return (
-            <Popconfirm
-              title="면제를 취소하시겠습니까?"
-              onConfirm={() => handleCancelExempt(record.enrollment)}
-              okText="취소하기"
-              cancelText="닫기"
-            >
-              <Button size="small">면제 취소</Button>
-            </Popconfirm>
+            <Space size={4}>
+              <Button size="small" onClick={openHistory}>이력보기</Button>
+              <Popconfirm
+                title="면제를 취소하시겠습니까?"
+                onConfirm={() => handleCancelExempt(record.enrollment)}
+                okText="취소하기"
+                cancelText="닫기"
+              >
+                <Button size="small">면제 취소</Button>
+              </Popconfirm>
+            </Space>
           );
         }
         return (
           <Space size={4}>
+            <Button size="small" onClick={openHistory}>이력보기</Button>
             <Button
               size="small"
               type="primary"
               ghost
               onClick={() => {
+                const discount = record.enrollment.discountAmount ?? 0;
                 setSelectedEnrollmentId(record.enrollment.id);
+                setModalDiscount(discount);
                 form.setFieldsValue({
                   amount: record.remaining > 0 ? record.remaining : undefined,
                   paidAt: dayjs(),
+                  discountAmount: discount,
                 });
                 setIsPaymentModalVisible(true);
               }}
@@ -376,22 +342,14 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
 
   return (
     <div>
-      {/* 액션 */}
-      <Row align="middle" style={{ marginBottom: 16 }}>
-        <Col flex="auto" style={{ textAlign: 'right' }}>
-          <Button type="primary" onClick={handleBulkFullPayment}>
-            전체 완납
-          </Button>
-        </Col>
-      </Row>
-
-      {/* 통계 */}
+      {/* 통계 + 전체 완납 */}
       <div style={{
         marginBottom: 16,
         padding: 12,
         backgroundColor: token.colorFillQuaternary,
         borderRadius: token.borderRadius,
         display: 'flex',
+        alignItems: 'center',
         gap: 24,
       }}>
         <div>
@@ -419,6 +377,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             {stats.expectedTotal > 0 ? Math.round((stats.totalPaid / stats.expectedTotal) * 100) : 0}%
           </div>
         </div>
+        <div style={{ marginLeft: 'auto' }}>
+          <Button type="primary" size="small" onClick={handleBulkFullPayment}>
+            전체 완납
+          </Button>
+        </div>
       </div>
 
       {/* 테이블 */}
@@ -428,10 +391,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         rowKey="key"
         pagination={false}
         size="small"
-        expandable={{
-          expandedRowRender,
-          rowExpandable: (record) => record.enrollment.paymentStatus !== 'exempt',
-        }}
+        rowSelection={rowSelection ? { selectedRowKeys: rowSelection.selectedRowKeys, onChange: rowSelection.onChange } : undefined}
         locale={{
           emptyText: (
             <Empty
@@ -444,7 +404,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
 
       {/* 납부 추가 모달 */}
       <Modal
-        title="납부 기록 추가"
+        title={`납부 — ${selectedData?.studentName ?? ''}`}
         open={isPaymentModalVisible}
         onCancel={() => {
           setIsPaymentModalVisible(false);
@@ -455,7 +415,67 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         okText="납부 기록"
         cancelText="취소"
       >
+        {/* 수강료 요약 */}
+        {selectedData && (() => {
+          const modalEffectiveFee = courseFee - modalDiscount;
+          const modalRemaining = Math.max(0, modalEffectiveFee - selectedData.totalPaid);
+          return (
+            <div style={{
+              marginBottom: 16,
+              padding: 12,
+              backgroundColor: token.colorFillQuaternary,
+              borderRadius: token.borderRadius,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ color: token.colorTextSecondary }}>수강료</span>
+                <span style={{ fontWeight: 600 }}>₩{courseFee.toLocaleString()}</span>
+              </div>
+              {modalDiscount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: token.colorTextSecondary }}>할인</span>
+                  <span style={{ color: token.colorSuccess }}>-₩{modalDiscount.toLocaleString()}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ color: token.colorTextSecondary }}>기납부액</span>
+                <span>₩{selectedData.totalPaid.toLocaleString()}</span>
+              </div>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between',
+                paddingTop: 6, borderTop: `1px solid ${token.colorBorderSecondary}`,
+                fontWeight: 600, fontSize: 15,
+              }}>
+                <span>납부할 금액</span>
+                <span style={{ color: modalRemaining > 0 ? token.colorError : token.colorSuccess }}>
+                  ₩{modalRemaining.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
+
         <Form form={form} layout="vertical">
+          <Form.Item
+            name="discountAmount"
+            label="할인 금액"
+          >
+            <InputNumber<number>
+              style={{ width: '100%' }}
+              min={0}
+              max={courseFee}
+              formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={(value) => value?.replace(/₩\s?|(,*)/g, '') as unknown as number}
+              onChange={(value) => {
+                const newDiscount = value ?? 0;
+                setModalDiscount(newDiscount);
+                // 납부 금액도 새 잔액으로 자동 조정
+                if (selectedData) {
+                  const newRemaining = Math.max(0, courseFee - newDiscount - selectedData.totalPaid);
+                  form.setFieldsValue({ amount: newRemaining });
+                }
+              }}
+            />
+          </Form.Item>
           <Form.Item
             name="amount"
             label="납부 금액"
@@ -463,7 +483,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           >
             <InputNumber<number>
               style={{ width: '100%' }}
-              min={1}
+              min={0}
               formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={(value) => value?.replace(/₩\s?|(,*)/g, '') as unknown as number}
             />
@@ -489,6 +509,85 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             <Input placeholder="메모" />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* 납부 이력 모달 */}
+      <Modal
+        title={`납부 이력 — ${selectedData?.studentName ?? ''}`}
+        open={isHistoryModalVisible}
+        onCancel={() => {
+          setIsHistoryModalVisible(false);
+          setSelectedEnrollmentId(null);
+        }}
+        footer={null}
+        width={560}
+      >
+        {(selectedData?.records ?? []).length === 0 ? (
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="납부 이력이 없습니다" />
+        ) : (
+          <Table
+            columns={[
+              {
+                title: '납부일',
+                key: 'paidAt',
+                width: 100,
+                render: (_, r) => r.paidAt,
+              },
+              {
+                title: '금액',
+                key: 'amount',
+                width: 110,
+                render: (_, r) => `₩${r.amount.toLocaleString()}`,
+              },
+              {
+                title: '방법',
+                key: 'paymentMethod',
+                width: 70,
+                render: (_, r) => r.paymentMethod
+                  ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] || '-'
+                  : '-',
+              },
+              {
+                title: '메모',
+                key: 'notes',
+                render: (_, r) => (
+                  <Input
+                    size="small"
+                    style={{ width: '100%' }}
+                    defaultValue={r.notes ?? ''}
+                    placeholder="메모"
+                    onBlur={(e) => {
+                      const val = e.target.value;
+                      if (val !== (r.notes ?? '')) {
+                        updateRecord(r.id, { notes: val || undefined });
+                      }
+                    }}
+                  />
+                ),
+              },
+              {
+                title: '',
+                key: 'action',
+                width: 40,
+                render: (_, r) => (
+                  <Popconfirm
+                    title="삭제하시겠습니까?"
+                    onConfirm={() => handleDeletePayment(r.id)}
+                    okText="삭제"
+                    okType="danger"
+                    cancelText="취소"
+                  >
+                    <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                  </Popconfirm>
+                ),
+              },
+            ] as ColumnsType<typeof tableData[0]['records'][0]>}
+            dataSource={selectedData?.records ?? []}
+            rowKey="id"
+            pagination={false}
+            size="small"
+          />
+        )}
       </Modal>
     </div>
   );
