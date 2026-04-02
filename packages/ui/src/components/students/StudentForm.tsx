@@ -10,7 +10,6 @@ import {
 	InputNumber,
 	Modal,
 	message,
-	Radio,
 	Row,
 	Select,
 	Switch,
@@ -792,16 +791,18 @@ const StudentForm: React.FC<StudentFormProps> = ({
 										<Button size="small" onClick={() => handlePaymentChange(cp.courseId, effectiveFee)} disabled={cp.isExempt}>완납</Button>
 										<Button size="small" onClick={() => handlePaymentChange(cp.courseId, 0)} disabled={cp.isExempt}>미납</Button>
 										<div style={{ marginLeft: "auto" }}>
-											<Radio.Group
+											<Select
 												size="small"
 												value={cp.paymentMethod}
-												onChange={(e) => handlePaymentMethodChange(cp.courseId, e.target.value)}
+												onChange={(value) => handlePaymentMethodChange(cp.courseId, value)}
 												disabled={cp.isExempt}
+												placeholder="선택"
+												style={{ width: 90 }}
 											>
-												<Radio.Button value="cash">현금</Radio.Button>
-												<Radio.Button value="card">카드</Radio.Button>
-												<Radio.Button value="transfer">이체</Radio.Button>
-											</Radio.Group>
+												<Select.Option value="cash">현금</Select.Option>
+												<Select.Option value="card">카드</Select.Option>
+												<Select.Option value="transfer">이체</Select.Option>
+											</Select>
 										</div>
 									</div>
 

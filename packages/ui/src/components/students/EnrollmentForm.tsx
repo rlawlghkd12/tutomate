@@ -6,7 +6,6 @@ import {
 	InputNumber,
 	Modal,
 	message,
-	Radio,
 	Row,
 	Select,
 	Space,
@@ -395,11 +394,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 
 						{/* 납부 방법 */}
 						<Form.Item name="paymentMethod" label="납부 방법">
-							<Radio.Group disabled={isExempt}>
-								<Radio.Button value="cash">현금</Radio.Button>
-								<Radio.Button value="card">카드</Radio.Button>
-								<Radio.Button value="transfer">계좌이체</Radio.Button>
-							</Radio.Group>
+							<Select disabled={isExempt} placeholder="선택">
+								<Option value="cash">현금</Option>
+								<Option value="card">카드</Option>
+								<Option value="transfer">계좌이체</Option>
+							</Select>
 						</Form.Item>
 					</>
 				)}
