@@ -80,7 +80,7 @@ export function setupUpdater(mainWindow: BrowserWindow) {
   ipcMain.handle('install-update', () => {
     // IPC 응답 완료 후 quit — 동기 호출 시 macOS에서 재시작 실패
     setImmediate(() => {
-      autoUpdater.quitAndInstall(false, true);
+      autoUpdater.quitAndInstall(true, true);
     });
   });
 }
