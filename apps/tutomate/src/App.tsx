@@ -2,7 +2,7 @@ import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ConfigProvider, App as AntApp, theme as antdTheme, Modal, Button, Typography, Space, message, Spin } from 'antd';
 import koKR from 'antd/locale/ko_KR';
 import { Layout, ErrorBoundary, UpdateChecker, GlobalSearch, useGlobalSearch, LockScreen, LicenseKeyInput } from '@tutomate/ui';
-import { useSettingsStore, useLockStore, useAutoLock, useLicenseStore, useAuthStore, migrateOrgData, reloadAllStores, appConfig, isElectron, OAUTH_PROVIDERS, usePaymentRecordStore } from '@tutomate/core';
+import { useSettingsStore, useLockStore, useAutoLock, useLicenseStore, useAuthStore, migrateOrgData, reloadAllStores, appConfig, isElectron, OAUTH_PROVIDERS } from '@tutomate/core';
 import type { OAuthProvider } from '@tutomate/core';
 import DashboardPage from './pages/DashboardPage';
 import CoursesPage from './pages/CoursesPage';
@@ -21,7 +21,6 @@ function App() {
   const { loadLicense, activateLicense } = useLicenseStore();
   const { initialize, loading: authLoading, session, needsSetup, signInWithOAuth, startTrial } = useAuthStore();
   const { isEnabled: lockEnabled, isLocked } = useLockStore();
-  const { loadRecords } = usePaymentRecordStore();
   useAutoLock();
   const [licenseInput, setLicenseInput] = useState(['', '', '', '']);
   const [activating, setActivating] = useState(false);
@@ -30,8 +29,7 @@ function App() {
     loadSettings();
     loadLicense();
     initialize();
-    loadRecords();
-  }, [loadSettings, loadLicense, initialize, loadRecords]);
+  }, [loadSettings, loadLicense, initialize]);
 
   // OAuth deep link 리스너
   useEffect(() => {
