@@ -22,8 +22,6 @@ export { default as CourseList } from './components/courses/CourseList';
 export { NotificationCenter } from './components/notification/NotificationCenter';
 
 // Payment components
-export { default as BulkPaymentForm } from './components/payment/BulkPaymentForm';
-export { default as MonthlyPaymentTable } from './components/payment/MonthlyPaymentTable';
 export { default as PaymentForm } from './components/payment/PaymentForm';
 export { default as PaymentManagementTable } from './components/payment/PaymentManagementTable';
 

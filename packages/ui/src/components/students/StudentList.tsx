@@ -232,7 +232,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
         rowKey="rowKey"
         pagination={false}
         size="small"
-        tableLayout="auto"
+        tableLayout="fixed"
         locale={{
           emptyText: (
             <Empty

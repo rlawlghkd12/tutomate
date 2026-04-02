@@ -92,7 +92,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
       title: '강의실',
       dataIndex: 'classroom',
       key: 'classroom',
-      width: 80,
+      width: 110,
     },
     {
       title: '강사',

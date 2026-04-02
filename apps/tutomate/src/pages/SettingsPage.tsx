@@ -264,7 +264,8 @@ const SettingsPage: React.FC = () => {
     try {
       const result = await activateLicense(key);
       if (result.result === 'success') {
-        if (result.orgChanged && result.previousOrgId) {
+        if (result.orgChanged && result.previousOrgId && result.isNewOrg) {
+          // 새 조직 생성 시에만 체험판 데이터 이전 제안
           const newOrgId = useAuthStore.getState().organizationId!;
           const migrate = await new Promise<boolean>((resolve) => {
             Modal.confirm({
@@ -288,6 +289,10 @@ const SettingsPage: React.FC = () => {
             await reloadAllStores();
             message.success('라이선스가 활성화되었습니다! 새로 시작합니다.');
           }
+        } else if (result.orgChanged) {
+          // 기존 조직에 합류 — 마이그레이션 없이 바로 시작
+          await reloadAllStores();
+          message.success('라이선스가 활성화되었습니다!');
         } else {
           message.success('라이선스가 활성화되었습니다!');
         }
