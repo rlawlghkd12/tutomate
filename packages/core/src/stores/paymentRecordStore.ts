@@ -30,6 +30,7 @@ interface PaymentRecordStore {
     paidAt?: string,
     notes?: string,
   ) => Promise<PaymentRecord>;
+  updateRecord: (id: string, updates: Partial<PaymentRecord>) => Promise<void>;
   deletePayment: (id: string, courseFee: number) => Promise<void>;
   deletePaymentsByEnrollmentId: (enrollmentId: string) => Promise<void>;
 }
@@ -86,12 +87,33 @@ export const usePaymentRecordStore = create<PaymentRecordStore>(
       return newRecord;
     },
 
+    updateRecord: async (id, updates) => {
+      try {
+        await helper.update(id, updates);
+      } catch {
+        // 서버 저장 실패해도 로컬 state는 유지
+      }
+      const records = get().records.map((r) =>
+        r.id === id ? { ...r, ...updates } : r,
+      );
+      set({ records });
+    },
+
     deletePayment: async (id, courseFee) => {
       const record = get().records.find((r) => r.id === id);
       if (!record) return;
 
-      const records = await helper.remove(id, get().records);
-      set({ records });
+      // 로컬 먼저 반영
+      const filtered = get().records.filter((r) => r.id !== id);
+      set({ records: filtered });
+
+      try {
+        await helper.remove(id, get().records);
+      } catch {
+        // 서버 삭제 실패해도 로컬은 이미 반영됨
+      }
+
+      const records = filtered;
 
       // enrollment 합산 갱신
       await syncEnrollmentTotal(record.enrollmentId, courseFee, records);

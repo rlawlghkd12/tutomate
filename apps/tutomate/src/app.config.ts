@@ -9,5 +9,5 @@ export const appConfig = {
   scheme: 'tutomate',
   enableMemberFeature: false,
   hideAddressField: false,
-  enableQuarterSystem: false,
+  enableQuarterSystem: true,
 };

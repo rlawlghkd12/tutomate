@@ -15,6 +15,8 @@ interface StudentRow {
   index: number;
   student: Student;
   courses: { id: string; name: string }[];
+  unpaidCount: number;
+  totalCourses: number;
 }
 
 interface StudentListProps {
@@ -53,11 +55,16 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
         })
         .filter((c): c is { id: string; name: string } => c !== null);
 
+      const nonExempt = studentEnrollments.filter((e) => e.paymentStatus !== 'exempt');
+      const unpaidCount = nonExempt.filter((e) => e.paymentStatus !== 'completed').length;
+
       return {
         rowKey: student.id,
         index: index + 1,
         student,
         courses: studentCourses,
+        unpaidCount,
+        totalCourses: studentEnrollments.length,
       };
     });
   }, [students, enrollments, courses]);
@@ -100,6 +107,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
     {
       title: '이름',
       key: 'name',
+      width: 80,
       sorter: (a, b) => a.student.name.localeCompare(b.student.name),
       render: (_, record) => (
         <a
@@ -122,6 +130,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
     {
       title: '전화번호',
       key: 'phone',
+      width: 120,
       render: (_, record) => <span style={{ whiteSpace: 'nowrap' }}>{record.student.phone}</span>,
     },
     {
@@ -147,6 +156,25 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
             ))}
           </Space>
         );
+      },
+    },
+    {
+      title: '납부',
+      key: 'paymentStatus',
+      width: 90,
+      render: (_, record) => {
+        if (record.totalCourses === 0) return <span style={{ color: token.colorTextQuaternary }}>-</span>;
+        if (record.unpaidCount === 0) return <Tag color="green">완납</Tag>;
+        return <Tag color="red">미납 {record.unpaidCount}건</Tag>;
+      },
+      filters: [
+        { text: '완납', value: 'paid' },
+        { text: '미납', value: 'unpaid' },
+      ],
+      onFilter: (value, record) => {
+        if (record.totalCourses === 0) return false;
+        if (value === 'paid') return record.unpaidCount === 0;
+        return record.unpaidCount > 0;
       },
     },
     {

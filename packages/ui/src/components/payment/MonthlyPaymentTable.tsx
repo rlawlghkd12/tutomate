@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   Table, Tag, Button, Space, InputNumber, DatePicker, Input, message,
-  Row, Col, Select, theme, Empty, Tooltip,
+  Row, Col, Select, theme, Empty, Tooltip, Popconfirm,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CalendarOutlined } from '@ant-design/icons';
@@ -114,6 +114,38 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
     message.success('납부 기록이 업데이트되었습니다.');
   }, [payments, selectedMonth, addPayment, updatePayment, updateEnrollmentPayment, courseFee]);
 
+  // 면제 처리
+  const handleExempt = useCallback(async (enrollment: Enrollment) => {
+    await updateEnrollmentPayment(
+      enrollment.id, 0, courseFee, dayjs().format('YYYY-MM-DD'), true,
+    );
+    message.success('수강료가 면제 처리되었습니다.');
+  }, [updateEnrollmentPayment, courseFee]);
+
+  // 면제 취소
+  const handleCancelExempt = useCallback(async (enrollment: Enrollment) => {
+    await updateEnrollmentPayment(
+      enrollment.id, 0, courseFee, undefined,
+    );
+    message.success('면제가 취소되었습니다.');
+  }, [updateEnrollmentPayment, courseFee]);
+
+  // 할인 금액 수정
+  const handleDiscountChange = useCallback(async (enrollment: Enrollment, newDiscount: number) => {
+    const allPayments = payments.filter((p) => p.enrollmentId === enrollment.id);
+    const totalPaid = allPayments.reduce((sum, p) => sum + p.amount, 0);
+    await updateEnrollmentPayment(
+      enrollment.id,
+      totalPaid,
+      courseFee,
+      enrollment.paidAt,
+      false,
+      enrollment.paymentMethod,
+      newDiscount,
+    );
+    message.success('할인 금액이 업데이트되었습니다.');
+  }, [payments, updateEnrollmentPayment, courseFee]);
+
   // 전체 완납 처리
   const handleBulkPaid = useCallback(async () => {
     const unpaid = monthlyData.filter(
@@ -132,14 +164,14 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
     {
       title: '이름',
       key: 'name',
-      width: 120,
+      width: 80,
       render: (_, record) => record.studentName,
       sorter: (a, b) => a.studentName.localeCompare(b.studentName),
     },
     {
       title: '상태',
       key: 'status',
-      width: 80,
+      width: 64,
       render: (_, record) => {
         if (record.enrollment.paymentStatus === 'exempt') {
           return <Tag color="purple">면제</Tag>;
@@ -163,13 +195,13 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
     {
       title: '납부 금액',
       key: 'amount',
-      width: 150,
+      width: 120,
       render: (_, record) => {
         if (record.enrollment.paymentStatus === 'exempt') return '-';
         return (
           <InputNumber
             size="small"
-            style={{ width: 130 }}
+            style={{ width: '100%' }}
             min={0}
             value={record.monthPayment?.amount ?? 0}
             formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
@@ -193,7 +225,7 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
     {
       title: '납부 방법',
       key: 'paymentMethod',
-      width: 120,
+      width: 100,
       render: (_, record) => {
         if (record.enrollment.paymentStatus === 'exempt') return '-';
         return (
@@ -201,7 +233,7 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
             size="small"
             value={record.monthPayment?.paymentMethod || undefined}
             placeholder="선택"
-            style={{ width: 100 }}
+            style={{ width: '100%' }}
             onChange={(value) => {
               handleRecordPayment(
                 record.enrollment,
@@ -222,13 +254,13 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
     {
       title: '납부일',
       key: 'paidAt',
-      width: 130,
+      width: 120,
       render: (_, record) => {
         if (record.enrollment.paymentStatus === 'exempt') return '-';
         return (
           <DatePicker
             size="small"
-            style={{ width: 120 }}
+            style={{ width: '100%' }}
             value={record.monthPayment?.paidAt ? dayjs(record.monthPayment.paidAt) : null}
             onChange={(date) => {
               if (date) {
@@ -248,15 +280,31 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
     {
       title: '할인',
       key: 'discount',
-      width: 100,
+      width: 110,
       render: (_, record) => {
         if (record.enrollment.paymentStatus === 'exempt') return '-';
-        const discount = record.enrollment.discountAmount ?? 0;
-        if (discount === 0) return '-';
         return (
-          <span style={{ color: token.colorSuccess, fontSize: 13 }}>
-            -₩{discount.toLocaleString()}
-          </span>
+          <InputNumber
+            size="small"
+            style={{ width: '100%' }}
+            min={0}
+            max={courseFee}
+            value={record.enrollment.discountAmount ?? 0}
+            formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+            parser={(value) => value?.replace(/₩\s?|(,*)/g, '') as unknown as number}
+            onBlur={(e) => {
+              const raw = e.target.value?.replace(/₩\s?|(,*)/g, '') || '0';
+              const val = parseInt(raw, 10) || 0;
+              if (val !== (record.enrollment.discountAmount ?? 0)) {
+                handleDiscountChange(record.enrollment, val);
+              }
+            }}
+            onPressEnter={(e) => {
+              const raw = (e.target as HTMLInputElement).value?.replace(/₩\s?|(,*)/g, '') || '0';
+              const val = parseInt(raw, 10) || 0;
+              handleDiscountChange(record.enrollment, val);
+            }}
+          />
         );
       },
       sorter: (a, b) => (a.enrollment.discountAmount ?? 0) - (b.enrollment.discountAmount ?? 0),
@@ -264,13 +312,12 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
     {
       title: '메모',
       key: 'notes',
-      width: 150,
       render: (_, record) => {
         if (record.enrollment.paymentStatus === 'exempt') return '-';
         return (
           <Input
             size="small"
-            style={{ width: 140 }}
+            style={{ width: '100%' }}
             value={record.monthPayment?.notes ?? ''}
             placeholder="메모"
             onChange={() => {
@@ -295,21 +342,45 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
     {
       title: '',
       key: 'quick',
-      width: 80,
+      width: 120,
       render: (_, record) => {
-        if (record.enrollment.paymentStatus === 'exempt') return null;
-        if (record.monthPayment?.status === 'paid') return null;
-        return (
-          <Tooltip title={`₩${(courseFee - (record.enrollment.discountAmount ?? 0)).toLocaleString()} 완납 처리`}>
-            <Button
-              size="small"
-              type="primary"
-              ghost
-              onClick={() => handleRecordPayment(record.enrollment, courseFee - (record.enrollment.discountAmount ?? 0))}
+        if (record.enrollment.paymentStatus === 'exempt') {
+          return (
+            <Popconfirm
+              title="면제 취소"
+              description="면제를 취소하시겠습니까?"
+              onConfirm={() => handleCancelExempt(record.enrollment)}
+              okText="취소하기"
+              cancelText="닫기"
             >
-              완납
-            </Button>
-          </Tooltip>
+              <Button size="small">면제 취소</Button>
+            </Popconfirm>
+          );
+        }
+        return (
+          <Space size={4}>
+            {(!record.monthPayment || record.monthPayment.status === 'pending') && (
+              <Tooltip title={`₩${(courseFee - (record.enrollment.discountAmount ?? 0)).toLocaleString()} 완납 처리`}>
+                <Button
+                  size="small"
+                  type="primary"
+                  ghost
+                  onClick={() => handleRecordPayment(record.enrollment, courseFee - (record.enrollment.discountAmount ?? 0))}
+                >
+                  완납
+                </Button>
+              </Tooltip>
+            )}
+            <Popconfirm
+              title="수강료 면제"
+              description="수강료를 면제 처리하시겠습니까?"
+              onConfirm={() => handleExempt(record.enrollment)}
+              okText="면제"
+              cancelText="취소"
+            >
+              <Button size="small" danger>면제</Button>
+            </Popconfirm>
+          </Space>
         );
       },
     },

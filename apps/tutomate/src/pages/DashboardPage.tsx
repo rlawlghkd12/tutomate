@@ -96,7 +96,7 @@ const DashboardPage: React.FC = () => {
 		.filter((e) => e.paymentStatus !== "exempt")
 		.reduce((sum, enrollment) => {
 			const course = courses.find((c) => c.id === enrollment.courseId);
-			return sum + (course?.fee || 0);
+			return sum + ((course?.fee || 0) - (enrollment.discountAmount ?? 0));
 		}, 0);
 
 	const paymentRate =
