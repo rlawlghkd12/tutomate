@@ -162,6 +162,29 @@ describe("courseStore", () => {
 		expect(courses[1].name).toBe("새 강좌");
 	});
 
+	it("deleteCourse → state에서 제거", async () => {
+		const c1 = makeCourse({ id: "c1", name: "수학" });
+		const c2 = makeCourse({ id: "c2", name: "영어" });
+		useCourseStore.setState({ courses: [c1, c2] });
+
+		await useCourseStore.getState().deleteCourse("c1");
+
+		const courses = useCourseStore.getState().courses;
+		expect(courses).toHaveLength(1);
+		expect(courses[0].id).toBe("c2");
+	});
+
+	it("loadCourses → 빈 state에서 빈 배열 유지", async () => {
+		await useCourseStore.getState().loadCourses();
+		expect(useCourseStore.getState().courses).toEqual([]);
+	});
+
+	it("decrementCurrentStudents → 존재하지 않는 id → 에러 없이 무시", async () => {
+		useCourseStore.setState({ courses: [makeCourse()] });
+		await useCourseStore.getState().decrementCurrentStudents("c999");
+		expect(useCourseStore.getState().courses).toHaveLength(1);
+	});
+
 	it("updateCourse — 서버 실패해도 로컬 반영 (optimistic)", async () => {
 		const existing = makeCourse({ id: "c1", name: "원래 이름" });
 		useCourseStore.setState({ courses: [existing] });
