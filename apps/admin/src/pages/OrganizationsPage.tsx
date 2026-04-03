@@ -106,13 +106,13 @@ const OrganizationsPage = () => {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h4 className="text-lg font-semibold m-0">조직 관리</h4>
-        <div className="relative w-[300px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div style={{ position: 'relative', width: 300 }}>
+          <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: '#a1a1aa', pointerEvents: 'none' }} />
           <Input
             placeholder="이름 또는 라이선스 검색"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            style={{ paddingLeft: 34 }}
           />
         </div>
       </div>
