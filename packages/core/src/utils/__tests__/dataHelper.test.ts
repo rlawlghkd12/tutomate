@@ -24,7 +24,7 @@ vi.mock('../logger', () => ({
   logWarn: vi.fn(),
 }));
 
-import { createDataHelper } from '../dataHelper';
+import { createDataHelper, clearAllCache } from '../dataHelper';
 import { getOrgId } from '../../stores/authStore';
 
 // ─── 테스트용 타입 ───
@@ -267,6 +267,72 @@ describe('dataHelper', () => {
       // invalidate 후에는 서버 재조회
       await helper.load();
       expect(mockSupabaseLoadData).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // ── 추가 케이스 ──
+
+  describe('빈 데이터', () => {
+    it('supabase가 빈 배열 반환 → 빈 배열 반환', async () => {
+      mockSupabaseLoadData.mockResolvedValue([]);
+
+      const helper = makeHelper();
+      const result = await helper.load();
+
+      expect(result).toEqual([]);
+      expect(mockSupabaseLoadData).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('동시 load 호출', () => {
+    it('첫 번째 load 성공 후 두 번째는 fresh여서 스킵', async () => {
+      mockSupabaseLoadData.mockResolvedValue([]);
+
+      const helper = makeHelper();
+      // 첫 번째 호출 후 바로 두 번째 — fresh 상태가 되어 skip
+      await helper.load();
+      await expect(helper.load()).rejects.toThrow('Skip load');
+      expect(mockSupabaseLoadData).toHaveBeenCalledTimes(1);
+    });
+
+    it('두 개의 fresh하지 않은 helper는 각각 서버 호출', async () => {
+      mockSupabaseLoadData.mockResolvedValue([]);
+
+      const helper1 = makeHelper();
+      const helper2 = makeHelper();
+      await helper1.load();
+      await helper2.load();
+
+      expect(mockSupabaseLoadData).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('clearAllCache', () => {
+    it('clearAllCache 후 로컬 캐시가 없어져 서버 실패 시 throw', async () => {
+      // 캐시 저장 (courses)
+      const rows: TestRow[] = [{ id: '1', name: '캐시', organization_id: 'org1' }];
+      localStorage.setItem('cache_courses', JSON.stringify(rows));
+
+      // clearAllCache 실행
+      await clearAllCache();
+
+      // 서버 실패 + 캐시 없음 → throw
+      mockSupabaseLoadData.mockRejectedValue(new Error('fail'));
+      const helper = makeHelper();
+      await expect(helper.load()).rejects.toThrow('fail');
+    });
+
+    it('clearAllCache는 모든 테이블 캐시 삭제', async () => {
+      const tables = ['courses', 'students', 'enrollments', 'monthly_payments'];
+      for (const table of tables) {
+        localStorage.setItem(`cache_${table}`, JSON.stringify([{ id: '1' }]));
+      }
+
+      await clearAllCache();
+
+      for (const table of tables) {
+        expect(localStorage.getItem(`cache_${table}`)).toBeNull();
+      }
     });
   });
 });
