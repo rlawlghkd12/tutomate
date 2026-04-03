@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Button, Space, Modal, Checkbox, theme, message } from 'antd';
-import { PlusOutlined, DownloadOutlined, FileExcelOutlined, FileTextOutlined } from '@ant-design/icons';
-import { StudentList, StudentForm } from '@tutomate/ui';
+import { Plus, Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  Button, Dialog, DialogContent, DialogHeader, DialogTitle,
+  Checkbox, StudentList, StudentForm,
+} from '@tutomate/ui';
 import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
@@ -10,7 +13,6 @@ import { exportStudentsToExcel, exportStudentsToCSV, STUDENT_EXPORT_FIELDS } fro
 const DEFAULT_EXPORT_FIELDS = ['name', 'phone', 'enrolledCourses', 'totalPaid', 'totalRemaining'];
 
 const StudentsPage: React.FC = () => {
-  const { token } = theme.useToken();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState<string[]>(DEFAULT_EXPORT_FIELDS);
@@ -26,26 +28,26 @@ const StudentsPage: React.FC = () => {
 
   const handleExport = (type: 'excel' | 'csv') => {
     if (selectedExportFields.length === 0) {
-      message.warning('내보낼 필드를 1개 이상 선택해주세요.');
+      toast.warning('내보낼 필드를 1개 이상 선택해주세요.');
       return;
     }
 
     if (students.length === 0) {
-      message.warning('내보낼 수강생 데이터가 없습니다');
+      toast.warning('내보낼 수강생 데이터가 없습니다');
       return;
     }
 
     try {
       if (type === 'excel') {
         exportStudentsToExcel(students, enrollments, courses, selectedExportFields);
-        message.success('Excel 파일이 다운로드되었습니다');
+        toast.success('Excel 파일이 다운로드되었습니다');
       } else {
         exportStudentsToCSV(students, enrollments, courses, 'utf-8', selectedExportFields);
-        message.success('CSV 파일이 다운로드되었습니다');
+        toast.success('CSV 파일이 다운로드되었습니다');
       }
       setIsExportModalVisible(false);
     } catch (error) {
-      message.error('파일 내보내기에 실패했습니다');
+      toast.error('파일 내보내기에 실패했습니다');
     }
   };
 
@@ -56,21 +58,21 @@ const StudentsPage: React.FC = () => {
     <div>
       <StudentList
         actions={
-          <Space>
+          <div className="flex gap-2">
             <Button
-              icon={<DownloadOutlined />}
+              variant="outline"
               onClick={() => setIsExportModalVisible(true)}
             >
+              <Download className="h-4 w-4" />
               내보내기
             </Button>
             <Button
-              type="primary"
-              icon={<PlusOutlined />}
               onClick={() => setIsModalVisible(true)}
             >
+              <Plus className="h-4 w-4" />
               수강생 등록
             </Button>
-          </Space>
+          </div>
         }
       />
       <StudentForm
@@ -79,80 +81,68 @@ const StudentsPage: React.FC = () => {
         student={null}
       />
 
-      <Modal
-        title="수강생 내보내기"
-        open={isExportModalVisible}
-        onCancel={() => setIsExportModalVisible(false)}
-        width={320}
-        footer={null}
-        styles={{ body: { paddingBottom: 24 } }}
-      >
-        <div style={{
-          padding: '4px 0 8px',
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          marginBottom: 12,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-          <Checkbox
-            checked={isAllSelected}
-            indeterminate={selectedExportFields.length > 0 && !isAllSelected}
-            onChange={(e) => setSelectedExportFields(e.target.checked ? allFieldKeys : [])}
-          >
-            전체 선택
-          </Checkbox>
-          <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
-            {selectedExportFields.length}/{allFieldKeys.length}
-          </span>
-        </div>
+      <Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
+        <DialogContent className="max-w-[320px]">
+          <DialogHeader>
+            <DialogTitle>수강생 내보내기</DialogTitle>
+          </DialogHeader>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 16 }}>
-          {STUDENT_EXPORT_FIELDS.map((field) => {
-            const isChecked = selectedExportFields.includes(field.key);
-            return (
-              <div
-                key={field.key}
-                onClick={() => {
-                  setSelectedExportFields((prev) =>
-                    isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
-                  );
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '6px 8px',
-                  borderRadius: token.borderRadius,
-                  cursor: 'pointer',
-                  background: isChecked ? token.colorPrimaryBg : 'transparent',
-                }}
-              >
-                <Checkbox checked={isChecked} />
-                <span style={{ fontSize: 13 }}>{field.label}</span>
-              </div>
-            );
-          })}
-        </div>
+          <div className="flex justify-between items-center py-1 pb-2 border-b mb-3">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={isAllSelected}
+                onCheckedChange={(checked) =>
+                  setSelectedExportFields(checked ? allFieldKeys : [])
+                }
+              />
+              <span className="text-sm">전체 선택</span>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {selectedExportFields.length}/{allFieldKeys.length}
+            </span>
+          </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button
-            type="primary"
-            icon={<FileExcelOutlined />}
-            onClick={() => handleExport('excel')}
-            block
-          >
-            Excel
-          </Button>
-          <Button
-            icon={<FileTextOutlined />}
-            onClick={() => handleExport('csv')}
-            block
-          >
-            CSV
-          </Button>
-        </div>
-      </Modal>
+          <div className="flex flex-col gap-0.5 mb-4">
+            {STUDENT_EXPORT_FIELDS.map((field) => {
+              const isChecked = selectedExportFields.includes(field.key);
+              return (
+                <div
+                  key={field.key}
+                  onClick={() => {
+                    setSelectedExportFields((prev) =>
+                      isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
+                    );
+                  }}
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer ${
+                    isChecked ? 'bg-primary/10' : 'hover:bg-accent'
+                  }`}
+                >
+                  <Checkbox checked={isChecked} />
+                  <span className="text-[13px]">{field.label}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              className="flex-1"
+              onClick={() => handleExport('excel')}
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => handleExport('csv')}
+            >
+              <FileText className="h-4 w-4" />
+              CSV
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
