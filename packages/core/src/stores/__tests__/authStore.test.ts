@@ -302,6 +302,29 @@ describe('authStore', () => {
       expect(mockFunctionsInvoke).not.toHaveBeenCalled();
     });
 
+    it('두 번 호출 시 중복 실행 방지', async () => {
+      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
+      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'org-abc' });
+      mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'basic' });
+
+      await useAuthStore.getState().initialize();
+      // 두 번째 호출 — _initialized가 true이므로 즉시 리턴
+      mockGetSession.mockClear();
+      await useAuthStore.getState().initialize();
+      expect(mockGetSession).not.toHaveBeenCalled();
+    });
+
+    it('user_organizations 쿼리 에러 (PGRST116 아닌) → loading: false', async () => {
+      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
+      mockFromHandlers['user_organizations'] = createQueryBuilder(null, { code: 'OTHER_ERROR', message: 'db error' });
+
+      await useAuthStore.getState().initialize();
+
+      const state = useAuthStore.getState();
+      expect(state.loading).toBe(false);
+      expect(state.isCloud).toBe(false);
+    });
+
     it('getSession 예외 → loading: false', async () => {
       mockGetSession.mockRejectedValue(new Error('unexpected'));
 
@@ -597,6 +620,174 @@ describe('authStore', () => {
       expect(state.organizationId).toBe('org-abc');
       expect(state.plan).toBe('basic');
       expect(state.isCloud).toBe(true);
+    });
+  });
+
+  // ── signInWithOAuth ──
+
+  describe('signInWithOAuth', () => {
+    const mockSignInWithOAuth = vi.fn();
+
+    beforeEach(() => {
+      // Patch supabase.auth.signInWithOAuth via the mock
+      // The mock setup uses mockGetSession etc. but signInWithOAuth is on supabase.auth
+      // We access it through the import
+    });
+
+    it('google provider → supabase.auth.signInWithOAuth 호출', async () => {
+      // signInWithOAuth is called through supabase.auth, which is mocked
+      // We need to mock import.meta.env
+      const { supabase } = await import('../../config/supabase');
+      (supabase as any).auth.signInWithOAuth = vi.fn().mockResolvedValue({
+        data: { url: 'https://accounts.google.com/o/oauth2/auth?...' },
+        error: null,
+      });
+
+      await useAuthStore.getState().signInWithOAuth('google');
+
+      expect((supabase as any).auth.signInWithOAuth).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: 'google' }),
+      );
+    });
+
+    it('signInWithOAuth 에러 → throw + loading: false', async () => {
+      const { supabase } = await import('../../config/supabase');
+      const authError = new Error('OAuth failed');
+      (supabase as any).auth.signInWithOAuth = vi.fn().mockResolvedValue({
+        data: null,
+        error: authError,
+      });
+
+      await expect(
+        useAuthStore.getState().signInWithOAuth('google'),
+      ).rejects.toThrow('OAuth failed');
+
+      expect(useAuthStore.getState().loading).toBe(false);
+    });
+  });
+
+  // ── handleOAuthCallback ──
+
+  describe('handleOAuthCallback', () => {
+    it('유효한 callback → setSession 호출', async () => {
+      const { supabase } = await import('../../config/supabase');
+      (supabase as any).auth.setSession = vi.fn().mockResolvedValue({
+        data: { session: fakeSession },
+        error: null,
+      });
+
+      await useAuthStore.getState().handleOAuthCallback(
+        '#access_token=test-access&refresh_token=test-refresh',
+      );
+
+      expect((supabase as any).auth.setSession).toHaveBeenCalledWith({
+        access_token: 'test-access',
+        refresh_token: 'test-refresh',
+      });
+    });
+
+    it('__cancelled__ → loading: false, setSession 미호출', async () => {
+      const { supabase } = await import('../../config/supabase');
+      (supabase as any).auth.setSession = vi.fn();
+
+      useAuthStore.setState({ loading: true });
+      await useAuthStore.getState().handleOAuthCallback('__cancelled__');
+
+      expect(useAuthStore.getState().loading).toBe(false);
+      expect((supabase as any).auth.setSession).not.toHaveBeenCalled();
+    });
+
+    it('토큰 누락 → throw + loading: false', async () => {
+      await expect(
+        useAuthStore.getState().handleOAuthCallback('#access_token=only-access'),
+      ).rejects.toThrow('Missing tokens');
+
+      expect(useAuthStore.getState().loading).toBe(false);
+    });
+
+    it('error_description 포함 → 해당 메시지로 throw', async () => {
+      await expect(
+        useAuthStore.getState().handleOAuthCallback('#error=access_denied&error_description=User+cancelled'),
+      ).rejects.toThrow('User cancelled');
+    });
+  });
+
+  // ── startTrial ──
+
+  describe('startTrial', () => {
+    it('성공 → session + org + trial plan 설정', async () => {
+      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { organization_id: 'trial-org-1', plan: 'trial' },
+        error: null,
+      });
+
+      await useAuthStore.getState().startTrial();
+
+      const state = useAuthStore.getState();
+      expect(state.session).toBe(fakeSession);
+      expect(state.organizationId).toBe('trial-org-1');
+      expect(state.plan).toBe('trial');
+      expect(state.isCloud).toBe(true);
+      expect(state.loading).toBe(false);
+      expect(state.needsSetup).toBe(false);
+    });
+
+    it('세션 없으면 loading: false, 상태 변경 없음', async () => {
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+
+      await useAuthStore.getState().startTrial();
+
+      const state = useAuthStore.getState();
+      expect(state.loading).toBe(false);
+      expect(state.organizationId).toBeNull();
+    });
+
+    it('edge function 에러 → loading: false, 상태 변경 없음', async () => {
+      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
+      mockFunctionsInvoke.mockResolvedValue({
+        data: null,
+        error: new Error('edge function error'),
+      });
+
+      await useAuthStore.getState().startTrial();
+
+      const state = useAuthStore.getState();
+      expect(state.loading).toBe(false);
+      expect(state.organizationId).toBeNull();
+    });
+
+    it('data.error 포함 → loading: false', async () => {
+      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { error: 'some_error' },
+        error: null,
+      });
+
+      await useAuthStore.getState().startTrial();
+
+      expect(useAuthStore.getState().loading).toBe(false);
+      expect(useAuthStore.getState().organizationId).toBeNull();
+    });
+
+    it('예외 발생 → loading: false', async () => {
+      mockGetSession.mockRejectedValue(new Error('unexpected'));
+
+      await useAuthStore.getState().startTrial();
+
+      expect(useAuthStore.getState().loading).toBe(false);
+    });
+
+    it('plan 미반환 시 trial 기본값', async () => {
+      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { organization_id: 'trial-org-2', plan: null },
+        error: null,
+      });
+
+      await useAuthStore.getState().startTrial();
+
+      expect(useAuthStore.getState().plan).toBe('trial');
     });
   });
 

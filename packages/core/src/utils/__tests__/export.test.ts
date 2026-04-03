@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 
 vi.mock("../../stores/settingsStore", () => ({
 	useSettingsStore: {
@@ -11,6 +11,12 @@ import {
 	COURSE_STUDENT_EXPORT_FIELDS,
 	REVENUE_EXPORT_FIELDS,
 	STUDENT_EXPORT_FIELDS,
+	exportStudentsToExcel,
+	exportRevenueToExcel,
+	exportStudentsToCSV,
+	exportRevenueToCSV,
+	exportCourseStudentsToExcel,
+	exportCourseStudentsToCSV,
 } from "../export";
 
 // ─── 테스트 데이터 ───
@@ -301,6 +307,101 @@ describe("COURSE_STUDENT_EXPORT_FIELDS", () => {
 
 	it("메모", () => {
 		expect(getField("notes").getValue(student, enrollment)).toBe("분할 납부");
+	});
+});
+
+// ─── 6개 export 함수 호출 테스트 ───
+
+describe('export 함수 — DOM 다운로드', () => {
+	beforeEach(() => {
+		// DOM download helpers 모킹
+		vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fake-url');
+		vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined);
+		const mockLink = {
+			href: '',
+			download: '',
+			click: vi.fn(),
+		};
+		vi.spyOn(document, 'createElement').mockReturnValue(mockLink as unknown as HTMLElement);
+	});
+
+	it('exportStudentsToExcel — 수강생 있으면 에러 없이 완료', () => {
+		expect(() => exportStudentsToExcel([student], [enrollment], [course])).not.toThrow();
+	});
+
+	it('exportStudentsToExcel — 빈 배열 → 에러 없이 완료 (헤더만)', () => {
+		expect(() => exportStudentsToExcel([], [], [])).not.toThrow();
+	});
+
+	it('exportRevenueToExcel — 수강 있으면 에러 없이 완료', () => {
+		expect(() => exportRevenueToExcel([enrollment], [student], [course])).not.toThrow();
+	});
+
+	it('exportRevenueToExcel — 빈 배열 → 에러 없이 완료', () => {
+		expect(() => exportRevenueToExcel([], [], [])).not.toThrow();
+	});
+
+	it('exportStudentsToCSV — 수강생 있으면 에러 없이 완료', () => {
+		expect(() => exportStudentsToCSV([student], [enrollment], [course])).not.toThrow();
+	});
+
+	it('exportStudentsToCSV — 빈 배열 → 에러 없이 완료', () => {
+		expect(() => exportStudentsToCSV([], [], [])).not.toThrow();
+	});
+
+	it('exportStudentsToCSV — euc-kr 인코딩 → BOM 추가', () => {
+		expect(() => exportStudentsToCSV([student], [enrollment], [course], 'euc-kr')).not.toThrow();
+	});
+
+	it('exportRevenueToCSV — 수익 데이터 있으면 에러 없이 완료', () => {
+		expect(() => exportRevenueToCSV([enrollment], [student], [course])).not.toThrow();
+	});
+
+	it('exportRevenueToCSV — 빈 배열 → 에러 없이 완료', () => {
+		expect(() => exportRevenueToCSV([], [], [])).not.toThrow();
+	});
+
+	it('exportCourseStudentsToExcel — 데이터 있으면 에러 없이 완료', () => {
+		const fields = COURSE_STUDENT_EXPORT_FIELDS.map((f) => f.key);
+		expect(() =>
+			exportCourseStudentsToExcel(course, [{ student, enrollment }], fields)
+		).not.toThrow();
+	});
+
+	it('exportCourseStudentsToExcel — 빈 데이터 → 에러 없이 완료', () => {
+		const fields = ['name', 'phone'];
+		expect(() => exportCourseStudentsToExcel(course, [], fields)).not.toThrow();
+	});
+
+	it('exportCourseStudentsToCSV — 데이터 있으면 에러 없이 완료', () => {
+		const fields = COURSE_STUDENT_EXPORT_FIELDS.map((f) => f.key);
+		expect(() =>
+			exportCourseStudentsToCSV(course, [{ student, enrollment }], fields)
+		).not.toThrow();
+	});
+
+	it('exportCourseStudentsToCSV — 빈 데이터 → 에러 없이 완료', () => {
+		const fields = ['name', 'phone'];
+		expect(() => exportCourseStudentsToCSV(course, [], fields)).not.toThrow();
+	});
+});
+
+describe('export — 특수 문자 처리', () => {
+	beforeEach(() => {
+		vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fake-url');
+		vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined);
+		const mockLink = { href: '', download: '', click: vi.fn() };
+		vi.spyOn(document, 'createElement').mockReturnValue(mockLink as unknown as HTMLElement);
+	});
+
+	it('학생 이름에 쉼표 포함해도 CSV 에러 없음', () => {
+		const specialStudent: Student = { ...student, name: '홍,길동' };
+		expect(() => exportStudentsToCSV([specialStudent], [], [])).not.toThrow();
+	});
+
+	it('메모에 줄바꿈 포함해도 Excel 에러 없음', () => {
+		const specialStudent: Student = { ...student, notes: '줄바꿈\n포함' };
+		expect(() => exportStudentsToExcel([specialStudent], [], [])).not.toThrow();
 	});
 });
 
