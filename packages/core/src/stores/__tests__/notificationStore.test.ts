@@ -93,6 +93,41 @@ describe('notificationStore', () => {
     expect(loaded[0].type).toBe('payment_overdue');
   });
 
+  it('빈 state에서 getUnreadCount → 0', () => {
+    expect(useNotificationStore.getState().getUnreadCount()).toBe(0);
+  });
+
+  it('빈 state에서 markAllAsRead → 에러 없음', () => {
+    useNotificationStore.getState().markAllAsRead();
+    expect(useNotificationStore.getState().notifications).toHaveLength(0);
+  });
+
+  it('빈 state에서 clearAll → 에러 없음', () => {
+    useNotificationStore.getState().clearAll();
+    expect(useNotificationStore.getState().notifications).toHaveLength(0);
+  });
+
+  it('markAsRead — 없는 id → 기존 데이터 유지, 에러 없음', () => {
+    const store = useNotificationStore.getState();
+    store.addNotification({ type: 'info', title: 'A', message: '', priority: 'low' });
+    useNotificationStore.getState().markAsRead('non-existent-id');
+    const notifications = useNotificationStore.getState().notifications;
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].isRead).toBe(false);
+  });
+
+  it('deleteNotification — 없는 id → 기존 데이터 유지', () => {
+    const store = useNotificationStore.getState();
+    store.addNotification({ type: 'info', title: 'A', message: '', priority: 'low' });
+    useNotificationStore.getState().deleteNotification('non-existent');
+    expect(useNotificationStore.getState().notifications).toHaveLength(1);
+  });
+
+  it('loadNotifications — localStorage 비어있으면 변경 없음', () => {
+    useNotificationStore.getState().loadNotifications();
+    expect(useNotificationStore.getState().notifications).toHaveLength(0);
+  });
+
   it('loadNotifications — 잘못된 JSON → 에러 무시, 기존 state 유지', () => {
     localStorage.setItem('notifications', 'invalid json{{{');
     useNotificationStore.setState({ notifications: [] });
