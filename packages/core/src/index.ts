@@ -50,6 +50,7 @@ export {
   errorHandler,
   handleError,
   createError,
+  setErrorDisplay,
 } from './utils/errors';
 export type { AppErrorOptions } from './utils/errors';
 
@@ -154,7 +155,7 @@ export {
 
 // ─── Hooks ───────────────────────────────────────────────────────
 export { useAutoLock } from './hooks/useAutoLock';
-export { useBackup } from './hooks/useBackup';
+export { useBackup, setBackupToast } from './hooks/useBackup';
 export type { BackupInfo } from './hooks/useBackup';
 
 // ─── Types ───────────────────────────────────────────────────────

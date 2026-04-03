@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AppError, ErrorType, createError, handleError, ErrorHandler } from '../errors';
-import { message, notification } from 'antd';
+import { AppError, ErrorType, createError, handleError, ErrorHandler, setErrorDisplay } from '../errors';
+
+// Mock error display
+const mockShowError = vi.fn();
 
 describe('AppError', () => {
   it('기본 생성 — type, message, recoverable 기본값 true', () => {
@@ -121,6 +123,7 @@ describe('createError', () => {
 describe('ErrorHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setErrorDisplay(mockShowError);
   });
 
   it('getInstance() 싱글톤 반환', () => {
@@ -129,40 +132,39 @@ describe('ErrorHandler', () => {
     expect(a).toBe(b);
   });
 
-  it('handle(AppError) — recoverable → message.error 호출', async () => {
+  it('handle(AppError) — recoverable → showError 호출', async () => {
     const err = new AppError({ type: ErrorType.NETWORK_ERROR, message: 'fail', recoverable: true });
     await ErrorHandler.getInstance().handle(err);
-    expect(message.error).toHaveBeenCalled();
+    expect(mockShowError).toHaveBeenCalledWith(err.userMessage, true);
   });
 
-  it('handle(AppError) — recoverable: false → notification.error 호출', async () => {
+  it('handle(AppError) — recoverable: false → showError 호출', async () => {
     const err = new AppError({ type: ErrorType.UNKNOWN_ERROR, message: 'fatal', recoverable: false });
     await ErrorHandler.getInstance().handle(err);
-    expect(notification.error).toHaveBeenCalled();
+    expect(mockShowError).toHaveBeenCalledWith(err.userMessage, false);
   });
 
   it('handle(Error) — 일반 Error → UNKNOWN_ERROR AppError로 래핑 후 처리', async () => {
     const err = new Error('network failure');
     await ErrorHandler.getInstance().handle(err);
-    expect(message.error).toHaveBeenCalled();
+    expect(mockShowError).toHaveBeenCalled();
   });
 
   it('handle(unknown) — 문자열 같은 비-Error → UNKNOWN_ERROR AppError로 처리', async () => {
     await ErrorHandler.getInstance().handle('something went wrong');
-    expect(message.error).toHaveBeenCalled();
+    expect(mockShowError).toHaveBeenCalled();
   });
 
-  it('handle — showNotification=false이면 message/notification 미호출', async () => {
+  it('handle — showNotification=false이면 showError 미호출', async () => {
     const err = new AppError({ type: ErrorType.NETWORK_ERROR, message: 'fail' });
     await ErrorHandler.getInstance().handle(err, false);
-    expect(message.error).not.toHaveBeenCalled();
-    expect(notification.error).not.toHaveBeenCalled();
+    expect(mockShowError).not.toHaveBeenCalled();
   });
 
   it('handle(AppError) — VALIDATION_ERROR userMessage 포함', async () => {
     const err = new AppError({ type: ErrorType.VALIDATION_ERROR, message: 'invalid', userMessage: '검증 실패' });
     await ErrorHandler.getInstance().handle(err);
-    expect(message.error).toHaveBeenCalledWith(expect.objectContaining({ content: '검증 실패' }));
+    expect(mockShowError).toHaveBeenCalledWith('검증 실패', true);
   });
 });
 
@@ -171,21 +173,22 @@ describe('ErrorHandler', () => {
 describe('handleError', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setErrorDisplay(mockShowError);
   });
 
   it('handleError — ErrorHandler.handle() 위임', async () => {
     const err = new AppError({ type: ErrorType.PAYMENT_ERROR, message: 'pay fail' });
     await handleError(err);
-    expect(message.error).toHaveBeenCalled();
+    expect(mockShowError).toHaveBeenCalled();
   });
 
   it('handleError — 일반 Error 전달', async () => {
     await handleError(new Error('generic error'));
-    expect(message.error).toHaveBeenCalled();
+    expect(mockShowError).toHaveBeenCalled();
   });
 
   it('handleError — showNotification=false 전달', async () => {
     await handleError(new Error('silent'), false);
-    expect(message.error).not.toHaveBeenCalled();
+    expect(mockShowError).not.toHaveBeenCalled();
   });
 });
