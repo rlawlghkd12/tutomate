@@ -1,3 +1,12 @@
+// UI primitives (shadcn)
+export { Button } from './components/ui/button';
+export type { ButtonProps } from './components/ui/button';
+export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './components/ui/dialog';
+export {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
+} from './components/ui/alert-dialog';
+
 // Common components
 export { ErrorBoundary, withErrorBoundary } from './components/common/ErrorBoundary';
 export { default as Layout } from './components/common/Layout';
@@ -22,6 +31,8 @@ export { default as CourseList } from './components/courses/CourseList';
 export { NotificationCenter } from './components/notification/NotificationCenter';
 
 // Payment components
+export { default as BulkPaymentForm } from './components/payment/BulkPaymentForm';
+export { default as MonthlyPaymentTable } from './components/payment/MonthlyPaymentTable';
 export { default as PaymentForm } from './components/payment/PaymentForm';
 export { default as PaymentManagementTable } from './components/payment/PaymentManagementTable';
 
