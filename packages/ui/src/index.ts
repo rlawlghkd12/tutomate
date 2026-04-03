@@ -1,11 +1,23 @@
 // UI primitives (shadcn)
-export { Button } from './components/ui/button';
+export { Button, buttonVariants } from './components/ui/button';
 export type { ButtonProps } from './components/ui/button';
-export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './components/ui/dialog';
+export { Badge, badgeVariants } from './components/ui/badge';
+export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from './components/ui/card';
+export { Checkbox } from './components/ui/checkbox';
+export { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from './components/ui/dialog';
 export {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
+  AlertDialogTrigger,
 } from './components/ui/alert-dialog';
+export { Input } from './components/ui/input';
+export { Progress } from './components/ui/progress';
+export { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
+export { Separator } from './components/ui/separator';
+export { Switch } from './components/ui/switch';
+export { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
+export { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow, TableFooter } from './components/ui/table';
+export { Textarea } from './components/ui/textarea';
 
 // Common components
 export { ErrorBoundary, withErrorBoundary } from './components/common/ErrorBoundary';

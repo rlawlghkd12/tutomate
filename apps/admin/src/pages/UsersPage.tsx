@@ -1,15 +1,21 @@
-import { Table, Tag, Button, Input, Space, message, Popconfirm, Typography, Select } from 'antd';
-import { SearchOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Search, Trash2, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { supabase } from '@tutomate/core';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/ko';
+import {
+  Button,
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
+  Badge, Input,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@tutomate/ui';
 
 dayjs.extend(relativeTime);
 dayjs.locale('ko');
-
-const { Title } = Typography;
 
 interface UserRow {
   id: string;
@@ -38,10 +44,24 @@ async function callAdminUsers(action: string, body?: any): Promise<any> {
   return res.json();
 }
 
+const providerColor: Record<string, string> = {
+  google: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+  kakao: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+  naver: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+  email: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+};
+
+const planColor: Record<string, string> = {
+  trial: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+  basic: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+  admin: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+};
+
 const UsersPage = () => {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -55,10 +75,21 @@ const UsersPage = () => {
   const handleDelete = async (userId: string) => {
     const result = await callAdminUsers('delete', { userId });
     if (result?.success) {
-      message.success('유저가 삭제되었습니다.');
+      toast.success('유저가 삭제되었습니다.');
       fetchUsers();
     } else {
-      message.error('삭제 실패');
+      toast.error('삭제 실패');
+    }
+    setDeleteTarget(null);
+  };
+
+  const handleChangePlan = async (orgId: string, plan: string) => {
+    const result = await callAdminUsers('change-plan', { organizationId: orgId, plan });
+    if (result?.success) {
+      toast.success('플랜이 변경되었습니다.');
+      fetchUsers();
+    } else {
+      toast.error('변경 실패');
     }
   };
 
@@ -66,111 +97,126 @@ const UsersPage = () => {
     !search || u.email?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const providerColor: Record<string, string> = {
-    google: 'blue', kakao: 'gold', naver: 'green', email: 'default',
-  };
-
-  const columns = [
-    {
-      title: '이메일',
-      dataIndex: 'email',
-      key: 'email',
-      render: (email: string, r: UserRow) => (
-        <Space>
-          {email || '-'}
-          {r.is_anonymous && <Tag>익명</Tag>}
-        </Space>
-      ),
-    },
-    {
-      title: '프로바이더',
-      dataIndex: 'provider',
-      key: 'provider',
-      width: 100,
-      render: (p: string) => <Tag color={providerColor[p] || 'default'}>{p}</Tag>,
-    },
-    {
-      title: '조직',
-      dataIndex: 'organization',
-      key: 'organization',
-      render: (org: UserRow['organization']) =>
-        org ? <Space><span>{org.name}</span>
-          <Select
-            size="small"
-            value={org.plan}
-            onChange={async (plan) => {
-              const result = await callAdminUsers('change-plan', { organizationId: org.id, plan });
-              if (result?.success) {
-                message.success('플랜이 변경되었습니다.');
-                fetchUsers();
-              } else {
-                message.error('변경 실패');
-              }
-            }}
-            style={{ width: 90 }}
-            options={[
-              { value: 'trial', label: <Tag color="orange">trial</Tag> },
-              { value: 'basic', label: <Tag color="green">basic</Tag> },
-              { value: 'admin', label: <Tag color="red">admin</Tag> },
-            ]}
-          />
-        </Space> : <Tag>없음</Tag>,
-    },
-    {
-      title: '가입일',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      width: 140,
-      render: (d: string) => (
-        <span title={dayjs(d).format('YYYY-MM-DD HH:mm:ss')}>
-          {dayjs(d).fromNow()}
-        </span>
-      ),
-    },
-    {
-      title: '최근 로그인',
-      dataIndex: 'last_sign_in_at',
-      key: 'last_sign_in_at',
-      width: 140,
-      render: (d: string | null) => d ? (
-        <span title={dayjs(d).format('YYYY-MM-DD HH:mm:ss')}>
-          {dayjs(d).fromNow()}
-        </span>
-      ) : '-',
-    },
-    {
-      title: '',
-      key: 'actions',
-      width: 60,
-      render: (_: any, r: UserRow) => (
-        <Popconfirm title="이 유저를 삭제하시겠습니까?" onConfirm={() => handleDelete(r.id)} okText="삭제" cancelText="취소">
-          <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-        </Popconfirm>
-      ),
-    },
-  ];
-
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Title level={4} style={{ margin: 0 }}>유저 관리</Title>
-        <Input
-          placeholder="이메일 검색"
-          prefix={<SearchOutlined />}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ width: 300 }}
-          allowClear
-        />
+      <div className="flex justify-between items-center mb-4">
+        <h4 className="text-lg font-semibold m-0">유저 관리</h4>
+        <div className="relative w-[300px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="이메일 검색"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
       </div>
-      <Table
-        dataSource={filtered}
-        columns={columns}
-        rowKey="id"
-        loading={loading}
-        size="small"
-        pagination={{ pageSize: 20 }}
-      />
+
+      {loading ? (
+        <div className="flex items-center justify-center h-[200px]">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>이메일</TableHead>
+                <TableHead className="w-[100px]">프로바이더</TableHead>
+                <TableHead>조직</TableHead>
+                <TableHead className="w-[140px]">가입일</TableHead>
+                <TableHead className="w-[140px]">최근 로그인</TableHead>
+                <TableHead className="w-[60px]" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {user.email || '-'}
+                      {user.is_anonymous && <Badge variant="outline">익명</Badge>}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={providerColor[user.provider] || ''} variant="outline">
+                      {user.provider}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {user.organization ? (
+                      <div className="flex items-center gap-2">
+                        <span>{user.organization.name}</span>
+                        <Select
+                          value={user.organization.plan}
+                          onValueChange={(plan) => handleChangePlan(user.organization!.id, plan)}
+                        >
+                          <SelectTrigger className="h-7 w-[90px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="trial">
+                              <Badge className={planColor.trial} variant="outline">trial</Badge>
+                            </SelectItem>
+                            <SelectItem value="basic">
+                              <Badge className={planColor.basic} variant="outline">basic</Badge>
+                            </SelectItem>
+                            <SelectItem value="admin">
+                              <Badge className={planColor.admin} variant="outline">admin</Badge>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <Badge variant="outline">없음</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span title={dayjs(user.created_at).format('YYYY-MM-DD HH:mm:ss')}>
+                      {dayjs(user.created_at).fromNow()}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {user.last_sign_in_at ? (
+                      <span title={dayjs(user.last_sign_in_at).format('YYYY-MM-DD HH:mm:ss')}>
+                        {dayjs(user.last_sign_in_at).fromNow()}
+                      </span>
+                    ) : '-'}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => setDeleteTarget(user.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>유저 삭제</AlertDialogTitle>
+            <AlertDialogDescription>이 유저를 삭제하시겠습니까?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && handleDelete(deleteTarget)}
+            >
+              삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

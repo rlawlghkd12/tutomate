@@ -1,9 +1,7 @@
-import { Card, Typography, Statistic, Row, Col, Spin } from 'antd';
-import { UserOutlined, TeamOutlined, KeyOutlined } from '@ant-design/icons';
+import { User, Users, Key, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@tutomate/core';
-
-const { Title } = Typography;
+import { Card, CardContent } from '@tutomate/ui';
 
 interface Stats {
   totalUsers: number;
@@ -54,45 +52,66 @@ const DashboardPage = () => {
     fetchStats();
   }, []);
 
-  if (loading) return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div>
-      <Title level={4}>시스템 현황</Title>
-      <Row gutter={[16, 16]}>
-        <Col span={8}>
-          <Card>
-            <Statistic title="전체 유저" value={stats?.totalUsers || 0} prefix={<UserOutlined />} />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic title="전체 조직" value={stats?.totalOrgs || 0} prefix={<TeamOutlined />} />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic title="발급된 라이선스" value={stats?.totalLicenses || 0} prefix={<KeyOutlined />} />
-          </Card>
-        </Col>
-      </Row>
-      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col span={8}>
-          <Card>
-            <Statistic title="체험판" value={stats?.planBreakdown.trial || 0} valueStyle={{ color: '#fa8c16' }} />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic title="Basic" value={stats?.planBreakdown.basic || 0} valueStyle={{ color: '#52c41a' }} />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic title="Admin" value={stats?.planBreakdown.admin || 0} valueStyle={{ color: '#f5222d' }} />
-          </Card>
-        </Col>
-      </Row>
+      <h4 className="text-lg font-semibold mb-4">시스템 현황</h4>
+      <div className="grid grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground">전체 유저</p>
+            <p className="text-3xl font-bold flex items-center gap-2 mt-1">
+              <User className="h-5 w-5 text-muted-foreground" />
+              {stats?.totalUsers || 0}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground">전체 조직</p>
+            <p className="text-3xl font-bold flex items-center gap-2 mt-1">
+              <Users className="h-5 w-5 text-muted-foreground" />
+              {stats?.totalOrgs || 0}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground">발급된 라이선스</p>
+            <p className="text-3xl font-bold flex items-center gap-2 mt-1">
+              <Key className="h-5 w-5 text-muted-foreground" />
+              {stats?.totalLicenses || 0}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="grid grid-cols-3 gap-4 mt-4">
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground">체험판</p>
+            <p className="text-3xl font-bold text-orange-500 mt-1">{stats?.planBreakdown.trial || 0}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground">Basic</p>
+            <p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-1">{stats?.planBreakdown.basic || 0}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground">Admin</p>
+            <p className="text-3xl font-bold text-red-600 dark:text-red-400 mt-1">{stats?.planBreakdown.admin || 0}</p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
