@@ -3,7 +3,6 @@ import {
 	Alert,
 	AutoComplete,
 	Button,
-	Checkbox,
 	Col,
 	Form,
 	Input,
@@ -22,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
 import { useLicenseStore } from "@tutomate/core";
-import { useMonthlyPaymentStore } from "@tutomate/core";
+import { usePaymentRecordStore } from "@tutomate/core";
 import { useStudentStore } from "@tutomate/core";
 import type { PaymentMethod, Student, StudentFormData } from "@tutomate/core";
 import { formatPhone, parseBirthDate } from "@tutomate/core";
@@ -38,11 +37,6 @@ function getQuarterMonths(quarter: string): number[] {
 	return [start, start + 1, start + 2];
 }
 
-/** 분기 + 월 → YYYY-MM 형식 — "2026-Q1", 1 → "2026-01" */
-function quarterMonthToYYYYMM(quarter: string, month: number): string {
-	const year = quarter.split('-Q')[0];
-	return `${year}-${String(month).padStart(2, '0')}`;
-}
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -75,7 +69,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 	const { enrollments, addEnrollment, deleteEnrollment, updateEnrollment } =
 		useEnrollmentStore();
 	const { getPlan, getLimit } = useLicenseStore();
-	const { addPayment: addMonthlyPayment } = useMonthlyPaymentStore();
+	const { addPayment: addPaymentRecord } = usePaymentRecordStore();
 	const nameInputRef = useRef<any>(null);
 	const phoneInputRef = useRef<any>(null);
 	const birthDateInputRef = useRef<any>(null);
@@ -261,16 +255,6 @@ const StudentForm: React.FC<StudentFormProps> = ({
 		[],
 	);
 
-	const handleEnrolledMonthsChange = useCallback(
-		(courseId: string, months: number[]) => {
-			setCoursePayments((prev) =>
-				prev.map((cp) =>
-					cp.courseId === courseId ? { ...cp, enrolledMonths: months } : cp,
-				),
-			);
-		},
-		[],
-	);
 
 	const handleDiscountChange = useCallback(
 		(courseId: string, discount: number) => {
@@ -383,27 +367,14 @@ const StudentForm: React.FC<StudentFormProps> = ({
 							);
 						if (newEnr) {
 							const paidAmt = cp.isExempt ? 0 : cp.paidAmount;
-							if (appConfig.enableQuarterSystem && cp.enrolledMonths?.length) {
-								const perMonth = Math.floor(paidAmt / cp.enrolledMonths.length);
-								const remainder = paidAmt % cp.enrolledMonths.length;
-								for (let i = 0; i < cp.enrolledMonths.length; i++) {
-									const yyyymm = quarterMonthToYYYYMM(currentQuarter, cp.enrolledMonths[i]);
-									const amt = i === 0 ? perMonth + remainder : perMonth;
-									await addMonthlyPayment(
-										newEnr.id,
-										yyyymm,
-										amt,
-										cp.paymentMethod,
-										amt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
-									);
-								}
-							} else {
-								await addMonthlyPayment(
+							if (paidAmt > 0) {
+								const course = getCourseById(cp.courseId);
+								await addPaymentRecord(
 									newEnr.id,
-									dayjs().format("YYYY-MM"),
 									paidAmt,
+									course?.fee || 0,
 									cp.paymentMethod,
-									paidAmt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
+									dayjs().format("YYYY-MM-DD"),
 								);
 							}
 						}
@@ -459,30 +430,16 @@ const StudentForm: React.FC<StudentFormProps> = ({
 								);
 							if (newEnrollment) {
 								const paidAmt = cp.isExempt ? 0 : cp.paidAmount;
-								if (appConfig.enableQuarterSystem && cp.enrolledMonths?.length) {
-									const perMonth = Math.floor(paidAmt / cp.enrolledMonths.length);
-									const remainder = paidAmt % cp.enrolledMonths.length;
-									for (let i = 0; i < cp.enrolledMonths.length; i++) {
-										const yyyymm = quarterMonthToYYYYMM(currentQuarter, cp.enrolledMonths[i]);
-										const amt = i === 0 ? perMonth + remainder : perMonth;
-										await addMonthlyPayment(
-											newEnrollment.id,
-											yyyymm,
-											amt,
-											cp.paymentMethod,
-											amt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
-										);
-									}
-								} else {
-									const currentMonth = dayjs().format("YYYY-MM");
-									await addMonthlyPayment(
-										newEnrollment.id,
-										currentMonth,
-										paidAmt,
-										cp.paymentMethod,
-										paidAmt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
-									);
-								}
+								if (paidAmt > 0) {
+								const course = getCourseById(cp.courseId);
+								await addPaymentRecord(
+									newEnrollment.id,
+									paidAmt,
+									course?.fee || 0,
+									cp.paymentMethod,
+									dayjs().format("YYYY-MM-DD"),
+								);
+							}
 							}
 						}
 					}
@@ -755,25 +712,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 										/>
 									</div>
 
-									{/* 수강등록월 (분기 시스템) */}
-									{appConfig.enableQuarterSystem && (
-										<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-											<span style={{ fontSize: 12, color: token.colorTextSecondary, width: 44 }}>등록월</span>
-											<Checkbox.Group
-												value={cp.enrolledMonths || []}
-												onChange={(values) =>
-													handleEnrolledMonthsChange(cp.courseId, values as number[])
-												}
-											>
-												{getQuarterMonths(getCurrentQuarter()).map((m) => (
-													<Checkbox key={m} value={m} style={{ fontSize: 12 }}>
-														{m}월
-													</Checkbox>
-												))}
-											</Checkbox.Group>
-										</div>
-									)}
-
+	
 									{/* 납부 */}
 									<div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
 										<span style={{ fontSize: 12, color: token.colorTextSecondary, width: 44 }}>납부</span>
