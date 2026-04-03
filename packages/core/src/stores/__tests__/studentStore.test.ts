@@ -84,6 +84,27 @@ describe('studentStore', () => {
     expect(useStudentStore.getState().getStudentById('s999')).toBeUndefined();
   });
 
+  it('deleteStudent → state에서 제거', async () => {
+    const s1 = makeStudent({ id: 's1', name: '홍길동' });
+    const s2 = makeStudent({ id: 's2', name: '김철수' });
+    useStudentStore.setState({ students: [s1, s2] });
+
+    await useStudentStore.getState().deleteStudent('s1');
+
+    const students = useStudentStore.getState().students;
+    expect(students).toHaveLength(1);
+    expect(students[0].id).toBe('s2');
+  });
+
+  it('빈 state에서 getStudentById → undefined', () => {
+    expect(useStudentStore.getState().getStudentById('any')).toBeUndefined();
+  });
+
+  it('loadStudents → 빈 state에서 빈 배열 유지', async () => {
+    await useStudentStore.getState().loadStudents();
+    expect(useStudentStore.getState().students).toEqual([]);
+  });
+
   it('여러 학생 관리', async () => {
     await useStudentStore.getState().addStudent({ name: 'A', phone: '1' });
     await useStudentStore.getState().addStudent({ name: 'B', phone: '2' });
