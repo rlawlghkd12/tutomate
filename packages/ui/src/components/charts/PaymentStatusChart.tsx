@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Empty } from 'antd';
+import { Empty } from '../ui/empty';
 import type { Enrollment } from '@tutomate/core';
 import { useChartColors, useChartTooltipStyle, FLEX_CENTER } from '@tutomate/core';
 
@@ -41,7 +41,7 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
   if (enrollments.length === 0) {
     return (
       <div style={{ ...FLEX_CENTER, height: 300 }}>
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="납부 데이터가 없습니다" />
+        <Empty description="납부 데이터가 없습니다" />
       </div>
     );
   }
