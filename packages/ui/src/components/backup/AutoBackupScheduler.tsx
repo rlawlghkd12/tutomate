@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Card, Switch, InputNumber, Space, Typography, message, Alert } from 'antd';
+import { Info } from 'lucide-react';
 import dayjs from 'dayjs';
-import { FLEX_BETWEEN } from '@tutomate/core';
+import { toast } from 'sonner';
 import { createCloudBackup } from '@tutomate/core';
 
-const { Text } = Typography;
+import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
+import { Switch } from '../ui/switch';
+import { Input } from '../ui/input';
+import { Alert, AlertDescription } from '../ui/alert';
 
 interface BackupSettings {
   enabled: boolean;
@@ -48,9 +51,9 @@ export const AutoBackupScheduler: React.FC = () => {
         };
         setSettings(newSettings);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
-        message.success('자동 백업이 완료되었습니다');
+        toast.success('자동 백업이 완료되었습니다');
       } catch (error) {
-        message.error('자동 백업 실패: ' + error);
+        toast.error('자동 백업 실패: ' + error);
       }
     }
   }, []);
@@ -87,13 +90,14 @@ export const AutoBackupScheduler: React.FC = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
 
     if (checked) {
-      message.success('자동 백업이 활성화되었습니다');
+      toast.success('자동 백업이 활성화되었습니다');
     } else {
-      message.info('자동 백업이 비활성화되었습니다');
+      toast.info('자동 백업이 비활성화되었습니다');
     }
   };
 
-  const handleIntervalChange = (value: number | null) => {
+  const handleIntervalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
     if (value && value > 0) {
       const newSettings = {
         ...settings,
@@ -105,47 +109,50 @@ export const AutoBackupScheduler: React.FC = () => {
   };
 
   return (
-    <Card title="자동 백업 설정" size="small">
-      <Space direction="vertical" style={{ width: '100%' }}>
-        <div style={FLEX_BETWEEN}>
-          <Text>자동 백업 활성화</Text>
-          <Switch checked={settings.enabled} onChange={handleToggle} />
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">자동 백업 설정</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm">자동 백업 활성화</span>
+          <Switch checked={settings.enabled} onCheckedChange={handleToggle} />
         </div>
 
         {settings.enabled && (
           <>
-            <div style={FLEX_BETWEEN}>
-              <Text>백업 주기 (시간)</Text>
-              <InputNumber
+            <div className="flex items-center justify-between">
+              <span className="text-sm">백업 주기 (시간)</span>
+              <Input
+                type="number"
                 min={1}
                 max={168}
                 value={settings.intervalHours}
                 onChange={handleIntervalChange}
-                style={{ width: 100 }}
+                className="w-[100px] h-8 text-sm"
               />
             </div>
 
-            <Alert
-              message={
-                <Space direction="vertical" size="small">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                <div className="flex flex-col gap-1">
                   {settings.lastBackup && (
-                    <Text type="secondary">
+                    <span className="text-xs text-muted-foreground">
                       마지막 백업: {dayjs(settings.lastBackup).format('YYYY-MM-DD HH:mm:ss')}
-                    </Text>
+                    </span>
                   )}
-                  <Text type="secondary">다음 백업 예정: {nextBackupTime}</Text>
-                </Space>
-              }
-              type="info"
-              showIcon
-            />
+                  <span className="text-xs text-muted-foreground">다음 백업 예정: {nextBackupTime}</span>
+                </div>
+              </AlertDescription>
+            </Alert>
 
-            <Text type="secondary" style={{ fontSize: 12 }}>
+            <p className="text-xs text-muted-foreground">
               앱이 실행 중일 때 설정된 주기마다 자동으로 백업이 생성됩니다.
-            </Text>
+            </p>
           </>
         )}
-      </Space>
+      </CardContent>
     </Card>
   );
 };
