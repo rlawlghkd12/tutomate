@@ -1,21 +1,43 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, User, Calendar, DollarSign, Settings } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { LayoutDashboard, BookOpen, Users, Calendar, DollarSign, Settings } from 'lucide-react';
 
-interface NavigationProps {
-  collapsed?: boolean;
-}
-
-const menuItems = [
+const mainItems = [
   { key: '/', icon: LayoutDashboard, label: '대시보드' },
   { key: '/courses', icon: BookOpen, label: '강좌 관리' },
-  { key: '/students', icon: User, label: '수강생 관리' },
+  { key: '/students', icon: Users, label: '수강생 관리' },
   { key: '/calendar', icon: Calendar, label: '캘린더' },
   { key: '/revenue', icon: DollarSign, label: '수익 관리' },
+];
+
+const bottomItems = [
   { key: '/settings', icon: Settings, label: '설정' },
 ];
 
-const Navigation: React.FC<NavigationProps> = ({ collapsed = false }) => {
+const navItemBase: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  width: '100%',
+  padding: '12px 16px',
+  border: 'none',
+  borderRadius: 8,
+  fontSize: 14,
+  fontWeight: 500,
+  cursor: 'pointer',
+  transition: 'background 0.15s, color 0.15s',
+  background: 'transparent',
+  color: '#71717a',
+  textAlign: 'left' as const,
+};
+
+const navItemActive: React.CSSProperties = {
+  ...navItemBase,
+  background: '#f0f0f0',
+  color: '#18181b',
+  fontWeight: 600,
+};
+
+const Navigation: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -27,27 +49,41 @@ const Navigation: React.FC<NavigationProps> = ({ collapsed = false }) => {
 
   const selectedKey = getSelectedKey();
 
+  const renderItem = (item: typeof mainItems[0]) => {
+    const Icon = item.icon;
+    const isActive = selectedKey === item.key;
+    return (
+      <button
+        key={item.key}
+        onClick={() => navigate(item.key)}
+        style={isActive ? navItemActive : navItemBase}
+        onMouseEnter={(e) => {
+          if (!isActive) {
+            e.currentTarget.style.background = '#f5f5f5';
+            e.currentTarget.style.color = '#18181b';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isActive) {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.color = '#71717a';
+          }
+        }}
+      >
+        <Icon style={{ width: 20, height: 20, flexShrink: 0 }} />
+        <span>{item.label}</span>
+      </button>
+    );
+  };
+
   return (
-    <nav className="flex flex-col gap-1 px-2">
-      {menuItems.map((item) => {
-        const Icon = item.icon;
-        const isActive = selectedKey === item.key;
-        return (
-          <button
-            key={item.key}
-            onClick={() => navigate(item.key)}
-            className={cn(
-              'flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium transition-colors',
-              'hover:bg-accent hover:text-accent-foreground',
-              isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground',
-              collapsed && 'justify-center px-2',
-            )}
-          >
-            <Icon className="h-5 w-5 shrink-0" />
-            {!collapsed && <span>{item.label}</span>}
-          </button>
-        );
-      })}
+    <nav style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '0 12px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {mainItems.map(renderItem)}
+      </div>
+      <div style={{ marginTop: 'auto', borderTop: '1px solid var(--color-border, #e5e5e5)', paddingTop: 8, paddingBottom: 12 }}>
+        {bottomItems.map(renderItem)}
+      </div>
     </nav>
   );
 };
