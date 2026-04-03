@@ -1,7 +1,5 @@
 import React, { useRef, useCallback } from 'react';
-import { Input, Space, Typography } from 'antd';
-
-const { Text } = Typography;
+import { Input } from '../ui/input';
 
 interface LicenseKeyInputProps {
   value: string[];
@@ -28,7 +26,10 @@ const LicenseKeyInput: React.FC<LicenseKeyInputProps> = ({ value, onChange, onPr
     if (e.key === 'Backspace' && value[index] === '' && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
-  }, [value]);
+    if (e.key === 'Enter' && onPressEnter) {
+      onPressEnter();
+    }
+  }, [value, onPressEnter]);
 
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLInputElement>) => {
     const pasted = e.clipboardData.getData('text').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 16);
@@ -42,24 +43,23 @@ const LicenseKeyInput: React.FC<LicenseKeyInputProps> = ({ value, onChange, onPr
   }, [onChange]);
 
   return (
-    <Space size={4} align="center">
+    <div className="flex items-center gap-1">
       {[0, 1, 2, 3].map((i) => (
         <React.Fragment key={i}>
-          {i > 0 && <Text type="secondary" style={{ fontSize: 16 }}>-</Text>}
+          {i > 0 && <span className="text-base text-muted-foreground">-</span>}
           <Input
-            ref={(el) => { inputRefs.current[i] = el?.input ?? null; }}
+            ref={(el) => { inputRefs.current[i] = el; }}
             value={value[i]}
             onChange={(e) => handleChange(i, e.target.value)}
             onKeyDown={(e) => handleKeyDown(i, e)}
             onPaste={i === 0 ? handlePaste : undefined}
-            onPressEnter={onPressEnter}
             maxLength={4}
             disabled={disabled}
-            style={{ width: 72, textAlign: 'center', fontFamily: 'monospace', letterSpacing: 2 }}
+            className="w-[72px] text-center font-mono tracking-widest"
           />
         </React.Fragment>
       ))}
-    </Space>
+    </div>
   );
 };
 
