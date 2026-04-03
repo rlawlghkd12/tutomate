@@ -148,6 +148,8 @@ export {
   getCurrentQuarter,
   getQuarterLabel,
   getQuarterOptions,
+  getQuarterMonths,
+  quarterMonthToYYYYMM,
 } from './utils/quarterUtils';
 
 // ─── Hooks ───────────────────────────────────────────────────────

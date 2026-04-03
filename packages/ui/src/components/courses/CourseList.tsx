@@ -80,6 +80,8 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
       title: '강좌 이름',
       dataIndex: 'name',
       key: 'name',
+      width: 200,
+      ellipsis: true,
       sorter: (a, b) => a.name.localeCompare(b.name),
       render: (name, record) => (
         <a onClick={() => handleView(record.id)} style={{ cursor: 'pointer' }}>
