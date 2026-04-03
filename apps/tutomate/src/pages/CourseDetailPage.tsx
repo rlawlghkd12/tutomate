@@ -10,13 +10,12 @@ import {
 	Trash2,
 	Users,
 } from "lucide-react";
-import dayjs from "dayjs";
 import { toast } from "sonner";
-import { BulkPaymentForm, CourseForm, MonthlyPaymentTable, PaymentForm } from "@tutomate/ui";
+import { BulkPaymentForm, CourseForm, PaymentManagementTable, PaymentForm } from "@tutomate/ui";
 import {
 	useCourseStore,
 	useEnrollmentStore,
-	useMonthlyPaymentStore,
+	usePaymentRecordStore,
 	useStudentStore,
 	COURSE_STUDENT_EXPORT_FIELDS,
 	exportCourseStudentsToCSV,
@@ -46,7 +45,7 @@ const CourseDetailPage: React.FC = () => {
 	const { loadStudents, getStudentById } = useStudentStore();
 	const { enrollments, loadEnrollments, deleteEnrollment } =
 		useEnrollmentStore();
-	const { loadPayments } = useMonthlyPaymentStore();
+	const { loadRecords } = usePaymentRecordStore();
 
 	const [selectedEnrollment, setSelectedEnrollment] =
 		useState<Enrollment | null>(null);
@@ -71,8 +70,8 @@ const CourseDetailPage: React.FC = () => {
 		loadCourses();
 		loadStudents();
 		loadEnrollments();
-		loadPayments();
-	}, [loadCourses, loadStudents, loadEnrollments, loadPayments]);
+		loadRecords();
+	}, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
 	const course = id ? getCourseById(id) : undefined;
 	const courseEnrollments = enrollments.filter((e) => e.courseId === id);
@@ -248,7 +247,7 @@ const CourseDetailPage: React.FC = () => {
 					</TabsTrigger>
 					<TabsTrigger value="monthly">
 						<Calendar className="h-4 w-4 mr-1" />
-						월별 납부
+						납부 관리
 					</TabsTrigger>
 				</TabsList>
 
@@ -291,7 +290,7 @@ const CourseDetailPage: React.FC = () => {
 									</th>
 									<th className="p-2 text-left font-medium">이름</th>
 									<th className="p-2 text-left font-medium">전화번호</th>
-									<th className="p-2 text-left font-medium">이번달</th>
+									<th className="p-2 text-left font-medium">납부상태</th>
 									<th className="p-2 text-left font-medium">등록일</th>
 									<th className="p-2 text-left font-medium">작업</th>
 								</tr>
@@ -314,23 +313,11 @@ const CourseDetailPage: React.FC = () => {
 													if (record.paymentStatus === "exempt") {
 														return <Badge variant="purple">면제</Badge>;
 													}
-													const currentMonth = dayjs().format("YYYY-MM");
-													const monthlyPayment = useMonthlyPaymentStore
-														.getState()
-														.payments.find(
-															(p) => p.enrollmentId === record.id && p.month === currentMonth,
-														);
-													if (monthlyPayment && monthlyPayment.status === "paid") {
-														return (
-															<div className="flex items-center gap-1">
-																<Badge variant="success">납부</Badge>
-																{monthlyPayment.paidAt && (
-																	<span className="text-xs text-muted-foreground">
-																		{dayjs(monthlyPayment.paidAt).format('M/D')}
-																	</span>
-																)}
-															</div>
-														);
+													if (record.paymentStatus === "completed") {
+														return <Badge variant="success">완납</Badge>;
+													}
+													if (record.paymentStatus === "partial") {
+														return <Badge variant="warning">부분납부</Badge>;
 													}
 													return <Badge variant="error">미납</Badge>;
 												})()}
@@ -367,11 +354,10 @@ const CourseDetailPage: React.FC = () => {
 				</TabsContent>
 
 				<TabsContent value="monthly">
-					<MonthlyPaymentTable
+					<PaymentManagementTable
 						courseId={id}
 						courseFee={course.fee}
 						enrollments={courseEnrollments}
-						courseCreatedAt={course.createdAt}
 					/>
 				</TabsContent>
 			</Tabs>

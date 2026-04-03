@@ -1,13 +1,13 @@
-import { PanelLeftClose, PanelLeftOpen, ChevronRight, Wifi, X } from 'lucide-react';
+import { Wifi, X, Search } from 'lucide-react';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLicenseStore } from '@tutomate/core';
 import { useSettingsStore } from '@tutomate/core';
 import { NotificationCenter } from '../notification/NotificationCenter';
+import { useGlobalSearch } from '../search/GlobalSearch';
 import Navigation from './Navigation';
 import { Button } from '../ui/button';
-import { cn } from '../../lib/utils';
 
 interface LayoutProps {
 	children: React.ReactNode;
@@ -22,172 +22,149 @@ const PAGE_TITLES: Record<string, string> = {
 	'/settings': '설정',
 };
 
-const AUTO_COLLAPSE_WIDTH = 860;
+const SIDEBAR_WIDTH = 220;
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-	const [collapsed, setCollapsed] = useState(
-		() => window.innerWidth < AUTO_COLLAPSE_WIDTH,
-	);
 	const [offline, setOffline] = useState(!navigator.onLine);
 	const [offlineDismissed, setOfflineDismissed] = useState(false);
 	const organizationName = useSettingsStore((s) => s.organizationName);
 	const getPlan = useLicenseStore((s) => s.getPlan);
-	const isTrial = getPlan() === 'trial';
+	const plan = getPlan();
+	const isTrial = plan === 'trial';
 	const location = useLocation();
 	const navigate = useNavigate();
-
-	const handleResize = useCallback(() => {
-		const shouldCollapse = window.innerWidth < AUTO_COLLAPSE_WIDTH;
-		setCollapsed((prev) => {
-			if (shouldCollapse && !prev) return true;
-			if (!shouldCollapse && prev) return false;
-			return prev;
-		});
-	}, []);
+	const { openSearch } = useGlobalSearch();
 
 	useEffect(() => {
-		window.addEventListener('resize', handleResize);
-		return () => window.removeEventListener('resize', handleResize);
-	}, [handleResize]);
-
-	useEffect(() => {
-		const goOffline = () => {
-			setOffline(true);
-			setOfflineDismissed(false);
-		};
+		const goOffline = () => { setOffline(true); setOfflineDismissed(false); };
 		const goOnline = () => setOffline(false);
 		window.addEventListener('offline', goOffline);
 		window.addEventListener('online', goOnline);
-		return () => {
-			window.removeEventListener('offline', goOffline);
-			window.removeEventListener('online', goOnline);
-		};
+		return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline); };
 	}, []);
 
 	const pageTitle = useMemo(() => {
 		const path = location.pathname;
 		if (PAGE_TITLES[path]) return PAGE_TITLES[path];
-		// /courses/:id 같은 하위 경로
 		const base = `/${path.split('/').filter(Boolean)[0]}`;
 		if (base === '/courses' && path !== '/courses') return '강좌 관리';
 		return PAGE_TITLES[base] || '';
 	}, [location.pathname]);
 
 	return (
-		<div className="flex h-screen">
-			{/* Sidebar */}
+		<div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+			{/* ── Sidebar (220px 고정) ── */}
 			<aside
-				className={cn(
-					'fixed left-0 top-0 bottom-0 z-30 flex flex-col overflow-hidden border-r border-border bg-background transition-all duration-200 ease-in-out',
-					collapsed ? 'w-[60px]' : 'w-[180px]',
-				)}
+				style={{
+					width: SIDEBAR_WIDTH,
+					minWidth: SIDEBAR_WIDTH,
+					display: 'flex',
+					flexDirection: 'column',
+					borderRight: '1px solid var(--color-border, #e5e5e5)',
+					background: '#fafafa',
+				}}
 			>
-				<div className="h-4" />
-				<Navigation collapsed={collapsed} />
-				{isTrial && (
-					<div
-						className={cn(
-							'mt-auto text-center',
-							collapsed ? 'px-1 py-3' : 'px-4 py-3',
-						)}
-					>
-						<span
-							className={cn(
-								'inline-block cursor-pointer rounded-md border border-orange-300 bg-orange-50 px-2 py-0.5 text-orange-600 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-400',
-								collapsed ? 'text-[11px]' : 'text-xs',
-							)}
+				{/* macOS 트래픽 라이트 영역 */}
+				<div style={{ height: 38, WebkitAppRegion: 'drag' } as React.CSSProperties} />
+
+				{/* 조직명 + 플랜 */}
+				<div style={{ padding: '0 20px 16px' }}>
+					<div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.3, color: 'var(--color-foreground)' }}>
+						{organizationName || 'TutorMate'}
+					</div>
+					{isTrial && (
+						<button
 							onClick={() => navigate('/settings?tab=license')}
-							onKeyDown={(e) => {
-								if (e.key === 'Enter') navigate('/settings?tab=license');
+							style={{
+								marginTop: 6,
+								padding: '3px 10px',
+								fontSize: 11,
+								fontWeight: 600,
+								color: '#c2410c',
+								background: '#fff7ed',
+								border: '1px solid #fed7aa',
+								borderRadius: 12,
+								cursor: 'pointer',
+								lineHeight: 1.4,
 							}}
-							role="button"
-							tabIndex={0}
 						>
 							체험판
-						</span>
-					</div>
-				)}
+						</button>
+					)}
+				</div>
+
+				{/* 네비게이션 */}
+				<Navigation />
 			</aside>
 
-			{/* Main area */}
-			<div
-				className={cn(
-					'flex h-screen flex-1 flex-col bg-background transition-all duration-200 ease-in-out',
-					collapsed ? 'ml-[60px]' : 'ml-[180px]',
-				)}
-			>
-				{/* Header */}
-				<header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-4">
-					<div className="flex items-center gap-2">
+			{/* ── Main area ── */}
+			<div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+				{/* 헤더 (52px) */}
+				<header
+					style={{
+						height: 52,
+						display: 'flex',
+						alignItems: 'center',
+						justifyContent: 'space-between',
+						padding: '0 20px',
+						borderBottom: '1px solid var(--color-border, #e5e5e5)',
+						WebkitAppRegion: 'drag',
+					} as React.CSSProperties}
+				>
+					<h2
+						style={{
+							margin: 0,
+							fontSize: 18,
+							fontWeight: 700,
+							color: 'var(--color-foreground)',
+							WebkitAppRegion: 'no-drag',
+						} as React.CSSProperties}
+					>
+						{pageTitle}
+					</h2>
+					<div style={{ display: 'flex', alignItems: 'center', gap: 4, WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
 						<Button
 							variant="ghost"
 							size="icon"
-							onClick={() => setCollapsed(!collapsed)}
-							className="h-8 w-8"
+							onClick={openSearch}
+							style={{ width: 32, height: 32 }}
+							title="검색 (⌘K)"
 						>
-							{collapsed ? (
-								<PanelLeftOpen className="h-4 w-4" />
-							) : (
-								<PanelLeftClose className="h-4 w-4" />
-							)}
+							<Search style={{ width: 16, height: 16 }} />
 						</Button>
-						{/* biome-ignore lint/a11y/useSemanticElements: breadcrumb span */}
-						<span
-							role="link"
-							tabIndex={0}
-							className="cursor-pointer text-muted-foreground hover:text-foreground"
-							onClick={() => navigate('/')}
-							onKeyDown={(e) => {
-								if (e.key === 'Enter') navigate('/');
-							}}
-						>
-							{organizationName}
-						</span>
-						{pageTitle && (
-							<>
-								<ChevronRight className="h-3 w-3 text-muted-foreground/50" />
-								<span
-									className={cn(
-										'font-semibold',
-										location.pathname.includes('/courses/') && 'cursor-pointer',
-									)}
-									onClick={() => {
-										if (location.pathname.includes('/courses/'))
-											navigate('/courses');
-									}}
-									onKeyDown={(e) => {
-										if (e.key === 'Enter' && location.pathname.includes('/courses/'))
-											navigate('/courses');
-									}}
-									role={location.pathname.includes('/courses/') ? 'link' : undefined}
-									tabIndex={location.pathname.includes('/courses/') ? 0 : undefined}
-								>
-									{pageTitle}
-								</span>
-							</>
-						)}
+						<NotificationCenter />
 					</div>
-					<NotificationCenter />
 				</header>
 
-				{/* Offline alert */}
+				{/* 오프라인 알림 */}
 				{offline && !offlineDismissed && (
-					<div className="flex items-center justify-between border-b border-yellow-300 bg-yellow-50 px-4 py-2 text-sm text-yellow-800 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-200">
-						<div className="flex items-center gap-2">
-							<Wifi className="h-4 w-4" />
+					<div
+						style={{
+							display: 'flex',
+							alignItems: 'center',
+							justifyContent: 'space-between',
+							padding: '8px 20px',
+							background: '#fefce8',
+							borderBottom: '1px solid #fde68a',
+							fontSize: 13,
+							color: '#92400e',
+						}}
+					>
+						<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+							<Wifi style={{ width: 16, height: 16 }} />
 							<span>인터넷에 연결되어 있지 않습니다</span>
 						</div>
 						<button
 							onClick={() => setOfflineDismissed(true)}
-							className="rounded-sm p-1 hover:bg-yellow-200 dark:hover:bg-yellow-800"
+							style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 4 }}
 						>
-							<X className="h-3.5 w-3.5" />
+							<X style={{ width: 14, height: 14 }} />
 						</button>
 					</div>
 				)}
 
-				{/* Content */}
-				<main className="flex-1 overflow-y-auto overflow-x-hidden p-6">
+				{/* 콘텐츠 (padding 20px) */}
+				<main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: 20 }}>
 					{children}
 				</main>
 			</div>
