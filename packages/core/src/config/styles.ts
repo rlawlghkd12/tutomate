@@ -1,7 +1,4 @@
-import { theme } from 'antd';
 import type { CSSProperties } from 'react';
-
-const { useToken } = theme;
 
 // ─── Layout Constants ────────────────────────────────────────────
 
@@ -19,7 +16,7 @@ export const FLEX_BETWEEN: CSSProperties = {
 
 // ─── Custom Color Constants ──────────────────────────────────────
 
-/** 면제(exempt) 상태 전용 보라색 — Ant Design 토큰에 없는 커스텀 색상 */
+/** 면제(exempt) 상태 전용 보라색 */
 export const EXEMPT_COLOR = '#722ed1';
 
 // ─── Chart Hooks ─────────────────────────────────────────────────
@@ -37,17 +34,16 @@ export interface ChartColors {
 }
 
 export function useChartColors(): ChartColors {
-  const { token } = useToken();
   return {
-    success: token.colorSuccess,
-    primary: token.colorPrimary,
-    error: token.colorError,
-    warning: token.colorWarning,
+    success: '#22c55e',
+    primary: '#3b82f6',
+    error: '#ef4444',
+    warning: '#f59e0b',
     exempt: EXEMPT_COLOR,
-    text: token.colorText,
-    border: token.colorBorderSecondary,
-    bgContainer: token.colorBgContainer,
-    hoverFill: token.colorFillSecondary,
+    text: 'hsl(var(--foreground, 0 0% 3.9%))',
+    border: 'hsl(var(--border, 0 0% 89.8%))',
+    bgContainer: 'hsl(var(--background, 0 0% 100%))',
+    hoverFill: 'hsl(var(--muted, 0 0% 96.1%))',
   };
 }
 
@@ -58,18 +54,17 @@ export interface ChartTooltipStyle {
 }
 
 export function useChartTooltipStyle(): ChartTooltipStyle {
-  const { token } = useToken();
   return {
     contentStyle: {
-      backgroundColor: token.colorBgContainer,
-      border: `1px solid ${token.colorBorder}`,
+      backgroundColor: 'hsl(var(--background, 0 0% 100%))',
+      border: '1px solid hsl(var(--border, 0 0% 89.8%))',
       borderRadius: 6,
     },
     labelStyle: {
-      color: token.colorText,
+      color: 'hsl(var(--foreground, 0 0% 3.9%))',
     },
     itemStyle: {
-      color: token.colorText,
+      color: 'hsl(var(--foreground, 0 0% 3.9%))',
     },
   };
 }
