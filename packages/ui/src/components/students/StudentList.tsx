@@ -1,13 +1,44 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Table, Tag, Input, Select, Row, Col, Empty, Space, Tooltip, theme } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
-import { SearchOutlined } from '@ant-design/icons';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  flexRender,
+  type ColumnDef,
+  type SortingState,
+} from '@tanstack/react-table';
+import { Search, ArrowUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Student } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
 import { appConfig } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../ui/table';
+import { Badge } from '../ui/badge';
+import { Input } from '../ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../ui/tooltip';
+
 import StudentForm from './StudentForm';
 
 interface StudentRow {
@@ -15,8 +46,6 @@ interface StudentRow {
   index: number;
   student: Student;
   courses: { id: string; name: string }[];
-  unpaidCount: number;
-  totalCourses: number;
 }
 
 interface StudentListProps {
@@ -24,7 +53,6 @@ interface StudentListProps {
 }
 
 const StudentList: React.FC<StudentListProps> = ({ actions }) => {
-  const { token } = theme.useToken();
   const navigate = useNavigate();
   const { students } = useStudentStore();
   const { enrollments } = useEnrollmentStore();
@@ -33,6 +61,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [searchText, setSearchText] = useState('');
   const [searchField, setSearchField] = useState<string>('all');
+  const [sorting, setSorting] = useState<SortingState>([]);
 
   const handleEdit = useCallback((student: Student) => {
     setSelectedStudent(student);
@@ -55,16 +84,11 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
         })
         .filter((c): c is { id: string; name: string } => c !== null);
 
-      const nonExempt = studentEnrollments.filter((e) => e.paymentStatus !== 'exempt');
-      const unpaidCount = nonExempt.filter((e) => e.paymentStatus !== 'completed').length;
-
       return {
         rowKey: student.id,
         index: index + 1,
         student,
         courses: studentCourses,
-        unpaidCount,
-        totalCourses: studentEnrollments.length,
       };
     });
   }, [students, enrollments, courses]);
@@ -97,115 +121,121 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
     return filtered.map((row, idx) => ({ ...row, index: idx + 1 }));
   }, [studentRows, searchText, searchField]);
 
-  const columns: ColumnsType<StudentRow> = [
+  const columns = useMemo<ColumnDef<StudentRow>[]>(() => [
     {
-      title: 'No.',
-      key: 'index',
-      width: 40,
-      render: (_, record) => record.index,
+      id: 'index',
+      header: 'No.',
+      size: 40,
+      enableSorting: false,
+      cell: ({ row }) => row.original.index,
     },
     {
-      title: '이름',
-      key: 'name',
-      width: 80,
-      sorter: (a, b) => a.student.name.localeCompare(b.student.name),
-      render: (_, record) => (
-        <a
-          onClick={() => handleEdit(record.student)}
-          style={{ whiteSpace: 'nowrap' }}
+      id: 'name',
+      header: ({ column }) => (
+        <button
+          className="flex items-center gap-1"
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
         >
-          {record.student.name}
-        </a>
+          이름
+          <ArrowUpDown className="h-3 w-3" />
+        </button>
+      ),
+      accessorFn: (row) => row.student.name,
+      cell: ({ row }) => (
+        <button
+          className="text-primary hover:underline whitespace-nowrap"
+          onClick={() => handleEdit(row.original.student)}
+        >
+          {row.original.student.name}
+        </button>
       ),
     },
     ...(appConfig.enableMemberFeature ? [{
-      title: '회원',
-      key: 'isMember',
-      filters: [{ text: '회원', value: true }, { text: '비회원', value: false }],
-      onFilter: (value: unknown, record: StudentRow) => (record.student.isMember ?? false) === value,
-      render: (_: unknown, record: StudentRow) => record.student.isMember
-        ? <Tag color="blue">회원</Tag>
-        : <Tag>비회원</Tag>,
-    }] : []),
+      id: 'isMember',
+      header: '회원',
+      enableSorting: false,
+      cell: ({ row }: { row: { original: StudentRow } }) => row.original.student.isMember
+        ? <Badge>회원</Badge>
+        : <Badge variant="secondary">비회원</Badge>,
+    } satisfies ColumnDef<StudentRow>] : []),
     {
-      title: '전화번호',
-      key: 'phone',
-      width: 120,
-      render: (_, record) => <span style={{ whiteSpace: 'nowrap' }}>{record.student.phone}</span>,
+      id: 'phone',
+      header: '전화번호',
+      enableSorting: false,
+      cell: ({ row }) => <span className="whitespace-nowrap">{row.original.student.phone}</span>,
     },
     {
-      title: '강좌',
-      key: 'courses',
-      filters: courses.map((c) => ({ text: c.name, value: c.id })),
-      onFilter: (value, record) => record.courses.some((c) => c.id === value),
-      render: (_, record) => {
-        if (record.courses.length === 0) {
-          return <span style={{ color: token.colorTextQuaternary }}>-</span>;
+      id: 'courses',
+      header: '강좌',
+      enableSorting: false,
+      cell: ({ row }) => {
+        if (row.original.courses.length === 0) {
+          return <span className="text-muted-foreground/50">-</span>;
         }
         return (
-          <Space size={[0, 4]} wrap>
-            {record.courses.map((course) => (
-              <Tag
+          <div className="flex flex-wrap gap-1">
+            {row.original.courses.map((course) => (
+              <Badge
                 key={course.id}
-                color="blue"
-                style={{ cursor: 'pointer' }}
+                className="cursor-pointer"
                 onClick={() => navigate(`/courses/${course.id}`)}
               >
                 {course.name}
-              </Tag>
+              </Badge>
             ))}
-          </Space>
+          </div>
         );
       },
     },
     {
-      title: '납부',
-      key: 'paymentStatus',
-      width: 90,
-      render: (_, record) => {
-        if (record.totalCourses === 0) return <span style={{ color: token.colorTextQuaternary }}>-</span>;
-        if (record.unpaidCount === 0) return <Tag color="green">완납</Tag>;
-        return <Tag color="red">미납 {record.unpaidCount}건</Tag>;
-      },
-      filters: [
-        { text: '완납', value: 'paid' },
-        { text: '미납', value: 'unpaid' },
-      ],
-      onFilter: (value, record) => {
-        if (record.totalCourses === 0) return false;
-        if (value === 'paid') return record.unpaidCount === 0;
-        return record.unpaidCount > 0;
-      },
-    },
-    {
-      title: '메모',
-      key: 'notes',
-      ellipsis: { showTitle: false },
-      render: (_, record) => record.student.notes ? (
-        <Tooltip title={record.student.notes} placement="topLeft">
-          <span style={{ color: token.colorTextSecondary }}>{record.student.notes}</span>
-        </Tooltip>
+      id: 'notes',
+      header: '메모',
+      enableSorting: false,
+      cell: ({ row }) => row.original.student.notes ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-muted-foreground truncate block max-w-[200px]">
+                {row.original.student.notes}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" align="start">
+              {row.original.student.notes}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       ) : '-',
     },
-  ];
+  ], [handleEdit, navigate]);
+
+  const table = useReactTable({
+    data: filteredRows,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getRowId: (row) => row.rowKey,
+  });
 
   return (
     <>
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col flex="none">
-          <Select
-            value={searchField}
-            onChange={setSearchField}
-            style={{ width: 110 }}
-          >
-            <Select.Option value="all">전체</Select.Option>
-            <Select.Option value="name">이름</Select.Option>
-            <Select.Option value="phone">전화번호</Select.Option>
-            <Select.Option value="course">강좌</Select.Option>
-            <Select.Option value="notes">메모</Select.Option>
-          </Select>
-        </Col>
-        <Col flex="auto" style={{ maxWidth: 300 }}>
+      <div className="flex items-center gap-4 mb-4">
+        <Select value={searchField} onValueChange={setSearchField}>
+          <SelectTrigger className="w-[110px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">전체</SelectItem>
+            <SelectItem value="name">이름</SelectItem>
+            <SelectItem value="phone">전화번호</SelectItem>
+            <SelectItem value="course">강좌</SelectItem>
+            <SelectItem value="notes">메모</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="relative max-w-[300px] flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={
               searchField === 'name' ? '이름 검색' :
@@ -214,34 +244,54 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
               searchField === 'notes' ? '메모 검색' :
               '이름, 전화번호, 강좌, 메모 검색'
             }
-            prefix={<SearchOutlined />}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            allowClear
+            className="pl-8"
           />
-        </Col>
+        </div>
         {actions && (
-          <Col flex="auto" style={{ textAlign: 'right' }}>
+          <div className="flex-1 text-right">
             {actions}
-          </Col>
+          </div>
         )}
-      </Row>
-      <Table
-        columns={columns}
-        dataSource={filteredRows}
-        rowKey="rowKey"
-        pagination={false}
-        size="small"
-        tableLayout="fixed"
-        locale={{
-          emptyText: (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description={students.length === 0 ? "등록된 수강생이 없습니다" : "검색 결과가 없습니다"}
-            />
-          ),
-        }}
-      />
+      </div>
+      <Table>
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead
+                  key={header.id}
+                  style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
+                >
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(header.column.columnDef.header, header.getContext())}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {table.getRowModel().rows.length > 0 ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+                {students.length === 0 ? '등록된 수강생이 없습니다' : '검색 결과가 없습니다'}
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
       <StudentForm
         visible={isModalVisible}
         onClose={handleCloseStudentModal}
