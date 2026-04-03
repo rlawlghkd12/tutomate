@@ -2,16 +2,14 @@ import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-	Calendar,
 	Download,
 	FileSpreadsheet,
 	FileText,
 	Pencil,
 	Trash2,
-	Users,
 } from "lucide-react";
 import { toast } from "sonner";
-import { BulkPaymentForm, CourseForm, PaymentManagementTable, PaymentForm } from "@tutomate/ui";
+import { CourseForm, PaymentManagementTable } from "@tutomate/ui";
 import {
 	useCourseStore,
 	useEnrollmentStore,
@@ -21,11 +19,9 @@ import {
 	exportCourseStudentsToCSV,
 	exportCourseStudentsToExcel,
 } from "@tutomate/core";
-import type { Enrollment } from "@tutomate/core";
+// Enrollment type used internally by PaymentManagementTable
 import { Button } from "../components/ui/button";
-import { Badge } from "../components/ui/badge";
 import { Checkbox } from "../components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 
@@ -47,18 +43,12 @@ const CourseDetailPage: React.FC = () => {
 		useEnrollmentStore();
 	const { loadRecords } = usePaymentRecordStore();
 
-	const [selectedEnrollment, setSelectedEnrollment] =
-		useState<Enrollment | null>(null);
-	const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
-	const [isBulkPaymentModalVisible, setIsBulkPaymentModalVisible] =
-		useState(false);
-	const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
+	const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 	const [isExportModalVisible, setIsExportModalVisible] = useState(false);
 	const [selectedExportFields, setSelectedExportFields] = useState<string[]>(
 		DEFAULT_EXPORT_FIELDS,
 	);
 
-	const [activeTab, setActiveTab] = useState<string>("students");
 	const [isCourseEditVisible, setIsCourseEditVisible] = useState(false);
 
 	// Delete course AlertDialog state
@@ -114,11 +104,6 @@ const CourseDetailPage: React.FC = () => {
 		toast.success("수강생이 제거되었습니다.");
 	};
 
-	const handlePaymentEdit = (enrollment: Enrollment) => {
-		setSelectedEnrollment(enrollment);
-		setIsPaymentModalVisible(true);
-	};
-
 	const handleExport = (type: "excel" | "csv") => {
 		if (selectedExportFields.length === 0) {
 			toast.warning("내보낼 필드를 1개 이상 선택해주세요.");
@@ -151,18 +136,6 @@ const CourseDetailPage: React.FC = () => {
 
 	const allFieldKeys = COURSE_STUDENT_EXPORT_FIELDS.map((f) => f.key);
 	const isAllSelected = selectedExportFields.length === allFieldKeys.length;
-
-	const selectedEnrollments = enrolledStudents.filter((student) =>
-		selectedRowKeys.includes(student.id),
-	);
-
-	const toggleRowSelection = (id: string) => {
-		setSelectedRowKeys((prev) =>
-			prev.includes(id) ? prev.filter((k) => k !== id) : [...prev, id]
-		);
-	};
-
-	const isAllRowsSelected = enrolledStudents.length > 0 && selectedRowKeys.length === enrolledStudents.length;
 
 	if (!id || !course) {
 		return <div>강좌를 찾을 수 없습니다.</div>;
@@ -239,147 +212,15 @@ const CourseDetailPage: React.FC = () => {
 				))}
 			</div>
 
-			<Tabs value={activeTab} onValueChange={setActiveTab}>
-				<TabsList>
-					<TabsTrigger value="students">
-						<Users className="h-4 w-4 mr-1" />
-						수강생 관리
-					</TabsTrigger>
-					<TabsTrigger value="monthly">
-						<Calendar className="h-4 w-4 mr-1" />
-						납부 관리
-					</TabsTrigger>
-				</TabsList>
-
-				<TabsContent value="students">
-					{selectedRowKeys.length > 0 && (
-						<div className="mb-4 p-3 bg-info/10 rounded flex items-center gap-3">
-							<span className="text-sm">{selectedRowKeys.length}명 선택됨</span>
-							<Button
-								size="sm"
-								onClick={() => setIsBulkPaymentModalVisible(true)}
-							>
-								일괄 납부 처리
-							</Button>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setSelectedRowKeys([])}
-							>
-								선택 해제
-							</Button>
-						</div>
-					)}
-
-					{/* Table */}
-					<div className="border rounded-md overflow-hidden">
-						<table className="w-full text-sm">
-							<thead>
-								<tr className="border-b bg-muted/50">
-									<th className="p-2 w-10">
-										<Checkbox
-											checked={isAllRowsSelected ? true : selectedRowKeys.length > 0 ? "indeterminate" : false}
-											onCheckedChange={(checked) => {
-												if (checked) {
-													setSelectedRowKeys(enrolledStudents.map((s) => s.id));
-												} else {
-													setSelectedRowKeys([]);
-												}
-											}}
-										/>
-									</th>
-									<th className="p-2 text-left font-medium">이름</th>
-									<th className="p-2 text-left font-medium">전화번호</th>
-									<th className="p-2 text-left font-medium">납부상태</th>
-									<th className="p-2 text-left font-medium">등록일</th>
-									<th className="p-2 text-left font-medium">작업</th>
-								</tr>
-							</thead>
-							<tbody>
-								{enrolledStudents.map((record) => {
-									const isSelected = selectedRowKeys.includes(record.id);
-									return (
-										<tr key={record.id} className={`border-b hover:bg-muted/30 ${isSelected ? 'bg-primary/5' : ''}`}>
-											<td className="p-2">
-												<Checkbox
-													checked={isSelected}
-													onCheckedChange={() => toggleRowSelection(record.id)}
-												/>
-											</td>
-											<td className="p-2">{record.student?.name || "-"}</td>
-											<td className="p-2">{record.student?.phone || "-"}</td>
-											<td className="p-2">
-												{(() => {
-													if (record.paymentStatus === "exempt") {
-														return <Badge variant="purple">면제</Badge>;
-													}
-													if (record.paymentStatus === "completed") {
-														return <Badge variant="success">완납</Badge>;
-													}
-													if (record.paymentStatus === "partial") {
-														return <Badge variant="warning">부분납부</Badge>;
-													}
-													return <Badge variant="error">미납</Badge>;
-												})()}
-											</td>
-											<td className="p-2">{new Date(record.enrolledAt).toLocaleDateString()}</td>
-											<td className="p-2">
-												<div className="flex items-center gap-1">
-													<Button variant="link" size="sm" className="h-auto p-0" onClick={() => handlePaymentEdit(record)}>
-														납부 관리
-													</Button>
-													<Button
-														variant="link"
-														size="sm"
-														className="h-auto p-0 text-destructive"
-														onClick={() => setRemoveStudentId(record.id)}
-													>
-														제거
-													</Button>
-												</div>
-											</td>
-										</tr>
-									);
-								})}
-								{enrolledStudents.length === 0 && (
-									<tr>
-										<td colSpan={6} className="p-8 text-center text-muted-foreground">
-											등록된 수강생이 없습니다
-										</td>
-									</tr>
-								)}
-							</tbody>
-						</table>
-					</div>
-				</TabsContent>
-
-				<TabsContent value="monthly">
-					<PaymentManagementTable
-						courseId={id}
-						courseFee={course.fee}
-						enrollments={courseEnrollments}
-					/>
-				</TabsContent>
-			</Tabs>
-
-			<PaymentForm
-				visible={isPaymentModalVisible}
-				onClose={() => {
-					setIsPaymentModalVisible(false);
-					setSelectedEnrollment(null);
-				}}
-				enrollment={selectedEnrollment}
+			{/* 수강생 + 납부 통합 (PaymentManagementTable) */}
+			<PaymentManagementTable
+				courseId={id}
 				courseFee={course.fee}
-			/>
-
-			<BulkPaymentForm
-				visible={isBulkPaymentModalVisible}
-				onClose={() => {
-					setIsBulkPaymentModalVisible(false);
-					setSelectedRowKeys([]);
+				enrollments={courseEnrollments}
+				rowSelection={{
+					selectedRowKeys,
+					onChange: (keys) => setSelectedRowKeys(keys as string[]),
 				}}
-				enrollments={selectedEnrollments}
-				courseFee={course.fee}
 			/>
 
 			{/* 내보내기 모달 */}
