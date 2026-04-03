@@ -15,7 +15,8 @@
     "electron:build:q:mac": "pnpm --filter @tutomate/app-q electron:build:mac",
     "electron:build:q:win": "pnpm --filter @tutomate/app-q electron:build:win",
     "lint": "pnpm -r lint",
-    "test": "pnpm -r test",
+    "test": "vitest run --config vitest.workspace.ts",
+    "test:coverage": "vitest run --config vitest.workspace.ts --coverage",
     "test:e2e": "playwright test e2e/electron.test.ts"
   },
   "lint-staged": {
