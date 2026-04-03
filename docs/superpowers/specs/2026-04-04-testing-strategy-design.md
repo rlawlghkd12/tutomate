@@ -26,11 +26,23 @@
 
 ### 1.2 테스트 격리: 트랜잭션 롤백
 
-- 각 테스트: `beforeEach`에서 `BEGIN`, `afterEach`에서 `ROLLBACK`
-- 테스트 간 완전 격리, 밀리초 단위 속도
-- `supabase db reset`은 전체 스위트 시작 시 한 번만 실행
+`@supabase/supabase-js`는 트랜잭션 API를 제공하지 않으므로, `pg` 패키지로 로컬 PostgreSQL에 직접 연결한다.
 
-### 1.3 Vitest Workspace
+- 테스트 전용 `pg.Client` 인스턴스를 globalSetup에서 생성
+- 각 테스트: `beforeEach`에서 `BEGIN`, `afterEach`에서 `ROLLBACK`
+- store 테스트에서는 supabase 클라이언트가 동일한 로컬 DB를 바라보도록 환경변수 설정
+- `supabase db reset`은 전체 스위트 시작 시 한 번만 실행
+- 테스트 간 완전 격리, 밀리초 단위 속도
+
+### 1.3 Ant Design + RTL 패턴 확정 (POC 선행)
+
+Ant Design의 복잡한 컴포넌트(Modal.confirm, message.success, DatePicker, Select 등)는 RTL에서 삽질이 잦다. 인프라 구성 단계에서 POC를 먼저 만들어 패턴을 확정한다.
+
+- POC 대상: Modal.confirm, message/notification static method, DatePicker, Select, Form 유효성
+- 확정된 패턴을 `packages/ui/src/__tests__/setup.ts`에 헬퍼로 추출
+- 이후 모든 컴포넌트 테스트에서 동일 패턴 적용
+
+### 1.4 Vitest Workspace
 
 루트에 `vitest.workspace.ts` 하나로 모노레포 전체 통합:
 
@@ -38,7 +50,7 @@
 - `packages/ui`: jsdom 환경, `@testing-library/react` + `@testing-library/user-event`
 - `pnpm test` 한 번으로 전체 실행 + 통합 커버리지 리포트
 
-### 1.4 커버리지
+### 1.5 커버리지
 
 - `@vitest/coverage-v8`로 branch coverage 측정
 - threshold: branches 95% (도달 불가능한 분기 허용 마진)
@@ -201,9 +213,13 @@ Vitest + React Testing Library + user-event.
 - Ant Design 컴포넌트 (Modal, message 등)는 테스트 setup에서 처리
 - `user-event`로 실제 사용자 인터랙션 시뮬레이션
 
-## 6. E2E 시나리오 확장 (Playwright)
+## 6. E2E 시나리오 확장 (Playwright + Electron)
 
-기존 5개 E2E 파일을 보강. 모듈 간 연결 플로우에 집중.
+기존 5개 E2E 파일을 보강. **Electron 앱을 직접 띄워서 테스트**한다 (`_electron.launch()`).
+
+- Electron 전용 기능(IPC, 파일시스템, 자동 업데이트 등)도 E2E에서 커버 가능
+- 사전 조건: `dist-electron/main.js` 빌드 필요 (`pnpm --filter @tutomate/app build` 후 E2E 실행)
+- 로컬 Supabase를 바라보도록 환경변수 설정하여 테스트 데이터 격리
 
 ### 6.1 커버할 유저 플로우
 
