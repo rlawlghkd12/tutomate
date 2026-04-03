@@ -261,3 +261,116 @@ describe('mapMonthlyPaymentUpdateToDb', () => {
     expect(mapMonthlyPaymentUpdateToDb({})).toEqual({});
   });
 });
+
+// ─── 라운드트립 일관성 ───────────────────────────────────────────────────────
+
+describe('라운드트립 일관성', () => {
+  it('Course: mapCourseToDb → mapCourseFromDb 일관성', () => {
+    const original = {
+      id: 'c1', name: '수학', classroom: 'A101',
+      instructorName: '김강사', instructorPhone: '010-1234-5678',
+      fee: 300000, maxStudents: 30, currentStudents: 15,
+    };
+    const dbRow = mapCourseToDb(original, 'org1');
+    const restored = mapCourseFromDb({ ...dbRow, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' });
+    expect(restored.id).toBe(original.id);
+    expect(restored.name).toBe(original.name);
+    expect(restored.instructorName).toBe(original.instructorName);
+    expect(restored.maxStudents).toBe(original.maxStudents);
+  });
+
+  it('Student: mapStudentToDb → mapStudentFromDb 일관성', () => {
+    const original = {
+      id: 's1', name: '홍길동', phone: '010-0000-0000',
+      email: 'hong@test.com', address: '서울시', birthDate: '2000-01-01', notes: '메모',
+    };
+    const dbRow = mapStudentToDb(original, 'org1');
+    const restored = mapStudentFromDb({ ...dbRow, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' });
+    expect(restored.id).toBe(original.id);
+    expect(restored.email).toBe(original.email);
+    expect(restored.birthDate).toBe(original.birthDate);
+  });
+
+  it('Enrollment: mapEnrollmentToDb → mapEnrollmentFromDb 일관성', () => {
+    const original = {
+      id: 'e1', courseId: 'c1', studentId: 's1',
+      enrolledAt: '2026-03-01T00:00:00Z', paymentStatus: 'partial' as const,
+      paidAmount: 150000, remainingAmount: 50000, discountAmount: 0,
+      paymentMethod: 'card' as const, notes: '비고',
+    };
+    const dbRow = mapEnrollmentToDb(original, 'org1');
+    const restored = mapEnrollmentFromDb(dbRow);
+    expect(restored.id).toBe(original.id);
+    expect(restored.paymentStatus).toBe(original.paymentStatus);
+    expect(restored.paidAmount).toBe(original.paidAmount);
+    expect(restored.paymentMethod).toBe(original.paymentMethod);
+    expect(restored.notes).toBe(original.notes);
+  });
+
+  it('MonthlyPayment: mapMonthlyPaymentToDb → mapMonthlyPaymentFromDb 일관성', () => {
+    const original = {
+      id: 'mp1', enrollmentId: 'e1', month: '2026-03',
+      amount: 300000, status: 'paid' as const, createdAt: '2026-03-01T00:00:00Z',
+      paidAt: '2026-03-15', paymentMethod: 'transfer' as const, notes: '노트',
+    };
+    const dbRow = mapMonthlyPaymentToDb(original, 'org1');
+    const restored = mapMonthlyPaymentFromDb(dbRow);
+    expect(restored.id).toBe(original.id);
+    expect(restored.amount).toBe(original.amount);
+    expect(restored.paymentMethod).toBe(original.paymentMethod);
+    expect(restored.notes).toBe(original.notes);
+  });
+});
+
+// ─── null 필드 매핑 기본값 ────────────────────────────────────────────────
+
+describe('null 필드 매핑 기본값', () => {
+  it('Course: schedule null → undefined (앱 타입 기본값)', () => {
+    const row: import('../fieldMapper').CourseRow = {
+      id: 'c1', organization_id: 'org1', name: '수학', classroom: 'A',
+      instructor_name: '김', instructor_phone: '010', fee: 0,
+      max_students: 10, current_students: 0, schedule: null,
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    };
+    const course = mapCourseFromDb(row);
+    expect(course.schedule).toBeUndefined();
+  });
+
+  it('Student: is_member null → isMember undefined', () => {
+    const row: import('../fieldMapper').StudentRow = {
+      id: 's1', organization_id: 'org1', name: '홍', phone: '010',
+      email: null, address: null, birth_date: null, notes: null,
+      is_member: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    };
+    const student = mapStudentFromDb(row);
+    expect(student.isMember).toBeUndefined();
+    expect(student.email).toBeUndefined();
+    expect(student.address).toBeUndefined();
+    expect(student.birthDate).toBeUndefined();
+  });
+
+  it('Enrollment: quarter null → quarter undefined, enrolledMonths null → undefined', () => {
+    const row: import('../fieldMapper').EnrollmentRow = {
+      id: 'e1', organization_id: 'org1', course_id: 'c1', student_id: 's1',
+      enrolled_at: '2026-03-01T00:00:00Z', payment_status: 'pending',
+      paid_amount: 0, remaining_amount: 0, paid_at: null, payment_method: null,
+      discount_amount: 0, notes: null, quarter: null, enrolled_months: null,
+      created_at: '2026-03-01T00:00:00Z',
+    };
+    const enrollment = mapEnrollmentFromDb(row);
+    expect(enrollment.quarter).toBeUndefined();
+    expect(enrollment.enrolledMonths).toBeUndefined();
+  });
+
+  it('MonthlyPayment: paid_at null → paidAt undefined, notes null → undefined', () => {
+    const row: import('../fieldMapper').MonthlyPaymentRow = {
+      id: 'mp1', organization_id: 'org1', enrollment_id: 'e1', month: '2026-03',
+      amount: 300000, paid_at: null, payment_method: null,
+      status: 'pending', notes: null, created_at: '2026-03-01T00:00:00Z',
+    };
+    const payment = mapMonthlyPaymentFromDb(row);
+    expect(payment.paidAt).toBeUndefined();
+    expect(payment.paymentMethod).toBeUndefined();
+    expect(payment.notes).toBeUndefined();
+  });
+});

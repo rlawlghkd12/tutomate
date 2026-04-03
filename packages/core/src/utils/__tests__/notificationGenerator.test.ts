@@ -178,6 +178,73 @@ describe("notificationGenerator", () => {
 		});
 	});
 
+	// ── 경계값 및 추가 케이스 ──
+
+	describe('generatePaymentOverdueNotifications — 경계값', () => {
+		it('정확히 30일째 → overdue 알림 생성 (경계 포함)', () => {
+			const enrollment = makeEnrollment({
+				paymentStatus: 'pending',
+				enrolledAt: dayjs().subtract(30, 'day').toISOString(),
+			});
+			generatePaymentOverdueNotifications([enrollment], [student], [course]);
+			expect(mockAddNotification).toHaveBeenCalledTimes(1);
+		});
+
+		it('빈 enrollment 목록 → 알림 없음', () => {
+			generatePaymentOverdueNotifications([], [student], [course]);
+			expect(mockAddNotification).not.toHaveBeenCalled();
+		});
+
+		it('모든 enrollment 완납 → 알림 없음', () => {
+			const e1 = makeEnrollment({ paymentStatus: 'completed', enrolledAt: dayjs().subtract(60, 'day').toISOString() });
+			const e2 = makeEnrollment({ id: 'e2', paymentStatus: 'completed', enrolledAt: dayjs().subtract(40, 'day').toISOString() });
+			generatePaymentOverdueNotifications([e1, e2], [student], [course]);
+			expect(mockAddNotification).not.toHaveBeenCalled();
+		});
+
+		it('1일 미납 → overdue 미생성 (30일 미만)', () => {
+			const enrollment = makeEnrollment({
+				paymentStatus: 'pending',
+				enrolledAt: dayjs().subtract(1, 'day').toISOString(),
+			});
+			generatePaymentOverdueNotifications([enrollment], [student], [course]);
+			expect(mockAddNotification).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('generatePaymentReminderNotifications — 경계값', () => {
+		it('빈 enrollment 목록 → 알림 없음', () => {
+			generatePaymentReminderNotifications([], [student], [course]);
+			expect(mockAddNotification).not.toHaveBeenCalled();
+		});
+
+		it('모든 enrollment 완납 → reminder 없음', () => {
+			const e1 = makeEnrollment({ paymentStatus: 'completed', enrolledAt: dayjs().subtract(7, 'day').toISOString() });
+			const e2 = makeEnrollment({ id: 'e2', paymentStatus: 'completed', enrolledAt: dayjs().subtract(14, 'day').toISOString() });
+			generatePaymentReminderNotifications([e1, e2], [student], [course]);
+			expect(mockAddNotification).not.toHaveBeenCalled();
+		});
+
+		it('6일째 → reminder 미생성 (7/14/21만)', () => {
+			const enrollment = makeEnrollment({
+				paymentStatus: 'pending',
+				enrolledAt: dayjs().subtract(6, 'day').toISOString(),
+			});
+			generatePaymentReminderNotifications([enrollment], [student], [course]);
+			expect(mockAddNotification).not.toHaveBeenCalled();
+		});
+
+		it('면제 상태 → 완납이 아니므로 reminder 생성됨 (completed만 제외)', () => {
+			const enrollment = makeEnrollment({
+				paymentStatus: 'exempt',
+				enrolledAt: dayjs().subtract(7, 'day').toISOString(),
+			});
+			generatePaymentReminderNotifications([enrollment], [student], [course]);
+			// exempt은 completed가 아니므로 알림 생성
+			expect(mockAddNotification).toHaveBeenCalledTimes(1);
+		});
+	});
+
 	// ── generateAllNotifications ──
 
 	describe("generateAllNotifications", () => {
