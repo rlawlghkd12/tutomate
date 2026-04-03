@@ -1,33 +1,16 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
-  Card,
-  Row,
-  Col,
-  Statistic,
-  Table,
-  Tag,
-  Typography,
-  Button,
-  Tabs,
-  message,
-  DatePicker,
-  Space,
-  Select,
-  Modal,
-  Checkbox,
-  theme,
-} from 'antd';
-import type { ColumnsType } from 'antd/es/table';
-import {
-  DollarOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  WarningOutlined,
-  DownloadOutlined,
-  FileExcelOutlined,
-  FileTextOutlined,
-  CalendarOutlined,
-} from '@ant-design/icons';
+  DollarSign,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Calendar,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import dayjs from 'dayjs';
 import {
   EXEMPT_COLOR,
   useCourseStore,
@@ -39,15 +22,17 @@ import {
   exportRevenueToCSV,
   REVENUE_EXPORT_FIELDS,
 } from '@tutomate/core';
-import type { Enrollment, PaymentMethod } from '@tutomate/core';
+import type { Enrollment } from '@tutomate/core';
 import { PaymentForm } from '@tutomate/ui';
-import dayjs from 'dayjs';
-import type { Dayjs } from 'dayjs';
-
-const { RangePicker } = DatePicker;
+import { Button } from '../components/ui/button';
+import { Card, CardContent } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import { Checkbox } from '../components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 
 const RevenueManagementPage: React.FC = () => {
-  const { token } = theme.useToken();
   const { courses, loadCourses, getCourseById } = useCourseStore();
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
@@ -57,7 +42,7 @@ const RevenueManagementPage: React.FC = () => {
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState<string[]>(['courseName', 'studentName', 'fee', 'paidAmount', 'remainingAmount', 'paymentStatus']);
-  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const [dateRange, setDateRange] = useState<[string, string]>(['', '']);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
 
   const [selectedMonthForRevenue, setSelectedMonthForRevenue] = useState<string>(dayjs().format('YYYY-MM'));
@@ -73,10 +58,9 @@ const RevenueManagementPage: React.FC = () => {
   const filteredEnrollments = useMemo(() => {
     let filtered = enrollments;
 
-    // 날짜 범위 필터
     if (dateRange[0] && dateRange[1]) {
-      const startDate = dateRange[0].startOf('day');
-      const endDate = dateRange[1].endOf('day');
+      const startDate = dayjs(dateRange[0]).startOf('day');
+      const endDate = dayjs(dateRange[1]).endOf('day');
 
       filtered = filtered.filter((enrollment) => {
         const enrollDate = dayjs(enrollment.enrolledAt);
@@ -84,7 +68,6 @@ const RevenueManagementPage: React.FC = () => {
       });
     }
 
-    // 결제 상태 필터
     if (paymentStatusFilter.length > 0) {
       filtered = filtered.filter((enrollment) =>
         paymentStatusFilter.includes(enrollment.paymentStatus)
@@ -94,14 +77,12 @@ const RevenueManagementPage: React.FC = () => {
     return filtered;
   }, [enrollments, dateRange, paymentStatusFilter]);
 
-  // 면제 제외한 수익 계산용 목록
   const revenueEnrollments = useMemo(() => filteredEnrollments.filter((e) => e.paymentStatus !== 'exempt'), [filteredEnrollments]);
 
-  // 전체 통계 계산 (면제 제외)
   const totalRevenue = revenueEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
   const expectedRevenue = revenueEnrollments.reduce((sum, e) => {
     const course = getCourseById(e.courseId);
-    return sum + ((course?.fee || 0) - (e.discountAmount ?? 0));
+    return sum + (course?.fee || 0);
   }, 0);
   const totalUnpaid = expectedRevenue - totalRevenue;
 
@@ -115,7 +96,7 @@ const RevenueManagementPage: React.FC = () => {
     const courseEnrollments = filteredEnrollments.filter((e) => e.courseId === course.id);
     const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
     const revenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-    const expected = nonExemptEnrollments.reduce((sum, e) => sum + (course.fee - (e.discountAmount ?? 0)), 0);
+    const expected = nonExemptEnrollments.length * course.fee;
     const unpaid = expected - revenue;
     const completed = courseEnrollments.filter((e) => e.paymentStatus === 'completed').length;
 
@@ -160,7 +141,7 @@ const RevenueManagementPage: React.FC = () => {
       );
       const paidCount = courseMonthPayments.filter((p) => p.status === 'paid').length;
       const monthRevenue = courseMonthPayments.reduce((sum, p) => sum + p.amount, 0);
-      const monthExpected = nonExemptEnrollments.reduce((sum, e) => sum + (course.fee - (e.discountAmount ?? 0)), 0);
+      const monthExpected = nonExemptEnrollments.length * course.fee;
 
       return {
         courseId: course.id,
@@ -183,249 +164,62 @@ const RevenueManagementPage: React.FC = () => {
     setIsPaymentModalVisible(true);
   };
 
-  // 날짜 범위 빠른 필터
   const setQuickDateRange = (type: 'this-month' | 'last-month' | 'this-year' | 'all') => {
     switch (type) {
       case 'this-month':
-        setDateRange([dayjs().startOf('month'), dayjs().endOf('month')]);
+        setDateRange([dayjs().startOf('month').format('YYYY-MM-DD'), dayjs().endOf('month').format('YYYY-MM-DD')]);
         break;
       case 'last-month':
         setDateRange([
-          dayjs().subtract(1, 'month').startOf('month'),
-          dayjs().subtract(1, 'month').endOf('month'),
+          dayjs().subtract(1, 'month').startOf('month').format('YYYY-MM-DD'),
+          dayjs().subtract(1, 'month').endOf('month').format('YYYY-MM-DD'),
         ]);
         break;
       case 'this-year':
-        setDateRange([dayjs().startOf('year'), dayjs().endOf('year')]);
+        setDateRange([dayjs().startOf('year').format('YYYY-MM-DD'), dayjs().endOf('year').format('YYYY-MM-DD')]);
         break;
       case 'all':
-        setDateRange([null, null]);
+        setDateRange(['', '']);
         break;
+    }
+  };
+
+  const isQuickRange = (type: 'this-month' | 'last-month' | 'this-year' | 'all') => {
+    switch (type) {
+      case 'all': return !dateRange[0] && !dateRange[1];
+      case 'this-month': return dateRange[0] === dayjs().startOf('month').format('YYYY-MM-DD') && dateRange[1] === dayjs().endOf('month').format('YYYY-MM-DD');
+      case 'last-month': return dateRange[0] === dayjs().subtract(1, 'month').startOf('month').format('YYYY-MM-DD') && dateRange[1] === dayjs().subtract(1, 'month').endOf('month').format('YYYY-MM-DD');
+      case 'this-year': return dateRange[0] === dayjs().startOf('year').format('YYYY-MM-DD') && dateRange[1] === dayjs().endOf('year').format('YYYY-MM-DD');
     }
   };
 
   const handleExport = (type: 'excel' | 'csv') => {
     if (selectedExportFields.length === 0) {
-      message.warning('내보낼 필드를 1개 이상 선택해주세요.');
+      toast.warning('내보낼 필드를 1개 이상 선택해주세요.');
       return;
     }
 
     if (enrollments.length === 0) {
-      message.warning('내보낼 수익 데이터가 없습니다');
+      toast.warning('내보낼 수익 데이터가 없습니다');
       return;
     }
 
     try {
       if (type === 'excel') {
         exportRevenueToExcel(enrollments, students, courses, selectedExportFields);
-        message.success('Excel 파일이 다운로드되었습니다');
+        toast.success('Excel 파일이 다운로드되었습니다');
       } else {
         exportRevenueToCSV(enrollments, students, courses, 'utf-8', selectedExportFields);
-        message.success('CSV 파일이 다운로드되었습니다');
+        toast.success('CSV 파일이 다운로드되었습니다');
       }
       setIsExportModalVisible(false);
     } catch (error) {
-      message.error('파일 내보내기에 실패했습니다');
+      toast.error('파일 내보내기에 실패했습니다');
     }
   };
 
   const allRevenueFieldKeys = useMemo(() => REVENUE_EXPORT_FIELDS.map((f) => f.key), []);
   const isAllRevenueSelected = selectedExportFields.length === allRevenueFieldKeys.length;
-
-  const courseColumns: ColumnsType<typeof courseRevenueData[0]> = [
-    {
-      title: '강좌명',
-      dataIndex: 'courseName',
-      key: 'courseName',
-    },
-    {
-      title: '수강생 수',
-      dataIndex: 'studentCount',
-      key: 'studentCount',
-      sorter: (a, b) => a.studentCount - b.studentCount,
-    },
-    {
-      title: '수익',
-      dataIndex: 'revenue',
-      key: 'revenue',
-      render: (revenue) => `₩${revenue.toLocaleString()}`,
-      sorter: (a, b) => a.revenue - b.revenue,
-    },
-    {
-      title: '예상 수익',
-      dataIndex: 'expected',
-      key: 'expected',
-      render: (expected) => `₩${expected.toLocaleString()}`,
-      sorter: (a, b) => a.expected - b.expected,
-    },
-    {
-      title: '미수금',
-      dataIndex: 'unpaid',
-      key: 'unpaid',
-      render: (unpaid) => (
-        <span style={{ color: unpaid > 0 ? token.colorError : token.colorSuccess }}>
-          ₩{unpaid.toLocaleString()}
-        </span>
-      ),
-      sorter: (a, b) => a.unpaid - b.unpaid,
-    },
-    {
-      title: '완납률',
-      dataIndex: 'completionRate',
-      key: 'completionRate',
-      render: (rate) => `${rate.toFixed(1)}%`,
-      sorter: (a, b) => a.completionRate - b.completionRate,
-    },
-  ];
-
-  const unpaidColumns: ColumnsType<typeof unpaidList[0]> = [
-    {
-      title: '수강생',
-      dataIndex: 'studentName',
-      key: 'studentName',
-    },
-    {
-      title: '전화번호',
-      dataIndex: 'studentPhone',
-      key: 'studentPhone',
-    },
-    {
-      title: '강좌',
-      dataIndex: 'courseName',
-      key: 'courseName',
-    },
-    {
-      title: '수강료',
-      dataIndex: 'courseFee',
-      key: 'courseFee',
-      render: (fee) => `₩${fee.toLocaleString()}`,
-    },
-    {
-      title: '납부 상태',
-      dataIndex: 'paymentStatus',
-      key: 'paymentStatus',
-      render: (status) => {
-        const statusMap = {
-          pending: { color: 'red', text: '미납' },
-          partial: { color: 'orange', text: '부분납부' },
-          completed: { color: 'green', text: '완납' },
-          exempt: { color: 'purple', text: '면제' },
-        };
-        const s = statusMap[status as keyof typeof statusMap];
-        return <Tag color={s.color}>{s.text}</Tag>;
-      },
-      filters: [
-        { text: '미납', value: 'pending' },
-        { text: '부분납부', value: 'partial' },
-      ],
-      onFilter: (value, record) => record.paymentStatus === value,
-    },
-    {
-      title: '납부 금액',
-      dataIndex: 'paidAmount',
-      key: 'paidAmount',
-      render: (amount) => `₩${amount.toLocaleString()}`,
-      sorter: (a, b) => a.paidAmount - b.paidAmount,
-    },
-    {
-      title: '납부일',
-      dataIndex: 'paidAt',
-      key: 'paidAt',
-      render: (date) => date || '-',
-      sorter: (a, b) => (a.paidAt || '').localeCompare(b.paidAt || ''),
-    },
-    {
-      title: '납부 방법',
-      dataIndex: 'paymentMethod',
-      key: 'paymentMethod',
-      render: (method: PaymentMethod | undefined) => method ? PAYMENT_METHOD_LABELS[method] : '-',
-      filters: [
-        { text: '현금', value: 'cash' },
-        { text: '카드', value: 'card' },
-        { text: '계좌이체', value: 'transfer' },
-      ],
-      onFilter: (value, record) => record.paymentMethod === value,
-    },
-    {
-      title: '할인',
-      dataIndex: 'discountAmount',
-      key: 'discountAmount',
-      render: (amount: number) => amount > 0 ? <span style={{ color: token.colorSuccess }}>-₩{amount.toLocaleString()}</span> : '-',
-      sorter: (a, b) => (a.discountAmount ?? 0) - (b.discountAmount ?? 0),
-    },
-    {
-      title: '잔여 금액',
-      dataIndex: 'remainingAmount',
-      key: 'remainingAmount',
-      render: (amount) => (
-        <span style={{ color: token.colorError, fontWeight: 'bold' }}>
-          ₩{amount.toLocaleString()}
-        </span>
-      ),
-      sorter: (a, b) => a.remainingAmount - b.remainingAmount,
-    },
-    {
-      title: '작업',
-      key: 'action',
-      render: (_, record) => (
-        <Button type="link" onClick={() => handlePaymentEdit(record)}>
-          납부 처리
-        </Button>
-      ),
-    },
-  ];
-
-  const monthlyRevenueColumns: ColumnsType<typeof monthlyRevenueData[0]> = [
-    {
-      title: '강좌명',
-      dataIndex: 'courseName',
-      key: 'courseName',
-    },
-    {
-      title: '수강생',
-      dataIndex: 'studentCount',
-      key: 'studentCount',
-      width: 80,
-    },
-    {
-      title: '납부',
-      dataIndex: 'paidCount',
-      key: 'paidCount',
-      width: 70,
-      render: (count) => <span style={{ color: token.colorSuccess }}>{count}명</span>,
-    },
-    {
-      title: '미납',
-      dataIndex: 'unpaidCount',
-      key: 'unpaidCount',
-      width: 70,
-      render: (count) => <span style={{ color: count > 0 ? token.colorError : token.colorSuccess }}>{count}명</span>,
-    },
-    {
-      title: '월 수익',
-      dataIndex: 'monthRevenue',
-      key: 'monthRevenue',
-      render: (val) => `₩${val.toLocaleString()}`,
-      sorter: (a, b) => a.monthRevenue - b.monthRevenue,
-    },
-    {
-      title: '예상 수익',
-      dataIndex: 'monthExpected',
-      key: 'monthExpected',
-      render: (val) => `₩${val.toLocaleString()}`,
-    },
-    {
-      title: '수납률',
-      dataIndex: 'collectionRate',
-      key: 'collectionRate',
-      render: (rate) => (
-        <span style={{ color: rate >= 100 ? token.colorSuccess : rate >= 50 ? token.colorWarning : token.colorError }}>
-          {rate.toFixed(1)}%
-        </span>
-      ),
-      sorter: (a, b) => a.collectionRate - b.collectionRate,
-    },
-  ];
 
   const revenueMonths = useMemo(() => {
     const result: string[] = [];
@@ -435,226 +229,92 @@ const RevenueManagementPage: React.FC = () => {
     return result;
   }, []);
 
-  const tabItems = [
-    {
-      key: '1',
-      label: '강좌별 수익',
-      children: (
-        <Table
-          columns={courseColumns}
-          dataSource={courseRevenueData}
-          rowKey="courseId"
-          pagination={false}
-          size="small"
-        />
-      ),
-    },
-    {
-      key: '2',
-      label: `미납자 관리 (${unpaidList.length})`,
-      children: (
-        <Table
-          columns={unpaidColumns}
-          dataSource={unpaidList}
-          rowKey="id"
-          pagination={false}
-          size="small"
-        />
-      ),
-    },
-    {
-      key: '3',
-      label: <span><CalendarOutlined /> 월별 납부 현황</span>,
-      children: (
-        <div>
-          <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
-            <Col>
-              <Space>
-                <Select
-                  value={selectedMonthForRevenue}
-                  onChange={setSelectedMonthForRevenue}
-                  style={{ width: 140 }}
-                >
-                  {revenueMonths.map((m) => (
-                    <Select.Option key={m} value={m}>
-                      {dayjs(m + '-01').format('YYYY년 M월')}
-                    </Select.Option>
-                  ))}
-                </Select>
-                <Button
-                  size="small"
-                  onClick={() => setSelectedMonthForRevenue(dayjs().format('YYYY-MM'))}
-                >
-                  이번 달
-                </Button>
-              </Space>
-            </Col>
-            <Col flex="auto" style={{ textAlign: 'right' }}>
-              <Space size="large">
-                <div>
-                  <span style={{ fontSize: 12, color: token.colorTextSecondary }}>월 수익: </span>
-                  <span style={{ fontWeight: 600, color: token.colorSuccess }}>₩{monthlyTotalRevenue.toLocaleString()}</span>
-                </div>
-                <div>
-                  <span style={{ fontSize: 12, color: token.colorTextSecondary }}>예상: </span>
-                  <span style={{ fontWeight: 600 }}>₩{monthlyTotalExpected.toLocaleString()}</span>
-                </div>
-                <div>
-                  <span style={{ fontSize: 12, color: token.colorTextSecondary }}>수납률: </span>
-                  <span style={{ fontWeight: 600, color: monthlyTotalExpected > 0 && monthlyTotalRevenue < monthlyTotalExpected ? token.colorError : token.colorSuccess }}>
-                    {monthlyTotalExpected > 0 ? Math.round((monthlyTotalRevenue / monthlyTotalExpected) * 100) : 0}%
-                  </span>
-                </div>
-              </Space>
-            </Col>
-          </Row>
-          <Table
-            columns={monthlyRevenueColumns}
-            dataSource={monthlyRevenueData}
-            rowKey="courseId"
-            pagination={false}
-            size="small"
-          />
-        </div>
-      ),
-    },
-  ];
+  const statusMap: Record<string, { label: string; variant: 'error' | 'warning' | 'success' | 'purple' }> = {
+    pending: { label: '미납', variant: 'error' },
+    partial: { label: '부분납부', variant: 'warning' },
+    completed: { label: '완납', variant: 'success' },
+    exempt: { label: '면제', variant: 'purple' },
+  };
 
   return (
     <div>
       {/* 필터 섹션 */}
-      <Card style={{ marginBottom: 24 }}>
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      <Card className="mb-6">
+        <CardContent className="p-4 space-y-4">
           {/* 날짜 범위 필터 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 500 }}>기간 선택:</span>
-            <RangePicker
-              value={dateRange}
-              onChange={(dates) => setDateRange(dates as [Dayjs | null, Dayjs | null])}
-              format="YYYY-MM-DD"
-              placeholder={['시작일', '종료일']}
-              style={{ width: 280 }}
-            />
-            <Space>
-              <Button
-                size="small"
-                type={!dateRange[0] && !dateRange[1] ? 'primary' : 'default'}
-                onClick={() => setQuickDateRange('all')}
-              >
-                전체
-              </Button>
-              <Button
-                size="small"
-                type={
-                  dateRange[0]?.isSame(dayjs().startOf('month'), 'day') &&
-                  dateRange[1]?.isSame(dayjs().endOf('month'), 'day')
-                    ? 'primary'
-                    : 'default'
-                }
-                onClick={() => setQuickDateRange('this-month')}
-              >
-                이번 달
-              </Button>
-              <Button
-                size="small"
-                type={
-                  dateRange[0]?.isSame(dayjs().subtract(1, 'month').startOf('month'), 'day') &&
-                  dateRange[1]?.isSame(dayjs().subtract(1, 'month').endOf('month'), 'day')
-                    ? 'primary'
-                    : 'default'
-                }
-                onClick={() => setQuickDateRange('last-month')}
-              >
-                지난 달
-              </Button>
-              <Button
-                size="small"
-                type={
-                  dateRange[0]?.isSame(dayjs().startOf('year'), 'day') &&
-                  dateRange[1]?.isSame(dayjs().endOf('year'), 'day')
-                    ? 'primary'
-                    : 'default'
-                }
-                onClick={() => setQuickDateRange('this-year')}
-              >
-                올해
-              </Button>
-            </Space>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="font-medium text-sm">기간 선택:</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={dateRange[0]}
+                  onChange={(e) => setDateRange([e.target.value, dateRange[1]])}
+                  className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                />
+                <span className="text-muted-foreground">~</span>
+                <input
+                  type="date"
+                  value={dateRange[1]}
+                  onChange={(e) => setDateRange([dateRange[0], e.target.value])}
+                  className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                />
+              </div>
+              <div className="flex gap-1">
+                {([
+                  { type: 'all' as const, label: '전체' },
+                  { type: 'this-month' as const, label: '이번 달' },
+                  { type: 'last-month' as const, label: '지난 달' },
+                  { type: 'this-year' as const, label: '올해' },
+                ] as const).map(({ type, label }) => (
+                  <Button
+                    key={type}
+                    size="sm"
+                    variant={isQuickRange(type) ? 'default' : 'outline'}
+                    onClick={() => setQuickDateRange(type)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
             </div>
-            <Button icon={<DownloadOutlined />} onClick={() => setIsExportModalVisible(true)}>내보내기</Button>
+            <Button variant="outline" onClick={() => setIsExportModalVisible(true)}>
+              <Download className="h-4 w-4" />
+              내보내기
+            </Button>
           </div>
 
           {/* 결제 상태 필터 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 500 }}>결제 상태:</span>
-            <Select
-              mode="multiple"
-              placeholder="전체 상태"
-              value={paymentStatusFilter}
-              onChange={setPaymentStatusFilter}
-              style={{ minWidth: 280 }}
-              allowClear
-              options={[
-                { label: '미납', value: 'pending' },
-                { label: '부분납부', value: 'partial' },
-                { label: '완납', value: 'completed' },
-                { label: '면제', value: 'exempt' },
-              ]}
-              maxTagCount="responsive"
-            />
-            <Space>
-              <Button
-                size="small"
-                type={paymentStatusFilter.length === 0 ? 'primary' : 'default'}
-                onClick={() => setPaymentStatusFilter([])}
-              >
-                전체
-              </Button>
-              <Button
-                size="small"
-                type={
-                  paymentStatusFilter.length === 1 && paymentStatusFilter[0] === 'pending'
-                    ? 'primary'
-                    : 'default'
-                }
-                onClick={() => setPaymentStatusFilter(['pending'])}
-              >
-                미납만
-              </Button>
-              <Button
-                size="small"
-                type={
-                  paymentStatusFilter.length === 2 &&
-                  paymentStatusFilter.includes('pending') &&
-                  paymentStatusFilter.includes('partial')
-                    ? 'primary'
-                    : 'default'
-                }
-                onClick={() => setPaymentStatusFilter(['pending', 'partial'])}
-              >
-                미완납
-              </Button>
-              <Button
-                size="small"
-                type={
-                  paymentStatusFilter.length === 1 && paymentStatusFilter[0] === 'completed'
-                    ? 'primary'
-                    : 'default'
-                }
-                onClick={() => setPaymentStatusFilter(['completed'])}
-              >
-                완납만
-              </Button>
-            </Space>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="font-medium text-sm">결제 상태:</span>
+            <div className="flex gap-1 flex-wrap">
+              {[
+                { value: [], label: '전체' },
+                { value: ['pending'], label: '미납만' },
+                { value: ['pending', 'partial'], label: '미완납' },
+                { value: ['completed'], label: '완납만' },
+              ].map((opt) => {
+                const isActive = JSON.stringify(paymentStatusFilter.sort()) === JSON.stringify(opt.value.sort());
+                return (
+                  <Button
+                    key={opt.label}
+                    size="sm"
+                    variant={isActive ? 'default' : 'outline'}
+                    onClick={() => setPaymentStatusFilter(opt.value)}
+                  >
+                    {opt.label}
+                  </Button>
+                );
+              })}
+            </div>
           </div>
 
           {/* 필터 요약 */}
           {(dateRange[0] || dateRange[1] || paymentStatusFilter.length > 0) && (
-            <Typography.Text type="secondary" style={{ fontSize: '13px' }}>
+            <p className="text-muted-foreground text-[13px]">
               {dateRange[0] && dateRange[1] && (
                 <>
-                  {dateRange[0].format('YYYY년 M월 D일')} ~ {dateRange[1].format('YYYY년 M월 D일')}
+                  {dayjs(dateRange[0]).format('YYYY년 M월 D일')} ~ {dayjs(dateRange[1]).format('YYYY년 M월 D일')}
                 </>
               )}
               {dateRange[0] && dateRange[1] && paymentStatusFilter.length > 0 && ' | '}
@@ -675,106 +335,257 @@ const RevenueManagementPage: React.FC = () => {
               )}
               {' ( '}
               {filteredEnrollments.length}건 )
-            </Typography.Text>
+            </p>
           )}
-        </Space>
+        </CardContent>
       </Card>
 
-      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic
-              title="총 수익"
-              value={totalRevenue}
-              prefix={<DollarOutlined />}
-              suffix="원"
-              valueStyle={{ color: token.colorSuccess, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic
-              title="예상 총 수익"
-              value={expectedRevenue}
-              prefix={<DollarOutlined />}
-              suffix="원"
-              valueStyle={{ color: token.colorPrimary, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic
-              title="총 미수금"
-              value={totalUnpaid}
-              prefix={<WarningOutlined />}
-              suffix="원"
-              valueStyle={{ color: token.colorError, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic
-              title="수익률"
-              value={expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0}
-              precision={1}
-              suffix="%"
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: EXEMPT_COLOR, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      {/* 상단 통계 */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> 총 수익</p>
+            <p className="text-xl font-bold text-success">
+              {totalRevenue.toLocaleString()}<span className="text-sm font-normal">원</span>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> 예상 총 수익</p>
+            <p className="text-xl font-bold text-primary">
+              {expectedRevenue.toLocaleString()}<span className="text-sm font-normal">원</span>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> 총 미수금</p>
+            <p className="text-xl font-bold text-error">
+              {totalUnpaid.toLocaleString()}<span className="text-sm font-normal">원</span>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3" /> 수익률</p>
+            <p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>
+              {(expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0).toFixed(1)}<span className="text-sm font-normal">%</span>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={6}>
-          <Card size="small">
-            <Statistic
-              title="완납"
-              value={completedPayments}
-              suffix="건"
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: token.colorSuccess, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card size="small">
-            <Statistic
-              title="부분납부"
-              value={partialPayments}
-              suffix="건"
-              prefix={<ClockCircleOutlined />}
-              valueStyle={{ color: token.colorWarning, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card size="small">
-            <Statistic
-              title="미납"
-              value={pendingPayments}
-              suffix="건"
-              prefix={<WarningOutlined />}
-              valueStyle={{ color: token.colorError, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card size="small">
-            <Statistic
-              title="면제"
-              value={exemptPayments}
-              suffix="건"
-              valueStyle={{ color: EXEMPT_COLOR, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3" /> 완납</p>
+            <p className="text-xl font-bold text-success">
+              {completedPayments}<span className="text-sm font-normal">건</span>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> 부분납부</p>
+            <p className="text-xl font-bold text-warning">
+              {partialPayments}<span className="text-sm font-normal">건</span>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> 미납</p>
+            <p className="text-xl font-bold text-error">
+              {pendingPayments}<span className="text-sm font-normal">건</span>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground">면제</p>
+            <p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>
+              {exemptPayments}<span className="text-sm font-normal">건</span>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-      <Tabs items={tabItems} />
+      <Tabs defaultValue="1">
+        <TabsList>
+          <TabsTrigger value="1">강좌별 수익</TabsTrigger>
+          <TabsTrigger value="2">미납자 관리 ({unpaidList.length})</TabsTrigger>
+          <TabsTrigger value="3">
+            <Calendar className="h-4 w-4 mr-1" />
+            월별 납부 현황
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="1">
+          <div className="border rounded-md overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="p-2 text-left font-medium">강좌명</th>
+                  <th className="p-2 text-left font-medium">수강생 수</th>
+                  <th className="p-2 text-left font-medium">수익</th>
+                  <th className="p-2 text-left font-medium">예상 수익</th>
+                  <th className="p-2 text-left font-medium">미수금</th>
+                  <th className="p-2 text-left font-medium">완납률</th>
+                </tr>
+              </thead>
+              <tbody>
+                {courseRevenueData.map((row) => (
+                  <tr key={row.courseId} className="border-b hover:bg-muted/30">
+                    <td className="p-2">{row.courseName}</td>
+                    <td className="p-2">{row.studentCount}</td>
+                    <td className="p-2">{'\u20A9'}{row.revenue.toLocaleString()}</td>
+                    <td className="p-2">{'\u20A9'}{row.expected.toLocaleString()}</td>
+                    <td className={`p-2 ${row.unpaid > 0 ? 'text-error' : 'text-success'}`}>
+                      {'\u20A9'}{row.unpaid.toLocaleString()}
+                    </td>
+                    <td className="p-2">{row.completionRate.toFixed(1)}%</td>
+                  </tr>
+                ))}
+                {courseRevenueData.length === 0 && (
+                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">데이터가 없습니다</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="2">
+          <div className="border rounded-md overflow-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="p-2 text-left font-medium">수강생</th>
+                  <th className="p-2 text-left font-medium">전화번호</th>
+                  <th className="p-2 text-left font-medium">강좌</th>
+                  <th className="p-2 text-left font-medium">수강료</th>
+                  <th className="p-2 text-left font-medium">납부 상태</th>
+                  <th className="p-2 text-left font-medium">납부 금액</th>
+                  <th className="p-2 text-left font-medium">납부일</th>
+                  <th className="p-2 text-left font-medium">납부 방법</th>
+                  <th className="p-2 text-left font-medium">할인</th>
+                  <th className="p-2 text-left font-medium">잔여 금액</th>
+                  <th className="p-2 text-left font-medium">작업</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unpaidList.map((row) => {
+                  const s = statusMap[row.paymentStatus] || { label: row.paymentStatus, variant: 'secondary' as const };
+                  return (
+                    <tr key={row.id} className="border-b hover:bg-muted/30">
+                      <td className="p-2">{row.studentName}</td>
+                      <td className="p-2">{row.studentPhone}</td>
+                      <td className="p-2">{row.courseName}</td>
+                      <td className="p-2">{'\u20A9'}{row.courseFee.toLocaleString()}</td>
+                      <td className="p-2"><Badge variant={s.variant}>{s.label}</Badge></td>
+                      <td className="p-2">{'\u20A9'}{row.paidAmount.toLocaleString()}</td>
+                      <td className="p-2">{row.paidAt || '-'}</td>
+                      <td className="p-2">{row.paymentMethod ? PAYMENT_METHOD_LABELS[row.paymentMethod] : '-'}</td>
+                      <td className="p-2">
+                        {row.discountAmount > 0 ? (
+                          <span className="text-success">-{'\u20A9'}{row.discountAmount.toLocaleString()}</span>
+                        ) : '-'}
+                      </td>
+                      <td className="p-2">
+                        <span className="text-error font-bold">{'\u20A9'}{row.remainingAmount.toLocaleString()}</span>
+                      </td>
+                      <td className="p-2">
+                        <Button variant="link" size="sm" className="h-auto p-0" onClick={() => handlePaymentEdit(row)}>
+                          납부 처리
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {unpaidList.length === 0 && (
+                  <tr><td colSpan={11} className="p-8 text-center text-muted-foreground">미납자가 없습니다</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="3">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <Select value={selectedMonthForRevenue} onValueChange={setSelectedMonthForRevenue}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {revenueMonths.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {dayjs(m + '-01').format('YYYY년 M월')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedMonthForRevenue(dayjs().format('YYYY-MM'))}
+              >
+                이번 달
+              </Button>
+            </div>
+            <div className="flex items-center gap-6 text-sm">
+              <div>
+                <span className="text-xs text-muted-foreground">월 수익: </span>
+                <span className="font-semibold text-success">{'\u20A9'}{monthlyTotalRevenue.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">예상: </span>
+                <span className="font-semibold">{'\u20A9'}{monthlyTotalExpected.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">수납률: </span>
+                <span className={`font-semibold ${monthlyTotalExpected > 0 && monthlyTotalRevenue < monthlyTotalExpected ? 'text-error' : 'text-success'}`}>
+                  {monthlyTotalExpected > 0 ? Math.round((monthlyTotalRevenue / monthlyTotalExpected) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="border rounded-md overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="p-2 text-left font-medium">강좌명</th>
+                  <th className="p-2 text-left font-medium w-20">수강생</th>
+                  <th className="p-2 text-left font-medium w-[70px]">납부</th>
+                  <th className="p-2 text-left font-medium w-[70px]">미납</th>
+                  <th className="p-2 text-left font-medium">월 수익</th>
+                  <th className="p-2 text-left font-medium">예상 수익</th>
+                  <th className="p-2 text-left font-medium">수납률</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyRevenueData.map((row) => (
+                  <tr key={row.courseId} className="border-b hover:bg-muted/30">
+                    <td className="p-2">{row.courseName}</td>
+                    <td className="p-2">{row.studentCount}</td>
+                    <td className="p-2 text-success">{row.paidCount}명</td>
+                    <td className={`p-2 ${row.unpaidCount > 0 ? 'text-error' : 'text-success'}`}>{row.unpaidCount}명</td>
+                    <td className="p-2">{'\u20A9'}{row.monthRevenue.toLocaleString()}</td>
+                    <td className="p-2">{'\u20A9'}{row.monthExpected.toLocaleString()}</td>
+                    <td className={`p-2 ${row.collectionRate >= 100 ? 'text-success' : row.collectionRate >= 50 ? 'text-warning' : 'text-error'}`}>
+                      {row.collectionRate.toFixed(1)}%
+                    </td>
+                  </tr>
+                ))}
+                {monthlyRevenueData.length === 0 && (
+                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">데이터가 없습니다</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {selectedEnrollment && (
         <PaymentForm
@@ -788,80 +599,67 @@ const RevenueManagementPage: React.FC = () => {
         />
       )}
 
-      <Modal
-        title="수익 현황 내보내기"
-        open={isExportModalVisible}
-        onCancel={() => setIsExportModalVisible(false)}
-        width={320}
-        footer={null}
-        styles={{ body: { paddingBottom: 24 } }}
-      >
-        <div style={{
-          padding: '4px 0 8px',
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          marginBottom: 12,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-          <Checkbox
-            checked={isAllRevenueSelected}
-            indeterminate={selectedExportFields.length > 0 && !isAllRevenueSelected}
-            onChange={(e) => setSelectedExportFields(e.target.checked ? allRevenueFieldKeys : [])}
-          >
-            전체 선택
-          </Checkbox>
-          <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
-            {selectedExportFields.length}/{allRevenueFieldKeys.length}
-          </span>
-        </div>
+      <Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
+        <DialogContent className="max-w-[320px]">
+          <DialogHeader>
+            <DialogTitle>수익 현황 내보내기</DialogTitle>
+            <DialogDescription className="sr-only">내보낼 필드를 선택하세요</DialogDescription>
+          </DialogHeader>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 16 }}>
-          {REVENUE_EXPORT_FIELDS.map((field) => {
-            const isChecked = selectedExportFields.includes(field.key);
-            return (
-              <div
-                key={field.key}
-                onClick={() => {
-                  setSelectedExportFields((prev) =>
-                    isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
-                  );
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '6px 8px',
-                  borderRadius: token.borderRadius,
-                  cursor: 'pointer',
-                  background: isChecked ? token.colorPrimaryBg : 'transparent',
-                }}
-              >
-                <Checkbox checked={isChecked} />
-                <span style={{ fontSize: 13 }}>{field.label}</span>
-              </div>
-            );
-          })}
-        </div>
+          <div className="flex justify-between items-center py-1 pb-2 border-b border-border mb-3">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Checkbox
+                checked={isAllRevenueSelected ? true : selectedExportFields.length > 0 ? "indeterminate" : false}
+                onCheckedChange={(checked) => setSelectedExportFields(checked ? allRevenueFieldKeys : [])}
+              />
+              전체 선택
+            </label>
+            <span className="text-xs text-muted-foreground">
+              {selectedExportFields.length}/{allRevenueFieldKeys.length}
+            </span>
+          </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button
-            type="primary"
-            icon={<FileExcelOutlined />}
-            onClick={() => handleExport('excel')}
-            block
-          >
-            Excel
-          </Button>
-          <Button
-            icon={<FileTextOutlined />}
-            onClick={() => handleExport('csv')}
-            block
-          >
-            CSV
-          </Button>
-        </div>
-      </Modal>
+          <div className="flex flex-col gap-0.5 mb-4">
+            {REVENUE_EXPORT_FIELDS.map((field) => {
+              const isChecked = selectedExportFields.includes(field.key);
+              return (
+                <div
+                  key={field.key}
+                  onClick={() => {
+                    setSelectedExportFields((prev) =>
+                      isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
+                    );
+                  }}
+                  className={`flex items-center gap-2 py-1.5 px-2 rounded cursor-pointer ${
+                    isChecked ? 'bg-primary/10' : 'hover:bg-muted'
+                  }`}
+                >
+                  <Checkbox checked={isChecked} />
+                  <span className="text-[13px]">{field.label}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              className="flex-1"
+              onClick={() => handleExport('excel')}
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => handleExport('csv')}
+            >
+              <FileText className="h-4 w-4" />
+              CSV
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
