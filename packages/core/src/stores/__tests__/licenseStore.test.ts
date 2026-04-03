@@ -197,6 +197,37 @@ describe('licenseStore', () => {
     });
   });
 
+  // ── activateLicense 성공 후 state ──
+
+  describe('activateLicense state changes', () => {
+    it('성공 시 licenseKey + activatedAt 업데이트', async () => {
+      mockActivateCloud.mockResolvedValue({ status: 'success', isNewOrg: true, orgChanged: false, previousOrgId: null });
+      await useLicenseStore.getState().activateLicense('TMKH-ABCD-1234-WXYZ');
+
+      const state = useLicenseStore.getState();
+      expect(state.licenseKey).toBe('TMKH-ABCD-1234-WXYZ');
+      expect(state.activatedAt).toBeTruthy();
+    });
+
+    it('실패 시 state 변경 없음', async () => {
+      mockActivateCloud.mockResolvedValue({ status: 'invalid_key' });
+      await useLicenseStore.getState().activateLicense('TMKH-ABCD-1234-WXYZ');
+
+      expect(useLicenseStore.getState().licenseKey).toBe('');
+      expect(useLicenseStore.getState().activatedAt).toBe('');
+    });
+
+    it('orgChanged true → previousOrgId 포함', async () => {
+      mockActivateCloud.mockResolvedValue({
+        status: 'success', isNewOrg: false, orgChanged: true, previousOrgId: 'old-org',
+      });
+      const result = await useLicenseStore.getState().activateLicense('TMKH-ABCD-1234-WXYZ');
+      expect(result).toEqual({
+        result: 'success', isNewOrg: false, orgChanged: true, previousOrgId: 'old-org',
+      });
+    });
+  });
+
   // ── 키 형식 검증 ──
 
   describe('키 형식 검증', () => {

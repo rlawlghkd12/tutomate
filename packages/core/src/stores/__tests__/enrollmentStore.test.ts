@@ -176,6 +176,38 @@ describe('enrollmentStore — CRUD', () => {
     expect(useEnrollmentStore.getState().getEnrollmentsByStudentId('s1')).toHaveLength(1);
   });
 
+  it('deleteEnrollment → state에서 제거', async () => {
+    const e1 = makeEnrollment({ id: 'e1' });
+    const e2 = makeEnrollment({ id: 'e2', courseId: 'c2' });
+    useEnrollmentStore.setState({ enrollments: [e1, e2] });
+
+    await useEnrollmentStore.getState().deleteEnrollment('e1');
+
+    const enrollments = useEnrollmentStore.getState().enrollments;
+    expect(enrollments).toHaveLength(1);
+    expect(enrollments[0].id).toBe('e2');
+  });
+
+  it('getEnrollmentById → 없는 id → undefined', () => {
+    useEnrollmentStore.setState({ enrollments: [makeEnrollment()] });
+    expect(useEnrollmentStore.getState().getEnrollmentById('e999')).toBeUndefined();
+  });
+
+  it('getEnrollmentsByCourseId → 없는 courseId → 빈 배열', () => {
+    useEnrollmentStore.setState({ enrollments: [makeEnrollment()] });
+    expect(useEnrollmentStore.getState().getEnrollmentsByCourseId('c999')).toEqual([]);
+  });
+
+  it('getEnrollmentsByStudentId → 없는 studentId → 빈 배열', () => {
+    useEnrollmentStore.setState({ enrollments: [makeEnrollment()] });
+    expect(useEnrollmentStore.getState().getEnrollmentsByStudentId('s999')).toEqual([]);
+  });
+
+  it('loadEnrollments → 빈 state에서 빈 배열 유지', async () => {
+    await useEnrollmentStore.getState().loadEnrollments();
+    expect(useEnrollmentStore.getState().enrollments).toEqual([]);
+  });
+
   it('getEnrollmentCountByCourseId', () => {
     useEnrollmentStore.setState({
       enrollments: [

@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { AppError, ErrorType } from '../errors';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { AppError, ErrorType, createError, handleError, ErrorHandler } from '../errors';
+import { message, notification } from 'antd';
 
 describe('AppError', () => {
   it('기본 생성 — type, message, recoverable 기본값 true', () => {
@@ -82,5 +83,109 @@ describe('AppError', () => {
     const err = new AppError({ type: ErrorType.UNKNOWN_ERROR, message: 'test' });
     expect(err).toBeInstanceOf(Error);
     expect(err).toBeInstanceOf(AppError);
+  });
+});
+
+// ─── createError ───────────────────────────────────────────────────────────
+
+describe('createError', () => {
+  it('createError — 각 ErrorType별로 AppError 반환', () => {
+    const types: ErrorType[] = [
+      ErrorType.FILE_READ_ERROR,
+      ErrorType.FILE_WRITE_ERROR,
+      ErrorType.FILE_NOT_FOUND,
+      ErrorType.VALIDATION_ERROR,
+      ErrorType.DUPLICATE_ERROR,
+      ErrorType.INVALID_DATA,
+      ErrorType.ENROLLMENT_ERROR,
+      ErrorType.PAYMENT_ERROR,
+      ErrorType.NETWORK_ERROR,
+      ErrorType.UNKNOWN_ERROR,
+    ];
+    for (const type of types) {
+      const err = createError({ type, message: 'test' });
+      expect(err).toBeInstanceOf(AppError);
+      expect(err.type).toBe(type);
+    }
+  });
+
+  it('createError — originalError 포함', () => {
+    const original = new Error('original');
+    const err = createError({ type: ErrorType.NETWORK_ERROR, message: 'wrap', originalError: original });
+    expect(err.originalError).toBe(original);
+  });
+});
+
+// ─── ErrorHandler ──────────────────────────────────────────────────────────
+
+describe('ErrorHandler', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('getInstance() 싱글톤 반환', () => {
+    const a = ErrorHandler.getInstance();
+    const b = ErrorHandler.getInstance();
+    expect(a).toBe(b);
+  });
+
+  it('handle(AppError) — recoverable → message.error 호출', async () => {
+    const err = new AppError({ type: ErrorType.NETWORK_ERROR, message: 'fail', recoverable: true });
+    await ErrorHandler.getInstance().handle(err);
+    expect(message.error).toHaveBeenCalled();
+  });
+
+  it('handle(AppError) — recoverable: false → notification.error 호출', async () => {
+    const err = new AppError({ type: ErrorType.UNKNOWN_ERROR, message: 'fatal', recoverable: false });
+    await ErrorHandler.getInstance().handle(err);
+    expect(notification.error).toHaveBeenCalled();
+  });
+
+  it('handle(Error) — 일반 Error → UNKNOWN_ERROR AppError로 래핑 후 처리', async () => {
+    const err = new Error('network failure');
+    await ErrorHandler.getInstance().handle(err);
+    expect(message.error).toHaveBeenCalled();
+  });
+
+  it('handle(unknown) — 문자열 같은 비-Error → UNKNOWN_ERROR AppError로 처리', async () => {
+    await ErrorHandler.getInstance().handle('something went wrong');
+    expect(message.error).toHaveBeenCalled();
+  });
+
+  it('handle — showNotification=false이면 message/notification 미호출', async () => {
+    const err = new AppError({ type: ErrorType.NETWORK_ERROR, message: 'fail' });
+    await ErrorHandler.getInstance().handle(err, false);
+    expect(message.error).not.toHaveBeenCalled();
+    expect(notification.error).not.toHaveBeenCalled();
+  });
+
+  it('handle(AppError) — VALIDATION_ERROR userMessage 포함', async () => {
+    const err = new AppError({ type: ErrorType.VALIDATION_ERROR, message: 'invalid', userMessage: '검증 실패' });
+    await ErrorHandler.getInstance().handle(err);
+    expect(message.error).toHaveBeenCalledWith(expect.objectContaining({ content: '검증 실패' }));
+  });
+});
+
+// ─── handleError ───────────────────────────────────────────────────────────
+
+describe('handleError', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('handleError — ErrorHandler.handle() 위임', async () => {
+    const err = new AppError({ type: ErrorType.PAYMENT_ERROR, message: 'pay fail' });
+    await handleError(err);
+    expect(message.error).toHaveBeenCalled();
+  });
+
+  it('handleError — 일반 Error 전달', async () => {
+    await handleError(new Error('generic error'));
+    expect(message.error).toHaveBeenCalled();
+  });
+
+  it('handleError — showNotification=false 전달', async () => {
+    await handleError(new Error('silent'), false);
+    expect(message.error).not.toHaveBeenCalled();
   });
 });

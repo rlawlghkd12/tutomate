@@ -183,6 +183,46 @@ describe("monthlyPaymentStore", () => {
 		});
 	});
 
+	describe("getPaymentsByEnrollmentId — 빈 결과", () => {
+		it("없는 enrollmentId → 빈 배열", () => {
+			useMonthlyPaymentStore.setState({
+				payments: [makePayment({ id: "p1", enrollmentId: "e1" })],
+			});
+			expect(
+				useMonthlyPaymentStore.getState().getPaymentsByEnrollmentId("e999"),
+			).toEqual([]);
+		});
+	});
+
+	describe("addPayment 중복 방지 확인", () => {
+		it("같은 month, enrollmentId로 두 번 추가 가능 (중복 방지 없음)", async () => {
+			await useMonthlyPaymentStore
+				.getState()
+				.addPayment("e1", "2026-03", 200000);
+			await useMonthlyPaymentStore
+				.getState()
+				.addPayment("e1", "2026-03", 150000);
+
+			const payments = useMonthlyPaymentStore.getState().payments;
+			expect(payments).toHaveLength(2);
+		});
+	});
+
+	describe("updatePayment — 존재하지 않는 id", () => {
+		it("없는 id 업데이트 → 기존 데이터 유지", async () => {
+			useMonthlyPaymentStore.setState({
+				payments: [makePayment()],
+			});
+
+			await useMonthlyPaymentStore
+				.getState()
+				.updatePayment("p999", { amount: 100000 });
+
+			expect(useMonthlyPaymentStore.getState().payments).toHaveLength(1);
+			expect(useMonthlyPaymentStore.getState().payments[0].amount).toBe(200000);
+		});
+	});
+
 	describe("getPaymentsByMonth", () => {
 		it("월별 필터", () => {
 			const payments = [

@@ -79,4 +79,49 @@ describe('logger', () => {
     expect(spy).toHaveBeenCalled();
     expect(spy.mock.calls[0][0]).toContain('Performance: test-op');
   });
+
+  it('logDebug → console.debug (DEBUG 레벨) 호출, console.info 미호출', async () => {
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    await logDebug('debug only');
+    expect(debugSpy).toHaveBeenCalled();
+    expect(infoSpy).not.toHaveBeenCalled();
+  });
+
+  it('logWarn → console.warn 호출, console.error 미호출', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await logWarn('warn only');
+    expect(warnSpy).toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('logError → console.error 호출, console.debug 미호출', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    await logError('error only');
+    expect(errorSpy).toHaveBeenCalled();
+    expect(debugSpy).not.toHaveBeenCalled();
+  });
+
+  it('logInfo → [INFO] 레벨 태그 포함, [DEBUG] 미포함', async () => {
+    const spy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    await logInfo('info msg');
+    expect(spy.mock.calls[0][0]).toContain('[INFO]');
+    expect(spy.mock.calls[0][0]).not.toContain('[DEBUG]');
+  });
+
+  it('logError — context.error 없으면 context.data가 두 번째 인자', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const data = { detail: 'some data' };
+    await logError('에러', { data });
+    expect(spy.mock.calls[0][1]).toBe(data);
+  });
+
+  it('context.component + context.action 동시 포함', async () => {
+    const spy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    await logInfo('복합', { component: 'TestComp', action: 'doSomething' });
+    expect(spy.mock.calls[0][0]).toContain('[TestComp]');
+    expect(spy.mock.calls[0][0]).toContain('[doSomething]');
+  });
 });
