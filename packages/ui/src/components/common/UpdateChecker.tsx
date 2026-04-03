@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Modal, Button, Progress, Typography, Space, theme } from 'antd';
-import { DownloadOutlined, CloseOutlined } from '@ant-design/icons';
+import { Download, X, Loader2 } from 'lucide-react';
 import { logInfo, logError } from '@tutomate/core';
 import { handleError } from '@tutomate/core';
 import { isElectron } from '@tutomate/core';
-
-const { Text, Paragraph } = Typography;
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '../ui/dialog';
+import { Button } from '../ui/button';
+import { Progress } from '../ui/progress';
 
 const SKIPPED_VERSION_KEY = 'skippedUpdateVersion';
 
@@ -15,12 +22,13 @@ interface UpdateCheckerProps {
 }
 
 export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCheckerProps) {
-  const { token } = theme.useToken();
   const [updateInfo, setUpdateInfo] = useState<{ currentVersion: string; latestVersion: string; body: string } | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [restarting, setRestarting] = useState(false);
   const [initialChecking, setInitialChecking] = useState(true);
+  // For the post-download confirm dialog
+  const [showInstallConfirm, setShowInstallConfirm] = useState(false);
 
   const modalVisible = updateInfo !== null;
 
@@ -53,10 +61,8 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
       } else {
         logInfo('No updates available');
         if (!silent) {
-          Modal.info({
-            title: '최신 버전입니다',
-            content: '현재 최신 버전을 사용하고 있습니다.',
-          });
+          // Show a simple info dialog for "no updates"
+          setNoUpdateDialog(true);
         }
       }
     } catch (error) {
@@ -68,6 +74,8 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
       setInitialChecking(false);
     }
   };
+
+  const [noUpdateDialog, setNoUpdateDialog] = useState(false);
 
   const downloadAndInstall = async () => {
     if (!isElectron()) return;
@@ -96,23 +104,20 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
       setUpdateInfo(null);
 
       // 다운로드 완료 후 설치+재시작 확인
-      Modal.confirm({
-        title: '업데이트 다운로드 완료',
-        content: '업데이트를 설치하고 재시작하시겠습니까?',
-        okText: '설치 및 재시작',
-        cancelText: '나중에',
-        onOk: () => {
-          setRestarting(true);
-          setTimeout(() => {
-            window.electronAPI.installUpdate();
-          }, 300);
-        },
-      });
+      setShowInstallConfirm(true);
     } catch (error) {
       logError('Failed to download and install update', { error });
       handleError(error);
       setDownloading(false);
     }
+  };
+
+  const handleInstallAndRestart = () => {
+    setShowInstallConfirm(false);
+    setRestarting(true);
+    setTimeout(() => {
+      window.electronAPI.installUpdate();
+    }, 300);
   };
 
   useEffect(() => {
@@ -134,15 +139,8 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
 
   if (initialChecking) {
     return (
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 9998,
-        background: 'var(--ant-color-bg-layout, #f0f2f5)',
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', gap: 12,
-        color: 'var(--ant-color-text-secondary, #888)',
-        fontSize: 14,
-      }}>
-        <Progress type="circle" percent={100} status="active" size={48} showInfo={false} />
+      <div className="fixed inset-0 z-[9998] flex flex-col items-center justify-center gap-3 bg-background text-sm text-muted-foreground">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <div>업데이트 확인 중...</div>
       </div>
     );
@@ -150,76 +148,63 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
 
   if (restarting) {
     return (
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        background: 'rgba(0,0,0,0.85)',
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', gap: 16,
-        color: '#fff', fontSize: 16,
-      }}>
-        <div style={{ fontSize: 40 }}>🔄</div>
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4 bg-black/85 text-base text-white">
+        <div className="text-[40px]">🔄</div>
         <div>업데이트 설치 중...</div>
-        <div style={{ fontSize: 13, opacity: 0.6 }}>잠시 후 앱이 재시작됩니다</div>
+        <div className="text-sm opacity-60">잠시 후 앱이 재시작됩니다</div>
       </div>
     );
   }
 
   return (
     <>
-      <Modal
-        title="업데이트 알림"
+      {/* Update available dialog */}
+      <Dialog
         open={modalVisible}
-        onCancel={() => {
-          if (updateInfo?.latestVersion) {
-            localStorage.setItem(SKIPPED_VERSION_KEY, updateInfo.latestVersion);
+        onOpenChange={(open) => {
+          if (!open) {
+            if (updateInfo?.latestVersion) {
+              localStorage.setItem(SKIPPED_VERSION_KEY, updateInfo.latestVersion);
+            }
+            setUpdateInfo(null);
           }
-          setUpdateInfo(null);
         }}
-        footer={null}
-        width={500}
-        maskClosable={false}
       >
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <div>
-            <Paragraph>
-              <Text strong>현재 버전:</Text> {updateInfo?.currentVersion}
-            </Paragraph>
-            <Paragraph>
-              <Text strong>최신 버전:</Text> {updateInfo?.latestVersion}
-            </Paragraph>
-          </div>
+        <DialogContent className="max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>업데이트 알림</DialogTitle>
+            <DialogDescription className="sr-only">새 버전 업데이트 정보</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <p className="text-sm">
+                <span className="font-semibold">현재 버전:</span> {updateInfo?.currentVersion}
+              </p>
+              <p className="text-sm">
+                <span className="font-semibold">최신 버전:</span> {updateInfo?.latestVersion}
+              </p>
+            </div>
 
-          {updateInfo?.body && (
-            <div>
-              <Text strong>변경 사항:</Text>
-              <div
-                style={{
-                  marginTop: 8,
-                  padding: 12,
-                  background: token.colorFillQuaternary,
-                  borderRadius: 4,
-                  maxHeight: 200,
-                  overflowY: 'auto',
-                }}
-              >
+            {updateInfo?.body && (
+              <div>
+                <span className="text-sm font-semibold">변경 사항:</span>
                 <div
-                  style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}
+                  className="mt-2 max-h-[200px] overflow-y-auto rounded-md bg-muted p-3 text-[13px] leading-relaxed"
                   dangerouslySetInnerHTML={{ __html: updateInfo.body }}
                 />
               </div>
-            </div>
-          )}
+            )}
 
-          {downloading && (
-            <div>
-              <Text>다운로드 중...</Text>
-              <Progress percent={Math.round(downloadProgress)} status="active" />
-            </div>
-          )}
-
-          <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+            {downloading && (
+              <div className="space-y-2">
+                <span className="text-sm">다운로드 중...</span>
+                <Progress value={Math.round(downloadProgress)} />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
             <Button
-              icon={<CloseOutlined />}
+              variant="outline"
               onClick={() => {
                 if (updateInfo?.latestVersion) {
                   localStorage.setItem(SKIPPED_VERSION_KEY, updateInfo.latestVersion);
@@ -229,19 +214,58 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
               }}
               disabled={downloading}
             >
+              <X className="mr-2 h-4 w-4" />
               이 버전 건너뛰기
             </Button>
             <Button
-              type="primary"
-              icon={<DownloadOutlined />}
               onClick={downloadAndInstall}
-              loading={downloading}
+              disabled={downloading}
             >
+              {downloading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
               {downloading ? '설치 중...' : '지금 업데이트'}
             </Button>
-          </Space>
-        </Space>
-      </Modal>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Install confirm dialog */}
+      <Dialog open={showInstallConfirm} onOpenChange={setShowInstallConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>업데이트 다운로드 완료</DialogTitle>
+            <DialogDescription>
+              업데이트를 설치하고 재시작하시겠습니까?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowInstallConfirm(false)}>
+              나중에
+            </Button>
+            <Button onClick={handleInstallAndRestart}>
+              설치 및 재시작
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* No update dialog */}
+      <Dialog open={noUpdateDialog} onOpenChange={setNoUpdateDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>최신 버전입니다</DialogTitle>
+            <DialogDescription>
+              현재 최신 버전을 사용하고 있습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setNoUpdateDialog(false)}>확인</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -249,6 +273,11 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
 // 수동으로 업데이트 체크를 트리거하는 훅
 export function useUpdateChecker() {
   const [checking, setChecking] = useState(false);
+  const [manualUpdateInfo, setManualUpdateInfo] = useState<{
+    version: string;
+    currentVersion: string;
+    releaseNotes: string;
+  } | null>(null);
 
   const checkForUpdates = async () => {
     if (!isElectron()) return;
@@ -265,36 +294,14 @@ export function useUpdateChecker() {
           }
         });
 
-        Modal.confirm({
-          title: '업데이트 알림',
-          content: (
-            <div>
-              <p>새로운 버전 {result.version}이(가) 출시되었습니다.</p>
-              <p>현재 버전: {result.currentVersion}</p>
-              {result.releaseNotes && (
-                <div
-                  style={{ marginTop: 12, padding: 12, background: 'var(--ant-color-bg-layout, #f5f5f5)', borderRadius: 4, fontSize: 13, lineHeight: 1.6 }}
-                  dangerouslySetInnerHTML={{ __html: typeof result.releaseNotes === 'string' ? result.releaseNotes : '' }}
-                />
-              )}
-            </div>
-          ),
-          okText: '업데이트',
-          cancelText: '나중에',
-          onOk: async () => {
-            try {
-              await window.electronAPI.downloadUpdate();
-              window.electronAPI.installUpdate();
-            } catch (error) {
-              handleError(error);
-            }
-          },
+        setManualUpdateInfo({
+          version: result.version,
+          currentVersion: result.currentVersion,
+          releaseNotes: typeof result.releaseNotes === 'string' ? result.releaseNotes : '',
         });
       } else {
-        Modal.info({
-          title: '최신 버전입니다',
-          content: '현재 최신 버전을 사용하고 있습니다.',
-        });
+        setManualUpdateInfo(null);
+        // The component using this hook should show a "no updates" message
       }
     } catch (error) {
       logError('Failed to check for updates', { error });
@@ -304,5 +311,15 @@ export function useUpdateChecker() {
     }
   };
 
-  return { checkForUpdates, checking };
+  const handleUpdate = async () => {
+    if (!isElectron()) return;
+    try {
+      await window.electronAPI.downloadUpdate();
+      window.electronAPI.installUpdate();
+    } catch (error) {
+      handleError(error);
+    }
+  };
+
+  return { checkForUpdates, checking, manualUpdateInfo, handleUpdate, clearUpdateInfo: () => setManualUpdateInfo(null) };
 }
