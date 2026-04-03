@@ -232,16 +232,10 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="-mt-4 mb-0">
         <TabsList>
           <TabsTrigger value="active">
-            현재 강좌
-            <Badge variant="default" className="ml-1.5 px-1.5 py-0 text-xs min-w-[20px] justify-center">
-              {activeCourses.length}
-            </Badge>
+            현재 강좌 <span style={{ marginLeft: 6, fontSize: 12, opacity: 0.7 }}>{activeCourses.length}</span>
           </TabsTrigger>
           <TabsTrigger value="ended">
-            종료된 강좌
-            <Badge variant="secondary" className="ml-1.5 px-1.5 py-0 text-xs min-w-[20px] justify-center">
-              {endedCourses.length}
-            </Badge>
+            종료된 강좌 <span style={{ marginLeft: 6, fontSize: 12, opacity: 0.7 }}>{endedCourses.length}</span>
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -259,8 +253,8 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
             <SelectItem value="instructorPhone">전화번호</SelectItem>
           </SelectContent>
         </Select>
-        <div className="relative max-w-[300px] flex-1">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div style={{ position: 'relative', maxWidth: 300, flex: 1 }}>
+          <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: '#a1a1aa', pointerEvents: 'none' }} />
           <Input
             placeholder={
               searchField === 'name' ? '강좌명 검색' :
@@ -271,7 +265,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
             }
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            className="pl-8"
+            style={{ paddingLeft: 34 }}
           />
         </div>
         {actions && <div className="flex-1 text-right">{actions}</div>}

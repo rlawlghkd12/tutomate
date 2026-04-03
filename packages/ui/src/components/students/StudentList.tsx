@@ -234,8 +234,8 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
             <SelectItem value="notes">메모</SelectItem>
           </SelectContent>
         </Select>
-        <div className="relative max-w-[300px] flex-1">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div style={{ position: 'relative', maxWidth: 300, flex: 1 }}>
+          <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: '#a1a1aa', pointerEvents: 'none' }} />
           <Input
             placeholder={
               searchField === 'name' ? '이름 검색' :
@@ -246,7 +246,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
             }
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            className="pl-8"
+            style={{ paddingLeft: 34 }}
           />
         </div>
         {actions && (
