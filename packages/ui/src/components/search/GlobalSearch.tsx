@@ -6,7 +6,7 @@ import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { searchAll, type SearchResult } from '@tutomate/core';
 import {
-  CommandDialog,
+  Command,
   CommandInput,
   CommandList,
   CommandEmpty,
@@ -14,6 +14,7 @@ import {
   CommandItem,
   CommandSeparator,
 } from '../ui/command';
+import { Dialog, DialogContent } from '../ui/dialog';
 import { Badge } from '../ui/badge';
 
 interface GlobalSearchProps {
@@ -88,7 +89,23 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
   const enrollmentResults = results.filter((r) => r.type === 'enrollment');
 
   return (
-    <CommandDialog open={visible} onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog open={visible} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent style={{
+        position: 'fixed',
+        left: '50%',
+        top: '20%',
+        transform: 'translateX(-50%)',
+        width: 600,
+        maxHeight: '60vh',
+        padding: 0,
+        overflow: 'hidden',
+        border: '1px solid hsl(var(--border))',
+        borderRadius: 12,
+        background: 'hsl(var(--background))',
+        color: 'hsl(var(--foreground))',
+        boxShadow: '0 25px 60px rgba(0,0,0,0.25)',
+      }}>
+      <Command>
       <CommandInput
         placeholder="강좌, 수강생, 수강 신청 검색..."
         value={query}
@@ -212,7 +229,9 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
           </span>
         </div>
       )}
-    </CommandDialog>
+    </Command>
+    </DialogContent>
+    </Dialog>
   );
 };
 
