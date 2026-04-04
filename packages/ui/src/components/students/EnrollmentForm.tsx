@@ -341,28 +341,22 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 								<div style={{ borderRadius: 8, background: "rgba(124,58,237,0.08)", padding: '10px 12px', fontSize: 13, color: "hsl(var(--foreground))" }}>
 									면제 처리됩니다. 수익에 포함되지 않습니다.
 								</div>
-							)} => (
-										<Input
-											id="paidAmount"
-											type="number"
-											value={field.value}
-											onChange={(e) =>
-												field.onChange(Number(e.target.value) || 0)
-											}
-											min={0}
-											max={effectiveFee}
-											placeholder="30000"
-											disabled={isExempt}
-											className="text-base"
-										/>
-									)}
-								/>
-								{form.formState.errors.paidAmount && (
-									<p className="text-sm text-red-500">
-										{form.formState.errors.paidAmount.message}
-									</p>
-								)}
-							</div>
+						)}
+
+						{/* 납부 금액 */}
+						<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+							<Label htmlFor="paidAmount">납부 금액</Label>
+							<Controller control={form.control} name="paidAmount"
+								render={({ field }) => (
+									<Input id="paidAmount" type="number" value={field.value}
+										onChange={(e) => field.onChange(Number(e.target.value) || 0)}
+										min={0} max={effectiveFee} placeholder="30000"
+										disabled={isExempt} style={{ fontSize: 15 }} />
+								)} />
+							{form.formState.errors.paidAmount && (
+								<p style={{ fontSize: 13, color: "#dc2626" }}>{form.formState.errors.paidAmount.message}</p>
+							)}
+						</div>
 
 							<div style={{ display: "flex", gap: 8 }}>
 								<Button
