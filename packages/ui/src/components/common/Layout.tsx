@@ -60,8 +60,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 					minWidth: SIDEBAR_WIDTH,
 					display: 'flex',
 					flexDirection: 'column',
-					borderRight: '1px solid var(--color-border, #e5e5e5)',
-					background: 'var(--color-muted, #fafafa)',
+					borderRight: '1px solid hsl(var(--border))',
+					background: 'hsl(var(--muted))',
 				}}
 			>
 				{/* 사이드바 상단: 트래픽 라이트 + 조직명 한 줄 */}
@@ -80,7 +80,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 							alt=""
 							style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }}
 						/>
-						<span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-foreground)' }}>
+						<span style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}>
 							{organizationName || 'TutorMate'}
 						</span>
 						{isTrial && (
@@ -116,7 +116,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 						alignItems: 'center',
 						justifyContent: 'space-between',
 						padding: '0 20px',
-						borderBottom: '1px solid var(--color-border, #e5e5e5)',
+						borderBottom: '1px solid hsl(var(--border))',
 						WebkitAppRegion: 'drag',
 					} as React.CSSProperties}
 				>
@@ -125,7 +125,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 							margin: 0,
 							fontSize: 18,
 							fontWeight: 700,
-							color: 'var(--color-foreground)',
+							color: 'hsl(var(--foreground))',
 							WebkitAppRegion: 'no-drag',
 						} as React.CSSProperties}
 					>

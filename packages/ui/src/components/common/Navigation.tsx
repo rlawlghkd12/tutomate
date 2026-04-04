@@ -26,14 +26,14 @@ const navItemBase: React.CSSProperties = {
   cursor: 'pointer',
   transition: 'background 0.15s, color 0.15s',
   background: 'transparent',
-  color: 'var(--color-muted-foreground, #71717a)',
+  color: 'hsl(var(--muted-foreground))',
   textAlign: 'left' as const,
 };
 
 const navItemActive: React.CSSProperties = {
   ...navItemBase,
-  background: 'var(--color-accent, #f0f0f0)',
-  color: 'var(--color-foreground, #18181b)',
+  background: 'hsl(var(--accent))',
+  color: 'hsl(var(--foreground))',
   fontWeight: 600,
 };
 
@@ -59,14 +59,14 @@ const Navigation: React.FC = () => {
         style={isActive ? navItemActive : navItemBase}
         onMouseEnter={(e) => {
           if (!isActive) {
-            e.currentTarget.style.background = 'var(--color-accent, #f5f5f5)';
-            e.currentTarget.style.color = 'var(--color-foreground, #18181b)';
+            e.currentTarget.style.background = 'hsl(var(--accent))';
+            e.currentTarget.style.color = 'hsl(var(--foreground))';
           }
         }}
         onMouseLeave={(e) => {
           if (!isActive) {
             e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = 'var(--color-muted-foreground, #71717a)';
+            e.currentTarget.style.color = 'hsl(var(--muted-foreground))';
           }
         }}
       >
@@ -81,7 +81,7 @@ const Navigation: React.FC = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {mainItems.map(renderItem)}
       </div>
-      <div style={{ marginTop: 'auto', borderTop: '1px solid var(--color-border, #e5e5e5)', paddingTop: 8, paddingBottom: 12 }}>
+      <div style={{ marginTop: 'auto', borderTop: '1px solid hsl(var(--border))', paddingTop: 8, paddingBottom: 12 }}>
         {bottomItems.map(renderItem)}
       </div>
     </nav>
