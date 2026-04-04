@@ -67,7 +67,7 @@ interface CoursePayment {
 	courseId: string;
 	paidAmount: number;
 	isExempt: boolean;
-	paymentMethod?: PaymentMethod;
+	paymentMethod: PaymentMethod;
 	discountAmount: number;
 }
 
@@ -258,6 +258,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 					courseId,
 					paidAmount: isMember ? 0 : course.fee,
 					isExempt: !!isMember,
+					paymentMethod: "cash" as PaymentMethod,
 					discountAmount: 0,
 				},
 			]);

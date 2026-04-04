@@ -37,7 +37,7 @@ const enrollmentFormSchema = z.object({
 	courseId: z.string().min(1, "강좌를 선택하세요"),
 	discountAmount: z.number().min(0),
 	paidAmount: z.number().min(0, "납부 금액을 입력하세요"),
-	paymentMethod: z.enum(["cash", "card", "transfer"]).optional(),
+	paymentMethod: z.enum(["cash", "card", "transfer"], { required_error: "납부 방법을 선택하세요" }),
 	notes: z.string().optional(),
 });
 
@@ -76,7 +76,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 			courseId: "",
 			discountAmount: 0,
 			paidAmount: 0,
-			paymentMethod: undefined,
+			paymentMethod: "cash",
 			notes: "",
 		},
 	});
@@ -87,7 +87,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 				courseId: "",
 				discountAmount: 0,
 				paidAmount: 0,
-				paymentMethod: undefined,
+				paymentMethod: "cash",
 				notes: "",
 			});
 			setSelectedCourseId(null);

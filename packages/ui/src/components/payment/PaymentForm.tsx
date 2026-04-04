@@ -122,7 +122,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
         courseFee,
         paidAt,
         false,
-        (values.paymentMethod || undefined) as PaymentMethod | undefined,
+        values.paymentMethod as PaymentMethod,
         values.discountAmount ?? 0,
       );
       toast.success('납부 정보가 업데이트되었습니다.');

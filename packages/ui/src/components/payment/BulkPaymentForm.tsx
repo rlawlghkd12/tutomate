@@ -35,7 +35,7 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
 }) => {
   const { updatePayment } = useEnrollmentStore();
   const [paymentType, setPaymentType] = useState<'fixed' | 'ratio'>('fixed');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | undefined>(undefined);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
 
   const form = useForm<BulkPaymentFormValues>({
     resolver: zodResolver(bulkPaymentSchema),
