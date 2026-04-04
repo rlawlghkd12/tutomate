@@ -81,7 +81,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 							display: 'flex', alignItems: 'center', justifyContent: 'center',
 							fontSize: 13, fontWeight: 700, flexShrink: 0,
 						}}>
-							T
+							{(organizationName || 'T').charAt(0)}
 						</div>
 						<span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-foreground)' }}>
 							{organizationName || 'TutorMate'}
