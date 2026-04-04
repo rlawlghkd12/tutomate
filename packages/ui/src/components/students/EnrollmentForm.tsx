@@ -29,7 +29,7 @@ import {
 	SelectValue,
 } from "../ui/select";
 import { Textarea } from "../ui/textarea";
-import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
+// RadioGroup removed
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 
@@ -227,14 +227,22 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 		}
 	};
 
+	const [showDiscount, setShowDiscount] = useState(false);
+
+	// 할인 토글 리셋
+	useEffect(() => {
+		if (visible) setShowDiscount(false);
+	}, [visible]);
+
 	return (
 		<Dialog open={visible} onOpenChange={(open) => !open && onClose()}>
-			<DialogContent >
+			<DialogContent>
 				<DialogHeader>
-					<DialogTitle>강좌 신청 - {student?.name || ""}</DialogTitle>
+					<DialogTitle style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>강좌 신청</DialogTitle>
+					<p style={{ fontSize: 14, color: 'hsl(var(--muted-foreground))', margin: 0 }}>{student?.name}</p>
 				</DialogHeader>
 
-				<form onSubmit={form.handleSubmit(handleSubmit)} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+				<form onSubmit={form.handleSubmit(handleSubmit)} style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 8 }}>
 					{/* 강좌 선택 */}
 					<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
 						<Label htmlFor="courseId">강좌 선택</Label>
@@ -301,60 +309,39 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 
 					{selectedCourseId && (
 						<>
-							{/* 할인 + 면제 */}
-							<div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 16, alignItems: "end" }}>
-								<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-									<Label htmlFor="discountAmount">할인 금액</Label>
-									<Controller
-										control={form.control}
-										name="discountAmount"
-										render={({ field }) => (
-											<Input
-												id="discountAmount"
-												type="number"
-												value={field.value}
-												onChange={(e) => {
-													const val = Number(e.target.value) || 0;
-													field.onChange(val);
-													handleDiscountChange(val);
-												}}
-												min={0}
-												max={courseFee}
-												placeholder="0"
-												disabled={isExempt}
-												className="text-base"
-											/>
-										)}
-									/>
-								</div>
-								<Button
-									type="button"
-									variant={isExempt ? "destructive" : "outline"}
-									onClick={handleExemptToggle}
-								>
-									{isExempt ? "면제 해제" : "면제"}
+							{/* 할인 / 면제 */}
+							<div style={{ display: 'flex', gap: 8 }}>
+								<Button type="button" variant={showDiscount ? "default" : "outline"} size="sm" style={{ fontSize: 13, padding: '6px 14px' }}
+									onClick={() => { setShowDiscount(!showDiscount); if (showDiscount) { form.setValue('discountAmount', 0); setDiscountAmount(0); } }}
+									disabled={isExempt}>
+									할인 적용
+								</Button>
+								<Button type="button" variant={isExempt ? "destructive" : "outline"} size="sm" style={{ fontSize: 13, padding: '6px 14px' }}
+									onClick={handleExemptToggle}>
+									{isExempt ? "면제 해제" : "면제 처리"}
 								</Button>
 							</div>
 
-							{discountAmount > 0 && !isExempt && (
-								<p style={{ marginTop: -4, fontSize: 12, color: "#16a34a" }}>
-									할인 적용 수강료: ₩{effectiveFee.toLocaleString()}
-								</p>
-							)}
-
-							{isExempt && (
-								<div style={{ marginTop: -4, borderRadius: 6, background: "rgba(234,179,8,0.1)", padding: 8, fontSize: 12, color: "hsl(var(--foreground))" }}>
-									면제 처리됩니다. 수익에 포함되지 않습니다.
+							{showDiscount && !isExempt && (
+								<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+									<Label htmlFor="discountAmount">할인 금액 (원)</Label>
+									<Controller control={form.control} name="discountAmount"
+										render={({ field }) => (
+											<Input id="discountAmount" type="number" value={field.value}
+												onChange={(e) => { const val = Number(e.target.value) || 0; field.onChange(val); handleDiscountChange(val); }}
+												min={0} max={courseFee} placeholder="0" style={{ fontSize: 15 }} />
+										)} />
+									{discountAmount > 0 && (
+										<p style={{ fontSize: 13, color: "#16a34a", margin: 0 }}>할인 적용 수강료: ₩{effectiveFee.toLocaleString()}</p>
+									)}
 								</div>
 							)}
 
-							{/* 납부 금액 */}
-							<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-								<Label htmlFor="paidAmount">납부 금액</Label>
-								<Controller
-									control={form.control}
-									name="paidAmount"
-									render={({ field }) => (
+							{isExempt && (
+								<div style={{ borderRadius: 8, background: "rgba(124,58,237,0.08)", padding: '10px 12px', fontSize: 13, color: "hsl(var(--foreground))" }}>
+									면제 처리됩니다. 수익에 포함되지 않습니다.
+								</div>
+							)} => (
 										<Input
 											id="paidAmount"
 											type="number"
@@ -415,49 +402,20 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 							{/* 납부 방법 */}
 							<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
 								<Label>납부 방법</Label>
-								<Controller
-									control={form.control}
-									name="paymentMethod"
+								<Controller control={form.control} name="paymentMethod"
 									render={({ field }) => (
-										<RadioGroup
-											onValueChange={field.onChange}
-											value={field.value}
-											disabled={isExempt}
-											style={{ display: "flex", gap: 16 }}
-										>
-											<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-												<RadioGroupItem value="cash" id="payment-cash" />
-												<Label
-													htmlFor="payment-cash"
-													className="text-base cursor-pointer"
-												>
-													현금
-												</Label>
-											</div>
-											<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-												<RadioGroupItem value="card" id="payment-card" />
-												<Label
-													htmlFor="payment-card"
-													className="text-base cursor-pointer"
-												>
-													카드
-												</Label>
-											</div>
-											<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-												<RadioGroupItem
-													value="transfer"
-													id="payment-transfer"
-												/>
-												<Label
-													htmlFor="payment-transfer"
-													className="text-base cursor-pointer"
-												>
-													계좌이체
-												</Label>
-											</div>
-										</RadioGroup>
-									)}
-								/>
+										<div style={{ display: "flex", gap: 6 }}>
+											{([{ v: "cash", l: "현금" }, { v: "card", l: "카드" }, { v: "transfer", l: "계좌이체" }] as const).map((m) => (
+												<Button key={m.v} type="button"
+													variant={field.value === m.v ? "default" : "outline"}
+													size="sm" style={{ fontSize: 14, padding: '8px 16px', flex: 1 }}
+													disabled={isExempt}
+													onClick={() => field.onChange(m.v)}>
+													{m.l}
+												</Button>
+											))}
+										</div>
+									)} />
 							</div>
 						</>
 					)}
