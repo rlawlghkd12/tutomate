@@ -253,7 +253,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
           </SelectContent>
         </Select>
         <div style={{ position: 'relative', maxWidth: 300, flex: 1 }}>
-          <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: '#a1a1aa', pointerEvents: 'none' }} />
+          <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: 'hsl(var(--muted-foreground))', pointerEvents: 'none' }} />
           <Input
             placeholder={
               searchField === 'name' ? '이름 검색' :
