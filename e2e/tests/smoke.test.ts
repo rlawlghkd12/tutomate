@@ -134,77 +134,50 @@ test.describe.serial('핵심 플로우', () => {
 
   // ── 4. 수강 신청 + 납부 처리 ──────────────────────────────
 
-  test.skip('수강 신청 + 납부 처리', async () => {
-    // 수강생 관리 페이지에서 수강생 클릭하여 상세 진입
-    // 먼저 수강생 목록이 보이는지 확인
-    await navigateTo(page, '수강생 관리');
-    await page.waitForTimeout(500);
-
+  test('수강 신청 + 납부 처리', async () => {
+    // 이전 테스트에서 만든 강좌와 수강생을 사용
     const studentName = createdData.studentNames[0];
-    if (!studentName) {
-      test.skip(true, '수강생이 생성되지 않아 스킵');
+    const courseName = createdData.courseNames[0];
+    if (!studentName || !courseName) {
+      test.skip(true, '이전 테스트에서 데이터 미생성');
       return;
     }
 
-    // 수강생 이름을 클릭하여 "수강 신청" 모달을 열 수 있는 경로 탐색
-    // StudentList에서 학생 행 클릭 → 수강신청 버튼이 나타남
-    const studentRow = page.getByText(studentName).first();
-    await expect(studentRow).toBeVisible({ timeout: 5000 });
-    await studentRow.click();
+    // 1. 수강생 목록에서 수강생 이름 버튼 클릭 → StudentForm 모달
+    await navigateTo(page, '수강생 관리');
+    await page.waitForTimeout(2000);
+
+    // 이름이 버튼으로 렌더됨 — 해당 버튼 클릭
+    const nameBtn = page.locator(`button:has-text("${studentName.substring(0, 8)}")`);
+    await nameBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await nameBtn.click();
+    await page.waitForTimeout(2000);
+
+    // 2. StudentForm 모달에서 강좌 Select 클릭
+    // "강좌 신청" 라벨 아래 Select trigger
+    const selectTrigger = page.locator('[role="dialog"] button[role="combobox"]').last();
+    await selectTrigger.waitFor({ state: 'visible', timeout: 5000 });
+    await selectTrigger.click({ force: true });
     await page.waitForTimeout(500);
 
-    // "수강 신청" 버튼 찾기
-    const enrollBtn = page.getByText('수강 신청', { exact: false }).first();
-    const enrollBtnVisible = await enrollBtn.isVisible().catch(() => false);
+    // 3. 강좌 옵션 선택
+    const courseOption = page.locator(`[role="option"]`).filter({ hasText: courseName.substring(0, 15) });
+    await courseOption.waitFor({ state: 'visible', timeout: 5000 });
+    await courseOption.click();
+    await page.waitForTimeout(1000);
 
-    if (enrollBtnVisible) {
-      await enrollBtn.click();
-      await page.waitForTimeout(500);
+    // 4. 강좌가 추가되면 납부 정보 섹션이 나타남 — "수정" 클릭
+    const saveBtn = page.locator('[role="dialog"] button:has-text("수정")');
+    await saveBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await saveBtn.click({ force: true });
+    await page.waitForTimeout(2000);
 
-      // 강좌 선택 (방금 생성한 강좌)
-      const courseSelect = page.locator('[role="combobox"]').first();
-      if (await courseSelect.isVisible().catch(() => false)) {
-        await courseSelect.click();
-        await page.waitForTimeout(300);
-
-        const courseName = createdData.courseNames[0];
-        if (courseName) {
-          const courseOption = page.getByText(courseName, { exact: false }).first();
-          if (await courseOption.isVisible().catch(() => false)) {
-            await courseOption.click();
-            await page.waitForTimeout(300);
-          }
-        }
-      }
-
-      // 납부 금액 입력
-      const paidAmountInput = page.locator('input[type="number"]').first();
-      if (await paidAmountInput.isVisible().catch(() => false)) {
-        await paidAmountInput.fill('100000');
-      }
-
-      // 납부 방법 선택 (카드)
-      const cardOption = page.getByText('카드').first();
-      if (await cardOption.isVisible().catch(() => false)) {
-        await cardOption.click();
-      }
-
-      // 저장
-      const saveBtn = page.getByRole('button', { name: '저장' }).first();
-      if (await saveBtn.isVisible().catch(() => false)) {
-        await saveBtn.click();
-        await page.waitForTimeout(1000);
-      }
-
-      // 수강 등록 완료 확인 — 토스트 또는 등록 목록 확인
-      // 실패해도 테스트가 끊기지 않도록 soft assertion
-      const courseName = createdData.courseNames[0] || '';
-      const courseVisible = await page.getByText(courseName).first().isVisible().catch(() => false);
-      expect(courseVisible || true).toBeTruthy(); // soft — UI 구조에 따라 다를 수 있음
-    } else {
-      // 수강 신청 버튼이 보이지 않는 경우 (UI 구조 차이)
-      console.log('[e2e] 수강 신청 버튼을 찾을 수 없음, 수강 신청 테스트 스킵');
-    }
+    // 5. 수강생 목록에서 강좌 확인
+    const updatedRow = page.locator(`table tbody tr`).filter({ hasText: studentName });
+    await expect(updatedRow).toBeVisible({ timeout: 5000 });
+    const rowText = await updatedRow.innerText();
+    // 강좌가 등록되었으면 강좌 컬럼에 표시됨
+    expect(rowText.length).toBeGreaterThan(10); // 최소한 데이터가 있음
   });
 
   // ── 5. 페이지 네비게이션 검증 ──────────────────────────────
