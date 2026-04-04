@@ -792,88 +792,48 @@ const StudentForm: React.FC<StudentFormProps> = ({
 									return (
 										<div
 											key={cp.courseId}
-											className="p-2.5 bg-muted/50 rounded-md border"
+											style={{ padding: 14, borderRadius: 10, border: '1px solid hsl(var(--border))', background: 'hsl(var(--muted))' }}
 										>
-											{/* 헤더: 강좌명 + 금액 + 삭제 */}
-											<div className="flex items-center justify-between mb-1.5">
-												<div className="flex items-center gap-1.5">
-													<span className="font-semibold text-[13px]">{course.name}</span>
+											{/* 헤더 */}
+											<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+												<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+													<span style={{ fontWeight: 600, fontSize: 14, color: 'hsl(var(--foreground))' }}>{course.name}</span>
 													{cp.isExempt ? (
-														<Badge variant="secondary" className="bg-purple-100 text-purple-700">면제</Badge>
-													) : cp.discountAmount > 0 ? (
-														<>
-															<Badge variant="secondary" className="bg-blue-100 text-blue-700">{effectiveFee.toLocaleString()}원</Badge>
-															<span className="text-[11px] text-muted-foreground line-through">
-																{course.fee.toLocaleString()}원
-															</span>
-														</>
+														<span style={{ fontSize: 12, fontWeight: 600, color: '#7c3aed', background: 'rgba(124,58,237,0.15)', padding: '2px 8px', borderRadius: 6 }}>면제</span>
 													) : (
-														<Badge variant="secondary" className="bg-blue-100 text-blue-700">{course.fee.toLocaleString()}원</Badge>
+														<span style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--foreground))', opacity: 0.8, background: 'rgba(59,130,246,0.12)', padding: '2px 8px', borderRadius: 6 }}>
+															{cp.discountAmount > 0 && <span style={{ textDecoration: 'line-through', opacity: 0.5, marginRight: 4 }}>{course.fee.toLocaleString()}</span>}
+															{effectiveFee.toLocaleString()}원
+														</span>
 													)}
 												</div>
-												<Button
-													type="button"
-													variant="ghost"
-													size="icon"
-													className="h-7 w-7 text-destructive hover:text-destructive"
-													onClick={() => handleRemoveCourse(cp.courseId)}
-												>
-													<Trash2 className="h-4 w-4" />
+												<Button type="button" variant="ghost" size="icon" style={{ width: 28, height: 28, color: 'hsl(var(--destructive))' }} onClick={() => handleRemoveCourse(cp.courseId)}>
+													<Trash2 style={{ width: 15, height: 15 }} />
 												</Button>
 											</div>
-
 											{/* 납부 */}
-											<div className="flex items-center gap-1.5 mb-1.5">
-												<span className="text-xs text-muted-foreground w-11">납부</span>
-												<Input
-													type="number"
-													value={cp.paidAmount}
-													onChange={(e) => handlePaymentChange(cp.courseId, Number(e.target.value) || 0)}
-													min={0}
-													max={effectiveFee}
-													className="w-[120px] h-7 text-sm"
-													disabled={cp.isExempt}
-												/>
-												<Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => handlePaymentChange(cp.courseId, effectiveFee)} disabled={cp.isExempt}>완납</Button>
-												<Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => handlePaymentChange(cp.courseId, 0)} disabled={cp.isExempt}>미납</Button>
-												<div className="ml-auto flex gap-0.5">
+											<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+												<span style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', width: 36, flexShrink: 0 }}>납부</span>
+												<Input type="number" value={cp.paidAmount} onChange={(e) => handlePaymentChange(cp.courseId, Number(e.target.value) || 0)} min={0} max={effectiveFee} disabled={cp.isExempt} style={{ width: 100, height: 30, fontSize: 13 }} />
+												<Button type="button" variant="outline" size="sm" style={{ height: 30, fontSize: 12 }} onClick={() => handlePaymentChange(cp.courseId, effectiveFee)} disabled={cp.isExempt}>완납</Button>
+												<Button type="button" variant="outline" size="sm" style={{ height: 30, fontSize: 12 }} onClick={() => handlePaymentChange(cp.courseId, 0)} disabled={cp.isExempt}>미납</Button>
+											</div>
+											{/* 방법 */}
+											<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+												<span style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', width: 36, flexShrink: 0 }}>방법</span>
+												<div style={{ display: 'flex', gap: 4 }}>
 													{(["cash", "card", "transfer"] as PaymentMethod[]).map((method) => (
-														<Button
-															key={method}
-															type="button"
-															variant={cp.paymentMethod === method ? "default" : "outline"}
-															size="sm"
-															className="h-7 text-xs px-2"
-															disabled={cp.isExempt}
-															onClick={() => handlePaymentMethodChange(cp.courseId, method)}
-														>
+														<Button key={method} type="button" variant={cp.paymentMethod === method ? "default" : "outline"} size="sm" style={{ height: 30, fontSize: 12, padding: '0 10px' }} disabled={cp.isExempt} onClick={() => handlePaymentMethodChange(cp.courseId, method)}>
 															{method === "cash" ? "현금" : method === "card" ? "카드" : "이체"}
 														</Button>
 													))}
 												</div>
 											</div>
-
-											{/* 할인 + 면제 */}
-											<div className="flex items-center gap-1.5">
-												<span className="text-xs text-muted-foreground w-11">할인</span>
-												<Input
-													type="number"
-													value={cp.discountAmount}
-													onChange={(e) => handleDiscountChange(cp.courseId, Number(e.target.value) || 0)}
-													min={0}
-													max={course.fee}
-													className="w-[120px] h-7 text-sm"
-													disabled={cp.isExempt}
-												/>
-												<Button
-													type="button"
-													variant={cp.isExempt ? "destructive" : "outline"}
-													size="sm"
-													className="h-7 text-xs"
-													onClick={() => handleExemptToggle(cp.courseId)}
-												>
-													면제
-												</Button>
+											{/* 할인 */}
+											<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+												<span style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', width: 36, flexShrink: 0 }}>할인</span>
+												<Input type="number" value={cp.discountAmount} onChange={(e) => handleDiscountChange(cp.courseId, Number(e.target.value) || 0)} min={0} max={course.fee} disabled={cp.isExempt} style={{ width: 100, height: 30, fontSize: 13 }} />
+												<Button type="button" variant={cp.isExempt ? "destructive" : "outline"} size="sm" style={{ height: 30, fontSize: 12 }} onClick={() => handleExemptToggle(cp.courseId)}>면제</Button>
 											</div>
 										</div>
 									);
