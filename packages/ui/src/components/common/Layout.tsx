@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useLicenseStore } from '@tutomate/core';
 import { useSettingsStore } from '@tutomate/core';
 import { NotificationCenter } from '../notification/NotificationCenter';
-import { useGlobalSearch } from '../search/GlobalSearch';
+import { GlobalSearch, useGlobalSearch } from '../search/GlobalSearch';
 import Navigation from './Navigation';
 import { Button } from '../ui/button';
 
@@ -33,7 +33,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 	const isTrial = plan === 'trial';
 	const location = useLocation();
 	const navigate = useNavigate();
-	const { openSearch } = useGlobalSearch();
+	const { visible: searchVisible, open: openSearch, close: closeSearch } = useGlobalSearch();
 
 	useEffect(() => {
 		const goOffline = () => { setOffline(true); setOfflineDismissed(false); };
@@ -52,6 +52,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 	}, [location.pathname]);
 
 	return (
+	<>
 		<div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
 			{/* ── Sidebar (220px 고정) ── */}
 			<aside
@@ -178,6 +179,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 				</main>
 			</div>
 		</div>
+		<GlobalSearch visible={searchVisible} onClose={closeSearch} />
+	</>
 	);
 };
 

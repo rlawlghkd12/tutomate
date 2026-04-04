@@ -1,5 +1,5 @@
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Layout, ErrorBoundary, UpdateChecker, GlobalSearch, useGlobalSearch, LockScreen, LicenseKeyInput, Button, Dialog, DialogContent, DialogHeader, DialogTitle, AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@tutomate/ui';
+import { Layout, ErrorBoundary, UpdateChecker, LockScreen, LicenseKeyInput, Button, Dialog, DialogContent, DialogHeader, DialogTitle, AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@tutomate/ui';
 import { useSettingsStore, useLockStore, useAutoLock, useLicenseStore, useAuthStore, migrateOrgData, reloadAllStores, appConfig, isElectron, OAUTH_PROVIDERS } from '@tutomate/core';
 import type { OAuthProvider } from '@tutomate/core';
 import DashboardPage from './pages/DashboardPage';
@@ -14,7 +14,6 @@ import { Loader2 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
 function App() {
-  const { visible, close } = useGlobalSearch();
   const { theme, fontSize, loadSettings } = useSettingsStore();
   const { loadLicense, activateLicense } = useLicenseStore();
   const { initialize, loading: authLoading, session, needsSetup, signInWithOAuth, startTrial } = useAuthStore();
@@ -245,7 +244,6 @@ function App() {
 
       <UpdateChecker autoCheck={true} checkInterval={60} />
       <Router>
-        <GlobalSearch visible={visible} onClose={close} />
         <Layout>
           <Routes>
             <Route path="/" element={<DashboardPage />} />
