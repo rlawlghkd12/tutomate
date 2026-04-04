@@ -75,14 +75,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 					} as React.CSSProperties}
 				>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 8, WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-						<div style={{
-							width: 24, height: 24, borderRadius: 6,
-							background: '#18181b', color: '#fff',
-							display: 'flex', alignItems: 'center', justifyContent: 'center',
-							fontSize: 13, fontWeight: 700, flexShrink: 0,
-						}}>
-							{(organizationName || 'T').charAt(0)}
-						</div>
+						<img
+							src="/app-icon.png"
+							alt=""
+							style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }}
+						/>
 						<span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-foreground)' }}>
 							{organizationName || 'TutorMate'}
 						</span>
