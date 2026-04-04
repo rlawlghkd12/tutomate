@@ -2,7 +2,6 @@ import { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@tutomate/core/src/utils/dayjs'
 import '@tutomate/ui/src/index.css'
-import './globals.css'
 import App from './App.tsx'
 import { errorHandler, logInfo, logError } from '@tutomate/core'
 
