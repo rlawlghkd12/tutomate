@@ -312,67 +312,40 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
           </div>
 
           {enableSchedule && (
-            <div className="space-y-4 border rounded-lg p-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>시작일</Label>
-                  <Controller
-                    control={form.control}
-                    name="schedule_startDate"
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* 📅 기간 */}
+              <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>📅</span> 기간
+                </div>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <Controller control={form.control} name="schedule_startDate"
                     render={({ field }) => (
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              'w-full justify-start text-left font-normal text-base',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
+                          <Button variant="outline" style={{ flex: 1, justifyContent: 'flex-start', fontSize: 14, fontWeight: 400 }}>
+                            <CalendarIcon style={{ width: 16, height: 16, marginRight: 8 }} />
                             {field.value ? format(field.value, 'PPP') : '시작일 선택'}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            locale={ko}
-                            initialFocus
-                          />
+                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} locale={ko} initialFocus />
                         </PopoverContent>
                       </Popover>
                     )}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label>종료일 (선택)</Label>
-                  <Controller
-                    control={form.control}
-                    name="schedule_endDate"
+                  <span style={{ color: 'hsl(var(--muted-foreground))' }}>~</span>
+                  <Controller control={form.control} name="schedule_endDate"
                     render={({ field }) => (
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              'w-full justify-start text-left font-normal text-base',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
+                          <Button variant="outline" style={{ flex: 1, justifyContent: 'flex-start', fontSize: 14, fontWeight: 400 }}>
+                            <CalendarIcon style={{ width: 16, height: 16, marginRight: 8 }} />
                             {field.value ? format(field.value, 'PPP') : '종료일 선택'}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            locale={ko}
-                            initialFocus
-                          />
+                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} locale={ko} initialFocus />
                         </PopoverContent>
                       </Popover>
                     )}
@@ -380,120 +353,106 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>수업 요일</Label>
-                <Controller
-                  control={form.control}
-                  name="schedule_daysOfWeek"
+              {/* 📆 요일 */}
+              <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>📆</span> 수업 요일
+                </div>
+                <Controller control={form.control} name="schedule_daysOfWeek"
                   render={({ field }) => (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        {DAYS_OF_WEEK.map((day) => (
-                          <div key={day.value} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`day-${day.value}`}
-                              checked={field.value?.includes(day.value)}
-                              onCheckedChange={(checked) => {
-                                const newVal = checked
-                                  ? [...field.value, day.value]
-                                  : field.value.filter((v) => v !== day.value);
+                    <div>
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                        {DAYS_OF_WEEK.map((day) => {
+                          const isOn = field.value?.includes(day.value);
+                          return (
+                            <button key={day.value} type="button"
+                              onClick={() => {
+                                const newVal = isOn
+                                  ? field.value.filter((v: number) => v !== day.value)
+                                  : [...field.value, day.value];
                                 field.onChange(newVal);
                               }}
-                            />
-                            <Label htmlFor={`day-${day.value}`} className="text-base cursor-pointer">{day.label}</Label>
-                          </div>
-                        ))}
+                              style={{
+                                width: 44, height: 44, borderRadius: 10,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 15, fontWeight: 500, cursor: 'pointer',
+                                border: isOn ? '1.5px solid hsl(var(--foreground))' : '1.5px solid hsl(var(--border))',
+                                background: isOn ? 'hsl(var(--foreground))' : 'transparent',
+                                color: isOn ? 'hsl(var(--background))' : 'hsl(var(--muted-foreground))',
+                                transition: 'all 0.15s',
+                              }}
+                            >
+                              {day.label}
+                            </button>
+                          );
+                        })}
                       </div>
-                      <div className="flex gap-2">
+                      <div style={{ display: 'flex', gap: 6 }}>
                         <Button type="button" variant="outline" size="sm" onClick={() => field.onChange([1, 2, 3, 4, 5])}>주중</Button>
                         <Button type="button" variant="outline" size="sm" onClick={() => field.onChange([0, 6])}>주말</Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => field.onChange([0, 1, 2, 3, 4, 5, 6])}>전체</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => field.onChange([1, 3, 5])}>월수금</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => field.onChange([2, 4])}>화목</Button>
                       </div>
                     </div>
                   )}
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>수업 시간</Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="schedule_startTime">시작 시간</Label>
-                    <Controller
-                      control={form.control}
-                      name="schedule_startTime"
-                      render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <SelectTrigger id="schedule_startTime" className="text-base">
-                            <SelectValue placeholder="09:00" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from({ length: 24 }, (_, i) => i).map((h) => (
-                              Array.from({ length: 4 }, (_, m) => m * 15).map((m) => {
-                                const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                                return <SelectItem key={time} value={time}>{time}</SelectItem>;
-                              })
-                            )).flat()}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="schedule_endTime">종료 시간</Label>
-                    <Controller
-                      control={form.control}
-                      name="schedule_endTime"
-                      render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <SelectTrigger id="schedule_endTime" className="text-base">
-                            <SelectValue placeholder="12:00" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from({ length: 24 }, (_, i) => i).map((h) => (
-                              Array.from({ length: 4 }, (_, m) => m * 15).map((m) => {
-                                const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                                return <SelectItem key={time} value={time}>{time}</SelectItem>;
-                              })
-                            )).flat()}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                  </div>
+              {/* 🕐 시간 */}
+              <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>🕐</span> 수업 시간
                 </div>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => { form.setValue('schedule_startTime', '09:00'); form.setValue('schedule_endTime', '12:00'); }}>오전반 (9-12시)</Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => { form.setValue('schedule_startTime', '13:00'); form.setValue('schedule_endTime', '17:00'); }}>오후반 (13-17시)</Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => { form.setValue('schedule_startTime', '18:00'); form.setValue('schedule_endTime', '21:00'); }}>저녁반 (18-21시)</Button>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                  {[
+                    { label: '오전반', sub: '9:00~12:00', start: '09:00', end: '12:00' },
+                    { label: '오후반', sub: '13:00~17:00', start: '13:00', end: '17:00' },
+                    { label: '저녁반', sub: '18:00~21:00', start: '18:00', end: '21:00' },
+                  ].map((preset) => {
+                    const isActive = form.watch('schedule_startTime') === preset.start && form.watch('schedule_endTime') === preset.end;
+                    return (
+                      <button key={preset.label} type="button"
+                        onClick={() => { form.setValue('schedule_startTime', preset.start); form.setValue('schedule_endTime', preset.end); }}
+                        style={{
+                          flex: 1, padding: '10px 8px', borderRadius: 10, cursor: 'pointer',
+                          textAlign: 'center', transition: 'all 0.15s',
+                          border: isActive ? '1.5px solid hsl(var(--foreground))' : '1.5px solid hsl(var(--border))',
+                          background: isActive ? 'hsl(var(--foreground))' : 'transparent',
+                          color: isActive ? 'hsl(var(--background))' : 'hsl(var(--foreground))',
+                        }}
+                      >
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{preset.label}</div>
+                        <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>{preset.sub}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Controller control={form.control} name="schedule_startTime"
+                    render={({ field }) => (
+                      <input type="time" value={field.value || '09:00'} onChange={(e) => field.onChange(e.target.value)}
+                        style={{ flex: 1, border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px', fontSize: 15, textAlign: 'center', background: 'transparent', color: 'hsl(var(--foreground))' }} />
+                    )} />
+                  <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 16 }}>~</span>
+                  <Controller control={form.control} name="schedule_endTime"
+                    render={({ field }) => (
+                      <input type="time" value={field.value || '12:00'} onChange={(e) => field.onChange(e.target.value)}
+                        style={{ flex: 1, border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px', fontSize: 15, textAlign: 'center', background: 'transparent', color: 'hsl(var(--foreground))' }} />
+                    )} />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="schedule_totalSessions">총 수업 회차</Label>
-                <Controller
-                  control={form.control}
-                  name="schedule_totalSessions"
+              {/* 총 회차 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Label htmlFor="schedule_totalSessions" style={{ whiteSpace: 'nowrap' }}>총 수업 회차</Label>
+                <Controller control={form.control} name="schedule_totalSessions"
                   render={({ field }) => (
-                    <Input
-                      id="schedule_totalSessions"
-                      type="number"
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                      placeholder="예: 12"
-                      className="text-base"
-                      min={1}
-                    />
-                  )}
-                />
+                    <Input id="schedule_totalSessions" type="number" value={field.value ?? ''} onChange={(e) => field.onChange(Number(e.target.value))} placeholder="12" min={1} style={{ width: 100, fontSize: 15 }} />
+                  )} />
+                <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>회</span>
               </div>
-
-              <p className="text-sm text-muted-foreground">
-                * 실제 수업 날짜는 시작일, 수업 요일, 총 회차를 기준으로 자동 생성됩니다.
-              </p>
             </div>
           )}
-
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} className="text-base px-6 py-3">
               취소
