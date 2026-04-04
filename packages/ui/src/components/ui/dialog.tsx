@@ -32,39 +32,63 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn("", className)}
-      style={{
-        position: 'fixed',
-        left: '50%',
-        top: '50%',
-        transform: 'translate(-50%, -50%)',
-        zIndex: 50,
-        width: 600,
-        maxHeight: '85vh',
-        overflowY: 'auto',
-        border: '1px solid var(--color-border, #e5e5e5)',
-        borderRadius: 12,
-        background: 'hsl(var(--background))',
-        color: 'hsl(var(--foreground))',
-        padding: 24,
-        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-        transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      }}
-      {...props}
-    >
-      {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </DialogPortal>
-))
+>(({ className, children, ...props }, ref) => {
+  const innerRef = React.useRef<HTMLDivElement>(null)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    const inner = innerRef.current
+    const container = containerRef.current
+    if (!inner || !container) return
+
+    const observer = new ResizeObserver(() => {
+      const h = inner.scrollHeight
+      container.style.height = `${h}px`
+    })
+    observer.observe(inner)
+    // Set initial height
+    container.style.height = `${inner.scrollHeight}px`
+
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <DialogPortal>
+      <DialogOverlay />
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn("", className)}
+        style={{
+          position: 'fixed',
+          left: '50%',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 50,
+          width: 600,
+          maxHeight: '85vh',
+          border: '1px solid hsl(var(--border))',
+          borderRadius: 12,
+          background: 'hsl(var(--background))',
+          color: 'hsl(var(--foreground))',
+          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+          overflow: 'hidden',
+          transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+        {...props}
+      >
+        <div ref={containerRef} style={{ overflow: 'hidden', transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+          <div ref={innerRef} style={{ padding: 24 }}>
+            {children}
+          </div>
+        </div>
+        <DialogPrimitive.Close style={{ position: 'absolute', right: 16, top: 16, borderRadius: 4, opacity: 0.7, border: 'none', background: 'transparent', cursor: 'pointer', color: 'hsl(var(--foreground))' }}>
+          <X style={{ width: 16, height: 16 }} />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      </DialogPrimitive.Content>
+    </DialogPortal>
+  )
+})
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({
