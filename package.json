@@ -17,7 +17,9 @@
     "lint": "pnpm -r lint",
     "test": "vitest run --config vitest.workspace.ts",
     "test:coverage": "vitest run --config vitest.workspace.ts --coverage",
-    "test:e2e": "playwright test e2e/electron.test.ts"
+    "test:e2e": "playwright test --config e2e/playwright.config.ts",
+    "test:e2e:setup": "npx tsx e2e/setup.ts",
+    "test:e2e:legacy": "playwright test e2e/electron.test.ts"
   },
   "lint-staged": {
     "packages/**/*.{ts,tsx}": [
