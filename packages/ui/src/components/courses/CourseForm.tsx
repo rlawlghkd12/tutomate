@@ -65,7 +65,6 @@ const formatPhone = (value: string) => {
 const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course }) => {
   const { addCourse, updateCourse, courses } = useCourseStore();
   const { getPlan, getLimit } = useLicenseStore();
-  const [enableSchedule, setEnableSchedule] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
 
 	const [submitting, setSubmitting] = useState(false);
@@ -88,8 +87,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
   useEffect(() => {
     if (open && course) {
       if (course.schedule) {
-        setEnableSchedule(true);
-        form.reset({
+          form.reset({
           name: course.name,
           classroom: course.classroom,
           instructorName: course.instructorName,
@@ -127,7 +125,6 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
         schedule_endTime: '12:00',
         schedule_totalSessions: 12,
       });
-      setEnableSchedule(false);
       setStep(1);
     }
   }, [open, course, form]);
@@ -145,13 +142,13 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
       maxStudents: values.maxStudents,
     };
 
-    if (enableSchedule && values.schedule_startDate) {
+    if (values.schedule_daysOfWeek?.length > 0 || values.schedule_startDate) {
       courseData.schedule = {
         startDate: dayjs(values.schedule_startDate).format('YYYY-MM-DD'),
         ...(values.schedule_endDate ? { endDate: dayjs(values.schedule_endDate).format('YYYY-MM-DD') } : {}),
         daysOfWeek: values.schedule_daysOfWeek || [],
-        startTime: `${values.schedule_startTime}:00`,
-        endTime: `${values.schedule_endTime}:00`,
+        startTime: values.schedule_startTime || '09:00',
+        endTime: values.schedule_endTime || '12:00',
         totalSessions: values.schedule_totalSessions || 0,
         holidays: [],
       };
@@ -174,7 +171,6 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
       }
 
       form.reset();
-      setEnableSchedule(false);
       onClose();
     } catch {
       toast.error('강좌 저장에 실패했습니다.');
