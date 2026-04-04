@@ -193,6 +193,12 @@ const CourseDetailPage: React.FC = () => {
 			<div className="flex gap-2.5 mb-3">
 				{[
 					{ label: "강사", value: course.instructorName },
+					{ label: "일정", value: (() => {
+						const dl = ['일','월','화','수','목','금','토'];
+						const days = course.schedule?.daysOfWeek?.length ? course.schedule.daysOfWeek.sort((a: number,b: number) => a-b).map((d: number) => dl[d]).join('') : '-';
+						const time = course.schedule?.startTime && course.schedule?.endTime ? `${course.schedule.startTime}~${course.schedule.endTime}` : '';
+						return `${days} ${time}`.trim() || '-';
+					})() },
 					{ label: "강의실", value: course.classroom },
 					{ label: "수강료", value: `\u20A9${course.fee.toLocaleString()}` },
 					{ label: "수강생", value: `${courseEnrollments.length}/${course.maxStudents}` },
