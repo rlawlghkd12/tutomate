@@ -18,7 +18,8 @@ import { EXEMPT_COLOR } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
-import { useMonthlyPaymentStore } from '@tutomate/core';
+import { usePaymentRecordStore } from '@tutomate/core';
+import { getCurrentQuarter, getQuarterOptions, getQuarterLabel } from '@tutomate/core';
 import { PaymentForm } from '@tutomate/ui';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
 import { PAYMENT_METHOD_LABELS } from '@tutomate/core';
@@ -28,7 +29,7 @@ const RevenueManagementPage: React.FC = () => {
   const { courses, loadCourses, getCourseById } = useCourseStore();
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
-  const { payments: monthlyPayments, loadPayments } = useMonthlyPaymentStore();
+  const { records, loadRecords } = usePaymentRecordStore();
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
@@ -37,14 +38,14 @@ const RevenueManagementPage: React.FC = () => {
   const [dateRange, setDateRange] = useState<[string, string]>(['', '']);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
 
-  const [selectedMonthForRevenue, setSelectedMonthForRevenue] = useState<string>(dayjs().format('YYYY-MM'));
+  const [selectedQuarter, setSelectedQuarter] = useState<string>(getCurrentQuarter());
 
   useEffect(() => {
     loadCourses();
     loadStudents();
     loadEnrollments();
-    loadPayments();
-  }, [loadCourses, loadStudents, loadEnrollments, loadPayments]);
+    loadRecords();
+  }, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
   // Filter enrollments
   const filteredEnrollments = useMemo(() => {
@@ -117,32 +118,30 @@ const RevenueManagementPage: React.FC = () => {
       };
     }), [filteredEnrollments, getStudentById, getCourseById]);
 
-  const monthlyRevenueData = useMemo(() => {
-    const monthPayments = monthlyPayments.filter((p) => p.month === selectedMonthForRevenue);
+  // 분기별 수익 현황 (강좌별)
+  const quarterRevenueData = useMemo(() => {
     return courses.map((course) => {
-      const courseEnrollments = enrollments.filter((e) => e.courseId === course.id);
+      const courseEnrollments = enrollments.filter((e) => e.courseId === course.id && e.quarter === selectedQuarter);
       const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
-      const courseMonthPayments = monthPayments.filter((mp) =>
-        courseEnrollments.some((e) => e.id === mp.enrollmentId),
-      );
-      const paidCount = courseMonthPayments.filter((p) => p.status === 'paid').length;
-      const monthRevenue = courseMonthPayments.reduce((sum, p) => sum + p.amount, 0);
-      const monthExpected = nonExemptEnrollments.length * course.fee;
+      const quarterRevenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
+      const quarterExpected = nonExemptEnrollments.length * course.fee;
+      const paidCount = courseEnrollments.filter((e) => e.paymentStatus === 'completed').length;
+
       return {
         courseId: course.id,
         courseName: course.name,
         studentCount: courseEnrollments.length,
         paidCount,
         unpaidCount: nonExemptEnrollments.length - paidCount,
-        monthRevenue,
-        monthExpected,
-        collectionRate: monthExpected > 0 ? (monthRevenue / monthExpected) * 100 : 0,
+        quarterRevenue,
+        quarterExpected,
+        collectionRate: quarterExpected > 0 ? (quarterRevenue / quarterExpected) * 100 : 0,
       };
     }).filter((d) => d.studentCount > 0);
-  }, [courses, enrollments, monthlyPayments, selectedMonthForRevenue]);
+  }, [courses, enrollments, selectedQuarter]);
 
-  const monthlyTotalRevenue = useMemo(() => monthlyRevenueData.reduce((sum, d) => sum + d.monthRevenue, 0), [monthlyRevenueData]);
-  const monthlyTotalExpected = useMemo(() => monthlyRevenueData.reduce((sum, d) => sum + d.monthExpected, 0), [monthlyRevenueData]);
+  const quarterTotalRevenue = useMemo(() => quarterRevenueData.reduce((sum, d) => sum + d.quarterRevenue, 0), [quarterRevenueData]);
+  const quarterTotalExpected = useMemo(() => quarterRevenueData.reduce((sum, d) => sum + d.quarterExpected, 0), [quarterRevenueData]);
 
   const handlePaymentEdit = (enrollment: Enrollment) => {
     setSelectedEnrollment(enrollment);
@@ -191,14 +190,6 @@ const RevenueManagementPage: React.FC = () => {
 
   const allRevenueFieldKeys = useMemo(() => REVENUE_EXPORT_FIELDS.map((f) => f.key), []);
   const isAllRevenueSelected = selectedExportFields.length === allRevenueFieldKeys.length;
-
-  const revenueMonths = useMemo(() => {
-    const result: string[] = [];
-    for (let i = -6; i <= 6; i++) {
-      result.push(dayjs().add(i, 'month').format('YYYY-MM'));
-    }
-    return result;
-  }, []);
 
   const statusMap: Record<string, { color: string; text: string }> = {
     pending: { color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300', text: '미납' },
@@ -383,7 +374,7 @@ const RevenueManagementPage: React.FC = () => {
           <TabsTrigger value="course-revenue">강좌별 수익</TabsTrigger>
           <TabsTrigger value="unpaid">미납자 관리 ({unpaidList.length})</TabsTrigger>
           <TabsTrigger value="monthly" className="flex items-center gap-1">
-            <Calendar className="h-3.5 w-3.5" /> 월별 납부 현황
+            <Calendar className="h-3.5 w-3.5" /> 분기별 수익 현황
           </TabsTrigger>
         </TabsList>
 
@@ -477,14 +468,14 @@ const RevenueManagementPage: React.FC = () => {
         <TabsContent value="monthly">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Select value={selectedMonthForRevenue} onValueChange={setSelectedMonthForRevenue}>
+              <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
                 <SelectTrigger className="w-[150px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {revenueMonths.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {dayjs(m + '-01').format('YYYY년 M월')}
+                  {getQuarterOptions().map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -492,24 +483,24 @@ const RevenueManagementPage: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setSelectedMonthForRevenue(dayjs().format('YYYY-MM'))}
+                onClick={() => setSelectedQuarter(getCurrentQuarter())}
               >
-                이번 달
+                이번 분기
               </Button>
             </div>
             <div className="flex items-center gap-6 text-sm">
               <div>
-                <span className="text-muted-foreground">월 수익: </span>
-                <span className="font-semibold text-green-600 dark:text-green-400">{'\u20A9'}{monthlyTotalRevenue.toLocaleString()}</span>
+                <span className="text-muted-foreground">분기 수익: </span>
+                <span className="font-semibold text-green-600 dark:text-green-400">{'\u20A9'}{quarterTotalRevenue.toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">예상: </span>
-                <span className="font-semibold">{'\u20A9'}{monthlyTotalExpected.toLocaleString()}</span>
+                <span className="font-semibold">{'\u20A9'}{quarterTotalExpected.toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">수납률: </span>
-                <span className={`font-semibold ${monthlyTotalExpected > 0 && monthlyTotalRevenue < monthlyTotalExpected ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                  {monthlyTotalExpected > 0 ? Math.round((monthlyTotalRevenue / monthlyTotalExpected) * 100) : 0}%
+                <span className={`font-semibold ${quarterTotalExpected > 0 && quarterTotalRevenue < quarterTotalExpected ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                  {quarterTotalExpected > 0 ? Math.round((quarterTotalRevenue / quarterTotalExpected) * 100) : 0}%
                 </span>
               </div>
             </div>
@@ -522,13 +513,13 @@ const RevenueManagementPage: React.FC = () => {
                   <TableHead>수강생</TableHead>
                   <TableHead>납부</TableHead>
                   <TableHead>미납</TableHead>
-                  <TableHead>월 수익</TableHead>
+                  <TableHead>분기 수익</TableHead>
                   <TableHead>예상 수익</TableHead>
                   <TableHead>수납률</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {monthlyRevenueData.map((row) => (
+                {quarterRevenueData.map((row) => (
                   <TableRow key={row.courseId}>
                     <TableCell>{row.courseName}</TableCell>
                     <TableCell>{row.studentCount}</TableCell>
@@ -536,8 +527,8 @@ const RevenueManagementPage: React.FC = () => {
                     <TableCell className={row.unpaidCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
                       {row.unpaidCount}명
                     </TableCell>
-                    <TableCell>{'\u20A9'}{row.monthRevenue.toLocaleString()}</TableCell>
-                    <TableCell>{'\u20A9'}{row.monthExpected.toLocaleString()}</TableCell>
+                    <TableCell>{'\u20A9'}{row.quarterRevenue.toLocaleString()}</TableCell>
+                    <TableCell>{'\u20A9'}{row.quarterExpected.toLocaleString()}</TableCell>
                     <TableCell className={row.collectionRate >= 100 ? 'text-green-600 dark:text-green-400' : row.collectionRate >= 50 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}>
                       {row.collectionRate.toFixed(1)}%
                     </TableCell>

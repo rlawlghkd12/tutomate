@@ -16,11 +16,14 @@ import {
   useCourseStore,
   useStudentStore,
   useEnrollmentStore,
-  useMonthlyPaymentStore,
+  usePaymentRecordStore,
   PAYMENT_METHOD_LABELS,
   exportRevenueToExcel,
   exportRevenueToCSV,
   REVENUE_EXPORT_FIELDS,
+  getCurrentQuarter,
+  getQuarterOptions,
+  getQuarterLabel,
 } from '@tutomate/core';
 import type { Enrollment } from '@tutomate/core';
 import { PaymentForm } from '@tutomate/ui';
@@ -36,7 +39,7 @@ const RevenueManagementPage: React.FC = () => {
   const { courses, loadCourses, getCourseById } = useCourseStore();
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
-  const { payments: monthlyPayments, loadPayments } = useMonthlyPaymentStore();
+  const { records, loadRecords } = usePaymentRecordStore();
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
@@ -45,14 +48,14 @@ const RevenueManagementPage: React.FC = () => {
   const [dateRange, setDateRange] = useState<[string, string]>(['', '']);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
 
-  const [selectedMonthForRevenue, setSelectedMonthForRevenue] = useState<string>(dayjs().format('YYYY-MM'));
+  const [selectedQuarter, setSelectedQuarter] = useState<string>(getCurrentQuarter());
 
   useEffect(() => {
     loadCourses();
     loadStudents();
     loadEnrollments();
-    loadPayments();
-  }, [loadCourses, loadStudents, loadEnrollments, loadPayments]);
+    loadRecords();
+  }, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
   // 날짜 범위 및 결제 상태에 따라 필터링된 수강 신청 목록
   const filteredEnrollments = useMemo(() => {
@@ -129,19 +132,14 @@ const RevenueManagementPage: React.FC = () => {
       };
     }), [filteredEnrollments, getStudentById, getCourseById]);
 
-  // 월별 납부 현황 (강좌별)
-  const monthlyRevenueData = useMemo(() => {
-    const monthPayments = monthlyPayments.filter((p) => p.month === selectedMonthForRevenue);
-
+  // 분기별 수익 현황 (강좌별)
+  const quarterRevenueData = useMemo(() => {
     return courses.map((course) => {
-      const courseEnrollments = enrollments.filter((e) => e.courseId === course.id);
+      const courseEnrollments = enrollments.filter((e) => e.courseId === course.id && e.quarter === selectedQuarter);
       const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
-      const courseMonthPayments = monthPayments.filter((mp) =>
-        courseEnrollments.some((e) => e.id === mp.enrollmentId),
-      );
-      const paidCount = courseMonthPayments.filter((p) => p.status === 'paid').length;
-      const monthRevenue = courseMonthPayments.reduce((sum, p) => sum + p.amount, 0);
-      const monthExpected = nonExemptEnrollments.length * course.fee;
+      const quarterRevenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
+      const quarterExpected = nonExemptEnrollments.length * course.fee;
+      const paidCount = courseEnrollments.filter((e) => e.paymentStatus === 'completed').length;
 
       return {
         courseId: course.id,
@@ -149,15 +147,15 @@ const RevenueManagementPage: React.FC = () => {
         studentCount: courseEnrollments.length,
         paidCount,
         unpaidCount: nonExemptEnrollments.length - paidCount,
-        monthRevenue,
-        monthExpected,
-        collectionRate: monthExpected > 0 ? (monthRevenue / monthExpected) * 100 : 0,
+        quarterRevenue,
+        quarterExpected,
+        collectionRate: quarterExpected > 0 ? (quarterRevenue / quarterExpected) * 100 : 0,
       };
     }).filter((d) => d.studentCount > 0);
-  }, [courses, enrollments, monthlyPayments, selectedMonthForRevenue]);
+  }, [courses, enrollments, selectedQuarter]);
 
-  const monthlyTotalRevenue = useMemo(() => monthlyRevenueData.reduce((sum, d) => sum + d.monthRevenue, 0), [monthlyRevenueData]);
-  const monthlyTotalExpected = useMemo(() => monthlyRevenueData.reduce((sum, d) => sum + d.monthExpected, 0), [monthlyRevenueData]);
+  const quarterTotalRevenue = useMemo(() => quarterRevenueData.reduce((sum, d) => sum + d.quarterRevenue, 0), [quarterRevenueData]);
+  const quarterTotalExpected = useMemo(() => quarterRevenueData.reduce((sum, d) => sum + d.quarterExpected, 0), [quarterRevenueData]);
 
   const handlePaymentEdit = (enrollment: Enrollment) => {
     setSelectedEnrollment(enrollment);
@@ -220,14 +218,6 @@ const RevenueManagementPage: React.FC = () => {
 
   const allRevenueFieldKeys = useMemo(() => REVENUE_EXPORT_FIELDS.map((f) => f.key), []);
   const isAllRevenueSelected = selectedExportFields.length === allRevenueFieldKeys.length;
-
-  const revenueMonths = useMemo(() => {
-    const result: string[] = [];
-    for (let i = -6; i <= 6; i++) {
-      result.push(dayjs().add(i, 'month').format('YYYY-MM'));
-    }
-    return result;
-  }, []);
 
   const statusMap: Record<string, { label: string; variant: 'error' | 'warning' | 'success' | 'purple' }> = {
     pending: { label: '미납', variant: 'error' },
@@ -417,7 +407,7 @@ const RevenueManagementPage: React.FC = () => {
           <TabsTrigger value="2">미납자 관리 ({unpaidList.length})</TabsTrigger>
           <TabsTrigger value="3">
             <Calendar className="h-4 w-4 mr-1" />
-            월별 납부 현황
+            분기별 수익 현황
           </TabsTrigger>
         </TabsList>
 
@@ -513,14 +503,14 @@ const RevenueManagementPage: React.FC = () => {
         <TabsContent value="3">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div className="flex items-center gap-2">
-              <Select value={selectedMonthForRevenue} onValueChange={setSelectedMonthForRevenue}>
+              <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
                 <SelectTrigger className="w-[140px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {revenueMonths.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {dayjs(m + '-01').format('YYYY년 M월')}
+                  {getQuarterOptions().map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -528,24 +518,24 @@ const RevenueManagementPage: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setSelectedMonthForRevenue(dayjs().format('YYYY-MM'))}
+                onClick={() => setSelectedQuarter(getCurrentQuarter())}
               >
-                이번 달
+                이번 분기
               </Button>
             </div>
             <div className="flex items-center gap-6 text-sm">
               <div>
-                <span className="text-xs text-muted-foreground">월 수익: </span>
-                <span className="font-semibold text-success">{'\u20A9'}{monthlyTotalRevenue.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground">분기 수익: </span>
+                <span className="font-semibold text-success">{'\u20A9'}{quarterTotalRevenue.toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">예상: </span>
-                <span className="font-semibold">{'\u20A9'}{monthlyTotalExpected.toLocaleString()}</span>
+                <span className="font-semibold">{'\u20A9'}{quarterTotalExpected.toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">수납률: </span>
-                <span className={`font-semibold ${monthlyTotalExpected > 0 && monthlyTotalRevenue < monthlyTotalExpected ? 'text-error' : 'text-success'}`}>
-                  {monthlyTotalExpected > 0 ? Math.round((monthlyTotalRevenue / monthlyTotalExpected) * 100) : 0}%
+                <span className={`font-semibold ${quarterTotalExpected > 0 && quarterTotalRevenue < quarterTotalExpected ? 'text-error' : 'text-success'}`}>
+                  {quarterTotalExpected > 0 ? Math.round((quarterTotalRevenue / quarterTotalExpected) * 100) : 0}%
                 </span>
               </div>
             </div>
@@ -559,26 +549,26 @@ const RevenueManagementPage: React.FC = () => {
                   <th className="p-2 text-left font-medium w-20">수강생</th>
                   <th className="p-2 text-left font-medium w-[70px]">납부</th>
                   <th className="p-2 text-left font-medium w-[70px]">미납</th>
-                  <th className="p-2 text-left font-medium">월 수익</th>
+                  <th className="p-2 text-left font-medium">분기 수익</th>
                   <th className="p-2 text-left font-medium">예상 수익</th>
                   <th className="p-2 text-left font-medium">수납률</th>
                 </tr>
               </thead>
               <tbody>
-                {monthlyRevenueData.map((row) => (
+                {quarterRevenueData.map((row) => (
                   <tr key={row.courseId} className="border-b hover:bg-muted/30">
                     <td className="p-2">{row.courseName}</td>
                     <td className="p-2">{row.studentCount}</td>
                     <td className="p-2 text-success">{row.paidCount}명</td>
                     <td className={`p-2 ${row.unpaidCount > 0 ? 'text-error' : 'text-success'}`}>{row.unpaidCount}명</td>
-                    <td className="p-2">{'\u20A9'}{row.monthRevenue.toLocaleString()}</td>
-                    <td className="p-2">{'\u20A9'}{row.monthExpected.toLocaleString()}</td>
+                    <td className="p-2">{'\u20A9'}{row.quarterRevenue.toLocaleString()}</td>
+                    <td className="p-2">{'\u20A9'}{row.quarterExpected.toLocaleString()}</td>
                     <td className={`p-2 ${row.collectionRate >= 100 ? 'text-success' : row.collectionRate >= 50 ? 'text-warning' : 'text-error'}`}>
                       {row.collectionRate.toFixed(1)}%
                     </td>
                   </tr>
                 ))}
-                {monthlyRevenueData.length === 0 && (
+                {quarterRevenueData.length === 0 && (
                   <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">데이터가 없습니다</td></tr>
                 )}
               </tbody>
