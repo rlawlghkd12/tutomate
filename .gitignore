@@ -15,6 +15,7 @@ dist-electron
 release/
 **/release/
 e2e/screenshots/
+e2e/.e2e-session.json
 release-q/
 release-files/
 
