@@ -59,6 +59,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 	const { courses, getCourseById } = useCourseStore();
 	const { getPlan, getLimit } = useLicenseStore();
 	const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+	const [submitting, setSubmitting] = useState(false);
 	const [discountAmount, setDiscountAmount] = useState(0);
 	const [isExempt, setIsExempt] = useState(false);
 
@@ -97,6 +98,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 	}, [visible, form, student]);
 
 	const handleSubmit = async (values: EnrollmentFormValues) => {
+		if (submitting) return;
+		setSubmitting(true);
+		try {
 		if (!student) {
 			toast.error("수강생 정보가 없습니다.");
 			return;
@@ -192,6 +196,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 		setDiscountAmount(0);
 		setIsExempt(false);
 		onClose();
+		} finally {
+			setSubmitting(false);
+		}
 	};
 
 	const handleCourseChange = (courseId: string) => {
@@ -436,7 +443,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 						>
 							취소
 						</Button>
-						<Button type="submit" style={{ fontSize: 14, padding: "10px 24px" }}>
+						<Button type="submit" disabled={submitting} style={{ fontSize: 14, padding: "10px 24px" }}>
 							신청
 						</Button>
 					</DialogFooter>
