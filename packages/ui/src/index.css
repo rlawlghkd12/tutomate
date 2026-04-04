@@ -148,14 +148,16 @@
 .dark ::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.12); }
 .dark ::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.25); }
 
-/* Slide-down animation for conditional UI elements */
+/* Slide-down animation — Apple-style spring */
 @keyframes slideDown {
-  from { opacity: 0; max-height: 0; transform: translateY(-6px); }
-  to { opacity: 1; max-height: 300px; transform: translateY(0); }
+  0% { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  60% { opacity: 1; transform: translateY(2px) scale(1.005); }
+  80% { transform: translateY(-1px) scale(1); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 .slide-enter {
-  animation: slideDown 0.25s ease-out forwards;
-  overflow: hidden;
+  animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top center;
 }
 
 /* Ended course row */
