@@ -1,5 +1,5 @@
 // Excel 및 CSV 내보내기 유틸리티
-import * as XLSX from 'xlsx';
+import type * as XLSXType from 'xlsx';
 import type { Course, Student, Enrollment } from '../types';
 import { PAYMENT_METHOD_LABELS } from '../types';
 import dayjs from 'dayjs';
@@ -9,7 +9,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 const getOrgName = () => useSettingsStore.getState().organizationName;
 
 // Excel 파일 다운로드 헬퍼
-const downloadExcel = (workbook: XLSX.WorkBook, filename: string) => {
+const downloadExcel = (XLSX: typeof XLSXType, workbook: XLSXType.WorkBook, filename: string) => {
   const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
   const blob = new Blob([excelBuffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -44,10 +44,11 @@ const downloadCSV = (csv: string, filename: string, encoding: 'utf-8' | 'euc-kr'
 
 // Excel 시트에 헤더 행 추가 후 데이터 삽입하는 헬퍼
 const createSheetWithHeader = (
+  XLSX: typeof XLSXType,
   headerLines: string[],
   data: Record<string, string | number>[],
   colWidths?: { wch: number }[]
-): XLSX.WorkSheet => {
+): XLSXType.WorkSheet => {
   // 헤더 행 생성 (각 줄을 한 셀에)
   const headerRows: (string | number)[][] = headerLines.map((line) => [line]);
   headerRows.push([]); // 빈 줄
@@ -71,12 +72,13 @@ const buildCSVWithHeader = (headerLines: string[], csvHeaders: string[], rows: s
 };
 
 // 수강생 명단 Excel 내보내기
-export const exportStudentsToExcel = (
+export const exportStudentsToExcel = async (
   students: Student[],
   enrollments: Enrollment[],
   courses: Course[],
   selectedFields?: string[]
 ) => {
+  const XLSX = await import('xlsx');
   const fields = selectedFields
     ? STUDENT_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key))
     : STUDENT_EXPORT_FIELDS;
@@ -110,11 +112,11 @@ export const exportStudentsToExcel = (
 
   const colWidths = fields.map((f) => ({ wch: f.wch }));
   const headerLines = [getOrgName(), `수강생 명단 (${dayjs().format('YYYY-MM-DD')} 기준)`];
-  const worksheet = createSheetWithHeader(headerLines, rows, colWidths);
+  const worksheet = createSheetWithHeader(XLSX, headerLines, rows, colWidths);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, '수강생 명단');
 
-  downloadExcel(workbook, '수강생_명단');
+  downloadExcel(XLSX, workbook, '수강생_명단');
 };
 
 // 수익 현황 필드 정의
@@ -149,12 +151,13 @@ export const REVENUE_EXPORT_FIELDS: RevenueExportField[] = [
 const REVENUE_SUMMABLE_FIELDS = new Set(['fee', 'paidAmount', 'remainingAmount']);
 
 // 수익 현황 Excel 내보내기
-export const exportRevenueToExcel = (
+export const exportRevenueToExcel = async (
   enrollments: Enrollment[],
   students: Student[],
   courses: Course[],
   selectedFields?: string[]
 ) => {
+  const XLSX = await import('xlsx');
   const fields = selectedFields
     ? REVENUE_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key))
     : REVENUE_EXPORT_FIELDS;
@@ -188,11 +191,11 @@ export const exportRevenueToExcel = (
 
   const colWidths = fields.map((f) => ({ wch: f.wch }));
   const headerLines = [getOrgName(), `수익 현황 (${dayjs().format('YYYY-MM-DD')} 기준)`];
-  const worksheet = createSheetWithHeader(headerLines, rows, colWidths);
+  const worksheet = createSheetWithHeader(XLSX, headerLines, rows, colWidths);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, '수익 현황');
 
-  downloadExcel(workbook, '수익_현황');
+  downloadExcel(XLSX, workbook, '수익_현황');
 };
 
 // CSV 내보내기 - 수강생 명단
@@ -343,11 +346,12 @@ export const COURSE_STUDENT_EXPORT_FIELDS: CourseStudentExportField[] = [
 ];
 
 // 강좌별 수강생 Excel 내보내기
-export const exportCourseStudentsToExcel = (
+export const exportCourseStudentsToExcel = async (
   course: Course,
   data: { student: Student; enrollment: Enrollment }[],
   selectedFields: string[]
 ) => {
+  const XLSX = await import('xlsx');
   const fields = COURSE_STUDENT_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key));
 
   const rows = data.map(({ student, enrollment }) => {
@@ -384,11 +388,11 @@ export const exportCourseStudentsToExcel = (
   ];
 
   const colWidths = fields.map((f) => ({ wch: Math.max(f.label.length * 2, 12) }));
-  const worksheet = createSheetWithHeader(headerLines, rows, colWidths);
+  const worksheet = createSheetWithHeader(XLSX, headerLines, rows, colWidths);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, '수강생');
 
-  downloadExcel(workbook, `${course.name}_수강생`);
+  downloadExcel(XLSX, workbook, `${course.name}_수강생`);
 };
 
 // 강좌별 수강생 CSV 내보내기
