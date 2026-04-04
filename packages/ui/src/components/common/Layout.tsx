@@ -64,33 +64,45 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 					background: '#fafafa',
 				}}
 			>
-				{/* macOS 트래픽 라이트 영역 */}
-				<div style={{ height: 38, WebkitAppRegion: 'drag' } as React.CSSProperties} />
-
-				{/* 조직명 + 플랜 */}
-				<div style={{ padding: '0 20px 16px' }}>
-					<div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.3, color: 'var(--color-foreground)' }}>
-						{organizationName || 'TutorMate'}
+				{/* 사이드바 상단: 트래픽 라이트 + 조직명 한 줄 */}
+				<div
+					style={{
+						height: 52,
+						display: 'flex',
+						alignItems: 'flex-end',
+						padding: '0 16px 10px',
+						WebkitAppRegion: 'drag',
+					} as React.CSSProperties}
+				>
+					<div style={{ display: 'flex', alignItems: 'center', gap: 8, WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+						<div style={{
+							width: 24, height: 24, borderRadius: 6,
+							background: '#18181b', color: '#fff',
+							display: 'flex', alignItems: 'center', justifyContent: 'center',
+							fontSize: 13, fontWeight: 700, flexShrink: 0,
+						}}>
+							T
+						</div>
+						<span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-foreground)' }}>
+							{organizationName || 'TutorMate'}
+						</span>
+						{isTrial && (
+							<span
+								onClick={() => navigate('/settings?tab=license')}
+								style={{
+									fontSize: 10, fontWeight: 600,
+									color: '#c2410c', background: '#fff7ed',
+									border: '1px solid #fed7aa', borderRadius: 10,
+									padding: '1px 7px', cursor: 'pointer', whiteSpace: 'nowrap',
+								}}
+								role="button"
+								tabIndex={0}
+								onKeyDown={(e) => { if (e.key === 'Enter') navigate('/settings?tab=license'); }}
+							>
+								체험판
+							</span>
+						)}
 					</div>
-					{isTrial && (
-						<button
-							onClick={() => navigate('/settings?tab=license')}
-							style={{
-								marginTop: 6,
-								padding: '3px 10px',
-								fontSize: 11,
-								fontWeight: 600,
-								color: '#c2410c',
-								background: '#fff7ed',
-								border: '1px solid #fed7aa',
-								borderRadius: 12,
-								cursor: 'pointer',
-								lineHeight: 1.4,
-							}}
-						>
-							체험판
-						</button>
-					)}
 				</div>
 
 				{/* 네비게이션 */}
