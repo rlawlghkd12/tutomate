@@ -26,14 +26,14 @@ const navItemBase: React.CSSProperties = {
   cursor: 'pointer',
   transition: 'background 0.15s, color 0.15s',
   background: 'transparent',
-  color: '#71717a',
+  color: 'var(--color-muted-foreground, #71717a)',
   textAlign: 'left' as const,
 };
 
 const navItemActive: React.CSSProperties = {
   ...navItemBase,
-  background: '#f0f0f0',
-  color: '#18181b',
+  background: 'var(--color-accent, #f0f0f0)',
+  color: 'var(--color-foreground, #18181b)',
   fontWeight: 600,
 };
 
@@ -59,14 +59,14 @@ const Navigation: React.FC = () => {
         style={isActive ? navItemActive : navItemBase}
         onMouseEnter={(e) => {
           if (!isActive) {
-            e.currentTarget.style.background = '#f5f5f5';
-            e.currentTarget.style.color = '#18181b';
+            e.currentTarget.style.background = 'var(--color-accent, #f5f5f5)';
+            e.currentTarget.style.color = 'var(--color-foreground, #18181b)';
           }
         }}
         onMouseLeave={(e) => {
           if (!isActive) {
             e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = '#71717a';
+            e.currentTarget.style.color = 'var(--color-muted-foreground, #71717a)';
           }
         }}
       >
