@@ -11,7 +11,6 @@ import { Label } from '../ui/label';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { Separator } from '../ui/separator';
 import { toast } from 'sonner';
-// cn is available from ../../lib/utils if needed
 
 const bulkPaymentSchema = z.object({
   fixedAmount: z.number().min(0, '0원 이상이어야 합니다').optional(),

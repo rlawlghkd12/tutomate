@@ -89,8 +89,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 								onClick={() => navigate('/settings?tab=license')}
 								style={{
 									fontSize: 10, fontWeight: 600,
-									color: '#c2410c', background: '#fff7ed',
-									border: '1px solid #fed7aa', borderRadius: 10,
+									color: 'hsl(var(--warning))', background: 'hsl(var(--warning) / 0.1)',
+									border: '1px solid hsl(var(--warning) / 0.3)', borderRadius: 10,
 									padding: '1px 7px', cursor: 'pointer', whiteSpace: 'nowrap',
 								}}
 								role="button"
@@ -154,10 +154,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 							alignItems: 'center',
 							justifyContent: 'space-between',
 							padding: '8px 20px',
-							background: '#fefce8',
+							background: 'hsl(var(--warning) / 0.1)',
 							borderBottom: '1px solid #fde68a',
 							fontSize: 13,
-							color: '#92400e',
+							color: 'hsl(var(--foreground))',
 						}}
 					>
 						<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
