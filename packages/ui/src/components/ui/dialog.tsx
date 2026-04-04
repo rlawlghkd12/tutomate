@@ -41,15 +41,22 @@ const DialogContent = React.forwardRef<
     const container = containerRef.current
     if (!inner || !container) return
 
-    const observer = new ResizeObserver(() => {
+    const update = () => {
       const h = inner.scrollHeight
       container.style.height = `${h}px`
-    })
-    observer.observe(inner)
-    // Set initial height
-    container.style.height = `${inner.scrollHeight}px`
+    }
 
-    return () => observer.disconnect()
+    // ResizeObserver for size changes
+    const resizeObs = new ResizeObserver(update)
+    resizeObs.observe(inner)
+
+    // MutationObserver for DOM changes (conditional rendering)
+    const mutObs = new MutationObserver(update)
+    mutObs.observe(inner, { childList: true, subtree: true, attributes: true })
+
+    update()
+
+    return () => { resizeObs.disconnect(); mutObs.disconnect(); }
   }, [])
 
   return (
