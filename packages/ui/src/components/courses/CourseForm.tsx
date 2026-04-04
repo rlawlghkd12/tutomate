@@ -133,6 +133,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
   }, [open, course, form]);
 
   const onSubmit = async (values: CourseFormValues) => {
+		if (step !== 2) return;
 		if (submitting) return;
 		setSubmitting(true);
 		try {
@@ -192,7 +193,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
         </DialogHeader>
 
         {/* 스텝 인디케이터 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, marginTop: 16 }}>
           <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'hsl(var(--foreground))', color: 'hsl(var(--background))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>1</div>
           <span style={{ fontSize: 13, fontWeight: step === 1 ? 600 : 400, color: step === 1 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>기본 정보</span>
           <div style={{ width: 30, height: 1, background: 'hsl(var(--border))' }} />
