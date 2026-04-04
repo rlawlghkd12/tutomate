@@ -133,7 +133,6 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
   }, [open, course, form]);
 
   const onSubmit = async (values: CourseFormValues) => {
-		if (step !== 2) return;
 		if (submitting) return;
 		setSubmitting(true);
 		try {
@@ -201,7 +200,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
           <span style={{ fontSize: 13, fontWeight: step === 2 ? 600 : 400, color: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>일정 설정</span>
         </div>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
           {step === 1 && (<>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -473,7 +472,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                 <Button type="button" variant="outline" onClick={() => setStep(1)} style={{ fontSize: 14, padding: '10px 24px' }}>
                   이전
                 </Button>
-                <Button type="submit" disabled={submitting} style={{ fontSize: 14, padding: '10px 24px' }}>
+                <Button type="button" disabled={submitting} onClick={form.handleSubmit(onSubmit)} style={{ fontSize: 14, padding: '10px 24px' }}>
                   {course ? '수정' : '생성'}
                 </Button>
               </>
