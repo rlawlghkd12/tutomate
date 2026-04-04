@@ -229,14 +229,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 
 	return (
 		<Dialog open={visible} onOpenChange={(open) => !open && onClose()}>
-			<DialogContent className="max-w-[520px] max-h-[80vh] overflow-y-auto">
+			<DialogContent >
 				<DialogHeader>
 					<DialogTitle>강좌 신청 - {student?.name || ""}</DialogTitle>
 				</DialogHeader>
 
-				<form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+				<form onSubmit={form.handleSubmit(handleSubmit)} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 					{/* 강좌 선택 */}
-					<div className="space-y-2">
+					<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
 						<Label htmlFor="courseId">강좌 선택</Label>
 						<Controller
 							control={form.control}
@@ -302,8 +302,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 					{selectedCourseId && (
 						<>
 							{/* 할인 + 면제 */}
-							<div className="grid grid-cols-[1fr_auto] gap-4 items-end">
-								<div className="space-y-2">
+							<div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 16, alignItems: "end" }}>
+								<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
 									<Label htmlFor="discountAmount">할인 금액</Label>
 									<Controller
 										control={form.control}
@@ -337,19 +337,19 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 							</div>
 
 							{discountAmount > 0 && !isExempt && (
-								<p className="-mt-2 text-xs text-green-600">
+								<p style={{ marginTop: -4, fontSize: 12, color: "#16a34a" }}>
 									할인 적용 수강료: ₩{effectiveFee.toLocaleString()}
 								</p>
 							)}
 
 							{isExempt && (
-								<div className="-mt-2 rounded-md bg-yellow-50 p-2 text-xs text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
+								<div style={{ marginTop: -4, borderRadius: 6, background: "rgba(234,179,8,0.1)", padding: 8, fontSize: 12, color: "hsl(var(--foreground))" }}>
 									면제 처리됩니다. 수익에 포함되지 않습니다.
 								</div>
 							)}
 
 							{/* 납부 금액 */}
-							<div className="space-y-2">
+							<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
 								<Label htmlFor="paidAmount">납부 금액</Label>
 								<Controller
 									control={form.control}
@@ -377,7 +377,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 								)}
 							</div>
 
-							<div className="flex gap-2">
+							<div style={{ display: "flex", gap: 8 }}>
 								<Button
 									type="button"
 									variant="outline"
@@ -413,7 +413,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 							</div>
 
 							{/* 납부 방법 */}
-							<div className="space-y-2">
+							<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
 								<Label>납부 방법</Label>
 								<Controller
 									control={form.control}
@@ -423,9 +423,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 											onValueChange={field.onChange}
 											value={field.value}
 											disabled={isExempt}
-											className="flex gap-4"
+											style={{ display: "flex", gap: 16 }}
 										>
-											<div className="flex items-center space-x-2">
+											<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
 												<RadioGroupItem value="cash" id="payment-cash" />
 												<Label
 													htmlFor="payment-cash"
@@ -434,7 +434,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 													현금
 												</Label>
 											</div>
-											<div className="flex items-center space-x-2">
+											<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
 												<RadioGroupItem value="card" id="payment-card" />
 												<Label
 													htmlFor="payment-card"
@@ -443,7 +443,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 													카드
 												</Label>
 											</div>
-											<div className="flex items-center space-x-2">
+											<div style={{ display: "flex", alignItems: "center", gap: 8 }}>
 												<RadioGroupItem
 													value="transfer"
 													id="payment-transfer"
@@ -462,7 +462,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 						</>
 					)}
 
-					<div className="space-y-2">
+					<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
 						<Label htmlFor="notes">메모</Label>
 						<Textarea
 							id="notes"
@@ -478,11 +478,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 							type="button"
 							variant="outline"
 							onClick={onClose}
-							className="text-base px-6 py-3"
+							style={{ fontSize: 14, padding: "10px 24px" }}
 						>
 							취소
 						</Button>
-						<Button type="submit" className="text-base px-6 py-3">
+						<Button type="submit" style={{ fontSize: 14, padding: "10px 24px" }}>
 							신청
 						</Button>
 					</DialogFooter>
