@@ -10,12 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Checkbox } from '../ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Separator } from '../ui/separator';
 import { toast } from 'sonner';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { cn } from '../../lib/utils';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CalendarIcon } from 'lucide-react';
@@ -208,7 +205,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                 className="text-base"
               />
               {form.formState.errors.name && (
-                <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
+                <p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.name.message}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -220,7 +217,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                 className="text-base"
               />
               {form.formState.errors.classroom && (
-                <p className="text-sm text-red-500">{form.formState.errors.classroom.message}</p>
+                <p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.classroom.message}</p>
               )}
             </div>
           </div>
@@ -235,7 +232,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                 className="text-base"
               />
               {form.formState.errors.instructorName && (
-                <p className="text-sm text-red-500">{form.formState.errors.instructorName.message}</p>
+                <p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.instructorName.message}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -251,7 +248,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                 className="text-base"
               />
               {form.formState.errors.instructorPhone && (
-                <p className="text-sm text-red-500">{form.formState.errors.instructorPhone.message}</p>
+                <p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.instructorPhone.message}</p>
               )}
             </div>
           </div>

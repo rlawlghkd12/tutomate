@@ -307,7 +307,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 							)}
 						/>
 						{form.formState.errors.courseId && (
-							<p className="text-sm text-red-500">
+							<p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>
 								{form.formState.errors.courseId.message}
 							</p>
 						)}

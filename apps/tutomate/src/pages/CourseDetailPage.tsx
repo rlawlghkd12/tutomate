@@ -19,7 +19,7 @@ import {
 	exportCourseStudentsToCSV,
 	exportCourseStudentsToExcel,
 } from "@tutomate/core";
-// Enrollment type used internally by PaymentManagementTable
+import type { Enrollment } from "@tutomate/core";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../components/ui/dialog";
