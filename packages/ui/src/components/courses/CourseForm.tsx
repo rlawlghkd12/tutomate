@@ -66,6 +66,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
   const { addCourse, updateCourse, courses } = useCourseStore();
   const { getPlan, getLimit } = useLicenseStore();
   const [enableSchedule, setEnableSchedule] = useState(false);
+  const [step, setStep] = useState<1 | 2>(1);
 
 	const [submitting, setSubmitting] = useState(false);
   const form = useForm<CourseFormValues>({
@@ -127,6 +128,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
         schedule_totalSessions: 12,
       });
       setEnableSchedule(false);
+      setStep(1);
     }
   }, [open, course, form]);
 
@@ -189,7 +191,17 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
           <DialogTitle>{course ? '강좌 수정' : '강좌 개설'}</DialogTitle>
         </DialogHeader>
 
+        {/* 스텝 인디케이터 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'hsl(var(--foreground))', color: 'hsl(var(--background))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>1</div>
+          <span style={{ fontSize: 13, fontWeight: step === 1 ? 600 : 400, color: step === 1 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>기본 정보</span>
+          <div style={{ width: 30, height: 1, background: 'hsl(var(--border))' }} />
+          <div style={{ width: 24, height: 24, borderRadius: '50%', background: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--border))', color: step === 2 ? 'hsl(var(--background))' : 'hsl(var(--muted-foreground))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>2</div>
+          <span style={{ fontSize: 13, fontWeight: step === 2 ? 600 : 400, color: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>일정 설정</span>
+        </div>
+
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          {step === 1 && (<>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">강좌 이름</Label>
@@ -300,9 +312,10 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
             </div>
           </div>
 
-          <Separator />
+          </>)}
 
-          <div className="flex items-center space-x-2">
+          {step === 2 && (<>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <Checkbox
               id="enableSchedule"
               checked={enableSchedule}
@@ -453,11 +466,35 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} className="text-base px-6 py-3">
-              취소
-            </Button>
-            <Button type="submit" className="text-base px-6 py-3">{course ? '수정' : '생성'}</Button>
+          </>)}
+
+          <DialogFooter style={{ marginTop: 8 }}>
+            {step === 1 ? (
+              <>
+                <Button type="button" variant="outline" onClick={onClose} style={{ fontSize: 14, padding: '10px 24px' }}>
+                  취소
+                </Button>
+                <Button type="button" onClick={() => setStep(2)} style={{ fontSize: 14, padding: '10px 24px' }}>
+                  다음
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button type="button" variant="outline" onClick={() => setStep(1)} style={{ fontSize: 14, padding: '10px 24px' }}>
+                  이전
+                </Button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {!enableSchedule && (
+                    <Button type="submit" variant="outline" disabled={submitting} style={{ fontSize: 14, padding: '10px 24px' }}>
+                      일정 없이 {course ? '수정' : '생성'}
+                    </Button>
+                  )}
+                  <Button type="submit" disabled={submitting} style={{ fontSize: 14, padding: '10px 24px' }}>
+                    {course ? '수정' : '생성'}
+                  </Button>
+                </div>
+              </>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>
