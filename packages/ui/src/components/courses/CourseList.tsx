@@ -118,31 +118,38 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
       size: 200,
       cell: ({ row }) => {
         const course = row.original;
-        const dayLabels = ['일','월','화','수','목','금','토'];
-        const schedDays = course.schedule?.daysOfWeek?.length
-          ? course.schedule.daysOfWeek.sort((a,b) => a-b).map(d => dayLabels[d]).join('')
-          : null;
-        const schedTime = course.schedule?.startTime && course.schedule?.endTime
-          ? `${course.schedule.startTime}~${course.schedule.endTime}`
-          : null;
         return (
-          <div>
-            <button
-              className="text-left text-primary hover:underline cursor-pointer truncate max-w-[200px] block"
-              onClick={() => handleView(course.id)}
-            >
-              {course.name}
-              {isCourseEnded(course) && (
-                <Badge variant="secondary" className="ml-2">종료</Badge>
-              )}
-            </button>
-            {(schedDays || schedTime) && (
-              <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
-                {schedDays}{schedDays && schedTime && ' '}{schedTime}
-              </span>
+          <button
+            className="text-left text-primary hover:underline cursor-pointer truncate max-w-[200px] block"
+            onClick={() => handleView(course.id)}
+          >
+            {course.name}
+            {isCourseEnded(course) && (
+              <Badge variant="secondary" className="ml-2">종료</Badge>
             )}
-          </div>
+          </button>
         );
+      },
+    },
+    {
+      id: 'schedDays',
+      header: '요일',
+      size: 80,
+      enableSorting: false,
+      cell: ({ row }) => {
+        const dl = ['일','월','화','수','목','금','토'];
+        const days = row.original.schedule?.daysOfWeek;
+        return days?.length ? days.sort((a,b) => a-b).map(d => dl[d]).join(' ') : '-';
+      },
+    },
+    {
+      id: 'schedTime',
+      header: '시간',
+      size: 100,
+      enableSorting: false,
+      cell: ({ row }) => {
+        const s = row.original.schedule;
+        return s?.startTime && s?.endTime ? `${s.startTime}~${s.endTime}` : '-';
       },
     },
     {
