@@ -442,7 +442,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 						</div>
 					</div>
 
-					<DialogFooter className={cn(editingStudent ? "justify-between" : "justify-end", "sm:justify-between")}>
+					<DialogFooter style={{ marginTop: 20 }} className={cn(editingStudent ? "justify-between" : "justify-end", "sm:justify-between")}>
 						{editingStudent && (
 							<Button
 								type="button"
