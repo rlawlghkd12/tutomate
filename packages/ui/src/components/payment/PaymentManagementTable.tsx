@@ -45,6 +45,7 @@ interface PaymentManagementTableProps {
   courseFee: number;
   enrollments: Enrollment[];
   onStudentClick?: (studentId: string) => void;
+  onRemoveEnrollments?: (enrollmentIds: string[]) => void;
   rowSelection?: {
     selectedRowKeys: React.Key[];
     onChange: (keys: React.Key[]) => void;
@@ -67,6 +68,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   courseFee,
   enrollments,
   onStudentClick,
+  onRemoveEnrollments,
   rowSelection,
 }) => {
   const { getStudentById } = useStudentStore();
@@ -506,9 +508,23 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             {stats.expectedTotal > 0 ? Math.round((stats.totalPaid / stats.expectedTotal) * 100) : 0}%
           </div>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {rowSelection && rowSelection.selectedRowKeys.length > 0 && (
+            <>
+              <span style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>{rowSelection.selectedRowKeys.length}명 선택</span>
+              {onRemoveEnrollments && (
+                <Button size="sm" variant="destructive" onClick={() => onRemoveEnrollments(rowSelection.selectedRowKeys as string[])}>
+                  수강 철회
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => rowSelection.onChange([])}>
+                해제
+              </Button>
+              <div style={{ width: 1, height: 20, background: 'hsl(var(--border))' }} />
+            </>
+          )}
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[120px] h-8 text-xs">
+            <SelectTrigger style={{ width: 100, height: 32, fontSize: 12 }}>
               <SelectValue placeholder="전체" />
             </SelectTrigger>
             <SelectContent>
