@@ -39,7 +39,7 @@ const CourseDetailPage: React.FC = () => {
 	const { getCourseById, loadCourses, deleteCourse } = useCourseStore();
 	const { getEnrollmentCountByCourseId } = useEnrollmentStore();
 	const { loadStudents, getStudentById } = useStudentStore();
-	const { enrollments, loadEnrollments, deleteEnrollment } =
+	const { enrollments, loadEnrollments, withdrawEnrollment } =
 		useEnrollmentStore();
 	const { loadRecords } = usePaymentRecordStore();
 
@@ -64,7 +64,7 @@ const CourseDetailPage: React.FC = () => {
 	}, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
 	const course = id ? getCourseById(id) : undefined;
-	const courseEnrollments = enrollments.filter((e) => e.courseId === id);
+	const courseEnrollments = enrollments.filter((e) => e.courseId === id && e.paymentStatus !== 'withdrawn');
 
 	const enrolledStudents = useMemo(() => {
 		return courseEnrollments.map((enrollment) => {
@@ -99,9 +99,9 @@ const CourseDetailPage: React.FC = () => {
 		navigate("/courses");
 	};
 
-	const handleRemoveStudents = async (ids: string[]) => {
+	const handleWithdrawStudents = async (ids: string[]) => {
 		for (const id of ids) {
-			await deleteEnrollment(id);
+			await withdrawEnrollment(id);
 		}
 		toast.success(`${ids.length}명의 수강이 철회되었습니다.`);
 		setSelectedRowKeys([]);
@@ -355,7 +355,7 @@ const CourseDetailPage: React.FC = () => {
 						<AlertDialogAction
 							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 							onClick={() => {
-								handleRemoveStudents(selectedRowKeys as string[]);
+								handleWithdrawStudents(selectedRowKeys as string[]);
 								setRemoveDialogOpen(false);
 							}}
 						>
