@@ -54,7 +54,7 @@ const CourseDetailPage: React.FC = () => {
 	// Delete course AlertDialog state
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	// Remove student AlertDialog state
-	const [removeStudentId, setRemoveStudentId] = useState<string | null>(null);
+	const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
 
 	useEffect(() => {
 		loadCourses();
@@ -99,9 +99,12 @@ const CourseDetailPage: React.FC = () => {
 		navigate("/courses");
 	};
 
-	const handleRemoveStudent = async (enrollmentId: string) => {
-		await deleteEnrollment(enrollmentId);
-		toast.success("수강생이 제거되었습니다.");
+	const handleRemoveStudents = async (ids: string[]) => {
+		for (const id of ids) {
+			await deleteEnrollment(id);
+		}
+		toast.success(`${ids.length}명의 수강이 철회되었습니다.`);
+		setSelectedRowKeys([]);
 	};
 
 	const handleExport = (type: "excel" | "csv") => {
@@ -211,6 +214,20 @@ const CourseDetailPage: React.FC = () => {
 					</div>
 				))}
 			</div>
+
+			{/* 선택 액션 */}
+			{selectedRowKeys.length > 0 && (
+				<div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, padding: '10px 14px', background: 'hsl(var(--muted))', borderRadius: 8 }}>
+					<span style={{ fontSize: 14 }}>{selectedRowKeys.length}명 선택됨</span>
+					<Button size="sm" variant="destructive" onClick={() => setRemoveDialogOpen(true)}>
+						<Trash2 style={{ width: 14, height: 14 }} />
+						수강 철회
+					</Button>
+					<Button size="sm" variant="outline" onClick={() => setSelectedRowKeys([])}>
+						선택 해제
+					</Button>
+				</div>
+			)}
 
 			{/* 수강생 + 납부 통합 (PaymentManagementTable) */}
 			<PaymentManagementTable
@@ -335,24 +352,24 @@ const CourseDetailPage: React.FC = () => {
 			</AlertDialog>
 
 			{/* Remove student AlertDialog */}
-			<AlertDialog open={!!removeStudentId} onOpenChange={(open) => { if (!open) setRemoveStudentId(null); }}>
+			<AlertDialog open={removeDialogOpen} onOpenChange={setRemoveDialogOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>수강생 제거</AlertDialogTitle>
-						<AlertDialogDescription>정말 이 수강생을 제거하시겠습니까?</AlertDialogDescription>
+						<AlertDialogTitle>수강 철회</AlertDialogTitle>
+						<AlertDialogDescription>
+							{selectedRowKeys.length}명의 수강을 철회하시겠습니까? 납부 기록도 함께 삭제됩니다.
+						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>취소</AlertDialogCancel>
 						<AlertDialogAction
 							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 							onClick={() => {
-								if (removeStudentId) {
-									handleRemoveStudent(removeStudentId);
-									setRemoveStudentId(null);
-								}
+								handleRemoveStudents(selectedRowKeys as string[]);
+								setRemoveDialogOpen(false);
 							}}
 						>
-							제거
+							철회
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
