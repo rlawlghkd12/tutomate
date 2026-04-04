@@ -14,7 +14,7 @@ import {
   CommandItem,
   CommandSeparator,
 } from '../ui/command';
-// Dialog removed — using direct conditional rendering for Spotlight-style search
+import { Dialog } from '../ui/dialog';
 import { Badge } from '../ui/badge';
 
 interface GlobalSearchProps {
@@ -89,16 +89,14 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
   const enrollmentResults = results.filter((r) => r.type === 'enrollment');
 
   return (
-    {visible && (<>
-      {/* 오버레이 */}
+    <Dialog open={visible} onOpenChange={(open) => { if (!open) onClose(); }}>
+      {/* 오버레이 투명 */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.15)' }} onClick={onClose} />
-      {/* 검색 모달 */}
       <div style={{
         position: 'fixed',
         left: '50%',
         top: '20%',
         transform: 'translateX(-50%)',
-        zIndex: 51,
         width: 600,
         maxHeight: '60vh',
         padding: 0,
@@ -235,7 +233,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
       )}
     </Command>
     </div>
-    </>)}
+    </Dialog>
   );
 };
 
