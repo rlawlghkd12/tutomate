@@ -221,9 +221,9 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
 
   return (
     <>
-      <div className="flex items-center gap-4 mb-4">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <Select value={searchField} onValueChange={setSearchField}>
-          <SelectTrigger className="w-[110px]">
+          <SelectTrigger style={{ width: 110 }}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -250,7 +250,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
           />
         </div>
         {actions && (
-          <div className="flex-1 text-right">
+          <div style={{ flex: 1, textAlign: 'right' }}>
             {actions}
           </div>
         )}
