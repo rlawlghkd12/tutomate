@@ -111,13 +111,10 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    const fontSizeMap = {
-      small: 12,
-      medium: 14,
-      large: 16,
-      'extra-large': 18,
+    const fontSizeMap: Record<string, number> = {
+      xs: 11, small: 12, medium: 14, large: 16, xl: 18, xxl: 20, xxxl: 22,
     };
-    document.documentElement.style.setProperty('--font-size-base-value', `${fontSizeMap[fontSize]}px`);
+    document.documentElement.style.setProperty('--font-size-base-value', `${fontSizeMap[fontSize] ?? 14}px`);
   }, [fontSize]);
 
   if (isLocked && lockEnabled) {
