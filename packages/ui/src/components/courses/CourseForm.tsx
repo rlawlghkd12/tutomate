@@ -67,6 +67,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
   const { getPlan, getLimit } = useLicenseStore();
   const [enableSchedule, setEnableSchedule] = useState(false);
 
+	const [submitting, setSubmitting] = useState(false);
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
     defaultValues: {
@@ -130,6 +131,9 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
   }, [open, course, form]);
 
   const onSubmit = async (values: CourseFormValues) => {
+		if (submitting) return;
+		setSubmitting(true);
+		try {
     const courseData: CourseFormData = {
       name: values.name,
       classroom: values.classroom,
@@ -173,7 +177,10 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
     } catch {
       toast.error('강좌 저장에 실패했습니다.');
     }
-  };
+  } finally {
+			setSubmitting(false);
+		}
+	};
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>

@@ -37,6 +37,7 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
   const [paymentType, setPaymentType] = useState<'fixed' | 'ratio'>('fixed');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
 
+	const [submitting, setSubmitting] = useState(false);
   const form = useForm<BulkPaymentFormValues>({
     resolver: zodResolver(bulkPaymentSchema),
     defaultValues: {
@@ -60,6 +61,9 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
   const previewTotal = totalSelectedStudents * previewPerStudent;
 
   const handleSubmit = async () => {
+		if (submitting) return;
+		setSubmitting(true);
+		try {
     const isValid = await form.trigger();
     if (!isValid) return;
 
@@ -87,7 +91,10 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
       console.error('일괄 납부 처리 실패:', error);
       toast.error('일괄 납부 처리에 실패했습니다.');
     }
-  };
+  } finally {
+			setSubmitting(false);
+		}
+	};
 
   return (
     <Dialog open={visible} onOpenChange={(open) => !open && onClose()}>
