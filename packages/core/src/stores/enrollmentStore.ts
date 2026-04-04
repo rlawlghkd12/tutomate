@@ -26,6 +26,7 @@ interface EnrollmentStore {
 		enrollmentData: Partial<Enrollment>,
 	) => Promise<void>;
 	deleteEnrollment: (id: string) => Promise<void>;
+	withdrawEnrollment: (id: string) => Promise<void>;
 	getEnrollmentById: (id: string) => Enrollment | undefined;
 	getEnrollmentsByCourseId: (courseId: string) => Enrollment[];
 	getEnrollmentsByStudentId: (studentId: string) => Enrollment[];
@@ -97,6 +98,11 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 		set({ enrollments });
 	},
 
+	withdrawEnrollment: async (id: string) => {
+		const enrollments = await helper.update(id, { paymentStatus: 'withdrawn' as Enrollment['paymentStatus'] }, get().enrollments);
+		set({ enrollments });
+	},
+
 	getEnrollmentById: (id: string) => {
 		return get().enrollments.find((enrollment) => enrollment.id === id);
 	},
@@ -115,7 +121,7 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 
 	getEnrollmentCountByCourseId: (courseId: string) => {
 		return get().enrollments.filter(
-			(enrollment) => enrollment.courseId === courseId,
+			(enrollment) => enrollment.courseId === courseId && enrollment.paymentStatus !== 'withdrawn',
 		).length;
 	},
 
