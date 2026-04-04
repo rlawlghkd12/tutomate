@@ -477,22 +477,39 @@ const SettingsPage: React.FC = () => {
           <Separator />
 
           {/* 텍스트 크기 */}
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <p className="font-semibold">텍스트 크기</p>
-              <p className="text-sm text-muted-foreground">앱 전체의 텍스트 크기를 조절합니다</p>
+          <div style={{ padding: '16px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div>
+                <p className="font-semibold">텍스트 크기</p>
+                <p className="text-sm text-muted-foreground">앱 전체의 텍스트 크기를 조절합니다</p>
+              </div>
+              <span style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>
+                {fontSizeOptions.find(o => o.value === fontSize)?.label} ({
+                  { small: 12, medium: 14, large: 16, 'extra-large': 18 }[fontSize]
+                }px)
+              </span>
             </div>
-            <div className="flex gap-1">
-              {fontSizeOptions.map((opt) => (
-                <Button
-                  key={opt.value}
-                  variant={fontSize === opt.value ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setFontSize(opt.value)}
-                >
-                  {opt.label}
-                </Button>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>가</span>
+              <input
+                type="range"
+                min={0}
+                max={3}
+                step={1}
+                value={fontSizeOptions.findIndex(o => o.value === fontSize)}
+                onChange={(e) => setFontSize(fontSizeOptions[Number(e.target.value)].value)}
+                style={{ flex: 1, accentColor: 'hsl(var(--foreground))' }}
+              />
+              <span style={{ fontSize: 18, fontWeight: 700, color: 'hsl(var(--muted-foreground))' }}>가</span>
+            </div>
+            <div style={{
+              marginTop: 12, padding: 12, borderRadius: 8,
+              border: '1px solid hsl(var(--border))',
+              background: 'hsl(var(--muted))',
+            }}>
+              <p style={{ margin: 0, lineHeight: 1.6 }}>
+                미리보기: 수강생 관리 프로그램에서 강좌와 수강생 정보를 한눈에 확인할 수 있습니다.
+              </p>
             </div>
           </div>
 
