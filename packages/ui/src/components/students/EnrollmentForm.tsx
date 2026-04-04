@@ -29,7 +29,6 @@ import {
 	SelectValue,
 } from "../ui/select";
 import { Textarea } from "../ui/textarea";
-// RadioGroup removed
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 
@@ -340,14 +339,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 												min={0} max={courseFee} placeholder="0" style={{ fontSize: 15 }} />
 										)} />
 									{discountAmount > 0 && (
-										<p style={{ fontSize: 13, color: "#16a34a", margin: 0 }}>할인 적용 수강료: ₩{effectiveFee.toLocaleString()}</p>
+										<p style={{ fontSize: 13, color: 'hsl(var(--success))', margin: 0 }}>할인 적용 수강료: ₩{effectiveFee.toLocaleString()}</p>
 									)}
 								</div>
 							</div>
 						)}
 
 						{isExempt && (
-							<div className="slide-enter" style={{ borderRadius: 8, background: "rgba(124,58,237,0.08)", padding: '10px 12px', fontSize: 13, color: "hsl(var(--foreground))" }}>
+							<div className="slide-enter" style={{ borderRadius: 8, background: 'hsl(var(--accent))', padding: '10px 12px', fontSize: 13, color: "hsl(var(--foreground))" }}>
 									면제 처리됩니다. 수익에 포함되지 않습니다.
 							</div>
 						)}
@@ -363,7 +362,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 										disabled={isExempt} style={{ fontSize: 15 }} />
 								)} />
 							{form.formState.errors.paidAmount && (
-								<p style={{ fontSize: 13, color: "#dc2626" }}>{form.formState.errors.paidAmount.message}</p>
+								<p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.paidAmount.message}</p>
 							)}
 						</div>
 

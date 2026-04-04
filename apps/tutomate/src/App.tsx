@@ -137,8 +137,8 @@ function App() {
   if (!session) {
     return (
       <ErrorBoundary>
-        <div className="flex h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-200">
-          <div className="w-full max-w-[380px] rounded-2xl bg-white p-12 text-center shadow-lg">
+        <div className="flex h-screen items-center justify-center" style={{ background: 'hsl(var(--muted))' }}>
+          <div className="w-full max-w-[380px] rounded-2xl p-12 text-center shadow-lg" style={{ background: 'hsl(var(--background))' }}>
             <img
               src="icon.png"
               alt="TutorMate"
@@ -181,7 +181,7 @@ function App() {
   return (
     <ErrorBoundary>
       <Dialog open={needsSetup}>
-        <DialogContent closable={false}>
+        <DialogContent className="[&>button:last-child]:hidden" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{appConfig.welcomeTitle}</DialogTitle>
           </DialogHeader>

@@ -149,8 +149,8 @@ const CalendarPage: React.FC = () => {
                         key={course.id}
                         className={`py-0.5 px-1 mb-0.5 text-[13px] rounded-sm cursor-pointer ${
                           isFull
-                            ? 'bg-red-50 border-l-[3px] border-l-red-500'
-                            : 'bg-blue-50 border-l-[3px] border-l-blue-500'
+                            ? 'bg-red-50 dark:bg-red-950 border-l-[3px] border-l-red-500'
+                            : 'bg-blue-50 dark:bg-blue-950 border-l-[3px] border-l-blue-500'
                         }`}
                         onClick={(e) => {
                           e.stopPropagation();
