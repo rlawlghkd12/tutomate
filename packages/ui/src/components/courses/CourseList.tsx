@@ -229,7 +229,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
 
   return (
     <>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="-mt-4 mb-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} style={{ marginBottom: 16 }}>
         <TabsList>
           <TabsTrigger value="active">
             현재 강좌 <span style={{ marginLeft: 6, fontSize: 12, opacity: 0.7 }}>{activeCourses.length}</span>
@@ -240,9 +240,9 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
         </TabsList>
       </Tabs>
 
-      <div className="flex items-center gap-4 mb-4">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <Select value={searchField} onValueChange={setSearchField}>
-          <SelectTrigger className="w-[110px]">
+          <SelectTrigger style={{ width: 110 }}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -268,7 +268,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
             style={{ paddingLeft: 34 }}
           />
         </div>
-        {actions && <div className="flex-1 text-right">{actions}</div>}
+        {actions && <div style={{ flex: 1, textAlign: 'right' }}>{actions}</div>}
       </div>
 
       <Table>
