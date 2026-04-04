@@ -49,7 +49,7 @@ const courseFormSchema = z.object({
 type CourseFormValues = z.infer<typeof courseFormSchema>;
 
 interface CourseFormProps {
-  open: boolean;
+  visible: boolean;
   onClose: () => void;
   course?: Course | null;
 }
@@ -62,7 +62,7 @@ const formatPhone = (value: string) => {
   return `${v.slice(0, 3)}-${v.slice(3, 7)}-${v.slice(7, 11)}`;
 };
 
-const CourseForm: React.FC<CourseFormProps> = ({ open, onClose, course }) => {
+const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course }) => {
   const { addCourse, updateCourse, courses } = useCourseStore();
   const { getPlan, getLimit } = useLicenseStore();
   const [enableSchedule, setEnableSchedule] = useState(false);
