@@ -1,9 +1,13 @@
 /**
  * Electron E2E 테스트 헬퍼
  *
- * - Electron 앱 실행
- * - 로컬 Supabase 세션 주입
- * - 앱 초기화 대기
+ * 사전 조건:
+ *   1. supabase start
+ *   2. pnpm test:e2e:setup (세션 파일 생성)
+ *   3. dist-electron/main.js가 존재 (pnpm --filter @tutomate/app dev 한 번 실행)
+ *
+ * Electron을 .env.test 환경으로 실행하여 로컬 Supabase에 연결한다.
+ * 세션은 main process의 executeJavaScript로 주입한다.
  */
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import path from 'node:path';
@@ -13,6 +17,7 @@ import type { E2ESession } from '../setup';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
+const APP_DIR = path.join(PROJECT_ROOT, 'apps/tutomate');
 
 /**
  * 저장된 E2E 세션 파일 로드
@@ -29,72 +34,91 @@ export function loadSession(): E2ESession {
 
 /**
  * Electron 앱을 실행하고 로컬 Supabase 세션을 주입한 뒤 Page 객체를 반환한다.
- *
- * @returns { app, page } - Electron 앱과 렌더러 페이지
  */
 export async function launchApp(): Promise<{ app: ElectronApplication; page: Page }> {
   const session = loadSession();
 
+  // Electron 실행 — dist/index.html을 로드하되, 로컬 Supabase 환경변수 주입
+  // dist는 프로덕션 빌드이므로 환경변수가 번들에 하드코딩됨.
+  // 따라서 .env.test로 빌드된 dist가 필요함.
+  // → 대안: Electron의 webPreferences.preload에서 window.__SUPABASE_URL__ 같은 변수를 주입
+  // → 가장 간단한 방법: 렌더러 프로세스 로드 후 JS로 Supabase 세션을 직접 세팅
+
   const app = await electron.launch({
-    args: [path.join(PROJECT_ROOT, 'apps/tutomate/dist-electron/main.js')],
+    args: [path.join(APP_DIR, 'dist-electron/main.js')],
     env: {
       ...process.env,
-      NODE_ENV: 'production',
-      // Vite 빌드된 앱은 .env를 읽지만, Electron main process 환경변수로 오버라이드
+      // .env.test 환경변수를 직접 전달 (main process에서는 사용 안 하지만 기록용)
       VITE_SUPABASE_URL: session.supabase_url,
       VITE_SUPABASE_ANON_KEY: session.supabase_anon_key,
     },
   });
 
   const page = await app.firstWindow();
-  await page.waitForLoadState('domcontentloaded');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(3000);
 
-  // ── 세션 주입 ──────────────────────────────────────────────
-  // 렌더러 프로세스의 Supabase 클라이언트에 세션을 직접 설정
-  await page.evaluate(
-    async ({ url, anonKey, accessToken, refreshToken }) => {
-      // Supabase JS client가 localStorage에 세션을 저장하므로,
-      // sb-<ref>-auth-token 키에 직접 주입한다.
-      // 로컬 Supabase의 ref는 URL에서 추출 (127.0.0.1 -> 'local')
-      const storageKey = `sb-127.0.0.1-auth-token`;
-      const sessionPayload = {
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        token_type: 'bearer',
-        expires_in: 3600,
-        expires_at: Math.floor(Date.now() / 1000) + 3600,
-      };
-      localStorage.setItem(storageKey, JSON.stringify(sessionPayload));
+  // ── 세션 주입 (main process → executeJavaScript) ──────────
+  // 렌더러의 Supabase 클라이언트가 가리키는 URL이 프로덕션이므로,
+  // localStorage에 프로덕션 ref 키로 세션을 저장한다.
+  // 앱이 로컬 Supabase를 쓰려면 빌드 시 .env.test가 필요.
+  // 여기서는 "이미 로그인된 것처럼" authStore 상태를 직접 오버라이드한다.
+  const injectResult = await app.evaluate(async ({ BrowserWindow }, sd) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (!win) return 'no window';
+    try {
+      // authStore의 Zustand persist 키를 찾아서 세팅
+      const result = await win.webContents.executeJavaScript(`
+        (function() {
+          try {
+            // Supabase URL에서 ref 추출
+            var supabaseUrl = '${sd.supabaseUrl}';
+            var ref = supabaseUrl.replace('https://', '').replace('http://', '').split('.')[0].split(':')[0];
+            var storageKey = 'sb-' + ref + '-auth-token';
+            var payload = JSON.stringify({
+              access_token: '${sd.accessToken}',
+              refresh_token: '${sd.refreshToken}',
+              token_type: 'bearer',
+              expires_in: 3600,
+              expires_at: Math.floor(Date.now() / 1000) + 3600
+            });
+            localStorage.setItem(storageKey, payload);
+            return 'set:' + storageKey;
+          } catch(e) {
+            return 'error:' + e.message;
+          }
+        })()
+      `);
+      return result;
+    } catch (e: any) {
+      return 'eval-error:' + e.message;
+    }
+  }, {
+    accessToken: session.access_token,
+    refreshToken: session.refresh_token,
+    supabaseUrl: session.supabase_url,
+  });
 
-      // Supabase 클라이언트가 이미 초기화되어 있다면, setSession 호출
-      try {
-        const { createClient } = await import('@supabase/supabase-js');
-        const supabase = createClient(url, anonKey, {
-          auth: { persistSession: true, autoRefreshToken: false },
-        });
-        await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-      } catch {
-        // import 실패 시 localStorage 기반으로 대체
-      }
-    },
-    {
-      url: session.supabase_url,
-      anonKey: session.supabase_anon_key,
-      accessToken: session.access_token,
-      refreshToken: session.refresh_token,
-    },
-  );
+  console.log('[e2e] 세션 주입 결과:', injectResult);
 
-  // 세션 주입 후 앱 새로고침으로 initialize() 재실행
+  // 세션 주입 후 새로고침
   await page.reload();
-  await page.waitForLoadState('domcontentloaded');
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(3000);
 
-  // ── 앱 완전 로드 대기 ──────────────────────────────────────
-  // 사이드바의 네비게이션 항목이 보일 때까지 대기 (로그인 + 조직 로드 완료 의미)
-  await page.waitForSelector('text=대시보드', { timeout: 15000 });
+  // 사이드바가 보일 때까지 대기
+  try {
+    await page.waitForSelector('text=대시보드', { timeout: 15000 });
+  } catch {
+    // 실패 시 스크린샷 저장
+    await page.screenshot({ path: path.join(PROJECT_ROOT, 'e2e/screenshots/login-fail.png') });
+    const bodyText = await app.evaluate(async ({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      if (!win) return 'no window';
+      return await win.webContents.executeJavaScript('document.body.innerText.substring(0, 300)');
+    });
+    throw new Error(`로그인 실패. 화면 내용: ${bodyText}`);
+  }
 
   return { app, page };
 }
@@ -104,6 +128,5 @@ export async function launchApp(): Promise<{ app: ElectronApplication; page: Pag
  */
 export async function navigateTo(page: Page, menuText: string): Promise<void> {
   await page.getByText(menuText).first().click();
-  // 페이지 전환 대기
   await page.waitForTimeout(500);
 }

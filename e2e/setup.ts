@@ -8,6 +8,7 @@
  *   - supabase start 로 로컬 Supabase 가동 중 (http://127.0.0.1:54321)
  */
 import { createClient } from '@supabase/supabase-js';
+import pg from 'pg';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,20 +19,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SUPABASE_URL = 'http://127.0.0.1:54321';
 const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
-const SUPABASE_SERVICE_ROLE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Offtlna7DBLCqnTbM';
+const DB_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 const TEST_EMAIL = 'e2e-test@tutomate.local';
 const TEST_PASSWORD = 'e2e-test-password-123!';
 const TEST_ORG_NAME = 'E2E 테스트 학원';
 const TEST_LICENSE_KEY = 'E2E-TEST-LICENSE-0001';
 
-// service_role 권한 클라이언트 (admin API 사용)
-const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
-
-// anon 클라이언트 (일반 사용자 로그인용)
 const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
@@ -48,67 +42,50 @@ export interface E2ESession {
 async function setup(): Promise<E2ESession> {
   console.log('[e2e:setup] 로컬 Supabase 연결 확인...');
 
-  // ── 1. 기존 테스트 유저 정리 ─────────────────────────────
-  const { data: existingUsers } = await adminClient.auth.admin.listUsers();
-  const existingUser = existingUsers?.users?.find((u) => u.email === TEST_EMAIL);
+  // DB 직접 접속으로 정리 + 조직 생성
+  const client = new pg.Client(DB_URL);
+  await client.connect();
 
-  if (existingUser) {
-    console.log('[e2e:setup] 기존 테스트 유저 삭제:', existingUser.id);
-    // 연결된 조직 데이터 먼저 삭제
-    await adminClient.from('user_organizations').delete().eq('user_id', existingUser.id);
-    await adminClient.auth.admin.deleteUser(existingUser.id);
-  }
+  // ── 1. 기존 테스트 데이터 정리 ─────────────────────────
+  console.log('[e2e:setup] 기존 테스트 데이터 정리...');
+  // 기존 테스트 조직의 데이터 삭제 (cascade)
+  await client.query(`DELETE FROM organizations WHERE license_key = $1`, [TEST_LICENSE_KEY]);
+  // 기존 테스트 유저 삭제
+  await client.query(`DELETE FROM auth.users WHERE email = $1`, [TEST_EMAIL]);
 
-  // 기존 테스트 조직 정리
-  await adminClient.from('organizations').delete().eq('license_key', TEST_LICENSE_KEY);
-
-  // ── 2. 테스트 유저 생성 ───────────────────────────────────
+  // ── 2. 테스트 유저 생성 (signup API) ──────────────────
   console.log('[e2e:setup] 테스트 유저 생성...');
-  const { data: newUser, error: userError } = await adminClient.auth.admin.createUser({
+  const { data: signUpData, error: signUpError } = await anonClient.auth.signUp({
     email: TEST_EMAIL,
     password: TEST_PASSWORD,
-    email_confirm: true,
   });
 
-  if (userError || !newUser.user) {
-    throw new Error(`테스트 유저 생성 실패: ${userError?.message}`);
+  if (signUpError || !signUpData.user) {
+    throw new Error(`테스트 유저 생성 실패: ${signUpError?.message}`);
   }
 
-  const userId = newUser.user.id;
+  const userId = signUpData.user.id;
   console.log('[e2e:setup] 유저 생성 완료:', userId);
 
-  // ── 3. 테스트 조직 생성 ───────────────────────────────────
+  // ── 3. 테스트 조직 생성 (DB 직접) ─────────────────────
   console.log('[e2e:setup] 테스트 조직 생성...');
-  const { data: org, error: orgError } = await adminClient
-    .from('organizations')
-    .insert({
-      name: TEST_ORG_NAME,
-      license_key: TEST_LICENSE_KEY,
-      plan: 'basic',
-      max_seats: 10,
-    })
-    .select()
-    .single();
-
-  if (orgError || !org) {
-    throw new Error(`조직 생성 실패: ${orgError?.message}`);
-  }
-
-  const organizationId = org.id as string;
+  const orgResult = await client.query(
+    `INSERT INTO organizations (name, license_key, plan, max_seats) VALUES ($1, $2, $3, $4) RETURNING id`,
+    [TEST_ORG_NAME, TEST_LICENSE_KEY, 'basic', 10],
+  );
+  const organizationId = orgResult.rows[0].id as string;
   console.log('[e2e:setup] 조직 생성 완료:', organizationId);
 
-  // ── 4. 유저 - 조직 연결 ───────────────────────────────────
+  // ── 4. 유저 - 조직 연결 ───────────────────────────────
   console.log('[e2e:setup] 유저-조직 연결...');
-  const { error: linkError } = await adminClient.from('user_organizations').insert({
-    user_id: userId,
-    organization_id: organizationId,
-  });
+  await client.query(
+    `INSERT INTO user_organizations (user_id, organization_id, role) VALUES ($1, $2, $3)`,
+    [userId, organizationId, 'owner'],
+  );
 
-  if (linkError) {
-    throw new Error(`유저-조직 연결 실패: ${linkError.message}`);
-  }
+  await client.end();
 
-  // ── 5. 로그인하여 세션 토큰 획득 ──────────────────────────
+  // ── 5. 로그인하여 세션 토큰 획득 ─────────────────────
   console.log('[e2e:setup] 세션 토큰 획득...');
   const { data: signInData, error: signInError } = await anonClient.auth.signInWithPassword({
     email: TEST_EMAIL,
@@ -128,44 +105,15 @@ async function setup(): Promise<E2ESession> {
     supabase_anon_key: SUPABASE_ANON_KEY,
   };
 
-  // ── 6. 세션 파일로 저장 ───────────────────────────────────
+  // ── 6. 세션 파일 저장 ──────────────────────────────────
   const sessionPath = path.join(__dirname, '.e2e-session.json');
   fs.writeFileSync(sessionPath, JSON.stringify(session, null, 2));
-  console.log('[e2e:setup] 세션 저장 완료:', sessionPath);
-  console.log('[e2e:setup] 설정 완료!');
+  console.log('[e2e:setup] 세션 저장:', sessionPath);
+  console.log('[e2e:setup] ✅ 완료!');
 
   return session;
 }
 
-/**
- * 테스트 후 정리: 테스트 유저 + 조직 + 관련 데이터 삭제
- */
-export async function teardown(): Promise<void> {
-  console.log('[e2e:teardown] 테스트 데이터 정리...');
-
-  const sessionPath = path.join(__dirname, '.e2e-session.json');
-  if (!fs.existsSync(sessionPath)) {
-    console.log('[e2e:teardown] 세션 파일 없음, 스킵');
-    return;
-  }
-
-  const session: E2ESession = JSON.parse(fs.readFileSync(sessionPath, 'utf-8'));
-
-  // 조직에 속한 데이터 삭제 (CASCADE로 자동 삭제되지만 명시적으로)
-  await adminClient.from('payment_records').delete().eq('organization_id', session.organization_id);
-  await adminClient.from('enrollments').delete().eq('organization_id', session.organization_id);
-  await adminClient.from('students').delete().eq('organization_id', session.organization_id);
-  await adminClient.from('courses').delete().eq('organization_id', session.organization_id);
-  await adminClient.from('user_organizations').delete().eq('user_id', session.user_id);
-  await adminClient.from('organizations').delete().eq('id', session.organization_id);
-  await adminClient.auth.admin.deleteUser(session.user_id);
-
-  // 세션 파일 삭제
-  fs.unlinkSync(sessionPath);
-  console.log('[e2e:teardown] 정리 완료');
-}
-
-// 직접 실행 시
 setup().catch((err) => {
   console.error('[e2e:setup] 실패:', err);
   process.exit(1);

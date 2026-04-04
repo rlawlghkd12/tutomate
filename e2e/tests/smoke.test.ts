@@ -9,8 +9,6 @@
  * 실행: pnpm test:e2e
  */
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
-import { createClient } from '@supabase/supabase-js';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchApp, loadSession, navigateTo } from '../helpers/electron';
@@ -37,18 +35,18 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   // 테스트 중 생성된 데이터 정리 (DB 직접 삭제)
-  const adminClient = createClient(
-    session.supabase_url,
-    // service role key
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Offtlna7DBLCqnTbM',
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
-
-  // 조직에 속한 모든 테스트 데이터 삭제 (CASCADE 활용)
-  await adminClient.from('payment_records').delete().eq('organization_id', session.organization_id);
-  await adminClient.from('enrollments').delete().eq('organization_id', session.organization_id);
-  await adminClient.from('students').delete().eq('organization_id', session.organization_id);
-  await adminClient.from('courses').delete().eq('organization_id', session.organization_id);
+  try {
+    const pg = await import('pg');
+    const client = new pg.default.Client('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
+    await client.connect();
+    await client.query(`DELETE FROM payment_records WHERE organization_id = $1`, [session.organization_id]);
+    await client.query(`DELETE FROM enrollments WHERE organization_id = $1`, [session.organization_id]);
+    await client.query(`DELETE FROM students WHERE organization_id = $1`, [session.organization_id]);
+    await client.query(`DELETE FROM courses WHERE organization_id = $1`, [session.organization_id]);
+    await client.end();
+  } catch (e) {
+    console.warn('[e2e:cleanup] 데이터 정리 실패:', e);
+  }
 
   await app?.close();
 });
