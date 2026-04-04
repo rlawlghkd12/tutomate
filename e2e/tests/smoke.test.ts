@@ -172,12 +172,30 @@ test.describe.serial('핵심 플로우', () => {
     await saveBtn.click({ force: true });
     await page.waitForTimeout(2000);
 
-    // 5. 수강생 목록에서 강좌 확인
+    // 5. 수강생 목록에서 강좌 + 납부 상태 확인
     const updatedRow = page.locator(`table tbody tr`).filter({ hasText: studentName });
     await expect(updatedRow).toBeVisible({ timeout: 5000 });
     const rowText = await updatedRow.innerText();
-    // 강좌가 등록되었으면 강좌 컬럼에 표시됨
-    expect(rowText.length).toBeGreaterThan(10); // 최소한 데이터가 있음
+
+    // 강좌명이 강좌 컬럼에 표시되어야 함
+    expect(rowText).toContain(courseName.substring(0, 10));
+
+    // 6. 강좌 관리 → 강좌 상세 → 납부 상태 검증
+    await navigateTo(page, '강좌 관리');
+    await page.waitForTimeout(2000);
+
+    // 강좌 이름 클릭 → 상세 페이지
+    const courseBtn = page.locator(`button:has-text("${courseName.substring(0, 10)}")`);
+    await courseBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await courseBtn.click();
+    await page.waitForTimeout(2000);
+
+    // 강좌 상세에서 수강생이 표시되고 납부 상태가 있어야 함
+    const detailContent = await page.evaluate(() => document.body.innerText);
+    expect(detailContent).toContain(studentName.substring(0, 8));
+    // 수강료 30,000원 기본이므로 "완납" 또는 납부 상태 배지가 있어야 함
+    const hasPaymentStatus = detailContent.includes('완납') || detailContent.includes('미납') || detailContent.includes('부분납부');
+    expect(hasPaymentStatus).toBeTruthy();
   });
 
   // ── 5. 페이지 네비게이션 검증 ──────────────────────────────
