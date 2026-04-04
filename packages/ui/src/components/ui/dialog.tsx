@@ -49,7 +49,8 @@ const DialogContent = React.forwardRef<
         overflowY: 'auto',
         border: '1px solid var(--color-border, #e5e5e5)',
         borderRadius: 12,
-        background: 'var(--color-background, #fff)',
+        background: 'hsl(var(--background))',
+        color: 'hsl(var(--foreground))',
         padding: 24,
         boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
       }}
