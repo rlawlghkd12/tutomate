@@ -1,6 +1,6 @@
 import { Plus, Loader2 } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
@@ -66,28 +66,45 @@ const DashboardPage: React.FC = () => {
 	const totalCourses = courses.length;
 	const totalStudents = students.length;
 
-	const completedPayments = enrollments.filter(
-		(e) => e.paymentStatus === "completed",
-	).length;
-	const pendingPayments = enrollments.filter(
-		(e) => e.paymentStatus === "pending",
-	).length;
+	const { completedPayments, pendingPayments, totalRevenue, expectedRevenue, paymentRate } = useMemo(() => {
+		const completed = enrollments.filter(
+			(e) => e.paymentStatus === "completed",
+		).length;
+		const pending = enrollments.filter(
+			(e) => e.paymentStatus === "pending",
+		).length;
 
-	const totalRevenue = enrollments
-		.filter((e) => e.paymentStatus !== "exempt")
-		.reduce((sum, enrollment) => {
-			return sum + enrollment.paidAmount;
-		}, 0);
+		const revenue = enrollments
+			.filter((e) => e.paymentStatus !== "exempt")
+			.reduce((sum, enrollment) => {
+				return sum + enrollment.paidAmount;
+			}, 0);
 
-	const expectedRevenue = enrollments
-		.filter((e) => e.paymentStatus !== "exempt")
-		.reduce((sum, enrollment) => {
-			const course = courses.find((c) => c.id === enrollment.courseId);
-			return sum + (course?.fee || 0);
-		}, 0);
+		const expected = enrollments
+			.filter((e) => e.paymentStatus !== "exempt")
+			.reduce((sum, enrollment) => {
+				const course = courses.find((c) => c.id === enrollment.courseId);
+				return sum + (course?.fee || 0);
+			}, 0);
 
-	const paymentRate =
-		expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0;
+		const rate = expected > 0 ? (revenue / expected) * 100 : 0;
+
+		return {
+			completedPayments: completed,
+			pendingPayments: pending,
+			totalRevenue: revenue,
+			expectedRevenue: expected,
+			paymentRate: rate,
+		};
+	}, [enrollments, courses]);
+
+	const enrollmentCountMap = useMemo(() => {
+		const map = new Map<string, number>();
+		for (const e of enrollments) {
+			map.set(e.courseId, (map.get(e.courseId) || 0) + 1);
+		}
+		return map;
+	}, [enrollments]);
 
 	if (loading) {
 		return (
@@ -173,9 +190,7 @@ const DashboardPage: React.FC = () => {
 					) : (
 						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
 							{courses.map((course) => {
-								const currentStudents = enrollments.filter(
-									(e) => e.courseId === course.id,
-								).length;
+								const currentStudents = enrollmentCountMap.get(course.id) || 0;
 								const percentage = (currentStudents / course.maxStudents) * 100;
 								return (
 									<Card

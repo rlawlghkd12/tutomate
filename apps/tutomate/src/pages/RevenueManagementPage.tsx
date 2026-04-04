@@ -82,17 +82,22 @@ const RevenueManagementPage: React.FC = () => {
 
   const revenueEnrollments = useMemo(() => filteredEnrollments.filter((e) => e.paymentStatus !== 'exempt'), [filteredEnrollments]);
 
-  const totalRevenue = revenueEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-  const expectedRevenue = revenueEnrollments.reduce((sum, e) => {
-    const course = getCourseById(e.courseId);
-    return sum + (course?.fee || 0);
-  }, 0);
-  const totalUnpaid = expectedRevenue - totalRevenue;
-
-  const completedPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'completed').length;
-  const partialPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'partial').length;
-  const pendingPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'pending').length;
-  const exemptPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'exempt').length;
+  const { totalRevenue, expectedRevenue, totalUnpaid, completedPayments, partialPayments, pendingPayments, exemptPayments } = useMemo(() => {
+    const revenue = revenueEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
+    const expected = revenueEnrollments.reduce((sum, e) => {
+      const course = getCourseById(e.courseId);
+      return sum + (course?.fee || 0);
+    }, 0);
+    return {
+      totalRevenue: revenue,
+      expectedRevenue: expected,
+      totalUnpaid: expected - revenue,
+      completedPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'completed').length,
+      partialPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'partial').length,
+      pendingPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'pending').length,
+      exemptPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'exempt').length,
+    };
+  }, [revenueEnrollments, filteredEnrollments, getCourseById]);
 
   // 강좌별 수익 테이블 데이터
   const courseRevenueData = useMemo(() => courses.map((course) => {
@@ -284,7 +289,7 @@ const RevenueManagementPage: React.FC = () => {
                 { value: ['pending', 'partial'], label: '미완납' },
                 { value: ['completed'], label: '완납만' },
               ].map((opt) => {
-                const isActive = JSON.stringify(paymentStatusFilter.sort()) === JSON.stringify(opt.value.sort());
+                const isActive = JSON.stringify([...paymentStatusFilter].sort()) === JSON.stringify([...opt.value].sort());
                 return (
                   <Button
                     key={opt.label}

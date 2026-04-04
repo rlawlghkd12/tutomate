@@ -22,6 +22,11 @@ interface GlobalSearchProps {
 }
 
 export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) => {
+  if (!visible) return null;
+  return <GlobalSearchInner onClose={onClose} />;
+};
+
+const GlobalSearchInner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const navigate = useNavigate();
@@ -31,19 +36,13 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
   const { enrollments } = useEnrollmentStore();
 
   useEffect(() => {
-    if (!visible) {
-      setQuery('');
-      setResults([]);
-      return;
-    }
-
     if (query.trim()) {
       const searchResults = searchAll(query, courses, students, enrollments);
       setResults(searchResults);
     } else {
       setResults([]);
     }
-  }, [visible, query, courses, students, enrollments]);
+  }, [query, courses, students, enrollments]);
 
   const handleSelect = (result: SearchResult) => {
     switch (result.type) {
@@ -86,8 +85,6 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
   const courseResults = results.filter((r) => r.type === 'course');
   const studentResults = results.filter((r) => r.type === 'student');
   const enrollmentResults = results.filter((r) => r.type === 'enrollment');
-
-  if (!visible) return null;
 
   return (
     <>

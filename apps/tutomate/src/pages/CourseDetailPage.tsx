@@ -64,7 +64,10 @@ const CourseDetailPage: React.FC = () => {
 	}, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
 	const course = id ? getCourseById(id) : undefined;
-	const courseEnrollments = enrollments.filter((e) => e.courseId === id && e.paymentStatus !== 'withdrawn');
+	const courseEnrollments = useMemo(
+		() => enrollments.filter((e) => e.courseId === id && e.paymentStatus !== 'withdrawn'),
+		[enrollments, id],
+	);
 
 	const enrolledStudents = useMemo(() => {
 		return courseEnrollments.map((enrollment) => {
@@ -76,16 +79,19 @@ const CourseDetailPage: React.FC = () => {
 		});
 	}, [courseEnrollments, getStudentById]);
 
-	const nonExemptEnrollments = courseEnrollments.filter(
-		(e) => e.paymentStatus !== "exempt",
-	);
-	const totalRevenue = nonExemptEnrollments.reduce(
-		(sum, e) => sum + e.paidAmount,
-		0,
-	);
-	const completedPayments = courseEnrollments.filter(
-		(e) => e.paymentStatus === "completed",
-	).length;
+	const { nonExemptEnrollments, totalRevenue, completedPayments } = useMemo(() => {
+		const nonExempt = courseEnrollments.filter(
+			(e) => e.paymentStatus !== "exempt",
+		);
+		const revenue = nonExempt.reduce(
+			(sum, e) => sum + e.paidAmount,
+			0,
+		);
+		const completed = courseEnrollments.filter(
+			(e) => e.paymentStatus === "completed",
+		).length;
+		return { nonExemptEnrollments: nonExempt, totalRevenue: revenue, completedPayments: completed };
+	}, [courseEnrollments]);
 
 	const handleDeleteCourse = () => {
 		if (!course) return;

@@ -2,22 +2,32 @@ import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Layout, ErrorBoundary, UpdateChecker, LockScreen, LicenseKeyInput, Button, Dialog, DialogContent, DialogHeader, DialogTitle, AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@tutomate/ui';
 import { useSettingsStore, useLockStore, useAutoLock, useLicenseStore, useAuthStore, migrateOrgData, reloadAllStores, appConfig, isElectron, OAUTH_PROVIDERS } from '@tutomate/core';
 import type { OAuthProvider } from '@tutomate/core';
-import DashboardPage from './pages/DashboardPage';
-import CoursesPage from './pages/CoursesPage';
-import CourseDetailPage from './pages/CourseDetailPage';
-import StudentsPage from './pages/StudentsPage';
-import CalendarPage from './pages/CalendarPage';
-import RevenueManagementPage from './pages/RevenueManagementPage';
-import SettingsPage from './pages/SettingsPage';
-import { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+
+const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
+const CoursesPage = React.lazy(() => import('./pages/CoursesPage'));
+const CourseDetailPage = React.lazy(() => import('./pages/CourseDetailPage'));
+const StudentsPage = React.lazy(() => import('./pages/StudentsPage'));
+const CalendarPage = React.lazy(() => import('./pages/CalendarPage'));
+const RevenueManagementPage = React.lazy(() => import('./pages/RevenueManagementPage'));
+const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 import { toast, Toaster } from 'sonner';
 
 function App() {
-  const { theme, fontSize, loadSettings } = useSettingsStore();
-  const { loadLicense, activateLicense } = useLicenseStore();
-  const { initialize, loading: authLoading, session, needsSetup, signInWithOAuth, startTrial } = useAuthStore();
-  const { isEnabled: lockEnabled, isLocked } = useLockStore();
+  const theme = useSettingsStore((s) => s.theme);
+  const fontSize = useSettingsStore((s) => s.fontSize);
+  const loadSettings = useSettingsStore((s) => s.loadSettings);
+  const loadLicense = useLicenseStore((s) => s.loadLicense);
+  const activateLicense = useLicenseStore((s) => s.activateLicense);
+  const initialize = useAuthStore((s) => s.initialize);
+  const authLoading = useAuthStore((s) => s.loading);
+  const session = useAuthStore((s) => s.session);
+  const needsSetup = useAuthStore((s) => s.needsSetup);
+  const signInWithOAuth = useAuthStore((s) => s.signInWithOAuth);
+  const startTrial = useAuthStore((s) => s.startTrial);
+  const lockEnabled = useLockStore((s) => s.isEnabled);
+  const isLocked = useLockStore((s) => s.isLocked);
   useAutoLock();
   const [licenseInput, setLicenseInput] = useState(['', '', '', '']);
   const [activating, setActivating] = useState(false);
@@ -245,16 +255,18 @@ function App() {
       <UpdateChecker autoCheck={true} checkInterval={60} />
       <Router>
         <Layout>
-          <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/courses" element={<CoursesPage />} />
-            <Route path="/courses/:id" element={<CourseDetailPage />} />
-            <Route path="/students" element={<StudentsPage />} />
-            <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/revenue" element={<RevenueManagementPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh'}}><Loader2 style={{width:32,height:32,animation:'spin 1s linear infinite'}} /></div>}>
+            <Routes>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/courses" element={<CoursesPage />} />
+              <Route path="/courses/:id" element={<CourseDetailPage />} />
+              <Route path="/students" element={<StudentsPage />} />
+              <Route path="/calendar" element={<CalendarPage />} />
+              <Route path="/revenue" element={<RevenueManagementPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </Layout>
       </Router>
       {isLocked && lockEnabled && <LockScreen />}
