@@ -33,30 +33,29 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
-  const innerRef = React.useRef<HTMLDivElement>(null)
-  const containerRef = React.useRef<HTMLDivElement>(null)
+  const wrapperRef = React.useRef<HTMLDivElement>(null)
 
-  React.useEffect(() => {
-    const inner = innerRef.current
-    const container = containerRef.current
-    if (!inner || !container) return
+  // Use callback ref on wrapper to ensure it's available
+  const setupRef = React.useCallback((node: HTMLDivElement | null) => {
+    (wrapperRef as React.MutableRefObject<HTMLDivElement | null>).current = node
+    if (!node) return
+    const inner = node.firstElementChild as HTMLElement
+    if (!inner) return
 
     const update = () => {
       const h = inner.scrollHeight
-      container.style.height = `${h}px`
+      node.style.height = `${h}px`
     }
 
-    // ResizeObserver for size changes
-    const resizeObs = new ResizeObserver(update)
-    resizeObs.observe(inner)
-
-    // MutationObserver for DOM changes (conditional rendering)
-    const mutObs = new MutationObserver(update)
-    mutObs.observe(inner, { childList: true, subtree: true, attributes: true })
+    const ro = new ResizeObserver(update)
+    ro.observe(inner)
+    const mo = new MutationObserver(() => requestAnimationFrame(update))
+    mo.observe(inner, { childList: true, subtree: true })
 
     update()
-
-    return () => { resizeObs.disconnect(); mutObs.disconnect(); }
+    requestAnimationFrame(() => {
+      node.style.transition = 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+    })
   }, [])
 
   return (
@@ -83,8 +82,8 @@ const DialogContent = React.forwardRef<
         }}
         {...props}
       >
-        <div ref={containerRef} style={{ overflow: 'hidden', transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-          <div ref={innerRef} style={{ padding: 24 }}>
+        <div ref={setupRef} data-dialog-wrapper="" style={{ overflow: 'hidden' }}>
+          <div style={{ padding: 24 }}>
             {children}
           </div>
         </div>
