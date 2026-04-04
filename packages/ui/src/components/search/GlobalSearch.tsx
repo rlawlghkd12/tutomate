@@ -14,7 +14,7 @@ import {
   CommandItem,
   CommandSeparator,
 } from '../ui/command';
-import { Dialog, DialogContent } from '../ui/dialog';
+import { Dialog } from '../ui/dialog';
 import { Badge } from '../ui/badge';
 
 interface GlobalSearchProps {
@@ -90,7 +90,9 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
 
   return (
     <Dialog open={visible} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent style={{
+      {/* 오버레이 투명 */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.15)' }} onClick={onClose} />
+      <div style={{
         position: 'fixed',
         left: '50%',
         top: '20%',
@@ -230,7 +232,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
         </div>
       )}
     </Command>
-    </DialogContent>
+    </div>
     </Dialog>
   );
 };
