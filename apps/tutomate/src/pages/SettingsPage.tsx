@@ -184,11 +184,14 @@ const SettingsPage: React.FC = () => {
     { label: '24시간', value: '1440' },
   ];
 
-  const fontSizeOptions: { label: string; value: FontSize }[] = [
-    { label: '작게', value: 'small' },
-    { label: '보통', value: 'medium' },
-    { label: '크게', value: 'large' },
-    { label: '아주 크게', value: 'extra-large' },
+  const fontSizeOptions: { label: string; value: FontSize; px: number }[] = [
+    { label: '아주 작게', value: 'xs', px: 11 },
+    { label: '작게', value: 'small', px: 12 },
+    { label: '보통', value: 'medium', px: 14 },
+    { label: '크게', value: 'large', px: 16 },
+    { label: '매우 크게', value: 'xl', px: 18 },
+    { label: '특대', value: 'xxl', px: 20 },
+    { label: '최대', value: 'xxxl', px: 22 },
   ];
 
   // 업데이트 확인
@@ -446,7 +449,7 @@ const SettingsPage: React.FC = () => {
               </div>
               <span style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>
                 {fontSizeOptions.find(o => o.value === fontSize)?.label} ({
-                  { small: 12, medium: 14, large: 16, 'extra-large': 18 }[fontSize]
+                  fontSizeOptions.find(o => o.value === fontSize)?.px
                 }px)
               </span>
             </div>
@@ -455,22 +458,13 @@ const SettingsPage: React.FC = () => {
               <input
                 type="range"
                 min={0}
-                max={3}
+                max={6}
                 step={1}
                 value={fontSizeOptions.findIndex(o => o.value === fontSize)}
                 onChange={(e) => setFontSize(fontSizeOptions[Number(e.target.value)].value)}
                 style={{ flex: 1, accentColor: 'hsl(var(--foreground))' }}
               />
               <span style={{ fontSize: 18, fontWeight: 700, color: 'hsl(var(--muted-foreground))' }}>가</span>
-            </div>
-            <div style={{
-              marginTop: 12, padding: 12, borderRadius: 8,
-              border: '1px solid hsl(var(--border))',
-              background: 'hsl(var(--muted))',
-            }}>
-              <p style={{ margin: 0, lineHeight: 1.6 }}>
-                미리보기: 수강생 관리 프로그램에서 강좌와 수강생 정보를 한눈에 확인할 수 있습니다.
-              </p>
             </div>
           </div>
 
