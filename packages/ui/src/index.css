@@ -148,14 +148,13 @@
 .dark ::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.12); }
 .dark ::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.25); }
 
-/* Smooth reveal for conditional content */
+/* Fade-in for conditional content (modal handles height transition) */
 .slide-enter {
-  overflow: hidden;
-  animation: revealHeight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: fadeIn 0.2s ease forwards;
 }
-@keyframes revealHeight {
-  from { opacity: 0; max-height: 0; }
-  to { opacity: 1; max-height: 200px; }
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Ended course row */

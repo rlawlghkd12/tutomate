@@ -53,6 +53,7 @@ const DialogContent = React.forwardRef<
         color: 'hsl(var(--foreground))',
         padding: 24,
         boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+        transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
       {...props}
     >
