@@ -8,7 +8,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table';
-import { Search, ArrowUpDown } from 'lucide-react';
+import { Search, ArrowUpDown, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Student } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
@@ -24,6 +24,7 @@ import {
   TableRow,
 } from '../ui/table';
 import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
   Select,
@@ -40,6 +41,7 @@ import {
 } from '../ui/tooltip';
 
 import StudentForm from './StudentForm';
+import EnrollmentForm from './EnrollmentForm';
 
 interface StudentRow {
   rowKey: string;
@@ -59,6 +61,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
   const { courses } = useCourseStore();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [enrollStudent, setEnrollStudent] = useState<Student | null>(null);
   const [searchText, setSearchText] = useState('');
   const [searchField, setSearchField] = useState<string>('all');
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -206,6 +209,21 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
         </TooltipProvider>
       ) : '-',
     },
+    {
+      id: 'actions',
+      header: '작업',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setEnrollStudent(row.original.student)}
+        >
+          <BookOpen className="h-3.5 w-3.5 mr-1" />
+          수강 신청
+        </Button>
+      ),
+    },
   ], [handleEdit, navigate]);
 
   const table = useReactTable({
@@ -296,6 +314,11 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
         visible={isModalVisible}
         onClose={handleCloseStudentModal}
         student={selectedStudent}
+      />
+      <EnrollmentForm
+        visible={!!enrollStudent}
+        onClose={() => setEnrollStudent(null)}
+        student={enrollStudent}
       />
     </>
   );

@@ -1,21 +1,13 @@
-import { Trash2, X, Info, ChevronsUpDown } from "lucide-react";
-import dayjs from "dayjs";
+import { X, Info, ChevronsUpDown } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useCourseStore } from "@tutomate/core";
-import { useEnrollmentStore } from "@tutomate/core";
-import { useLicenseStore } from "@tutomate/core";
-import { usePaymentRecordStore } from "@tutomate/core";
 import { useStudentStore } from "@tutomate/core";
-import type { PaymentMethod, Student, StudentFormData } from "@tutomate/core";
+import type { Student, StudentFormData } from "@tutomate/core";
 import { formatPhone, parseBirthDate } from "@tutomate/core";
 import { appConfig } from "@tutomate/core";
-import {
-	getCurrentQuarter,
-} from "@tutomate/core";
 
 import {
 	Dialog,
@@ -40,14 +32,6 @@ import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
-import { Badge } from "../ui/badge";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "../ui/select";
 import {
 	Popover,
 	PopoverContent,
@@ -62,14 +46,6 @@ import {
 } from "../ui/command";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
-
-interface CoursePayment {
-	courseId: string;
-	paidAmount: number;
-	isExempt: boolean;
-	paymentMethod: PaymentMethod;
-	discountAmount: number;
-}
 
 interface StudentFormProps {
 	visible: boolean;
@@ -106,11 +82,6 @@ const StudentForm: React.FC<StudentFormProps> = ({
 	});
 
 	const { addStudent, updateStudent, deleteStudent, students } = useStudentStore();
-	const { courses, getCourseById } = useCourseStore();
-	const { enrollments, addEnrollment, deleteEnrollment, updateEnrollment } =
-		useEnrollmentStore();
-	const { getPlan, getLimit } = useLicenseStore();
-	const { addPayment: addPaymentRecord } = usePaymentRecordStore();
 	const nameInputRef = useRef<HTMLInputElement>(null);
 	const phoneInputRef = useRef<HTMLInputElement>(null);
 	const birthDateInputRef = useRef<HTMLInputElement>(null);
@@ -122,15 +93,10 @@ const StudentForm: React.FC<StudentFormProps> = ({
 	const addressRegister = form.register("address");
 	const notesRegister = form.register("notes");
 
-	const [coursePayments, setCoursePayments] = useState<CoursePayment[]>([]);
-	const [courseSelectKey, setCourseSelectKey] = useState(0);
 	const [nameSearch, setNameSearch] = useState("");
 	const [nameComboboxOpen, setNameComboboxOpen] = useState(false);
 	const [selectedExistingStudent, setSelectedExistingStudent] =
 		useState<Student | null>(null);
-	const [savedCoursePayments, setSavedCoursePayments] = useState<
-		CoursePayment[]
-	>([]);
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
 	// 현재 편집 중인 수강생 (props로 받은 것 또는 자동완성으로 선택한 것)
@@ -138,18 +104,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 
 	useEffect(() => {
 		if (visible && student) {
-			// 수정 모드: 기존 수강 강좌 및 납부 정보 가져오기
-			const studentEnrollments = enrollments.filter(
-				(e) => e.studentId === student.id,
-			);
-			const payments = studentEnrollments.map((e) => ({
-				courseId: e.courseId,
-				paidAmount: e.paidAmount,
-				isExempt: e.paymentStatus === "exempt",
-				paymentMethod: e.paymentMethod,
-				discountAmount: e.discountAmount ?? 0,
-			}));
-			setCoursePayments(payments);
+			// 수정 모드
 			setSelectedExistingStudent(null);
 			setNameSearch("");
 			form.reset({
@@ -171,14 +126,13 @@ const StudentForm: React.FC<StudentFormProps> = ({
 				notes: "",
 				isMember: false,
 			});
-			setCoursePayments([]);
 			setSelectedExistingStudent(null);
 			setNameSearch("");
 			setTimeout(() => {
 				nameInputRef.current?.focus();
 			}, 100);
 		}
-	}, [visible, student, form, enrollments]);
+	}, [visible, student, form]);
 
 	// 이름 자동완성 옵션
 	const nameOptions = useMemo(() => {
@@ -200,7 +154,6 @@ const StudentForm: React.FC<StudentFormProps> = ({
 		if (!existing) return;
 
 		setSelectedExistingStudent(existing);
-		setSavedCoursePayments(coursePayments);
 		setNameComboboxOpen(false);
 
 		// 폼에 기존 정보 채우기
@@ -215,117 +168,12 @@ const StudentForm: React.FC<StudentFormProps> = ({
 			isMember: existing.isMember ?? false,
 		});
 
-		// 기존 수강 정보 로드
-		const studentEnrollments = enrollments.filter(
-			(e) => e.studentId === existing.id,
-		);
-		setCoursePayments(
-			studentEnrollments.map((e) => ({
-				courseId: e.courseId,
-				paidAmount: e.paidAmount,
-				isExempt: e.paymentStatus === "exempt",
-				paymentMethod: e.paymentMethod,
-				discountAmount: e.discountAmount ?? 0,
-			})),
-		);
-
 		toast.info(`기존 수강생 "${existing.name}"님의 정보를 불러왔습니다.`);
 		phoneInputRef.current?.focus();
 	};
 
 	const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		form.setValue("phone", formatPhone(e.target.value));
-	};
-
-	const handleMemberChange = (checked: boolean) => {
-		form.setValue("isMember", checked);
-		setCoursePayments((prev) =>
-			prev.map((cp) => ({
-				...cp,
-				isExempt: checked,
-				paidAmount: checked ? 0 : cp.paidAmount,
-			})),
-		);
-	};
-
-	const handleAddCourse = (courseId: string) => {
-		const course = getCourseById(courseId);
-		if (course && !coursePayments.find((cp) => cp.courseId === courseId)) {
-			const isMember = form.getValues("isMember");
-			setCoursePayments([
-				...coursePayments,
-				{
-					courseId,
-					paidAmount: isMember ? 0 : course.fee,
-					isExempt: !!isMember,
-					paymentMethod: "cash" as PaymentMethod,
-					discountAmount: 0,
-				},
-			]);
-		}
-		setCourseSelectKey((k) => k + 1);
-	};
-
-	const handleRemoveCourse = useCallback((courseId: string) => {
-		setCoursePayments((prev) => prev.filter((cp) => cp.courseId !== courseId));
-		setCourseSelectKey((k) => k + 1);
-	}, []);
-
-	const handlePaymentChange = useCallback(
-		(courseId: string, paidAmount: number) => {
-			setCoursePayments((prev) =>
-				prev.map((cp) =>
-					cp.courseId === courseId
-						? { ...cp, paidAmount, isExempt: false }
-						: cp,
-				),
-			);
-		},
-		[],
-	);
-
-	const handleExemptToggle = useCallback((courseId: string) => {
-		setCoursePayments((prev) =>
-			prev.map((cp) =>
-				cp.courseId === courseId
-					? { ...cp, isExempt: !cp.isExempt, paidAmount: 0 }
-					: cp,
-			),
-		);
-	}, []);
-
-	const handlePaymentMethodChange = useCallback(
-		(courseId: string, method: PaymentMethod) => {
-			setCoursePayments((prev) =>
-				prev.map((cp) =>
-					cp.courseId === courseId ? { ...cp, paymentMethod: method } : cp,
-				),
-			);
-		},
-		[],
-	);
-
-	const handleDiscountChange = useCallback(
-		(courseId: string, discount: number) => {
-			setCoursePayments((prev) =>
-				prev.map((cp) => {
-					if (cp.courseId !== courseId) return cp;
-					return { ...cp, discountAmount: discount };
-				}),
-			);
-		},
-		[],
-	);
-
-	const getPaymentStatus = (
-		cp: CoursePayment,
-		fee: number,
-	): "pending" | "partial" | "completed" | "exempt" => {
-		if (cp.isExempt) return "exempt";
-		const effectiveFee = fee - (cp.discountAmount || 0);
-		if (cp.paidAmount === 0) return "pending";
-		if (cp.paidAmount < effectiveFee) return "partial";
-		return "completed";
 	};
 
 	const handleSubmit = async () => {
@@ -346,93 +194,8 @@ const StudentForm: React.FC<StudentFormProps> = ({
 				// 수정 모드 (props 또는 자동완성으로 선택한 기존 수강생)
 				await updateStudent(editingStudent.id, formData);
 
-				const existingEnrollments = enrollments.filter(
-					(e) => e.studentId === editingStudent.id,
-				);
-				const newCourseIds = coursePayments.map((cp) => cp.courseId);
-
-				// 삭제할 enrollment
-				for (const e of existingEnrollments.filter(
-					(e) => !newCourseIds.includes(e.courseId),
-				)) {
-					await deleteEnrollment(e.id);
-				}
-
-				// 추가 또는 수정할 enrollment
-				for (const cp of coursePayments) {
-					const course = getCourseById(cp.courseId);
-					if (!course) continue;
-
-					const existing = existingEnrollments.find(
-						(e) => e.courseId === cp.courseId,
-					);
-					const newStatus = getPaymentStatus(cp, course.fee);
-					const effectiveFee = course.fee - (cp.discountAmount || 0);
-					if (existing) {
-						const existingIsExempt = existing.paymentStatus === "exempt";
-						const needsQuarter = appConfig.enableQuarterSystem && !existing.quarter;
-						if (
-							existing.paidAmount !== cp.paidAmount ||
-							existingIsExempt !== cp.isExempt ||
-							existing.paymentMethod !== cp.paymentMethod ||
-							(existing.discountAmount ?? 0) !== cp.discountAmount ||
-							needsQuarter
-						) {
-							const hasPaid = !cp.isExempt && cp.paidAmount > 0;
-							await updateEnrollment(existing.id, {
-								paidAmount: cp.isExempt ? 0 : cp.paidAmount,
-								remainingAmount: cp.isExempt ? 0 : effectiveFee - cp.paidAmount,
-								paymentStatus: newStatus,
-								paidAt: hasPaid ? dayjs().format("YYYY-MM-DD") : undefined,
-								paymentMethod: cp.paymentMethod,
-								discountAmount: cp.discountAmount,
-								...(needsQuarter && {
-									quarter: getCurrentQuarter(),
-								}),
-							});
-						}
-					} else {
-						const hasPaidNew = !cp.isExempt && cp.paidAmount > 0;
-						const currentQuarter = getCurrentQuarter();
-						await addEnrollment({
-							studentId: editingStudent.id,
-							courseId: cp.courseId,
-							paidAmount: cp.isExempt ? 0 : cp.paidAmount,
-							paymentStatus: newStatus,
-							paidAt: hasPaidNew ? dayjs().format("YYYY-MM-DD") : undefined,
-							paymentMethod: cp.paymentMethod,
-							discountAmount: cp.discountAmount,
-							...(appConfig.enableQuarterSystem && {
-								quarter: currentQuarter,
-							}),
-						});
-
-						// 납부 레코드 생성
-						const newEnr = useEnrollmentStore
-							.getState()
-							.enrollments.find(
-								(e) =>
-									e.studentId === editingStudent.id &&
-									e.courseId === cp.courseId,
-							);
-						if (newEnr) {
-							const paidAmt = cp.isExempt ? 0 : cp.paidAmount;
-							if (paidAmt > 0) {
-								await addPaymentRecord(
-									newEnr.id,
-									paidAmt,
-									course.fee,
-									cp.paymentMethod,
-									dayjs().format("YYYY-MM-DD"),
-								);
-							}
-						}
-					}
-				}
-
 				toast.success("수강생 정보가 수정되었습니다.");
 				form.reset();
-				setCoursePayments([]);
 				setSelectedExistingStudent(null);
 				setNameSearch("");
 				onClose();
@@ -448,53 +211,10 @@ const StudentForm: React.FC<StudentFormProps> = ({
 					return;
 				}
 
-				const newStudent = await addStudent(formData as StudentFormData);
-
-				if (coursePayments.length > 0 && newStudent) {
-					const currentQuarter = getCurrentQuarter();
-					for (const cp of coursePayments) {
-						const course = getCourseById(cp.courseId);
-						if (course) {
-							const hasPaidInit = !cp.isExempt && cp.paidAmount > 0;
-							await addEnrollment({
-								studentId: newStudent.id,
-								courseId: cp.courseId,
-								paidAmount: cp.isExempt ? 0 : cp.paidAmount,
-								paymentStatus: getPaymentStatus(cp, course.fee),
-								paidAt: hasPaidInit ? dayjs().format("YYYY-MM-DD") : undefined,
-								paymentMethod: cp.paymentMethod,
-								discountAmount: cp.discountAmount,
-								...(appConfig.enableQuarterSystem && {
-									quarter: currentQuarter,
-								}),
-							});
-
-							// 납부 레코드 생성
-							const newEnrollment = useEnrollmentStore
-								.getState()
-								.enrollments.find(
-									(e) =>
-										e.studentId === newStudent.id && e.courseId === cp.courseId,
-								);
-							if (newEnrollment) {
-								const paidAmt = cp.isExempt ? 0 : cp.paidAmount;
-								if (paidAmt > 0) {
-									await addPaymentRecord(
-										newEnrollment.id,
-										paidAmt,
-										course.fee,
-										cp.paymentMethod,
-										dayjs().format("YYYY-MM-DD"),
-									);
-								}
-							}
-						}
-					}
-				}
+				await addStudent(formData as StudentFormData);
 
 				toast.success("수강생이 등록되었습니다.");
 				form.reset();
-				setCoursePayments([]);
 				setSelectedExistingStudent(null);
 				setNameSearch("");
 				setTimeout(() => {
@@ -504,28 +224,6 @@ const StudentForm: React.FC<StudentFormProps> = ({
 		} catch (error) {
 			console.error("Validation failed:", error);
 		}
-	};
-
-	// 강좌 상태 확인 함수
-	const getCourseStatus = (courseId: string) => {
-		const isSelected = coursePayments.some((cp) => cp.courseId === courseId);
-		const count = enrollments.filter((e) => e.courseId === courseId).length;
-		const course = getCourseById(courseId);
-		if (!course) return { isDisabled: true, label: "" };
-
-		const maxStudentsLimit =
-			getPlan() === "trial"
-				? getLimit("maxStudentsPerCourse")
-				: course.maxStudents;
-		const effectiveMax = Math.min(course.maxStudents, maxStudentsLimit);
-		const isFull = count >= effectiveMax;
-
-		return {
-			isSelected,
-			isFull: isFull && !isSelected,
-			isDisabled: isSelected || isFull,
-			count,
-		};
 	};
 
 	const handleDelete = async () => {
@@ -557,8 +255,6 @@ const StudentForm: React.FC<StudentFormProps> = ({
 								className="absolute top-2 right-2 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100"
 								onClick={() => {
 									setSelectedExistingStudent(null);
-									setCoursePayments(savedCoursePayments);
-									setSavedCoursePayments([]);
 									form.reset();
 									setNameSearch("");
 								}}
@@ -689,10 +385,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 												<Switch
 													id="isMember"
 													checked={field.value}
-													onCheckedChange={(checked) => {
-														field.onChange(checked);
-														handleMemberChange(checked);
-													}}
+													onCheckedChange={field.onChange}
 												/>
 												<Label htmlFor="isMember" className="text-sm cursor-pointer whitespace-nowrap">
 													{field.value ? "회원" : "비회원"}
@@ -740,119 +433,6 @@ const StudentForm: React.FC<StudentFormProps> = ({
 								}}
 							/>
 						</div>
-
-						{/* 구분선 */}
-						<div className="border-t" />
-
-						{/* 강좌 */}
-						<div className="space-y-1.5">
-							<Label>강좌 신청</Label>
-							<Select
-								key={courseSelectKey}
-								onValueChange={handleAddCourse}
-							>
-								<SelectTrigger className="text-base">
-									<SelectValue placeholder="강좌를 선택하세요" />
-								</SelectTrigger>
-								<SelectContent>
-									{courses.map((course) => {
-										const status = getCourseStatus(course.id);
-										const count =
-											status.count ??
-											enrollments.filter((e) => e.courseId === course.id).length;
-										const label = `${course.name} (${course.fee.toLocaleString()}원) - ${count}/${course.maxStudents}명`;
-										return (
-											<SelectItem
-												key={course.id}
-												value={course.id}
-												disabled={status.isDisabled}
-											>
-												<span
-													className={cn(
-														status.isSelected && "line-through text-muted-foreground"
-													)}
-												>
-													{label}
-													{status.isSelected && " [선택됨]"}
-													{status.isFull && " [정원 마감]"}
-												</span>
-											</SelectItem>
-										);
-									})}
-								</SelectContent>
-							</Select>
-						</div>
-
-						{coursePayments.length > 0 && (
-							<div className="flex flex-col gap-2">
-								{coursePayments.map((cp) => {
-									const course = getCourseById(cp.courseId);
-									if (!course) return null;
-									const effectiveFee = course.fee - (cp.discountAmount || 0);
-									return (
-										<div
-											key={cp.courseId}
-											style={{ padding: 14, borderRadius: 10, border: '1px solid hsl(var(--border))', background: 'hsl(var(--muted))' }}
-										>
-											{/* 헤더 */}
-											<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-												<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-													<span style={{ fontWeight: 600, fontSize: 14, color: 'hsl(var(--foreground))' }}>{course.name}</span>
-													{cp.isExempt ? (
-														<span style={{ fontSize: 12, fontWeight: 600, color: '#7c3aed', background: 'rgba(124,58,237,0.15)', padding: '2px 8px', borderRadius: 6 }}>면제</span>
-													) : (
-														<span style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--foreground))', opacity: 0.8, background: 'rgba(59,130,246,0.12)', padding: '2px 8px', borderRadius: 6 }}>
-															{cp.discountAmount > 0 && <span style={{ textDecoration: 'line-through', opacity: 0.5, marginRight: 4 }}>{course.fee.toLocaleString()}</span>}
-															{effectiveFee.toLocaleString()}원
-														</span>
-													)}
-												</div>
-												<Button type="button" variant="ghost" size="icon" style={{ width: 28, height: 28, color: 'hsl(var(--destructive))' }} onClick={() => handleRemoveCourse(cp.courseId)}>
-													<Trash2 style={{ width: 15, height: 15 }} />
-												</Button>
-											</div>
-											{/* 납부 */}
-											<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-												<span style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', width: 36, flexShrink: 0 }}>납부</span>
-												<Input type="number" value={cp.paidAmount} onChange={(e) => handlePaymentChange(cp.courseId, Number(e.target.value) || 0)} min={0} max={effectiveFee} disabled={cp.isExempt} style={{ width: 100, height: 30, fontSize: 13 }} />
-												<Button type="button" variant="outline" size="sm" style={{ height: 30, fontSize: 12 }} onClick={() => handlePaymentChange(cp.courseId, effectiveFee)} disabled={cp.isExempt}>완납</Button>
-												<Button type="button" variant="outline" size="sm" style={{ height: 30, fontSize: 12 }} onClick={() => handlePaymentChange(cp.courseId, 0)} disabled={cp.isExempt}>미납</Button>
-											</div>
-											{/* 방법 */}
-											<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-												<span style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', width: 36, flexShrink: 0 }}>방법</span>
-												<div style={{ display: 'flex', gap: 4 }}>
-													{(["cash", "card", "transfer"] as PaymentMethod[]).map((method) => (
-														<Button key={method} type="button" variant={cp.paymentMethod === method ? "default" : "outline"} size="sm" style={{ height: 30, fontSize: 12, padding: '0 10px' }} disabled={cp.isExempt} onClick={() => handlePaymentMethodChange(cp.courseId, method)}>
-															{method === "cash" ? "현금" : method === "card" ? "카드" : "이체"}
-														</Button>
-													))}
-												</div>
-											</div>
-											{/* 할인 */}
-											<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-												<span style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', width: 36, flexShrink: 0 }}>할인</span>
-												<Input type="number" value={cp.discountAmount} onChange={(e) => handleDiscountChange(cp.courseId, Number(e.target.value) || 0)} min={0} max={course.fee} disabled={cp.isExempt} style={{ width: 100, height: 30, fontSize: 13 }} />
-												<Button type="button" variant={cp.isExempt ? "destructive" : "outline"} size="sm" style={{ height: 30, fontSize: 12 }} onClick={() => handleExemptToggle(cp.courseId)}>면제</Button>
-											</div>
-										</div>
-									);
-								})}
-
-								{/* 합계 */}
-								<div className="text-right text-muted-foreground text-xs px-1 py-0.5">
-									총 납부: {"\u20A9"}
-									{coursePayments
-										.filter((cp) => !cp.isExempt)
-										.reduce((sum, cp) => sum + cp.paidAmount, 0)
-										.toLocaleString()}
-									{coursePayments.some((cp) => cp.discountAmount > 0) &&
-										` (할인 \u20A9${coursePayments.reduce((sum, cp) => sum + (cp.discountAmount || 0), 0).toLocaleString()})`}
-									{coursePayments.some((cp) => cp.isExempt) &&
-										` (면제 ${coursePayments.filter((cp) => cp.isExempt).length}건)`}
-								</div>
-							</div>
-						)}
 					</div>
 
 					<DialogFooter className={cn(editingStudent ? "justify-between" : "justify-end", "sm:justify-between")}>
