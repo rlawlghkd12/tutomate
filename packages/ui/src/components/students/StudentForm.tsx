@@ -69,6 +69,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 	onClose,
 	student,
 }) => {
+	const [submitting, setSubmitting] = useState(false);
 	const form = useForm<StudentFormValues>({
 		resolver: zodResolver(studentFormSchema),
 		defaultValues: {
@@ -177,6 +178,9 @@ const StudentForm: React.FC<StudentFormProps> = ({
 	};
 
 	const handleSubmit = async () => {
+		if (submitting) return;
+		setSubmitting(true);
+		try {
 		const isValid = await form.trigger();
 		if (!isValid) return;
 
@@ -223,6 +227,9 @@ const StudentForm: React.FC<StudentFormProps> = ({
 			}
 		} catch (error) {
 			console.error("Validation failed:", error);
+		}
+	} finally {
+			setSubmitting(false);
 		}
 	};
 

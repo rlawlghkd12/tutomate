@@ -58,6 +58,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
 }) => {
   const { updatePayment } = useEnrollmentStore();
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
   const paymentSchema = z.object({
     paidAmount: z
@@ -107,6 +108,8 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   const effectiveFee = courseFee - discountAmount;
 
   const onSubmit = async (values: PaymentFormData) => {
+    if (submitting) return;
+    setSubmitting(true);
     try {
       if (!enrollment) {
         toast.error('수강 정보를 찾을 수 없습니다.');
@@ -130,6 +133,8 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       onClose();
     } catch (error) {
       console.error('Validation failed:', error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -399,7 +404,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             <Button type="button" variant="outline" onClick={onClose}>
               취소
             </Button>
-            <Button type="submit" disabled={isExempt}>
+            <Button type="submit" disabled={submitting || isExempt}>
               저장
             </Button>
           </DialogFooter>
