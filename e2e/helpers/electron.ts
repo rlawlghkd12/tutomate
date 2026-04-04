@@ -127,6 +127,14 @@ export async function launchApp(): Promise<{ app: ElectronApplication; page: Pag
  * 사이드바 네비게이션 클릭
  */
 export async function navigateTo(page: Page, menuText: string): Promise<void> {
-  await page.getByText(menuText).first().click();
-  await page.waitForTimeout(500);
+  // Dialog overlay가 남아있으면 ESC로 닫기
+  try {
+    const overlay = page.locator('[data-state="open"][aria-hidden="true"]');
+    if (await overlay.count() > 0) {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+    }
+  } catch { /* ignore */ }
+  await page.locator(`nav button:has-text("${menuText}")`).click();
+  await page.waitForTimeout(1000);
 }
