@@ -117,7 +117,7 @@ function App() {
       large: 16,
       'extra-large': 18,
     };
-    document.documentElement.style.setProperty('--font-size-base', `${fontSizeMap[fontSize]}px`);
+    document.documentElement.style.setProperty('--font-size-base-value', `${fontSizeMap[fontSize]}px`);
   }, [fontSize]);
 
   if (isLocked && lockEnabled) {
