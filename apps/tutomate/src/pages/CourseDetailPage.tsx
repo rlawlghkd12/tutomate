@@ -215,25 +215,15 @@ const CourseDetailPage: React.FC = () => {
 				))}
 			</div>
 
-			{/* 선택 액션 */}
-			{selectedRowKeys.length > 0 && (
-				<div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, padding: '10px 14px', background: 'hsl(var(--muted))', borderRadius: 8 }}>
-					<span style={{ fontSize: 14 }}>{selectedRowKeys.length}명 선택됨</span>
-					<Button size="sm" variant="destructive" onClick={() => setRemoveDialogOpen(true)}>
-						<Trash2 style={{ width: 14, height: 14 }} />
-						수강 철회
-					</Button>
-					<Button size="sm" variant="outline" onClick={() => setSelectedRowKeys([])}>
-						선택 해제
-					</Button>
-				</div>
-			)}
-
 			{/* 수강생 + 납부 통합 (PaymentManagementTable) */}
 			<PaymentManagementTable
 				courseId={id}
 				courseFee={course.fee}
 				enrollments={courseEnrollments}
+				onRemoveEnrollments={(ids) => {
+					setSelectedRowKeys(ids);
+					setRemoveDialogOpen(true);
+				}}
 				rowSelection={{
 					selectedRowKeys,
 					onChange: (keys) => setSelectedRowKeys(keys as string[]),
