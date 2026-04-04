@@ -347,7 +347,7 @@ const CourseDetailPage: React.FC = () => {
 					<AlertDialogHeader>
 						<AlertDialogTitle>수강 철회</AlertDialogTitle>
 						<AlertDialogDescription>
-							{selectedRowKeys.length}명의 수강을 철회하시겠습니까? 납부 기록도 함께 삭제됩니다.
+							{selectedRowKeys.length}명의 수강을 철회하시겠습니까? 납부 기록은 유지됩니다.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
