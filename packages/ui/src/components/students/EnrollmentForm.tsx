@@ -323,6 +323,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 							</div>
 
 							{showDiscount && !isExempt && (
+							<div className="slide-enter">
 								<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
 									<Label htmlFor="discountAmount">할인 금액 (원)</Label>
 									<Controller control={form.control} name="discountAmount"
@@ -335,12 +336,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 										<p style={{ fontSize: 13, color: "#16a34a", margin: 0 }}>할인 적용 수강료: ₩{effectiveFee.toLocaleString()}</p>
 									)}
 								</div>
-							)}
+							</div>
+						)}
 
-							{isExempt && (
-								<div style={{ borderRadius: 8, background: "rgba(124,58,237,0.08)", padding: '10px 12px', fontSize: 13, color: "hsl(var(--foreground))" }}>
+						{isExempt && (
+							<div className="slide-enter" style={{ borderRadius: 8, background: "rgba(124,58,237,0.08)", padding: '10px 12px', fontSize: 13, color: "hsl(var(--foreground))" }}>
 									면제 처리됩니다. 수익에 포함되지 않습니다.
-								</div>
+							</div>
 						)}
 
 						{/* 납부 금액 */}
