@@ -52,6 +52,9 @@ export { GlobalSearch, useGlobalSearch } from './components/search/GlobalSearch'
 // Settings components
 export { default as AdminTab } from './components/settings/AdminTab';
 
+// Member components
+export { MemberManagementPage } from './components/members/MemberManagementPage';
+
 // Student components
 export { default as EnrollmentForm } from './components/students/EnrollmentForm';
 export { default as StudentForm } from './components/students/StudentForm';
