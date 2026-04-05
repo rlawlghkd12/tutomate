@@ -16,6 +16,7 @@ files:
   - "!node_modules/@tailwindcss/**"
   - "!node_modules/tailwindcss/**"
   - "!node_modules/lightningcss/**"
+  - "!node_modules/lightningcss-*/**"
 
 publish:
   provider: github
