@@ -139,7 +139,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
       cell: ({ row }) => {
         const dl = ['일','월','화','수','목','금','토'];
         const days = row.original.schedule?.daysOfWeek;
-        return days?.length ? days.sort((a,b) => a-b).map(d => dl[d]).join(' ') : '-';
+        return Array.isArray(days) && days.length ? [...days].sort((a,b) => a-b).map(d => dl[d]).join(' ') : '-';
       },
     },
     {
