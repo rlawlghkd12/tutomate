@@ -238,7 +238,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 		<Dialog open={visible} onOpenChange={(open) => !open && onClose()}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle style={{ fontSize: '1.29rem', fontWeight: 700, marginBottom: 0 }}>수강 신청 — {student?.name}</DialogTitle>
+					<DialogTitle style={{ fontSize: '1.29rem', fontWeight: 700, marginBottom: 0 }}>수강 신청 <span style={{ fontWeight: 400, color: 'hsl(var(--muted-foreground))' }}>· {student?.name}</span></DialogTitle>
 				</DialogHeader>
 
 				{/* 스텝 인디케이터 */}
@@ -316,18 +316,14 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 														background: isSelected ? 'hsl(var(--primary))' : 'transparent',
 														boxShadow: isSelected ? 'inset 0 0 0 3px hsl(var(--background))' : 'none',
 													}} />
-													<div style={{ flex: 1, minWidth: 0 }}>
-														<div style={{ fontWeight: 600, fontSize: '0.93rem', textDecoration: isEnrolled ? 'line-through' : undefined }}>
-															{course.name}
-															{isEnrolled && <span style={{ fontWeight: 400, color: 'hsl(var(--muted-foreground))' }}> 수강중</span>}
-															{isFull && !isEnrolled && <span style={{ fontWeight: 400, color: 'hsl(var(--destructive))' }}> 마감</span>}
-														</div>
-														{subText && <div style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))' }}>{subText}</div>}
-													</div>
-													<div style={{ textAlign: 'right', flexShrink: 0 }}>
-														<div style={{ fontWeight: 600, fontSize: '0.93rem' }}>₩{course.fee.toLocaleString()}</div>
-														<div style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))' }}>{currentCount}/{course.maxStudents}명</div>
-													</div>
+													<span style={{ fontWeight: 600, fontSize: '0.93rem', flex: 1, textDecoration: isEnrolled ? 'line-through' : undefined }}>
+														{course.name}
+													</span>
+													<span style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))', flexShrink: 0 }}>
+														{subText && `${subText} · `}₩{course.fee.toLocaleString()} · {currentCount}/{course.maxStudents}명
+														{isEnrolled && ' · 수강중'}
+														{isFull && !isEnrolled && ' · 마감'}
+													</span>
 												</button>
 											);
 										})}
