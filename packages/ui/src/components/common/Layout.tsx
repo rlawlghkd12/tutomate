@@ -77,7 +77,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 				>
 					<div style={{ display: 'flex', alignItems: 'center', gap: 8, WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
 						<img
-							src="/app-icon.png"
+							src="./app-icon.png"
 							alt=""
 							style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }}
 						/>
