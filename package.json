@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter @tutomate/app dev",
     "dev:q": "pnpm --filter @tutomate/app-q dev",
+    "dev:admin": "pnpm --filter @tutomate/admin dev",
     "build": "pnpm --filter @tutomate/app build",
     "build:q": "pnpm --filter @tutomate/app-q build",
     "electron:build": "pnpm --filter @tutomate/app electron:build",
