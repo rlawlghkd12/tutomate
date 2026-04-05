@@ -156,7 +156,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
     ...(appConfig.enableMemberFeature ? [{
       id: 'isMember',
       header: '회원',
-      enableSorting: false,
+      accessorFn: (row: StudentRow) => row.student.isMember ? 1 : 0,
       cell: ({ row }: { row: { original: StudentRow } }) => row.original.student.isMember
         ? <Badge>회원</Badge>
         : <Badge variant="secondary">비회원</Badge>,

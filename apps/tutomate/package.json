@@ -1,7 +1,7 @@
 {
   "name": "@tutomate/app",
   "private": true,
-  "version": "0.5.6",
+  "version": "0.5.7",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
