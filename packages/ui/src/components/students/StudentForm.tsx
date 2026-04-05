@@ -4,9 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useStudentStore } from "@tutomate/core";
+import { useStudentStore, useEnrollmentStore, useCourseStore } from "@tutomate/core";
 import type { Student, StudentFormData } from "@tutomate/core";
-import { formatPhone, parseBirthDate } from "@tutomate/core";
+import { formatPhone, parseBirthDate, isCourseEnded, PaymentStatus } from "@tutomate/core";
 import { appConfig } from "@tutomate/core";
 
 import {
@@ -466,6 +466,8 @@ const StudentForm: React.FC<StudentFormProps> = ({
 						</div>
 					</div>
 
+					{editingStudent && <EnrollmentHistory studentId={editingStudent.id} />}
+
 					<DialogFooter style={{ marginTop: 20 }} className={cn(editingStudent ? "justify-between" : "justify-end", "sm:justify-between")}>
 						{editingStudent && !hideDelete && (
 							<Button
@@ -511,5 +513,64 @@ const StudentForm: React.FC<StudentFormProps> = ({
 		</>
 	);
 };
+
+function EnrollmentHistory({ studentId }: { studentId: string }) {
+	const { enrollments } = useEnrollmentStore();
+	const { courses } = useCourseStore();
+
+	const history = enrollments
+		.filter((e) => e.studentId === studentId)
+		.sort((a, b) => (b.enrolledAt || '').localeCompare(a.enrolledAt || ''));
+
+	if (history.length === 0) return null;
+
+	const statusLabel: Record<string, { text: string; color: string }> = {
+		pending: { text: '미납', color: 'hsl(var(--destructive))' },
+		partial: { text: '부분납부', color: 'hsl(var(--warning))' },
+		completed: { text: '완납', color: 'hsl(var(--success))' },
+		exempt: { text: '면제', color: 'hsl(var(--info))' },
+		withdrawn: { text: '철회', color: 'hsl(var(--muted-foreground))' },
+	};
+
+	return (
+		<div style={{ marginTop: 16, borderTop: '1px solid hsl(var(--border))', paddingTop: 16 }}>
+			<div style={{ fontSize: '0.93rem', fontWeight: 600, marginBottom: 8 }}>수강 이력</div>
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
+				{history.map((e) => {
+					const course = courses.find((c) => c.id === e.courseId);
+					const status = statusLabel[e.paymentStatus] || { text: e.paymentStatus, color: 'inherit' };
+					const ended = course ? isCourseEnded(course) : false;
+					return (
+						<div key={e.id} style={{
+							display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+							padding: '8px 12px', borderRadius: 8,
+							background: e.paymentStatus === PaymentStatus.WITHDRAWN ? 'hsl(var(--muted) / 0.5)' : 'hsl(var(--muted) / 0.3)',
+							opacity: e.paymentStatus === PaymentStatus.WITHDRAWN ? 0.6 : 1,
+						}}>
+							<div>
+								<div style={{ fontSize: '0.93rem', fontWeight: 500, textDecoration: e.paymentStatus === PaymentStatus.WITHDRAWN ? 'line-through' : undefined }}>
+									{course?.name || '삭제된 강좌'}
+									{ended && <span style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))', marginLeft: 6 }}>종료</span>}
+								</div>
+								<div style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))' }}>
+									{e.enrolledAt?.slice(0, 10) || '-'}
+									{e.paidAt && ` · 납부 ${e.paidAt}`}
+								</div>
+							</div>
+							<div style={{ textAlign: 'right' }}>
+								<div style={{ fontSize: '0.86rem', fontWeight: 600, color: status.color }}>{status.text}</div>
+								{e.paymentStatus !== PaymentStatus.WITHDRAWN && e.paymentStatus !== 'exempt' && (
+									<div style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))' }}>
+										₩{e.paidAmount.toLocaleString()}
+									</div>
+								)}
+							</div>
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
 
 export default StudentForm;
