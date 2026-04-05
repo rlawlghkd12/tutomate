@@ -19,18 +19,15 @@ const DashboardPage = () => {
       if (!supabase) return;
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const [orgsRes, licensesRes, usersData] = await Promise.all([
-          supabase.functions.invoke('list-organizations'),
-          supabase.functions.invoke('list-licenses'),
-          fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users?action=list`,
-            { headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' } }
-          ).then(r => r.json()),
-        ]);
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users?action=dashboard`,
+          { headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' } }
+        );
+        const data = await res.json();
 
-        const orgs = orgsRes.data?.organizations || [];
-        const licenses = licensesRes.data?.licenses || [];
-        const users = usersData?.users || [];
+        const orgs = data?.organizations || [];
+        const licenses = data?.licenses || [];
+        const users = data?.users || [];
 
         setStats({
           totalUsers: users.length,
