@@ -2,16 +2,20 @@ import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Empty } from '../ui/empty';
 import type { Enrollment, Course } from '@tutomate/core';
-import { useChartColors, useChartTooltipStyle, FLEX_CENTER } from '@tutomate/core';
+import { useChartColors, FLEX_CENTER } from '@tutomate/core';
 
 interface CourseRevenueChartProps {
   enrollments: Enrollment[];
   courses: Course[];
 }
 
+const formatManWon = (value: number) => {
+  if (value >= 10000) return `${Math.round(value / 10000)}만`;
+  return value.toLocaleString();
+};
+
 export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollments, courses }) => {
   const chartColors = useChartColors();
-  const tooltip = useChartTooltipStyle();
 
   const courseData = useMemo(() => {
     return courses
@@ -44,19 +48,46 @@ export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollme
   return (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={courseData}>
-        <CartesianGrid strokeDasharray="3 3" stroke={chartColors.border} />
-        <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} stroke={chartColors.text} />
-        <YAxis stroke={chartColors.text} />
-        <Tooltip
-          formatter={(value: number) => `₩${value.toLocaleString()}`}
-          contentStyle={tooltip.contentStyle}
-          labelStyle={tooltip.labelStyle}
-          itemStyle={tooltip.itemStyle}
-          cursor={{ fill: chartColors.hoverFill }}
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+        <XAxis
+          dataKey="name"
+          angle={-45}
+          textAnchor="end"
+          height={100}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+          axisLine={{ stroke: 'hsl(var(--border))' }}
+          tickLine={false}
         />
-        <Legend wrapperStyle={{ color: chartColors.text }} />
-        <Bar dataKey="수익" fill={chartColors.success} />
-        <Bar dataKey="예상수익" fill={chartColors.primary} />
+        <YAxis
+          tickFormatter={formatManWon}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <Tooltip
+          cursor={{ fill: chartColors.hoverFill }}
+          content={({ active, payload, label }) => {
+            if (!active || !payload) return null;
+            return (
+              <div style={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>{label}</div>
+                {payload.map((p) => (
+                  <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
+                    <span style={{ color: 'hsl(var(--muted-foreground))' }}>{p.name}:</span>
+                    <span style={{ fontWeight: 500 }}>₩{p.value?.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          }}
+        />
+        <Legend
+          verticalAlign="bottom"
+          wrapperStyle={{ paddingTop: 12, fontSize: 13, color: 'hsl(var(--muted-foreground))' }}
+        />
+        <Bar dataKey="수익" fill="#6366f1" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="예상수익" fill="#a5b4fc" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

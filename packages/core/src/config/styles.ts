@@ -17,7 +17,7 @@ export const FLEX_BETWEEN: CSSProperties = {
 // ─── Custom Color Constants ──────────────────────────────────────
 
 /** 면제(exempt) 상태 전용 보라색 */
-export const EXEMPT_COLOR = '#722ed1';
+export const EXEMPT_COLOR = '#a78bfa';
 
 // ─── Chart Hooks ─────────────────────────────────────────────────
 
@@ -35,10 +35,10 @@ export interface ChartColors {
 
 export function useChartColors(): ChartColors {
   return {
-    success: '#22c55e',
-    primary: '#3b82f6',
-    error: '#ef4444',
-    warning: '#f59e0b',
+    success: '#34d399',
+    primary: '#6366f1',
+    error: '#f87171',
+    warning: '#fbbf24',
     exempt: EXEMPT_COLOR,
     text: 'hsl(var(--foreground, 0 0% 3.9%))',
     border: 'hsl(var(--border, 0 0% 89.8%))',
