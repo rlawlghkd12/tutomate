@@ -41,22 +41,36 @@ export interface Student {
 // 납부 방법
 export type PaymentMethod = 'cash' | 'card' | 'transfer';
 
+// 납부 상태
+export const PaymentStatus = {
+  PENDING: 'pending',
+  PARTIAL: 'partial',
+  COMPLETED: 'completed',
+  EXEMPT: 'exempt',
+  WITHDRAWN: 'withdrawn',
+} as const;
+
+export type PaymentStatusType = typeof PaymentStatus[keyof typeof PaymentStatus];
+
 // 수강 신청 인터페이스
 export interface Enrollment {
   id: string;
   courseId: string;
   studentId: string;
   enrolledAt: string;
-  paymentStatus: 'pending' | 'partial' | 'completed' | 'exempt' | 'withdrawn'; // 납부 현황 (withdrawn: 수강 철회)
-  paidAmount: number; // 납부 금액
-  remainingAmount: number; // 잔여 금액
-  paidAt?: string; // 마지막 납부일 YYYY-MM-DD
-  paymentMethod?: PaymentMethod; // 납부 방법 (현금, 카드, 계좌이체)
-  discountAmount: number; // 할인 금액
+  paymentStatus: PaymentStatusType;
+  paidAmount: number;
+  remainingAmount: number;
+  paidAt?: string;
+  paymentMethod?: PaymentMethod;
+  discountAmount: number;
   notes?: string;
-  quarter?: string; // 분기 "2026-Q1" 형식
-  enrolledMonths?: number[]; // 분기 내 등록 월 [1,2,3]
+  quarter?: string;
+  enrolledMonths?: number[];
 }
+
+/** 활성 수강 여부 확인 (withdrawn 제외) */
+export const isActiveEnrollment = (e: Enrollment): boolean => e.paymentStatus !== PaymentStatus.WITHDRAWN;
 
 // 강좌 폼 데이터 타입
 export type CourseFormData = Omit<Course, 'id' | 'currentStudents' | 'createdAt' | 'updatedAt'>;

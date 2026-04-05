@@ -12,7 +12,7 @@ import { Search, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Student } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
-import { appConfig } from '@tutomate/core';
+import { appConfig, isActiveEnrollment } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
 import {
@@ -79,7 +79,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
   // 학생별로 행 생성 (강좌는 배열로)
   const studentRows = useMemo(() => {
     return students.map((student, index) => {
-      const studentEnrollments = enrollments.filter((e) => e.studentId === student.id && e.paymentStatus !== 'withdrawn');
+      const studentEnrollments = enrollments.filter((e) => e.studentId === student.id && isActiveEnrollment(e));
       const studentCourses = studentEnrollments
         .map((enrollment) => {
           const course = courses.find((c) => c.id === enrollment.courseId);

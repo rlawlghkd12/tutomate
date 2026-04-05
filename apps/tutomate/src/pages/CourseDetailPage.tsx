@@ -18,6 +18,7 @@ import {
 	COURSE_STUDENT_EXPORT_FIELDS,
 	exportCourseStudentsToCSV,
 	exportCourseStudentsToExcel,
+	isActiveEnrollment,
 } from "@tutomate/core";
 import type { Enrollment } from "@tutomate/core";
 import { Button } from "../components/ui/button";
@@ -65,7 +66,7 @@ const CourseDetailPage: React.FC = () => {
 
 	const course = id ? getCourseById(id) : undefined;
 	const courseEnrollments = useMemo(
-		() => enrollments.filter((e) => e.courseId === id && e.paymentStatus !== 'withdrawn'),
+		() => enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e)),
 		[enrollments, id],
 	);
 
