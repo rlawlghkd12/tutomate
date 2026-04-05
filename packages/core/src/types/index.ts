@@ -47,7 +47,16 @@ export interface Student {
 }
 
 // 납부 방법
-export type PaymentMethod = 'cash' | 'card' | 'transfer';
+export const PaymentMethodEnum = {
+  CASH: 'cash',
+  CARD: 'card',
+  TRANSFER: 'transfer',
+} as const;
+
+export type PaymentMethod = typeof PaymentMethodEnum[keyof typeof PaymentMethodEnum];
+
+// 요일 라벨
+export const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
 // 납부 상태
 export const PaymentStatus = {

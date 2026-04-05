@@ -11,7 +11,7 @@ import {
 import { Search } from 'lucide-react';
 import type { Course } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
-import { useEnrollmentStore, isCourseEnded } from '@tutomate/core';
+import { useEnrollmentStore, isCourseEnded, DAY_LABELS } from '@tutomate/core';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import {
@@ -123,9 +123,8 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
       size: 80,
       enableSorting: false,
       cell: ({ row }) => {
-        const dl = ['일','월','화','수','목','금','토'];
         const days = row.original.schedule?.daysOfWeek;
-        return Array.isArray(days) && days.length ? [...days].sort((a,b) => a-b).map(d => dl[d]).join(' ') : '-';
+        return Array.isArray(days) && days.length ? [...days].sort((a,b) => a-b).map(d => DAY_LABELS[d]).join(' ') : '-';
       },
     },
     {

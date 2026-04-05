@@ -2,14 +2,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import { useCourseStore, useEnrollmentStore } from '@tutomate/core';
+import { useCourseStore, useEnrollmentStore, DAY_LABELS } from '@tutomate/core';
 import type { Course } from '@tutomate/core';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
-
-const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 
 const CalendarPage: React.FC = () => {
   const { courses, loadCourses } = useCourseStore();
@@ -116,7 +114,7 @@ const CalendarPage: React.FC = () => {
 
           {/* Calendar Grid */}
           <div className="grid grid-cols-7 border-b border-border">
-            {WEEKDAY_LABELS.map((day, i) => (
+            {DAY_LABELS.map((day, i) => (
               <div key={day} className={`p-2 text-center text-sm font-medium border-b border-border ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-muted-foreground'}`}>
                 {day}
               </div>
@@ -231,7 +229,7 @@ const CalendarPage: React.FC = () => {
                           <strong>수업 요일:</strong>{' '}
                           {[...(Array.isArray(course.schedule.daysOfWeek) ? course.schedule.daysOfWeek : [])]
                             .sort()
-                            .map((day) => WEEKDAY_LABELS[day])
+                            .map((day) => DAY_LABELS[day])
                             .join(', ')}
                         </div>
                       </div>

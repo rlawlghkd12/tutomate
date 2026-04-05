@@ -8,7 +8,7 @@ import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
 import { useLicenseStore } from "@tutomate/core";
 import { usePaymentRecordStore } from "@tutomate/core";
-import { appConfig, isActiveEnrollment, isCourseEnded, PaymentStatus } from "@tutomate/core";
+import { appConfig, isActiveEnrollment, isCourseEnded, PaymentStatus, DAY_LABELS } from "@tutomate/core";
 import type { EnrollmentFormData, Student } from "@tutomate/core";
 import { getCurrentQuarter } from "@tutomate/core";
 import {
@@ -311,9 +311,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 											const isDisabled = isFull || isEnrolled;
 											const isSelected = field.value === course.id;
 											const schedule = course.schedule;
-											const dl = ['일','월','화','수','목','금','토'];
 											const daysText = Array.isArray(schedule?.daysOfWeek) && schedule.daysOfWeek.length
-												? schedule.daysOfWeek.sort((a: number, b: number) => a - b).map((d: number) => dl[d]).join(', ')
+												? schedule.daysOfWeek.sort((a: number, b: number) => a - b).map((d: number) => DAY_LABELS[d]).join(', ')
 												: '';
 											const timeText = schedule?.startTime && schedule?.endTime
 												? `${schedule.startTime}~${schedule.endTime}` : '';

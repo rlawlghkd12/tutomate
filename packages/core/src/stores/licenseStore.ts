@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 import type { LicenseInfo } from '../types';
-import { PLAN_LIMITS } from '../config/planLimits';
+import { PLAN_LIMITS, PlanTypeEnum } from '../config/planLimits';
 import type { PlanType, PlanLimitKey } from '../config/planLimits';
 import { useAuthStore } from './authStore';
 import { logError } from '../utils/logger';
@@ -138,14 +138,14 @@ export const useLicenseStore = create<LicenseStore>((set, get) => ({
     const authState = useAuthStore.getState();
     if (authState.isCloud) {
       // cloud 모드에서는 서버의 plan을 사용 (trial/basic/admin)
-      return authState.plan || 'trial';
+      return authState.plan || PlanTypeEnum.TRIAL;
     }
     // 오프라인 폴백: 로컬 라이선스 키 확인
     const { licenseKey } = get();
     if (licenseKey && isValidKeyFormat(licenseKey)) {
-      return 'basic';
+      return PlanTypeEnum.BASIC;
     }
-    return 'trial';
+    return PlanTypeEnum.TRIAL;
   },
 
   getLimit: (key: PlanLimitKey): number => {
