@@ -245,6 +245,7 @@ function App() {
       <Router>
         <GlobalSearch visible={visible} onClose={close} />
         <Layout>
+          <ErrorBoundary>
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/courses" element={<CoursesPage />} />
@@ -255,6 +256,7 @@ function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </ErrorBoundary>
         </Layout>
       </Router>
       {isLocked && lockEnabled && <LockScreen />}

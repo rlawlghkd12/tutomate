@@ -1,6 +1,6 @@
 import React, { Component, type ReactNode } from 'react';
 import { AlertTriangle, RotateCcw, RefreshCw } from 'lucide-react';
-import { AppError, ErrorType, errorHandler } from '@tutomate/core';
+import { AppError, ErrorType, errorHandler, reportError } from '@tutomate/core';
 import { Button } from '../ui/button';
 
 interface Props {
@@ -48,6 +48,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
     // 에러 핸들러로 전달 (notification은 표시하지 않음, ErrorBoundary UI로 대체)
     errorHandler.handle(appError, false);
+
+    // DB에 에러 기록
+    reportError(error, errorInfo.componentStack?.split('\n')[1]?.trim());
   }
 
   handleReset = () => {
