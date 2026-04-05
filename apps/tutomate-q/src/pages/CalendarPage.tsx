@@ -104,7 +104,7 @@ const CalendarPage: React.FC = () => {
         <CardContent className="p-4">
           <div className="flex items-center gap-4 mb-4">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-primary" />
+              <div style={{ width: 12, height: 12, borderRadius: '50%', background: 'hsl(var(--info))' }} />
               <span className="text-sm">수업 있음</span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -144,11 +144,15 @@ const CalendarPage: React.FC = () => {
                         return (
                           <div
                             key={course.id}
-                            className={`px-1 py-0.5 mb-0.5 text-[13px] rounded-sm border-l-[3px] ${
-                              isFull
-                                ? 'bg-red-50 border-l-destructive dark:bg-red-950'
-                                : 'bg-blue-50 border-l-blue-500 dark:bg-blue-950'
-                            }`}
+                            style={{
+                              padding: '2px 4px',
+                              marginBottom: 2,
+                              fontSize: 13,
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              borderLeft: `3px solid ${isFull ? 'hsl(var(--destructive))' : 'hsl(var(--info))'}`,
+                              background: isFull ? 'hsl(var(--destructive) / 0.08)' : 'hsl(var(--info) / 0.08)',
+                            }}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleCourseClick(date);
@@ -192,7 +196,7 @@ const CalendarPage: React.FC = () => {
                           <Badge variant="destructive">정원 마감</Badge>
                         )}
                       </div>
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                      <Badge variant="info">
                         {enrollmentCount}/{course.maxStudents}명
                       </Badge>
                     </div>
