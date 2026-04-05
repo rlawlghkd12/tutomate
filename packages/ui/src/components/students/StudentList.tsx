@@ -79,7 +79,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
   // 학생별로 행 생성 (강좌는 배열로)
   const studentRows = useMemo(() => {
     return students.map((student, index) => {
-      const studentEnrollments = enrollments.filter((e) => e.studentId === student.id);
+      const studentEnrollments = enrollments.filter((e) => e.studentId === student.id && e.paymentStatus !== 'withdrawn');
       const studentCourses = studentEnrollments
         .map((enrollment) => {
           const course = courses.find((c) => c.id === enrollment.courseId);
