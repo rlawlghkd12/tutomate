@@ -93,11 +93,11 @@ const GlobalSearchInner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       <div onClick={(e) => e.stopPropagation()} style={{
         position: 'fixed',
         left: '50%',
-        top: '20%',
+        top: '15%',
         transform: 'translateX(-50%)',
         zIndex: 51,
         width: 600,
-        maxHeight: '60vh',
+        maxHeight: '70vh',
         padding: 0,
         overflow: 'hidden',
         border: '1px solid hsl(var(--border))',
@@ -112,7 +112,7 @@ const GlobalSearchInner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         value={query}
         onValueChange={setQuery}
       />
-      <CommandList style={{ maxHeight: 500, padding: '8px 12px' }}>
+      <CommandList style={{ maxHeight: 'calc(70vh - 100px)', overflowY: 'auto', padding: '8px 12px' }}>
         <CommandEmpty>
           {query.trim()
             ? '검색 결과가 없습니다'
