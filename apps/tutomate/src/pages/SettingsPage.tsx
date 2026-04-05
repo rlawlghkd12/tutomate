@@ -473,10 +473,13 @@ const SettingsPage: React.FC = () => {
                   type="range"
                   min={0}
                   max={6}
-                  step={1}
+                  step="any"
                   value={fontSizeOptions.findIndex(o => o.value === fontSize)}
-                  onChange={(e) => setFontSize(fontSizeOptions[Number(e.target.value)].value)}
-                  style={{ flex: 1, accentColor: 'hsl(var(--foreground))' }}
+                  onChange={(e) => {
+                    const idx = Math.round(Number(e.target.value));
+                    if (fontSizeOptions[idx]) setFontSize(fontSizeOptions[idx].value);
+                  }}
+                  style={{ flex: 1 }}
                 />
                 <span style={{ fontSize: 18, fontWeight: 700, color: 'hsl(var(--muted-foreground))' }}>가</span>
               </div>
