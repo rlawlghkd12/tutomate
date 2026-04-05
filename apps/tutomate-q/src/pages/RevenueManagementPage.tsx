@@ -518,6 +518,13 @@ const RevenueManagementPage: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {quarterRevenueData.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      해당 분기에 수강 데이터가 없습니다
+                    </TableCell>
+                  </TableRow>
+                )}
                 {quarterRevenueData.map((row) => (
                   <TableRow key={row.courseId}>
                     <TableCell>{row.courseName}</TableCell>
