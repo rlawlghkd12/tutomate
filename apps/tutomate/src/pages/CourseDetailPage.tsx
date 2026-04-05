@@ -9,6 +9,7 @@ import {
 	Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import dayjs from "dayjs";
 import { CourseForm, PaymentManagementTable } from "@tutomate/ui";
 import {
 	useCourseStore,
@@ -42,7 +43,7 @@ const CourseDetailPage: React.FC = () => {
 	const { loadStudents, getStudentById } = useStudentStore();
 	const { enrollments, loadEnrollments, withdrawEnrollment } =
 		useEnrollmentStore();
-	const { loadRecords } = usePaymentRecordStore();
+	const { loadRecords, addPayment } = usePaymentRecordStore();
 
 	const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 	const [isExportModalVisible, setIsExportModalVisible] = useState(false);
@@ -106,12 +107,17 @@ const CourseDetailPage: React.FC = () => {
 		navigate("/courses");
 	};
 
-	const handleWithdrawStudents = async (ids: string[]) => {
+	const handleWithdrawStudents = async (ids: string[], refundAmount?: number) => {
 		for (const id of ids) {
 			await withdrawEnrollment(id);
+			if (refundAmount && refundAmount > 0) {
+				await addPayment(id, -refundAmount, course?.fee || 0, undefined, dayjs().format("YYYY-MM-DD"));
+			}
 		}
 		await loadEnrollments();
-		toast.success(`${ids.length}명의 수강이 철회되었습니다.`);
+		await loadRecords();
+		const refundMsg = refundAmount ? ` (환불 ₩${refundAmount.toLocaleString()})` : '';
+		toast.success(`${ids.length}명의 수강이 철회되었습니다.${refundMsg}`);
 		setSelectedRowKeys([]);
 	};
 

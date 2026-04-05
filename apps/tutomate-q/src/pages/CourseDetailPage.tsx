@@ -3,6 +3,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import dayjs from "dayjs";
 import {
 	Button,
 	Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -41,7 +42,7 @@ const CourseDetailPage: React.FC = () => {
 	const { loadStudents, getStudentById } = useStudentStore();
 	const { enrollments, loadEnrollments, withdrawEnrollment } =
 		useEnrollmentStore();
-	const { loadRecords } = usePaymentRecordStore();
+	const { loadRecords, addPayment } = usePaymentRecordStore();
 
 	const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 	const [isExportModalVisible, setIsExportModalVisible] = useState(false);
@@ -88,13 +89,18 @@ const CourseDetailPage: React.FC = () => {
 		navigate("/courses");
 	};
 
-	const handleRemoveStudents = async (enrollmentIds: string[]) => {
+	const handleRemoveStudents = async (enrollmentIds: string[], refundAmount?: number) => {
 		for (const id of enrollmentIds) {
 			await withdrawEnrollment(id);
+			if (refundAmount && refundAmount > 0) {
+				await addPayment(id, -refundAmount, course?.fee || 0, undefined, dayjs().format("YYYY-MM-DD"));
+			}
 		}
 		setSelectedRowKeys([]);
 		await loadEnrollments();
-		toast.success(`${enrollmentIds.length}명의 수강이 철회되었습니다.`);
+		await loadRecords();
+		const refundMsg = refundAmount ? ` (환불 ₩${refundAmount.toLocaleString()})` : '';
+		toast.success(`${enrollmentIds.length}명의 수강이 철회되었습니다.${refundMsg}`);
 	};
 
 	const handleExport = (type: "excel" | "csv") => {
