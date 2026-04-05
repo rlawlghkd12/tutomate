@@ -31,7 +31,6 @@ import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Switch } from '../components/ui/switch';
 import { Badge } from '../components/ui/badge';
-import { Separator } from '../components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
@@ -306,57 +305,62 @@ const SettingsPage: React.FC = () => {
 
   return (
     <div>
-      <Card className="max-w-[1000px]">
-        <CardContent className="p-6">
-          {/* 계정 */}
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <p className="font-semibold text-sm">로그인 계정</p>
-              <p className="text-muted-foreground text-[0.85em]">
-                {session?.user?.email || '-'}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={providerBadgeVariant}>{getAuthProviderLabel()}</Badge>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setLogoutDialogOpen(true)}
-              >
-                로그아웃
-              </Button>
-            </div>
+      <div className="max-w-[1000px]">
+
+          {/* ── 섹션 1: 계정 ── */}
+          <div style={{ marginTop: 0, marginBottom: 16 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}>🔑 계정</h3>
+            <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>로그인 및 라이선스 관리</p>
           </div>
-
-          <Separator />
-
-          {/* 현재 플랜 + 라이선스 */}
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <p className="font-semibold text-sm">현재 플랜</p>
-              <p className="text-muted-foreground text-[0.85em]">
-                {currentPlan === 'trial'
-                  ? `강좌 ${PLAN_LIMITS.trial.maxCourses}개, 강좌당 수강생 ${PLAN_LIMITS.trial.maxStudentsPerCourse}명 제한`
-                  : '모든 기능을 제한 없이 사용 가능'}
-              </p>
+          <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
+            {/* 로그인 계정 */}
+            <div className="flex justify-between items-center" style={{ borderBottom: '1px solid hsl(var(--border))', padding: '16px 0' }}>
+              <div>
+                <p className="font-semibold text-sm">로그인 계정</p>
+                <p className="text-muted-foreground text-[0.85em]">
+                  {session?.user?.email || '-'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={providerBadgeVariant}>{getAuthProviderLabel()}</Badge>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setLogoutDialogOpen(true)}
+                >
+                  로그아웃
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={planBadgeVariant} className="text-[13px] px-2.5 py-0.5">
-                {currentPlan === 'trial' ? '체험판' : currentPlan === 'admin' ? 'Admin' : 'Basic'}
-              </Badge>
-              {currentPlan !== 'trial' && licenseKey ? (
-                <>
-                  <code className="text-sm bg-muted px-2 py-0.5 rounded">{showKey ? licenseKey : `${licenseKey.slice(0, 9)}****-****`}</code>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowKey(!showKey)}>
-                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { navigator.clipboard.writeText(licenseKey); toast.success('키가 복사되었습니다.'); }}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </>
-              ) : (
-                <Button size="sm" onClick={() => setLicenseModalVisible(true)}>라이선스 활성화</Button>
-              )}
+
+            {/* 현재 플랜 + 라이선스 */}
+            <div className="flex justify-between items-center" style={{ padding: '16px 0' }}>
+              <div>
+                <p className="font-semibold text-sm">현재 플랜</p>
+                <p className="text-muted-foreground text-[0.85em]">
+                  {currentPlan === 'trial'
+                    ? `강좌 ${PLAN_LIMITS.trial.maxCourses}개, 강좌당 수강생 ${PLAN_LIMITS.trial.maxStudentsPerCourse}명 제한`
+                    : '모든 기능을 제한 없이 사용 가능'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={planBadgeVariant} className="text-[13px] px-2.5 py-0.5">
+                  {currentPlan === 'trial' ? '체험판' : currentPlan === 'admin' ? 'Admin' : 'Basic'}
+                </Badge>
+                {currentPlan !== 'trial' && licenseKey ? (
+                  <>
+                    <code className="text-sm bg-muted px-2 py-0.5 rounded">{showKey ? licenseKey : `${licenseKey.slice(0, 9)}****-****`}</code>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowKey(!showKey)}>
+                      {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { navigator.clipboard.writeText(licenseKey); toast.success('키가 복사되었습니다.'); }}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" onClick={() => setLicenseModalVisible(true)}>라이선스 활성화</Button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -382,169 +386,177 @@ const SettingsPage: React.FC = () => {
             </DialogContent>
           </Dialog>
 
-          <Separator />
-
-          {/* 이름 */}
-          <div className="flex justify-between items-center py-4">
-            <div className="flex-1 mr-6">
-              <p className="font-semibold text-sm">이름</p>
-              <p className="text-muted-foreground text-[0.85em]">
-                {currentPlan === 'trial' ? '라이선스 활성화 후 변경 가능' : '헤더와 백업 파일명에 표시'}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Input
-                value={orgNameInput}
-                onChange={(e) => setOrgNameInput(e.target.value)}
-                placeholder="이름을 입력하세요"
-                className="w-[240px]"
-                disabled={currentPlan === 'trial'}
-              />
-              <Button
-                size="sm"
-                disabled={currentPlan === 'trial' || orgNameInput === organizationName}
-                onClick={async () => {
-                  const prevName = organizationName;
-                  setOrganizationName(orgNameInput);
-                  const orgId = useAuthStore.getState().organizationId;
-                  if (supabase && orgId) {
-                    const { error } = await supabase.from('organizations').update({ name: orgNameInput }).eq('id', orgId);
-                    if (error) {
-                      setOrganizationName(prevName);
-                      toast.error('이름 저장에 실패했습니다.');
-                      return;
+          {/* ── 섹션 2: 학원 정보 ── */}
+          <div style={{ marginTop: 32, marginBottom: 16 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}>🏢 학원 정보</h3>
+            <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>헤더와 백업에 표시되는 이름</p>
+          </div>
+          <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
+            {/* 이름 */}
+            <div className="flex justify-between items-center" style={{ padding: '16px 0' }}>
+              <div className="flex-1 mr-6">
+                <p className="font-semibold text-sm">이름</p>
+                <p className="text-muted-foreground text-[0.85em]">
+                  {currentPlan === 'trial' ? '라이선스 활성화 후 변경 가능' : '헤더와 백업 파일명에 표시'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={orgNameInput}
+                  onChange={(e) => setOrgNameInput(e.target.value)}
+                  placeholder="이름을 입력하세요"
+                  className="w-[240px]"
+                  disabled={currentPlan === 'trial'}
+                />
+                <Button
+                  size="sm"
+                  disabled={currentPlan === 'trial' || orgNameInput === organizationName}
+                  onClick={async () => {
+                    const prevName = organizationName;
+                    setOrganizationName(orgNameInput);
+                    const orgId = useAuthStore.getState().organizationId;
+                    if (supabase && orgId) {
+                      const { error } = await supabase.from('organizations').update({ name: orgNameInput }).eq('id', orgId);
+                      if (error) {
+                        setOrganizationName(prevName);
+                        toast.error('이름 저장에 실패했습니다.');
+                        return;
+                      }
                     }
-                  }
-                  toast.success('이름이 저장되었습니다.');
-                }}
-              >
-                <Save className="h-4 w-4" />
-                저장
-              </Button>
+                    toast.success('이름이 저장되었습니다.');
+                  }}
+                >
+                  <Save className="h-4 w-4" />
+                  저장
+                </Button>
+              </div>
             </div>
           </div>
 
-          <Separator />
-
-          {/* 다크 모드 */}
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <p className="font-semibold text-sm">다크 모드</p>
-              <p className="text-muted-foreground text-[0.85em]">앱의 테마를 변경합니다</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{appTheme === 'dark' ? '켜짐' : '꺼짐'}</span>
-              <Switch checked={appTheme === 'dark'} onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')} />
-            </div>
+          {/* ── 섹션 3: 화면 설정 ── */}
+          <div style={{ marginTop: 32, marginBottom: 16 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}>🎨 화면 설정</h3>
+            <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>앱 모양 변경</p>
           </div>
-
-          <Separator />
-
-          {/* 텍스트 크기 */}
-          <div style={{ padding: '16px 0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
+            {/* 다크 모드 */}
+            <div className="flex justify-between items-center" style={{ borderBottom: '1px solid hsl(var(--border))', padding: '16px 0' }}>
               <div>
-                <p className="font-semibold text-sm">텍스트 크기</p>
-                <p className="text-muted-foreground text-[0.85em]">앱 전체의 텍스트 크기를 조절합니다</p>
+                <p className="font-semibold text-sm">다크 모드</p>
+                <p className="text-muted-foreground text-[0.85em]">앱의 테마를 변경합니다</p>
               </div>
-              <span style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>
-                {fontSizeOptions.find(o => o.value === fontSize)?.label} ({
-                  fontSizeOptions.find(o => o.value === fontSize)?.px
-                }px)
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{appTheme === 'dark' ? '켜짐' : '꺼짐'}</span>
+                <Switch checked={appTheme === 'dark'} onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')} />
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>가</span>
-              <input
-                type="range"
-                min={0}
-                max={6}
-                step={1}
-                value={fontSizeOptions.findIndex(o => o.value === fontSize)}
-                onChange={(e) => setFontSize(fontSizeOptions[Number(e.target.value)].value)}
-                style={{ flex: 1, accentColor: 'hsl(var(--foreground))' }}
-              />
-              <span style={{ fontSize: 18, fontWeight: 700, color: 'hsl(var(--muted-foreground))' }}>가</span>
+
+            {/* 텍스트 크기 */}
+            <div style={{ padding: '16px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div>
+                  <p className="font-semibold text-sm">텍스트 크기</p>
+                  <p className="text-muted-foreground text-[0.85em]">앱 전체의 텍스트 크기를 조절합니다</p>
+                </div>
+                <span style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>
+                  {fontSizeOptions.find(o => o.value === fontSize)?.label} ({
+                    fontSizeOptions.find(o => o.value === fontSize)?.px
+                  }px)
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>가</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={6}
+                  step={1}
+                  value={fontSizeOptions.findIndex(o => o.value === fontSize)}
+                  onChange={(e) => setFontSize(fontSizeOptions[Number(e.target.value)].value)}
+                  style={{ flex: 1, accentColor: 'hsl(var(--foreground))' }}
+                />
+                <span style={{ fontSize: 18, fontWeight: 700, color: 'hsl(var(--muted-foreground))' }}>가</span>
+              </div>
             </div>
           </div>
 
-          <Separator />
-
-          {/* 알림 */}
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <p className="font-semibold text-sm">알림</p>
-              <p className="text-muted-foreground text-[0.85em]">
-                {notificationsEnabled ? '앱 내 알림이 활성화되어 있습니다' : '알림이 비활성화되어 있습니다'}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{notificationsEnabled ? '켜짐' : '꺼짐'}</span>
-              <Switch checked={notificationsEnabled} onCheckedChange={setNotificationsEnabled} />
-            </div>
+          {/* ── 섹션 4: 알림 / 보안 ── */}
+          <div style={{ marginTop: 32, marginBottom: 16 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}>🔔 알림 / 보안</h3>
+            <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>알림과 잠금 설정</p>
           </div>
-
-          <Separator />
-
-          {/* 화면 잠금 */}
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <p className="font-semibold text-sm">화면 잠금 사용</p>
-              <p className="text-muted-foreground text-[0.85em]">
-                {lockEnabled ? '화면 잠금이 활성화되어 있습니다' : '자리를 비울 때 화면을 잠급니다'}
-              </p>
+          <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
+            {/* 알림 */}
+            <div className="flex justify-between items-center" style={{ borderBottom: '1px solid hsl(var(--border))', padding: '16px 0' }}>
+              <div>
+                <p className="font-semibold text-sm">알림</p>
+                <p className="text-muted-foreground text-[0.85em]">
+                  {notificationsEnabled ? '앱 내 알림이 활성화되어 있습니다' : '알림이 비활성화되어 있습니다'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{notificationsEnabled ? '켜짐' : '꺼짐'}</span>
+                <Switch checked={notificationsEnabled} onCheckedChange={setNotificationsEnabled} />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{lockEnabled ? '켜짐' : '꺼짐'}</span>
-              <Switch checked={lockEnabled} onCheckedChange={handleLockToggle} />
+
+            {/* 화면 잠금 */}
+            <div className="flex justify-between items-center" style={{ padding: '16px 0' }}>
+              <div>
+                <p className="font-semibold text-sm">화면 잠금 사용</p>
+                <p className="text-muted-foreground text-[0.85em]">
+                  {lockEnabled ? '화면 잠금이 활성화되어 있습니다' : '자리를 비울 때 화면을 잠급니다'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{lockEnabled ? '켜짐' : '꺼짐'}</span>
+                <Switch checked={lockEnabled} onCheckedChange={handleLockToggle} />
+              </div>
             </div>
+
+            {lockEnabled && (
+              <>
+                <div className="flex justify-between items-center" style={{ borderTop: '1px solid hsl(var(--border))', padding: '16px 0' }}>
+                  <div>
+                    <p className="font-semibold text-sm">PIN 설정</p>
+                    <p className="text-muted-foreground text-[0.85em]">4~6자리 숫자 PIN</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={openPinChangeModal}>
+                    <Lock className="h-4 w-4" />
+                    PIN 변경
+                  </Button>
+                </div>
+                <div className="flex justify-between items-center" style={{ borderTop: '1px solid hsl(var(--border))', padding: '16px 0' }}>
+                  <div>
+                    <p className="font-semibold text-sm">자동 잠금</p>
+                    <p className="text-muted-foreground text-[0.85em]">미사용 시 자동으로 화면을 잠급니다</p>
+                  </div>
+                  <Select value={String(autoLockMinutes)} onValueChange={(val) => setAutoLockMinutes(Number(val))}>
+                    <SelectTrigger className="w-[130px] h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {autoLockOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-between items-center" style={{ borderTop: '1px solid hsl(var(--border))', padding: '16px 0' }}>
+                  <div>
+                    <p className="font-semibold text-sm">지금 잠금</p>
+                    <p className="text-muted-foreground text-[0.85em]">화면을 즉시 잠급니다</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={lock}>
+                    <Lock className="h-4 w-4" />
+                    잠금
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
-
-          {lockEnabled && (
-            <>
-              <Separator />
-              <div className="flex justify-between items-center py-4">
-                <div>
-                  <p className="font-semibold text-sm">PIN 설정</p>
-                  <p className="text-muted-foreground text-[0.85em]">4~6자리 숫자 PIN</p>
-                </div>
-                <Button variant="outline" size="sm" onClick={openPinChangeModal}>
-                  <Lock className="h-4 w-4" />
-                  PIN 변경
-                </Button>
-              </div>
-              <Separator />
-              <div className="flex justify-between items-center py-4">
-                <div>
-                  <p className="font-semibold text-sm">자동 잠금</p>
-                  <p className="text-muted-foreground text-[0.85em]">미사용 시 자동으로 화면을 잠급니다</p>
-                </div>
-                <Select value={String(autoLockMinutes)} onValueChange={(val) => setAutoLockMinutes(Number(val))}>
-                  <SelectTrigger className="w-[130px] h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {autoLockOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Separator />
-              <div className="flex justify-between items-center py-4">
-                <div>
-                  <p className="font-semibold text-sm">지금 잠금</p>
-                  <p className="text-muted-foreground text-[0.85em]">화면을 즉시 잠급니다</p>
-                </div>
-                <Button variant="outline" size="sm" onClick={lock}>
-                  <Lock className="h-4 w-4" />
-                  잠금
-                </Button>
-              </div>
-            </>
-          )}
 
           {/* PIN 설정 Dialog */}
           <Dialog open={pinModalVisible} onOpenChange={(open) => {
@@ -587,45 +599,48 @@ const SettingsPage: React.FC = () => {
             </DialogContent>
           </Dialog>
 
-          <Separator />
-
-          {/* 앱 정보 */}
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <p className="font-semibold text-sm">앱 정보</p>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground text-[0.85em]">{APP_NAME} v{APP_VERSION}</span>
-                {isLatest && <Badge variant="success">최신 버전</Badge>}
+          {/* ── 섹션 5: 앱 정보 ── */}
+          <div style={{ marginTop: 32, marginBottom: 16 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}>ℹ️ 앱 정보</h3>
+          </div>
+          <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
+            {/* 버전 + 업데이트 확인 */}
+            <div className="flex justify-between items-center" style={{ padding: '16px 0' }}>
+              <div>
+                <p className="font-semibold text-sm">버전</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground text-[0.85em]">{APP_NAME} v{APP_VERSION}</span>
+                  {isLatest && <Badge variant="success">최신 버전</Badge>}
+                </div>
               </div>
+              <Button variant="outline" size="sm" onClick={handleCheckUpdate} disabled={checkingUpdate}>
+                {checkingUpdate && <Loader2 className="h-4 w-4 animate-spin" />}
+                업데이트 확인
+              </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={handleCheckUpdate} disabled={checkingUpdate}>
-              {checkingUpdate && <Loader2 className="h-4 w-4 animate-spin" />}
-              업데이트 확인
-            </Button>
+
+            {updateAvailable && (
+              <div style={{ borderTop: '1px solid hsl(var(--border))', padding: '16px 0' }}>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="success">새 버전</Badge>
+                    <span className="font-semibold">v{updateAvailable.version}</span>
+                  </div>
+                  <div className="text-[13px] text-muted-foreground" dangerouslySetInnerHTML={{ __html: updateAvailable.body }} />
+                  {downloading ? (
+                    <div className="space-y-1">
+                      <Progress value={downloadProgress} />
+                      <p className="text-xs text-muted-foreground text-center">{downloadProgress}%</p>
+                    </div>
+                  ) : (
+                    <Button size="sm" onClick={handleDownloadUpdate}>다운로드 및 설치</Button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          {updateAvailable && (
-            <>
-              <Separator />
-              <div className="py-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant="success">새 버전</Badge>
-                  <span className="font-semibold">v{updateAvailable.version}</span>
-                </div>
-                <div className="text-[13px] text-muted-foreground" dangerouslySetInnerHTML={{ __html: updateAvailable.body }} />
-                {downloading ? (
-                  <div className="space-y-1">
-                    <Progress value={downloadProgress} />
-                    <p className="text-xs text-muted-foreground text-center">{downloadProgress}%</p>
-                  </div>
-                ) : (
-                  <Button size="sm" onClick={handleDownloadUpdate}>다운로드 및 설치</Button>
-                )}
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+      </div>
 
       {currentPlan === 'admin' && (
         <Card className="max-w-[1000px] mt-4">
