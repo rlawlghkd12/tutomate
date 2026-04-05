@@ -84,7 +84,7 @@ const DialogContent = React.forwardRef<
         }}
       >
         <div ref={setupRef} data-dialog-wrapper="" style={{ overflow: 'hidden' }}>
-          <div style={{ padding: 24 }}>
+          <div style={{ padding: 24, maxHeight: '85vh', overflowY: 'auto' }}>
             {children}
           </div>
         </div>
