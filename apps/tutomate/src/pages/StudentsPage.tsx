@@ -5,7 +5,8 @@ import { toast } from 'sonner';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
-import { StudentList, StudentForm } from '@tutomate/ui';
+import { StudentList, StudentForm, EnrollmentForm } from '@tutomate/ui';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../components/ui/alert-dialog';
 import {
   useStudentStore,
   useEnrollmentStore,
@@ -21,6 +22,8 @@ const StudentsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editStudent, setEditStudent] = useState<any>(null);
+  const [enrollStudent, setEnrollStudent] = useState<any>(null);
+  const [askEnrollStudent, setAskEnrollStudent] = useState<any>(null);
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState<string[]>(DEFAULT_EXPORT_FIELDS);
   const { students, loadStudents, getStudentById } = useStudentStore();
@@ -98,6 +101,7 @@ const StudentsPage: React.FC = () => {
         visible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
         student={null}
+        onCreated={(s) => { setIsModalVisible(false); setAskEnrollStudent(s); }}
       />
       <StudentForm
         visible={!!editStudent}
@@ -166,6 +170,29 @@ const StudentsPage: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!askEnrollStudent} onOpenChange={(open) => { if (!open) setAskEnrollStudent(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>수강 신청</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{askEnrollStudent?.name}" 수강생의 수강 신청을 바로 하시겠습니까?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>나중에</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setEnrollStudent(askEnrollStudent); setAskEnrollStudent(null); }}>
+              수강 신청
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <EnrollmentForm
+        visible={!!enrollStudent}
+        onClose={() => setEnrollStudent(null)}
+        student={enrollStudent}
+      />
     </div>
   );
 };

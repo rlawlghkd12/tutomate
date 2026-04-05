@@ -40,6 +40,7 @@ interface StudentFormProps {
 	onClose: () => void;
 	student?: Student | null;
 	hideDelete?: boolean;
+	onCreated?: (student: Student) => void;
 }
 
 const studentFormSchema = z.object({
@@ -58,6 +59,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 	onClose,
 	student,
 	hideDelete,
+	onCreated,
 }) => {
 	const [submitting, setSubmitting] = useState(false);
 	const form = useForm<StudentFormValues>({
@@ -209,13 +211,20 @@ const StudentForm: React.FC<StudentFormProps> = ({
 
 				await addStudent(formData as StudentFormData);
 
-				toast.success("수강생이 등록되었습니다.");
+				const createdStudent = useStudentStore.getState().students.find(
+					(s) => s.name === formData.name && s.phone === formData.phone,
+				);
+
+				if (onCreated && createdStudent) {
+					toast.success(`"${createdStudent.name}" 등록 완료`);
+					onCreated(createdStudent);
+					onClose();
+				} else {
+					toast.success("수강생이 등록되었습니다.");
+				}
 				form.reset();
 				setSelectedExistingStudent(null);
 				setNameSearch("");
-				setTimeout(() => {
-					nameInputRef.current?.focus();
-				}, 100);
 			}
 		} catch (error) {
 			console.error("Validation failed:", error);
