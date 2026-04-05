@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@source "../../ui/src";
+@source "../../../apps/tutomate/src";
+@source "../../../apps/tutomate-q/src";
+@source "../../../apps/admin/src";
+
 @layer base {
   :root {
     --radius: 0.5rem;
