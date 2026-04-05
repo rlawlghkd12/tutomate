@@ -1,5 +1,6 @@
 // 검색 유틸리티
 import type { Course, Student, Enrollment } from '../types';
+import { PAYMENT_STATUS_LABELS } from '../types';
 
 export interface SearchResult {
   type: 'course' | 'student' | 'enrollment';
@@ -101,13 +102,7 @@ export const searchEnrollments = (
 
     if (matchedFields.length === 0) return [];
 
-    const statusMap = {
-      pending: '미납',
-      partial: '부분납부',
-      completed: '완납',
-      exempt: '면제',
-      withdrawn: '철회',
-    };
+    const statusMap = PAYMENT_STATUS_LABELS;
 
     return [{
       type: 'enrollment' as const,
