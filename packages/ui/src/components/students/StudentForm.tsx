@@ -303,7 +303,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 										/>
 										{nameComboboxOpen && nameOptions.length > 0 && (
 											<div style={{
-												position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+												position: 'absolute', top: '100%', left: 0, zIndex: 50, minWidth: 300, width: 'max-content',
 												marginTop: 4, borderRadius: 8, border: '1px solid hsl(var(--border))',
 												background: 'hsl(var(--popover))', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
 												maxHeight: 200, overflowY: 'auto',
