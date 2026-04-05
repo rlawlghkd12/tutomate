@@ -8,7 +8,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table';
-import { Search, ArrowUpDown } from 'lucide-react';
+import { Search } from 'lucide-react';
 import type { Course } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
@@ -106,15 +106,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
     },
     {
       accessorKey: 'name',
-      header: ({ column }) => (
-        <button
-          className="flex items-center gap-1"
-          onClick={() => column.toggleSorting()}
-        >
-          강좌 이름
-          <ArrowUpDown className="h-3 w-3" />
-        </button>
-      ),
+      header: '강좌 이름',
       size: 200,
       cell: ({ row }) => {
         const course = row.original;
@@ -172,29 +164,13 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
     },
     {
       accessorKey: 'fee',
-      header: ({ column }) => (
-        <button
-          className="flex items-center gap-1"
-          onClick={() => column.toggleSorting()}
-        >
-          수강료
-          <ArrowUpDown className="h-3 w-3" />
-        </button>
-      ),
+      header: '수강료',
       size: 110,
       cell: ({ getValue }) => `₩${(getValue<number>()).toLocaleString()}`,
     },
     {
       id: 'students',
-      header: ({ column }) => (
-        <button
-          className="flex items-center gap-1"
-          onClick={() => column.toggleSorting()}
-        >
-          수강 인원
-          <ArrowUpDown className="h-3 w-3" />
-        </button>
-      ),
+      header: '수강 인원',
       size: 90,
       accessorFn: (row) => getEnrollmentCountByCourseId(row.id),
       cell: ({ row }) => {
