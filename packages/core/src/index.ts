@@ -32,12 +32,6 @@ export { useLockStore } from './stores/lockStore';
 export { useNotificationStore } from './stores/notificationStore';
 
 // ─── Utils ───────────────────────────────────────────────────────
-export {
-  dumpSupabaseToLocal,
-  createCloudBackup,
-  restoreCloudBackup,
-} from './utils/backupHelper';
-
 export { createDataHelper, clearAllCache } from './utils/dataHelper';
 export type { DataHelper } from './utils/dataHelper';
 
@@ -155,8 +149,6 @@ export {
 
 // ─── Hooks ───────────────────────────────────────────────────────
 export { useAutoLock } from './hooks/useAutoLock';
-export { useBackup, setBackupToast } from './hooks/useBackup';
-export type { BackupInfo } from './hooks/useBackup';
 
 // ─── Types ───────────────────────────────────────────────────────
 export * from './types/index';

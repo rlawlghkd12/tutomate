@@ -27,9 +27,6 @@ export { default as LockScreen } from './components/common/LockScreen';
 export { default as Navigation } from './components/common/Navigation';
 export { UpdateChecker, useUpdateChecker } from './components/common/UpdateChecker';
 
-// Backup components
-export { AutoBackupScheduler } from './components/backup/AutoBackupScheduler';
-
 // Chart components
 export { CourseRevenueChart } from './components/charts/CourseRevenueChart';
 export { MonthlyRevenueChart } from './components/charts/MonthlyRevenueChart';

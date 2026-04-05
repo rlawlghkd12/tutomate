@@ -15,8 +15,6 @@ export default defineConfig({
         'src/config/**',
         'src/index.ts',
         // 인프라 코드 — 커버리지 대상 제외
-        'src/hooks/useBackup.ts',
-        'src/utils/backupHelper.ts',
         'src/utils/dayjs.ts',
         'src/utils/tauri.ts',
         'src/lib/oauth/index.ts',
