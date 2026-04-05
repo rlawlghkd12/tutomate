@@ -6,6 +6,11 @@ import {
   Copy,
   Lock,
   Loader2,
+  KeyRound,
+  Building2,
+  Palette,
+  Bell,
+  Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -309,7 +314,7 @@ const SettingsPage: React.FC = () => {
 
           {/* ── 섹션 1: 계정 ── */}
           <div style={{ marginTop: 0, marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}>🔑 계정</h3>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}><KeyRound style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />계정</h3>
             <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>로그인 및 라이선스 관리</p>
           </div>
           <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
@@ -388,7 +393,7 @@ const SettingsPage: React.FC = () => {
 
           {/* ── 섹션 2: 학원 정보 ── */}
           <div style={{ marginTop: 32, marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}>🏢 학원 정보</h3>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}><Building2 style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />학원 정보</h3>
             <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>헤더와 백업에 표시되는 이름</p>
           </div>
           <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
@@ -435,7 +440,7 @@ const SettingsPage: React.FC = () => {
 
           {/* ── 섹션 3: 화면 설정 ── */}
           <div style={{ marginTop: 32, marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}>🎨 화면 설정</h3>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}><Palette style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />화면 설정</h3>
             <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>앱 모양 변경</p>
           </div>
           <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
@@ -482,7 +487,7 @@ const SettingsPage: React.FC = () => {
 
           {/* ── 섹션 4: 알림 / 보안 ── */}
           <div style={{ marginTop: 32, marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}>🔔 알림 / 보안</h3>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}><Bell style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />알림 / 보안</h3>
             <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>알림과 잠금 설정</p>
           </div>
           <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
@@ -601,7 +606,7 @@ const SettingsPage: React.FC = () => {
 
           {/* ── 섹션 5: 앱 정보 ── */}
           <div style={{ marginTop: 32, marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}>ℹ️ 앱 정보</h3>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}><Info style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />앱 정보</h3>
           </div>
           <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
             {/* 버전 + 업데이트 확인 */}
