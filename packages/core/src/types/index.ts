@@ -69,6 +69,15 @@ export const PaymentStatus = {
 
 export type PaymentStatusType = typeof PaymentStatus[keyof typeof PaymentStatus];
 
+// 납부 상태 한국어 라벨
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatusType, string> = {
+  pending: '미납',
+  partial: '부분납부',
+  completed: '완납',
+  exempt: '면제',
+  withdrawn: '철회',
+};
+
 // 수강 신청 인터페이스
 export interface Enrollment {
   id: string;
