@@ -46,7 +46,7 @@ const badgeStyle: React.CSSProperties = {
   height: 18,
   borderRadius: 9999,
   padding: '0 5px',
-  fontSize: 11,
+  fontSize: '0.79rem',
   fontWeight: 600,
   lineHeight: 1,
   background: 'hsl(var(--destructive))',
@@ -72,7 +72,7 @@ const headerStyle: React.CSSProperties = {
 };
 
 const headerTitleStyle: React.CSSProperties = {
-  fontSize: 14,
+  fontSize: '1rem',
   fontWeight: 600,
   color: 'hsl(var(--foreground))',
 };
@@ -82,7 +82,7 @@ const headerBtnStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 4,
   padding: '4px 10px',
-  fontSize: 12,
+  fontSize: '0.86rem',
   fontWeight: 500,
   lineHeight: 1.4,
   borderRadius: 'var(--radius)',
@@ -104,7 +104,7 @@ const emptyStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   padding: '64px 0',
-  fontSize: 14,
+  fontSize: '1rem',
   color: 'hsl(var(--muted-foreground))',
 };
 
@@ -317,7 +317,7 @@ export const NotificationCenter: React.FC = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span
                           style={{
-                            fontSize: 14,
+                            fontSize: '1rem',
                             color: 'hsl(var(--foreground))',
                             fontWeight: notification.isRead ? 400 : 600,
                           }}
@@ -329,7 +329,7 @@ export const NotificationCenter: React.FC = () => {
                             display: 'inline-flex',
                             padding: '2px 6px',
                             borderRadius: 4,
-                            fontSize: 11,
+                            fontSize: '0.79rem',
                             fontWeight: 500,
                             lineHeight: 1.4,
                             ...priority.style,
@@ -342,7 +342,7 @@ export const NotificationCenter: React.FC = () => {
                       <div
                         style={{
                           marginTop: 4,
-                          fontSize: 13,
+                          fontSize: '0.93rem',
                           color: 'hsl(var(--muted-foreground))',
                           lineHeight: 1.5,
                         }}
@@ -353,7 +353,7 @@ export const NotificationCenter: React.FC = () => {
                       <div
                         style={{
                           marginTop: 4,
-                          fontSize: 12,
+                          fontSize: '0.86rem',
                           color: 'hsl(var(--muted-foreground))',
                           opacity: 0.7,
                         }}

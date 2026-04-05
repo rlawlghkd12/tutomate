@@ -244,8 +244,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 		<Dialog open={visible} onOpenChange={(open) => !open && onClose()}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>강좌 신청</DialogTitle>
-					<p style={{ fontSize: 14, color: 'hsl(var(--muted-foreground))', margin: 0 }}>{student?.name}</p>
+					<DialogTitle style={{ fontSize: '1.29rem', fontWeight: 700, marginBottom: 4 }}>강좌 신청</DialogTitle>
+					<p style={{ fontSize: '1rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>{student?.name}</p>
 				</DialogHeader>
 
 				<form onSubmit={form.handleSubmit(handleSubmit)} style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 8 }}>
@@ -307,7 +307,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 							)}
 						/>
 						{form.formState.errors.courseId && (
-							<p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>
+							<p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>
 								{form.formState.errors.courseId.message}
 							</p>
 						)}
@@ -317,12 +317,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 						<>
 							{/* 할인 / 면제 */}
 							<div style={{ display: 'flex', gap: 8 }}>
-								<Button type="button" variant={showDiscount ? "default" : "outline"} size="sm" style={{ fontSize: 13, padding: '6px 14px' }}
+								<Button type="button" variant={showDiscount ? "default" : "outline"} size="sm" style={{ fontSize: '0.93rem', padding: '6px 14px' }}
 									onClick={() => { setShowDiscount(!showDiscount); if (showDiscount) { form.setValue('discountAmount', 0); setDiscountAmount(0); } }}
 									disabled={isExempt}>
 									할인 적용
 								</Button>
-								<Button type="button" variant={isExempt ? "destructive" : "outline"} size="sm" style={{ fontSize: 13, padding: '6px 14px' }}
+								<Button type="button" variant={isExempt ? "destructive" : "outline"} size="sm" style={{ fontSize: '0.93rem', padding: '6px 14px' }}
 									onClick={handleExemptToggle}>
 									{isExempt ? "면제 해제" : "면제 처리"}
 								</Button>
@@ -336,17 +336,17 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 										render={({ field }) => (
 											<Input id="discountAmount" type="number" value={field.value}
 												onChange={(e) => { const val = Number(e.target.value) || 0; field.onChange(val); handleDiscountChange(val); }}
-												min={0} max={courseFee} placeholder="0" style={{ fontSize: 15 }} />
+												min={0} max={courseFee} placeholder="0" style={{ fontSize: '1.07rem' }} />
 										)} />
 									{discountAmount > 0 && (
-										<p style={{ fontSize: 13, color: 'hsl(var(--success))', margin: 0 }}>할인 적용 수강료: ₩{effectiveFee.toLocaleString()}</p>
+										<p style={{ fontSize: '0.93rem', color: 'hsl(var(--success))', margin: 0 }}>할인 적용 수강료: ₩{effectiveFee.toLocaleString()}</p>
 									)}
 								</div>
 							</div>
 						)}
 
 						{isExempt && (
-							<div className="slide-enter" style={{ borderRadius: 8, background: 'hsl(var(--accent))', padding: '10px 12px', fontSize: 13, color: "hsl(var(--foreground))" }}>
+							<div className="slide-enter" style={{ borderRadius: 8, background: 'hsl(var(--accent))', padding: '10px 12px', fontSize: '0.93rem', color: "hsl(var(--foreground))" }}>
 									면제 처리됩니다. 수익에 포함되지 않습니다.
 							</div>
 						)}
@@ -359,10 +359,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 									<Input id="paidAmount" type="number" value={field.value}
 										onChange={(e) => field.onChange(Number(e.target.value) || 0)}
 										min={0} max={effectiveFee} placeholder="30000"
-										disabled={isExempt} style={{ fontSize: 15 }} />
+										disabled={isExempt} style={{ fontSize: '1.07rem' }} />
 								)} />
 							{form.formState.errors.paidAmount && (
-								<p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.paidAmount.message}</p>
+								<p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.paidAmount.message}</p>
 							)}
 						</div>
 
@@ -410,7 +410,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 											{([{ v: "cash", l: "현금" }, { v: "card", l: "카드" }, { v: "transfer", l: "계좌이체" }] as const).map((m) => (
 												<Button key={m.v} type="button"
 													variant={field.value === m.v ? "default" : "outline"}
-													size="sm" style={{ fontSize: 14, padding: '8px 16px', flex: '1 0 auto' }}
+													size="sm" style={{ fontSize: '1rem', padding: '8px 16px', flex: '1 0 auto' }}
 													disabled={isExempt}
 													onClick={() => field.onChange(m.v)}>
 													{m.l}
@@ -438,11 +438,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 							type="button"
 							variant="outline"
 							onClick={onClose}
-							style={{ fontSize: 14, padding: "10px 24px" }}
+							style={{ fontSize: '1rem', padding: "10px 24px" }}
 						>
 							취소
 						</Button>
-						<Button type="submit" disabled={submitting} style={{ fontSize: 14, padding: "10px 24px" }}>
+						<Button type="submit" disabled={submitting} style={{ fontSize: '1rem', padding: "10px 24px" }}>
 							신청
 						</Button>
 					</DialogFooter>

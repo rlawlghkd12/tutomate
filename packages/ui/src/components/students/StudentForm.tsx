@@ -338,7 +338,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 									</Popover>
 								)}
 								{form.formState.errors.name && (
-									<p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.name.message}</p>
+									<p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.name.message}</p>
 								)}
 							</div>
 
@@ -360,7 +360,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 									}}
 								/>
 								{form.formState.errors.phone && (
-									<p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.phone.message}</p>
+									<p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.phone.message}</p>
 								)}
 							</div>
 

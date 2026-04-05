@@ -147,7 +147,7 @@ const CalendarPage: React.FC = () => {
                             style={{
                               padding: '2px 4px',
                               marginBottom: 2,
-                              fontSize: 13,
+                              fontSize: '0.93rem',
                               borderRadius: 4,
                               cursor: 'pointer',
                               borderLeft: `3px solid ${isFull ? 'hsl(var(--destructive))' : 'hsl(var(--info))'}`,

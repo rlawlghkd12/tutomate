@@ -150,7 +150,7 @@ const CalendarPage: React.FC = () => {
                         style={{
                           padding: '4px 6px',
                           marginBottom: 2,
-                          fontSize: 13,
+                          fontSize: '0.93rem',
                           borderRadius: 4,
                           cursor: 'pointer',
                           borderLeft: `3px solid ${isFull ? 'hsl(var(--destructive))' : 'hsl(var(--info))'}`,
@@ -164,7 +164,7 @@ const CalendarPage: React.FC = () => {
                         <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'hsl(var(--foreground))' }}>
                           {course.schedule?.startTime} {course.name}
                         </div>
-                        <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+                        <div style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))' }}>
                           {course.classroom} ({enrollmentCount}/{course.maxStudents})
                         </div>
                       </div>

@@ -511,7 +511,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           {rowSelection && rowSelection.selectedRowKeys.length > 0 && (
             <>
-              <span style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>{rowSelection.selectedRowKeys.length}명 선택</span>
+              <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>{rowSelection.selectedRowKeys.length}명 선택</span>
               {onRemoveEnrollments && (
                 <Button size="sm" variant="destructive" onClick={() => onRemoveEnrollments(rowSelection.selectedRowKeys as string[])}>
                   수강 철회
@@ -524,7 +524,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             </>
           )}
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger style={{ width: 100, height: 32, fontSize: 12 }}>
+            <SelectTrigger style={{ width: 100, height: 32, fontSize: '0.86rem' }}>
               <SelectValue placeholder="전체" />
             </SelectTrigger>
             <SelectContent>
