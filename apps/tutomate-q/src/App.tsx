@@ -129,11 +129,7 @@ function App() {
   }
 
   if (authLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return null;
   }
 
   // Step 1: 로그인 화면 (세션 없음)
