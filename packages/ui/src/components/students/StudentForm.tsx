@@ -532,42 +532,62 @@ function EnrollmentHistory({ studentId }: { studentId: string }) {
 		withdrawn: { text: '철회', color: 'hsl(var(--muted-foreground))' },
 	};
 
+	// 분기별 그룹핑
+	const grouped = new Map<string, typeof history>();
+	for (const e of history) {
+		const key = e.quarter || '미지정';
+		if (!grouped.has(key)) grouped.set(key, []);
+		grouped.get(key)!.push(e);
+	}
+	// 최신 분기 먼저
+	const sortedGroups = [...grouped.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+
+	const quarterLabel = (q: string) => {
+		if (q === '미지정') return '분기 미지정';
+		const [year, qNum] = q.split('-');
+		return `${year}년 ${qNum.replace('Q', '')}분기`;
+	};
+
 	return (
 		<div style={{ marginTop: 16, borderTop: '1px solid hsl(var(--border))', paddingTop: 16 }}>
 			<div style={{ fontSize: '0.93rem', fontWeight: 600, marginBottom: 8 }}>수강 이력</div>
-			<div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
-				{history.map((e) => {
-					const course = courses.find((c) => c.id === e.courseId);
-					const status = statusLabel[e.paymentStatus] || { text: e.paymentStatus, color: 'inherit' };
-					const ended = course ? isCourseEnded(course) : false;
-					return (
-						<div key={e.id} style={{
-							display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-							padding: '8px 12px', borderRadius: 8,
-							background: e.paymentStatus === PaymentStatus.WITHDRAWN ? 'hsl(var(--muted) / 0.5)' : 'hsl(var(--muted) / 0.3)',
-							opacity: e.paymentStatus === PaymentStatus.WITHDRAWN ? 0.6 : 1,
-						}}>
-							<div>
-								<div style={{ fontSize: '0.93rem', fontWeight: 500, textDecoration: e.paymentStatus === PaymentStatus.WITHDRAWN ? 'line-through' : undefined }}>
-									{course?.name || '삭제된 강좌'}
-									{ended && <span style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))', marginLeft: 6 }}>종료</span>}
-								</div>
-								<div style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))' }}>
-									{e.enrolledAt?.slice(0, 10) || '-'}
-									{e.paidAt && ` · 납부 ${e.paidAt}`}
-								</div>
-							</div>
-							<div style={{ textAlign: 'right' }}>
-								<div style={{ fontSize: '0.86rem', fontWeight: 600, color: status.color }}>{status.text}</div>
-								{e.paymentStatus !== PaymentStatus.WITHDRAWN && e.paymentStatus !== 'exempt' && (
-									<div style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))' }}>
-										₩{e.paidAmount.toLocaleString()}
+			<div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 220, overflowY: 'auto' }}>
+				{sortedGroups.map(([quarter, items]) => (
+					<div key={quarter}>
+						<div style={{ fontSize: '0.79rem', fontWeight: 600, color: 'hsl(var(--primary))', marginBottom: 4 }}>{quarterLabel(quarter)}</div>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+							{items.map((e) => {
+								const course = courses.find((c) => c.id === e.courseId);
+								const status = statusLabel[e.paymentStatus] || { text: e.paymentStatus, color: 'inherit' };
+								const ended = course ? isCourseEnded(course) : false;
+								return (
+									<div key={e.id} style={{
+										display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+										padding: '6px 10px', borderRadius: 6,
+										background: e.paymentStatus === PaymentStatus.WITHDRAWN ? 'hsl(var(--muted) / 0.5)' : 'hsl(var(--muted) / 0.3)',
+										opacity: e.paymentStatus === PaymentStatus.WITHDRAWN ? 0.6 : 1,
+									}}>
+										<div>
+											<div style={{ fontSize: '0.86rem', fontWeight: 500, textDecoration: e.paymentStatus === PaymentStatus.WITHDRAWN ? 'line-through' : undefined }}>
+												{course?.name || '삭제된 강좌'}
+												{ended && <span style={{ fontSize: '0.71rem', color: 'hsl(var(--muted-foreground))', marginLeft: 4 }}>종료</span>}
+											</div>
+											<div style={{ fontSize: '0.71rem', color: 'hsl(var(--muted-foreground))' }}>
+												{e.enrolledAt?.slice(0, 10) || '-'}
+											</div>
+										</div>
+										<div style={{ textAlign: 'right' }}>
+											<div style={{ fontSize: '0.79rem', fontWeight: 600, color: status.color }}>{status.text}</div>
+											{e.paymentStatus !== PaymentStatus.WITHDRAWN && e.paymentStatus !== 'exempt' && (
+												<div style={{ fontSize: '0.71rem', color: 'hsl(var(--muted-foreground))' }}>₩{e.paidAmount.toLocaleString()}</div>
+											)}
+										</div>
 									</div>
-								)}
-							</div>
+								);
+							})}
 						</div>
-					);
-				})}
+					</div>
+				))}
 			</div>
 		</div>
 	);
