@@ -45,7 +45,7 @@ interface PaymentManagementTableProps {
   courseFee: number;
   enrollments: Enrollment[];
   onStudentClick?: (studentId: string) => void;
-  onRemoveEnrollments?: (enrollmentIds: string[]) => void;
+  onRemoveEnrollments?: (enrollmentIds: string[], refundAmount?: number) => void;
   showMemberColumn?: boolean;
   quarterSelector?: React.ReactNode;
   rowSelection?: {
@@ -78,6 +78,8 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   const { getStudentById } = useStudentStore();
   const { records, addPayment, deletePayment, updateRecord } = usePaymentRecordStore();
   const { updatePayment: updateEnrollmentPayment } = useEnrollmentStore();
+  const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false);
+  const [refundAmount, setRefundAmount] = useState(0);
 
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
@@ -530,7 +532,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             <>
               <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>{rowSelection.selectedRowKeys.length}명 선택</span>
               {onRemoveEnrollments && (
-                <Button size="sm" variant="destructive" onClick={() => onRemoveEnrollments(rowSelection.selectedRowKeys as string[])}>
+                <Button size="sm" variant="destructive" onClick={() => { setRefundAmount(0); setWithdrawDialogOpen(true); }}>
                   수강 철회
                 </Button>
               )}
@@ -820,6 +822,44 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           )}
         </DialogContent>
       </Dialog>
+      {/* 수강 철회 확인 다이얼로그 */}
+      <AlertDialog open={withdrawDialogOpen} onOpenChange={setWithdrawDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>수강 철회</AlertDialogTitle>
+            <AlertDialogDescription>
+              {rowSelection?.selectedRowKeys.length || 0}명의 수강을 철회합니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div style={{ padding: '0 24px 16px' }}>
+            <Label style={{ marginBottom: 6, display: 'block' }}>환불 금액 (원)</Label>
+            <Input
+              type="number"
+              value={refundAmount || ''}
+              onChange={(e) => setRefundAmount(Number(e.target.value) || 0)}
+              placeholder="0 (환불 없음)"
+              min={0}
+            />
+            <p style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+              환불이 없으면 0으로 두세요
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (onRemoveEnrollments && rowSelection) {
+                  onRemoveEnrollments(rowSelection.selectedRowKeys as string[], refundAmount || 0);
+                }
+                setWithdrawDialogOpen(false);
+              }}
+            >
+              철회
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
