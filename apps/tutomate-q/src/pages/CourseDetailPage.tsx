@@ -15,7 +15,7 @@ import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
 import { usePaymentRecordStore } from "@tutomate/core";
 import { useStudentStore } from "@tutomate/core";
-import { appConfig } from "@tutomate/core";
+import { appConfig, isActiveEnrollment } from "@tutomate/core";
 import type { Enrollment, Student } from "@tutomate/core";
 import {
 	COURSE_STUDENT_EXPORT_FIELDS,
@@ -67,8 +67,8 @@ const CourseDetailPage: React.FC = () => {
 
 	const course = id ? getCourseById(id) : undefined;
 	const courseEnrollments = appConfig.enableQuarterSystem
-		? enrollments.filter((e) => e.courseId === id && e.paymentStatus !== 'withdrawn' && (e.quarter === selectedQuarter || !e.quarter))
-		: enrollments.filter((e) => e.courseId === id && e.paymentStatus !== 'withdrawn');
+		? enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e) && (e.quarter === selectedQuarter || !e.quarter))
+		: enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e));
 
 	const nonExemptEnrollments = courseEnrollments.filter(
 		(e) => e.paymentStatus !== "exempt",

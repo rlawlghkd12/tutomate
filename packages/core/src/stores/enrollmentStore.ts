@@ -1,5 +1,6 @@
 import dayjs from "dayjs";
 import { create } from "zustand";
+import { isActiveEnrollment } from "../types";
 import type { Enrollment, EnrollmentFormData, PaymentMethod } from "../types";
 import { createDataHelper } from "../utils/dataHelper";
 import type { EnrollmentRow } from "../utils/fieldMapper";
@@ -120,7 +121,7 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 
 	getEnrollmentCountByCourseId: (courseId: string) => {
 		return get().enrollments.filter(
-			(enrollment) => enrollment.courseId === courseId && enrollment.paymentStatus !== 'withdrawn',
+			(enrollment) => enrollment.courseId === courseId && isActiveEnrollment(enrollment),
 		).length;
 	},
 
