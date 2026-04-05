@@ -263,7 +263,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 									}}
 									value={field.value}
 								>
-									<SelectTrigger id="courseId" className="text-base">
+									<SelectTrigger id="courseId" style={{ height: 44, fontSize: '1rem' }}>
 										<SelectValue placeholder="강좌를 선택하세요" />
 									</SelectTrigger>
 									<SelectContent>
@@ -283,21 +283,25 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 													e.courseId === course.id,
 											);
 											const isDisabled = isFull || isEnrolled;
-											const label = `${course.name} (₩${course.fee.toLocaleString()}) - ${currentCount}/${course.maxStudents}명`;
 											return (
 												<SelectItem
 													key={course.id}
 													value={course.id}
 													disabled={isDisabled}
+													className="py-2.5"
 												>
 													<span
 														className={cn(
 															isEnrolled && "line-through text-muted-foreground",
 														)}
+														style={{ fontSize: '0.93rem' }}
 													>
-														{label}
-														{isEnrolled && " [수강중]"}
-														{isFull && !isEnrolled && " [정원 마감]"}
+														<span style={{ fontWeight: 600 }}>{course.name}</span>
+														<span className="text-muted-foreground" style={{ marginLeft: 8 }}>
+															₩{course.fee.toLocaleString()} · {currentCount}/{course.maxStudents}명
+														</span>
+														{isEnrolled && <span className="text-muted-foreground"> [수강중]</span>}
+														{isFull && !isEnrolled && <span className="text-destructive"> [마감]</span>}
 													</span>
 												</SelectItem>
 											);
