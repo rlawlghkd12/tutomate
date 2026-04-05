@@ -111,6 +111,7 @@ const GlobalSearchInner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         placeholder="강좌, 수강생, 수강 신청 검색..."
         value={query}
         onValueChange={setQuery}
+        autoFocus
       />
       <CommandList style={{ maxHeight: 'calc(70vh - 100px)', overflowY: 'auto', padding: '8px 12px' }}>
         <CommandEmpty>
