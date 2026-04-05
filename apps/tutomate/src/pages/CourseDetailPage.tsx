@@ -153,7 +153,7 @@ const CourseDetailPage: React.FC = () => {
 	const studentCount = getEnrollmentCountByCourseId(course.id);
 
 	return (
-		<div>
+		<div className="page-enter">
 			{/* 브레드크럼 + 내보내기 */}
 			<div className="flex items-center justify-between mb-1.5">
 				<div className="flex items-baseline gap-1.5">

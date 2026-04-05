@@ -82,7 +82,7 @@ const CalendarPage: React.FC = () => {
   }
 
   return (
-    <div>
+    <div className="page-enter">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold m-0">강좌 캘린더</h2>
         <div className="flex items-center gap-2">

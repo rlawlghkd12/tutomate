@@ -55,7 +55,7 @@ const StudentsPage: React.FC = () => {
   const isAllSelected = selectedExportFields.length === allFieldKeys.length;
 
   return (
-    <div>
+    <div className="page-enter">
       <StudentList
         actions={
           <div className="flex gap-2">

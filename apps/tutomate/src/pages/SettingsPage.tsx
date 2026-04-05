@@ -309,7 +309,7 @@ const SettingsPage: React.FC = () => {
     : 'success' as const;
 
   return (
-    <div>
+    <div className="page-enter">
       <div className="max-w-[1000px]">
 
           {/* ── 섹션 1: 계정 ── */}
