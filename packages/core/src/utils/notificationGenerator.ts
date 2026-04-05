@@ -1,4 +1,5 @@
 import type { Enrollment, Student, Course } from '../types';
+import { isActiveEnrollment } from '../types';
 import dayjs from 'dayjs';
 import { useNotificationStore } from '../stores/notificationStore';
 
@@ -12,7 +13,7 @@ export const generatePaymentOverdueNotifications = (
   const overdueThreshold = 30; // 30일
 
   enrollments.forEach((enrollment) => {
-    if (enrollment.paymentStatus === 'pending' || enrollment.paymentStatus === 'partial') {
+    if (isActiveEnrollment(enrollment) && (enrollment.paymentStatus === 'pending' || enrollment.paymentStatus === 'partial')) {
       const daysSinceEnrollment = dayjs().diff(dayjs(enrollment.enrolledAt), 'day');
 
       if (daysSinceEnrollment >= overdueThreshold) {
@@ -44,7 +45,7 @@ export const generatePaymentReminderNotifications = (
   const reminderDays = [7, 14, 21];
 
   enrollments.forEach((enrollment) => {
-    if (enrollment.paymentStatus !== 'completed') {
+    if (isActiveEnrollment(enrollment) && enrollment.paymentStatus !== 'completed') {
       const daysSinceEnrollment = dayjs().diff(dayjs(enrollment.enrolledAt), 'day');
 
       if (reminderDays.includes(daysSinceEnrollment)) {

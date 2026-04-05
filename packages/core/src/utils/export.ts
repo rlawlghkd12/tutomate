@@ -132,6 +132,7 @@ const revenuePaymentStatusMap: Record<string, string> = {
   partial: '부분납부',
   completed: '완납',
   exempt: '면제',
+  withdrawn: '철회',
 };
 
 export const REVENUE_EXPORT_FIELDS: RevenueExportField[] = [
@@ -327,6 +328,7 @@ const paymentStatusMap: Record<string, string> = {
   partial: '부분납부',
   completed: '완납',
   exempt: '면제',
+  withdrawn: '철회',
 };
 
 export const COURSE_STUDENT_EXPORT_FIELDS: CourseStudentExportField[] = [

@@ -15,6 +15,7 @@ import {
 	useMonthlyPaymentStore,
 	useStudentStore,
 	generateAllNotifications,
+	isActiveEnrollment,
 } from "@tutomate/core";
 
 const DashboardPage: React.FC = () => {
@@ -67,20 +68,20 @@ const DashboardPage: React.FC = () => {
 	const totalStudents = students.length;
 
 	const completedPayments = enrollments.filter(
-		(e) => e.paymentStatus === "completed",
+		(e) => isActiveEnrollment(e) && e.paymentStatus === "completed",
 	).length;
 	const pendingPayments = enrollments.filter(
-		(e) => e.paymentStatus === "pending",
+		(e) => isActiveEnrollment(e) && e.paymentStatus === "pending",
 	).length;
 
 	const totalRevenue = enrollments
-		.filter((e) => e.paymentStatus !== "exempt")
+		.filter((e) => isActiveEnrollment(e) && e.paymentStatus !== "exempt")
 		.reduce((sum, enrollment) => {
 			return sum + enrollment.paidAmount;
 		}, 0);
 
 	const expectedRevenue = enrollments
-		.filter((e) => e.paymentStatus !== "exempt")
+		.filter((e) => isActiveEnrollment(e) && e.paymentStatus !== "exempt")
 		.reduce((sum, enrollment) => {
 			const course = courses.find((c) => c.id === enrollment.courseId);
 			return sum + (course?.fee || 0);
@@ -171,7 +172,7 @@ const DashboardPage: React.FC = () => {
 						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
 							{courses.map((course) => {
 								const currentStudents = enrollments.filter(
-									(e) => e.courseId === course.id,
+									(e) => e.courseId === course.id && isActiveEnrollment(e),
 								).length;
 								const percentage = (currentStudents / course.maxStudents) * 100;
 								return (

@@ -12,6 +12,7 @@ import {
 	useMonthlyPaymentStore,
 	useStudentStore,
 	generateAllNotifications,
+	isActiveEnrollment,
 } from "@tutomate/core";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -68,20 +69,20 @@ const DashboardPage: React.FC = () => {
 
 	const { completedPayments, pendingPayments, totalRevenue, paymentRate } = useMemo(() => {
 		const completed = enrollments.filter(
-			(e) => e.paymentStatus === "completed",
+			(e) => isActiveEnrollment(e) && e.paymentStatus === "completed",
 		).length;
 		const pending = enrollments.filter(
-			(e) => e.paymentStatus === "pending",
+			(e) => isActiveEnrollment(e) && e.paymentStatus === "pending",
 		).length;
 
 		const revenue = enrollments
-			.filter((e) => e.paymentStatus !== "exempt")
+			.filter((e) => isActiveEnrollment(e) && e.paymentStatus !== "exempt")
 			.reduce((sum, enrollment) => {
 				return sum + enrollment.paidAmount;
 			}, 0);
 
 		const expected = enrollments
-			.filter((e) => e.paymentStatus !== "exempt")
+			.filter((e) => isActiveEnrollment(e) && e.paymentStatus !== "exempt")
 			.reduce((sum, enrollment) => {
 				const course = courses.find((c) => c.id === enrollment.courseId);
 				return sum + (course?.fee || 0);
@@ -101,6 +102,7 @@ const DashboardPage: React.FC = () => {
 	const enrollmentCountMap = useMemo(() => {
 		const map = new Map<string, number>();
 		for (const e of enrollments) {
+			if (!isActiveEnrollment(e)) continue;
 			map.set(e.courseId, (map.get(e.courseId) || 0) + 1);
 		}
 		return map;

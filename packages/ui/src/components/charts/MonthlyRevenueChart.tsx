@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import dayjs from 'dayjs';
 import type { Enrollment, Course } from '@tutomate/core';
-import { useChartColors, useChartTooltipStyle } from '@tutomate/core';
+import { useChartColors, useChartTooltipStyle, isActiveEnrollment } from '@tutomate/core';
 
 interface MonthlyRevenueChartProps {
   enrollments: Enrollment[];
@@ -22,7 +22,7 @@ export const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({ enroll
 
     return months.map((month) => {
       const monthEnrollments = enrollments.filter((e) =>
-        dayjs(e.enrolledAt).format('YYYY-MM') === month
+        isActiveEnrollment(e) && dayjs(e.enrolledAt).format('YYYY-MM') === month
       );
 
       const nonExemptEnrollments = monthEnrollments.filter((e) => e.paymentStatus !== 'exempt');
