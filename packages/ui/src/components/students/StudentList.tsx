@@ -8,7 +8,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table';
-import { Search, ArrowUpDown, BookOpen } from 'lucide-react';
+import { Search, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Student } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
@@ -134,15 +134,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
     },
     {
       id: 'name',
-      header: ({ column }) => (
-        <button
-          className="flex items-center gap-1"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-        >
-          이름
-          <ArrowUpDown className="h-3 w-3" />
-        </button>
-      ),
+      header: '이름',
       accessorFn: (row) => row.student.name,
       cell: ({ row }) => (
         <button
