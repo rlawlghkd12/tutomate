@@ -341,7 +341,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 									ref={phoneInputRef}
 									value={form.watch("phone")}
 									onChange={handlePhoneChange}
-									placeholder="010-0000-0000"
+									placeholder="01000000000"
 									maxLength={13}
 									className="text-base"
 									onKeyDown={(e) => {
