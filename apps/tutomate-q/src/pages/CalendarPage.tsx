@@ -2,12 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import { toast } from 'sonner';
 import {
   Button, Dialog, DialogContent, DialogHeader, DialogTitle,
   Badge, Card, CardContent,
 } from '@tutomate/ui';
-import { FLEX_BETWEEN } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import type { Course } from '@tutomate/core';

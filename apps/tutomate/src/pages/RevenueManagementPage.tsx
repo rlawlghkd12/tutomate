@@ -23,7 +23,6 @@ import {
   REVENUE_EXPORT_FIELDS,
   getCurrentQuarter,
   getQuarterOptions,
-  getQuarterLabel,
 } from '@tutomate/core';
 import type { Enrollment } from '@tutomate/core';
 import { PaymentForm } from '@tutomate/ui';
@@ -39,7 +38,7 @@ const RevenueManagementPage: React.FC = () => {
   const { courses, loadCourses, getCourseById } = useCourseStore();
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
-  const { records, loadRecords } = usePaymentRecordStore();
+  const { loadRecords } = usePaymentRecordStore();
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);

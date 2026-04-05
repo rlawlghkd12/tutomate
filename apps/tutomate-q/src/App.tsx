@@ -182,7 +182,7 @@ function App() {
   return (
     <ErrorBoundary>
       <Dialog open={needsSetup}>
-        <DialogContent closable={false}>
+        <DialogContent onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{appConfig.welcomeTitle}</DialogTitle>
           </DialogHeader>

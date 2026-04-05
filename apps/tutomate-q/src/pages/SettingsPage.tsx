@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Save, Eye, EyeOff, Copy, Lock, AlertTriangle, Loader2,
+  Save, Eye, EyeOff, Copy, Lock, Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
