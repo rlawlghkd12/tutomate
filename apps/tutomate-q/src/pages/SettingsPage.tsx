@@ -167,6 +167,8 @@ const SettingsPage: React.FC = () => {
     { label: '최대', value: 'xxxl', px: 22 },
   ];
 
+  const [sliderValue, setSliderValue] = useState(() => fontSizeOptions.findIndex(o => o.value === fontSize));
+
   const handleCheckUpdate = async () => {
     if (!isElectron()) { toast.warning('업데이트는 데스크톱 앱에서만 사용 가능합니다'); return; }
     setCheckingUpdate(true);
@@ -389,7 +391,7 @@ const SettingsPage: React.FC = () => {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>가</span>
-                <input type="range" min={0} max={6} step="any" value={fontSizeOptions.findIndex(o => o.value === fontSize)} onChange={(e) => { const idx = Math.round(Number(e.target.value)); if (fontSizeOptions[idx]) setFontSize(fontSizeOptions[idx].value); }} style={{ flex: 1 }} />
+                <input type="range" min={0} max={6} step="any" value={sliderValue} onChange={(e) => { const val = Number(e.target.value); setSliderValue(val); const idx = Math.round(val); if (fontSizeOptions[idx]) setFontSize(fontSizeOptions[idx].value); }} onPointerUp={() => setSliderValue(Math.round(sliderValue))} onTouchEnd={() => setSliderValue(Math.round(sliderValue))} style={{ flex: 1 }} />
                 <span style={{ fontSize: 18, fontWeight: 700, color: 'hsl(var(--muted-foreground))' }}>가</span>
               </div>
             </div>
