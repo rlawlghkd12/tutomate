@@ -39,14 +39,17 @@ export { default as dayjs } from './utils/dayjs';
 
 export {
   ErrorType,
+  ErrorCode,
   AppError,
   ErrorHandler,
   errorHandler,
   handleError,
   createError,
   setErrorDisplay,
+  showErrorMessage,
+  USER_ERROR_MESSAGES,
 } from './utils/errors';
-export type { AppErrorOptions } from './utils/errors';
+export type { AppErrorOptions, ErrorCodeType } from './utils/errors';
 
 export {
   exportStudentsToExcel,

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AppError, ErrorType, createError, handleError, ErrorHandler, setErrorDisplay } from '../errors';
+import { AppError, ErrorType, ErrorCode, USER_ERROR_MESSAGES, createError, handleError, ErrorHandler, setErrorDisplay, showErrorMessage } from '../errors';
+import type { ErrorCodeType } from '../errors';
 
 // Mock error display
 const mockShowError = vi.fn();
@@ -34,41 +35,43 @@ describe('AppError', () => {
     expect(err.userMessage).toBe('커스텀 에러 메시지');
   });
 
-  it('각 ErrorType별 기본 한국어 메시지 반환', () => {
-    const cases: [ErrorType, string][] = [
-      [ErrorType.FILE_READ_ERROR, '데이터를 불러오는 중 오류가 발생했습니다.'],
-      [ErrorType.FILE_WRITE_ERROR, '데이터를 저장하는 중 오류가 발생했습니다.'],
-      [ErrorType.FILE_NOT_FOUND, '파일을 찾을 수 없습니다.'],
-      [ErrorType.VALIDATION_ERROR, '입력한 정보를 확인해주세요.'],
-      [ErrorType.DUPLICATE_ERROR, '이미 존재하는 데이터입니다.'],
-      [ErrorType.INVALID_DATA, '유효하지 않은 데이터입니다.'],
-      [ErrorType.ENROLLMENT_ERROR, '수강 신청 중 오류가 발생했습니다.'],
-      [ErrorType.PAYMENT_ERROR, '결제 처리 중 오류가 발생했습니다.'],
-      [ErrorType.NETWORK_ERROR, '네트워크 연결을 확인해주세요.'],
-      [ErrorType.UNKNOWN_ERROR, '예상치 못한 오류가 발생했습니다.'],
+  it('각 ErrorType별 기본 한국어 메시지 반환 (code 경유)', () => {
+    // userMessage는 이제 type → code 매핑 후 USER_ERROR_MESSAGES에서 가져옴
+    const cases: [ErrorType, ErrorCodeType, string][] = [
+      [ErrorType.FILE_READ_ERROR, ErrorCode.DB_READ_FAILED, USER_ERROR_MESSAGES.DB_READ_FAILED],
+      [ErrorType.FILE_WRITE_ERROR, ErrorCode.DB_WRITE_FAILED, USER_ERROR_MESSAGES.DB_WRITE_FAILED],
+      [ErrorType.FILE_NOT_FOUND, ErrorCode.DB_NOT_FOUND, USER_ERROR_MESSAGES.DB_NOT_FOUND],
+      [ErrorType.VALIDATION_ERROR, ErrorCode.VALIDATION_ERROR, USER_ERROR_MESSAGES.VALIDATION_ERROR],
+      [ErrorType.DUPLICATE_ERROR, ErrorCode.DB_DUPLICATE, USER_ERROR_MESSAGES.DB_DUPLICATE],
+      [ErrorType.INVALID_DATA, ErrorCode.VALIDATION_ERROR, USER_ERROR_MESSAGES.VALIDATION_ERROR],
+      [ErrorType.ENROLLMENT_ERROR, ErrorCode.ENROLLMENT_FULL, USER_ERROR_MESSAGES.ENROLLMENT_FULL],
+      [ErrorType.PAYMENT_ERROR, ErrorCode.PAYMENT_INVALID, USER_ERROR_MESSAGES.PAYMENT_INVALID],
+      [ErrorType.NETWORK_ERROR, ErrorCode.NETWORK_OFFLINE, USER_ERROR_MESSAGES.NETWORK_OFFLINE],
+      [ErrorType.UNKNOWN_ERROR, ErrorCode.UNKNOWN, USER_ERROR_MESSAGES.UNKNOWN],
     ];
 
-    for (const [type, expected] of cases) {
+    for (const [type, expectedCode, expectedMsg] of cases) {
       const err = new AppError({ type, message: 'test' });
-      expect(err.userMessage).toBe(expected);
+      expect(err.code).toBe(expectedCode);
+      expect(err.userMessage).toBe(expectedMsg);
     }
   });
 
-  it('toString() 포맷 — component 포함', () => {
+  it('toString() 포맷 — component 포함 (code 사용)', () => {
     const err = new AppError({
       type: ErrorType.PAYMENT_ERROR,
       message: 'Failed to process',
       component: 'PaymentPage',
     });
-    expect(err.toString()).toBe('[PAYMENT_ERROR] Failed to process (PaymentPage)');
+    expect(err.toString()).toBe('[PAYMENT_INVALID] Failed to process (PaymentPage)');
   });
 
-  it('toString() 포맷 — component 없음', () => {
+  it('toString() 포맷 — component 없음 (code 사용)', () => {
     const err = new AppError({
       type: ErrorType.NETWORK_ERROR,
       message: 'Timeout',
     });
-    expect(err.toString()).toBe('[NETWORK_ERROR] Timeout');
+    expect(err.toString()).toBe('[NETWORK_OFFLINE] Timeout');
   });
 
   it('originalError 저장', () => {
@@ -207,7 +210,7 @@ describe('ErrorHandler convenience methods', () => {
     // handle은 비동기이지만 내부적으로 showError 호출됨
     await vi.waitFor(() => {
       expect(mockShowError).toHaveBeenCalledWith(
-        '데이터를 불러오는 중 오류가 발생했습니다.',
+        USER_ERROR_MESSAGES.DB_READ_FAILED,
         true,
       );
     });
@@ -218,7 +221,7 @@ describe('ErrorHandler convenience methods', () => {
     ErrorHandler.getInstance().handleFileError(err, 'write');
     await vi.waitFor(() => {
       expect(mockShowError).toHaveBeenCalledWith(
-        '데이터를 저장하는 중 오류가 발생했습니다.',
+        USER_ERROR_MESSAGES.DB_WRITE_FAILED,
         true,
       );
     });
@@ -248,5 +251,88 @@ describe('setErrorDisplay', () => {
     setErrorDisplay(mockShowError);
     const err = new AppError({ type: ErrorType.UNKNOWN_ERROR, message: 'test' });
     await expect(ErrorHandler.getInstance().handle(err)).resolves.toBeUndefined();
+  });
+});
+
+// ─── ErrorCode + USER_ERROR_MESSAGES ──────────────────────────────────────
+
+describe('ErrorCode / USER_ERROR_MESSAGES', () => {
+  it('모든 ErrorCode 값에 대응하는 USER_ERROR_MESSAGES 존재', () => {
+    for (const code of Object.values(ErrorCode)) {
+      expect(USER_ERROR_MESSAGES[code]).toBeDefined();
+      expect(typeof USER_ERROR_MESSAGES[code]).toBe('string');
+      expect(USER_ERROR_MESSAGES[code].length).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ─── AppError code 필드 ───────────────────────────────────────────────────
+
+describe('AppError code field', () => {
+  it('code 미지정 시 type → code 자동 매핑', () => {
+    const err = new AppError({
+      type: ErrorType.FILE_READ_ERROR,
+      message: 'read failed',
+    });
+    expect(err.code).toBe(ErrorCode.DB_READ_FAILED);
+  });
+
+  it('code 직접 지정 시 해당 code 사용', () => {
+    const err = new AppError({
+      type: ErrorType.NETWORK_ERROR,
+      message: 'timeout',
+      code: ErrorCode.NETWORK_TIMEOUT,
+    });
+    expect(err.code).toBe(ErrorCode.NETWORK_TIMEOUT);
+    // type은 여전히 원래 값 유지
+    expect(err.type).toBe(ErrorType.NETWORK_ERROR);
+  });
+
+  it('userMessage — code 기반 자동 매핑', () => {
+    const err = new AppError({
+      type: ErrorType.ENROLLMENT_ERROR,
+      message: 'full',
+    });
+    expect(err.userMessage).toBe(USER_ERROR_MESSAGES.ENROLLMENT_FULL);
+  });
+
+  it('userMessage — 직접 override 시 우선 적용', () => {
+    const err = new AppError({
+      type: ErrorType.ENROLLMENT_ERROR,
+      message: 'full',
+      userMessage: '수강 신청 마감!',
+    });
+    expect(err.userMessage).toBe('수강 신청 마감!');
+  });
+
+  it('toString() — code 사용', () => {
+    const err = new AppError({
+      type: ErrorType.DUPLICATE_ERROR,
+      message: 'dup key',
+      component: 'StudentForm',
+    });
+    expect(err.toString()).toBe('[DB_DUPLICATE] dup key (StudentForm)');
+  });
+});
+
+// ─── showErrorMessage ─────────────────────────────────────────────────────
+
+describe('showErrorMessage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('_showError 설정 시 메시지 전달', () => {
+    const mockFn = vi.fn();
+    setErrorDisplay(mockFn);
+    showErrorMessage('테스트 메시지');
+    expect(mockFn).toHaveBeenCalledWith('테스트 메시지', true);
+  });
+
+  it('recoverable 인자 전달', () => {
+    const mockFn = vi.fn();
+    setErrorDisplay(mockFn);
+    showErrorMessage('심각한 오류', false);
+    expect(mockFn).toHaveBeenCalledWith('심각한 오류', false);
   });
 });
