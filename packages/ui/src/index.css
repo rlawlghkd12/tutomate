@@ -225,5 +225,11 @@ input[type="range"]::-webkit-slider-thumb:active {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Skeleton pulse */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 /* Ended course row */
 .ended-course-row td { opacity: 0.55; }
