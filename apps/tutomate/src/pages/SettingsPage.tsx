@@ -392,7 +392,7 @@ const SettingsPage: React.FC = () => {
           {/* ── 섹션 2: 학원 정보 ── */}
           <div style={{ marginTop: 32, marginBottom: 16 }}>
             <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}><Building2 style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />학원 정보</h3>
-            <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>헤더와 백업에 표시되는 이름</p>
+            <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>사이드바와 헤더에 표시되는 이름</p>
           </div>
           <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
             {/* 이름 */}
@@ -400,7 +400,7 @@ const SettingsPage: React.FC = () => {
               <div className="flex-1 mr-6">
                 <p className="font-semibold text-sm">이름</p>
                 <p className="text-muted-foreground text-[0.85em]">
-                  {currentPlan === 'trial' ? '라이선스 활성화 후 변경 가능' : '헤더와 백업 파일명에 표시'}
+                  {currentPlan === 'trial' ? '라이선스 활성화 후 변경 가능' : '사이드바와 헤더에 표시됩니다'}
                 </p>
               </div>
               <div className="flex items-center gap-2">

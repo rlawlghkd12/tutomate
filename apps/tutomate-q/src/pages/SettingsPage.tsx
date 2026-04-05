@@ -428,7 +428,7 @@ const SettingsPage: React.FC = () => {
             <div className="flex-1 mr-6">
               <p className="font-semibold">이름</p>
               <p className="text-sm text-muted-foreground">
-                {currentPlan === 'trial' ? '라이선스 활성화 후 변경 가능' : '헤더와 백업 파일명에 표시'}
+                {currentPlan === 'trial' ? '라이선스 활성화 후 변경 가능' : '사이드바와 헤더에 표시됩니다'}
               </p>
             </div>
             <div className="flex items-center gap-2">
