@@ -33,7 +33,7 @@ export { useNotificationStore } from './stores/notificationStore';
 
 // ─── Utils ───────────────────────────────────────────────────────
 export { createDataHelper, clearAllCache } from './utils/dataHelper';
-export type { DataHelper } from './utils/dataHelper';
+export type { DataHelper, LoadResult } from './utils/dataHelper';
 
 export { default as dayjs } from './utils/dayjs';
 
