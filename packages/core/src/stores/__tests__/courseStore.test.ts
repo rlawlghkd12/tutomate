@@ -199,4 +199,77 @@ describe("courseStore", () => {
 			"변경 이름",
 		);
 	});
+
+	it("updateCourse — 여러 강좌 중 하나만 업데이트", async () => {
+		const c1 = makeCourse({ id: "c1", name: "수학" });
+		const c2 = makeCourse({ id: "c2", name: "영어" });
+		useCourseStore.setState({ courses: [c1, c2] });
+
+		await useCourseStore.getState().updateCourse("c1", { name: "수학(변경)" });
+
+		expect(useCourseStore.getState().getCourseById("c1")?.name).toBe("수학(변경)");
+		expect(useCourseStore.getState().getCourseById("c2")?.name).toBe("영어");
+	});
+
+	it("updateCourse — 서버 실패해도 로컬 반영", async () => {
+		useCourseStore.setState({ courses: [makeCourse()] });
+		mockUpdate.mockReturnValueOnce({
+			eq: vi.fn().mockRejectedValue(new Error("server error")),
+		});
+		await useCourseStore.getState().updateCourse("c1", { fee: 999 });
+		expect(useCourseStore.getState().getCourseById("c1")?.fee).toBe(999);
+	});
+
+	it("addCourse — 서버 실패해도 로컬에 추가", async () => {
+		mockInsert.mockResolvedValueOnce({ error: { message: "fail" } });
+		await useCourseStore.getState().addCourse({
+			name: "실패강좌", classroom: "A", instructorName: "김",
+			instructorPhone: "010", fee: 100000, maxStudents: 10,
+		});
+		expect(useCourseStore.getState().courses.some(c => c.name === "실패강좌")).toBe(true);
+	});
+
+	it("loadCourses — 서버 에러 시 기존 courses 유지", async () => {
+		const existing = [makeCourse({ id: "c-existing" })];
+		useCourseStore.setState({ courses: existing });
+
+		useCourseStore.getState().invalidate();
+
+		mockSelect.mockReturnValueOnce({
+			data: null,
+			error: { message: "load fail" },
+		});
+
+		await useCourseStore.getState().loadCourses();
+
+		expect(useCourseStore.getState().courses).toEqual(existing);
+	});
+
+	it("loadCourses — 서버 성공 시 courses 갱신", async () => {
+		useCourseStore.getState().invalidate();
+
+		mockSelect.mockReturnValueOnce({
+			data: [{
+				id: "c-loaded",
+				organization_id: "org1",
+				name: "서버강좌",
+				classroom: "A",
+				instructor_name: "강사",
+				instructor_phone: "010",
+				fee: 100000,
+				max_students: 20,
+				current_students: 5,
+				schedule: null,
+				created_at: "2026-01-01T00:00:00Z",
+				updated_at: "2026-01-01T00:00:00Z",
+			}],
+			error: null,
+		});
+
+		await useCourseStore.getState().loadCourses();
+
+		const courses = useCourseStore.getState().courses;
+		expect(courses).toHaveLength(1);
+		expect(courses[0].name).toBe("서버강좌");
+	});
 });
