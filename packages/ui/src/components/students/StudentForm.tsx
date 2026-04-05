@@ -232,7 +232,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 	return (
 		<>
 			<Dialog open={visible} onOpenChange={(open) => !open && onClose()}>
-				<DialogContent className="max-w-[560px] max-h-[90vh] overflow-y-auto">
+				<DialogContent className="max-w-[680px] max-h-[90vh] overflow-y-auto">
 					<DialogHeader>
 						<DialogTitle>
 							{editingStudent ? "수강생 정보 수정" : "수강생 등록"}
