@@ -271,8 +271,8 @@ const SettingsPage: React.FC = () => {
 
           {/* ── 섹션 1: 계정 ── */}
           <div style={{ marginTop: 0, marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}><KeyRound style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />계정</h3>
-            <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>로그인 및 라이선스 관리</p>
+            <h3 style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}><KeyRound style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />계정</h3>
+            <p style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>로그인 및 라이선스 관리</p>
           </div>
           <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
             <div className="flex justify-between items-center" style={{ borderBottom: '1px solid hsl(var(--border))', padding: '16px 0' }}>
@@ -334,8 +334,8 @@ const SettingsPage: React.FC = () => {
 
           {/* ── 섹션 2: 학원 정보 ── */}
           <div style={{ marginTop: 32, marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}><Building2 style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />학원 정보</h3>
-            <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>사이드바와 헤더에 표시되는 이름</p>
+            <h3 style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}><Building2 style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />학원 정보</h3>
+            <p style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>사이드바와 헤더에 표시되는 이름</p>
           </div>
           <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
             <div className="flex justify-between items-center" style={{ padding: '16px 0' }}>
@@ -365,8 +365,8 @@ const SettingsPage: React.FC = () => {
 
           {/* ── 섹션 3: 화면 설정 ── */}
           <div style={{ marginTop: 32, marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}><Palette style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />화면 설정</h3>
-            <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>앱 모양 변경</p>
+            <h3 style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}><Palette style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />화면 설정</h3>
+            <p style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>앱 모양 변경</p>
           </div>
           <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
             <div className="flex justify-between items-center" style={{ borderBottom: '1px solid hsl(var(--border))', padding: '16px 0' }}>
@@ -385,22 +385,22 @@ const SettingsPage: React.FC = () => {
                   <p className="font-semibold text-sm">텍스트 크기</p>
                   <p className="text-muted-foreground text-[0.85em]">앱 전체의 텍스트 크기를 조절합니다</p>
                 </div>
-                <span style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>
+                <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>
                   {fontSizeOptions.find(o => o.value === fontSize)?.label} ({fontSizeOptions.find(o => o.value === fontSize)?.px}px)
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>가</span>
+                <span style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))' }}>가</span>
                 <input type="range" min={0} max={6} step="any" value={sliderValue} onChange={(e) => { const val = Number(e.target.value); setSliderValue(val); const idx = Math.round(val); if (fontSizeOptions[idx]) setFontSize(fontSizeOptions[idx].value); }} onPointerUp={() => setSliderValue(Math.round(sliderValue))} onTouchEnd={() => setSliderValue(Math.round(sliderValue))} style={{ flex: 1 }} />
-                <span style={{ fontSize: 18, fontWeight: 700, color: 'hsl(var(--muted-foreground))' }}>가</span>
+                <span style={{ fontSize: '1.29rem', fontWeight: 700, color: 'hsl(var(--muted-foreground))' }}>가</span>
               </div>
             </div>
           </div>
 
           {/* ── 섹션 4: 알림 / 보안 ── */}
           <div style={{ marginTop: 32, marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}><Bell style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />알림 / 보안</h3>
-            <p style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>알림과 잠금 설정</p>
+            <h3 style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}><Bell style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />알림 / 보안</h3>
+            <p style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>알림과 잠금 설정</p>
           </div>
           <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
             <div className="flex justify-between items-center" style={{ borderBottom: '1px solid hsl(var(--border))', padding: '16px 0' }}>
@@ -481,7 +481,7 @@ const SettingsPage: React.FC = () => {
 
           {/* ── 섹션 5: 앱 정보 ── */}
           <div style={{ marginTop: 32, marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}><Info style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />앱 정보</h3>
+            <h3 style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}><Info style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />앱 정보</h3>
           </div>
           <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
             <div className="flex justify-between items-center" style={{ padding: '16px 0' }}>

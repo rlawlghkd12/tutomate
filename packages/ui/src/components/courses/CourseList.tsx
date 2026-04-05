@@ -253,10 +253,10 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
       <Tabs value={activeTab} onValueChange={setActiveTab} style={{ marginBottom: 16 }}>
         <TabsList>
           <TabsTrigger value="active">
-            현재 강좌 <span style={{ marginLeft: 6, fontSize: 12, opacity: 0.7 }}>{activeCourses.length}</span>
+            현재 강좌 <span style={{ marginLeft: 6, fontSize: '0.86rem', opacity: 0.7 }}>{activeCourses.length}</span>
           </TabsTrigger>
           <TabsTrigger value="ended">
-            종료된 강좌 <span style={{ marginLeft: 6, fontSize: 12, opacity: 0.7 }}>{endedCourses.length}</span>
+            종료된 강좌 <span style={{ marginLeft: 6, fontSize: '0.86rem', opacity: 0.7 }}>{endedCourses.length}</span>
           </TabsTrigger>
         </TabsList>
       </Tabs>

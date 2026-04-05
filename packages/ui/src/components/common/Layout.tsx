@@ -81,14 +81,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 							alt=""
 							style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }}
 						/>
-						<span style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))' }}>
+						<span style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}>
 							{organizationName || 'TutorMate'}
 						</span>
 						{isTrial && (
 							<span
 								onClick={() => navigate('/settings?tab=license')}
 								style={{
-									fontSize: 10, fontWeight: 600,
+									fontSize: '0.71rem', fontWeight: 600,
 									color: 'hsl(var(--warning))', background: 'hsl(var(--warning) / 0.1)',
 									border: '1px solid hsl(var(--warning) / 0.3)', borderRadius: 10,
 									padding: '1px 7px', cursor: 'pointer', whiteSpace: 'nowrap',
@@ -124,7 +124,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 					<h2
 						style={{
 							margin: 0,
-							fontSize: 18,
+							fontSize: '1.29rem',
 							fontWeight: 700,
 							color: 'hsl(var(--foreground))',
 							WebkitAppRegion: 'no-drag',
@@ -156,7 +156,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 							padding: '8px 20px',
 							background: 'hsl(var(--warning) / 0.1)',
 							borderBottom: '1px solid #fde68a',
-							fontSize: 13,
+							fontSize: '0.93rem',
 							color: 'hsl(var(--foreground))',
 						}}
 					>

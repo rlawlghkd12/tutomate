@@ -186,11 +186,11 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
 
         {/* 스텝 인디케이터 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, marginTop: 16 }}>
-          <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'hsl(var(--foreground))', color: 'hsl(var(--background))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>1</div>
-          <span style={{ fontSize: 13, fontWeight: step === 1 ? 600 : 400, color: step === 1 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>기본 정보</span>
+          <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'hsl(var(--foreground))', color: 'hsl(var(--background))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.86rem', fontWeight: 700 }}>1</div>
+          <span style={{ fontSize: '0.93rem', fontWeight: step === 1 ? 600 : 400, color: step === 1 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>기본 정보</span>
           <div style={{ width: 30, height: 1, background: 'hsl(var(--border))' }} />
-          <div style={{ width: 24, height: 24, borderRadius: '50%', background: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--border))', color: step === 2 ? 'hsl(var(--background))' : 'hsl(var(--muted-foreground))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>2</div>
-          <span style={{ fontSize: 13, fontWeight: step === 2 ? 600 : 400, color: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>일정 설정</span>
+          <div style={{ width: 24, height: 24, borderRadius: '50%', background: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--border))', color: step === 2 ? 'hsl(var(--background))' : 'hsl(var(--muted-foreground))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.86rem', fontWeight: 700 }}>2</div>
+          <span style={{ fontSize: '0.93rem', fontWeight: step === 2 ? 600 : 400, color: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>일정 설정</span>
         </div>
 
         <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
@@ -205,7 +205,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                 className="text-base"
               />
               {form.formState.errors.name && (
-                <p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.name.message}</p>
+                <p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.name.message}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -217,7 +217,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                 className="text-base"
               />
               {form.formState.errors.classroom && (
-                <p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.classroom.message}</p>
+                <p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.classroom.message}</p>
               )}
             </div>
           </div>
@@ -232,7 +232,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                 className="text-base"
               />
               {form.formState.errors.instructorName && (
-                <p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.instructorName.message}</p>
+                <p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.instructorName.message}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -248,7 +248,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                 className="text-base"
               />
               {form.formState.errors.instructorPhone && (
-                <p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.instructorPhone.message}</p>
+                <p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.instructorPhone.message}</p>
               )}
             </div>
           </div>
@@ -311,7 +311,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {/* 📅 기간 */}
               <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: 16 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span>📅</span> 기간
                 </div>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -319,7 +319,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                     render={({ field }) => (
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" style={{ flex: 1, justifyContent: 'flex-start', fontSize: 14, fontWeight: 400 }}>
+                          <Button variant="outline" style={{ flex: 1, justifyContent: 'flex-start', fontSize: '1rem', fontWeight: 400 }}>
                             <CalendarIcon style={{ width: 16, height: 16, marginRight: 8 }} />
                             {field.value ? format(field.value, 'PPP') : '시작일 선택'}
                           </Button>
@@ -335,7 +335,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                     render={({ field }) => (
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" style={{ flex: 1, justifyContent: 'flex-start', fontSize: 14, fontWeight: 400 }}>
+                          <Button variant="outline" style={{ flex: 1, justifyContent: 'flex-start', fontSize: '1rem', fontWeight: 400 }}>
                             <CalendarIcon style={{ width: 16, height: 16, marginRight: 8 }} />
                             {field.value ? format(field.value, 'PPP') : '종료일 선택'}
                           </Button>
@@ -351,7 +351,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
 
               {/* 📆 요일 */}
               <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: 16 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span>📆</span> 수업 요일
                 </div>
                 <Controller control={form.control} name="schedule_daysOfWeek"
@@ -371,7 +371,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                               style={{
                                 width: 44, height: 44, borderRadius: 10,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: 15, fontWeight: 500, cursor: 'pointer',
+                                fontSize: '1.07rem', fontWeight: 500, cursor: 'pointer',
                                 border: isOn ? '1.5px solid hsl(var(--foreground))' : '1.5px solid hsl(var(--border))',
                                 background: isOn ? 'hsl(var(--foreground))' : 'transparent',
                                 color: isOn ? 'hsl(var(--background))' : 'hsl(var(--muted-foreground))',
@@ -396,7 +396,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
 
               {/* 🕐 시간 */}
               <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: 16 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span>🕐</span> 수업 시간
                 </div>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
@@ -417,8 +417,8 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                           color: isActive ? 'hsl(var(--background))' : 'hsl(var(--foreground))',
                         }}
                       >
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>{preset.label}</div>
-                        <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>{preset.sub}</div>
+                        <div style={{ fontSize: '0.93rem', fontWeight: 600 }}>{preset.label}</div>
+                        <div style={{ fontSize: '0.79rem', opacity: 0.6, marginTop: 2 }}>{preset.sub}</div>
                       </button>
                     );
                   })}
@@ -427,13 +427,13 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                   <Controller control={form.control} name="schedule_startTime"
                     render={({ field }) => (
                       <input type="time" value={field.value || '09:00'} onChange={(e) => field.onChange(e.target.value)}
-                        style={{ flex: 1, border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px', fontSize: 15, textAlign: 'center', background: 'transparent', color: 'hsl(var(--foreground))' }} />
+                        style={{ flex: 1, border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px', fontSize: '1.07rem', textAlign: 'center', background: 'transparent', color: 'hsl(var(--foreground))' }} />
                     )} />
-                  <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 16 }}>~</span>
+                  <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: '1.14rem' }}>~</span>
                   <Controller control={form.control} name="schedule_endTime"
                     render={({ field }) => (
                       <input type="time" value={field.value || '12:00'} onChange={(e) => field.onChange(e.target.value)}
-                        style={{ flex: 1, border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px', fontSize: 15, textAlign: 'center', background: 'transparent', color: 'hsl(var(--foreground))' }} />
+                        style={{ flex: 1, border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px', fontSize: '1.07rem', textAlign: 'center', background: 'transparent', color: 'hsl(var(--foreground))' }} />
                     )} />
                 </div>
               </div>
@@ -443,9 +443,9 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                 <Label htmlFor="schedule_totalSessions" style={{ whiteSpace: 'nowrap' }}>총 수업 회차</Label>
                 <Controller control={form.control} name="schedule_totalSessions"
                   render={({ field }) => (
-                    <Input id="schedule_totalSessions" type="number" value={field.value ?? ''} onChange={(e) => field.onChange(Number(e.target.value))} placeholder="12" min={1} style={{ width: 100, fontSize: 15 }} />
+                    <Input id="schedule_totalSessions" type="number" value={field.value ?? ''} onChange={(e) => field.onChange(Number(e.target.value))} placeholder="12" min={1} style={{ width: 100, fontSize: '1.07rem' }} />
                   )} />
-                <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>회</span>
+                <span style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))' }}>회</span>
               </div>
             </div>
           </>)}
@@ -453,19 +453,19 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
           <DialogFooter style={{ marginTop: 8 }}>
             {step === 1 ? (
               <>
-                <Button type="button" variant="outline" onClick={onClose} style={{ fontSize: 14, padding: '10px 24px' }}>
+                <Button type="button" variant="outline" onClick={onClose} style={{ fontSize: '1rem', padding: '10px 24px' }}>
                   취소
                 </Button>
-                <Button type="button" onClick={() => setStep(2)} style={{ fontSize: 14, padding: '10px 24px' }}>
+                <Button type="button" onClick={() => setStep(2)} style={{ fontSize: '1rem', padding: '10px 24px' }}>
                   다음
                 </Button>
               </>
             ) : (
               <>
-                <Button type="button" variant="outline" onClick={() => setStep(1)} style={{ fontSize: 14, padding: '10px 24px' }}>
+                <Button type="button" variant="outline" onClick={() => setStep(1)} style={{ fontSize: '1rem', padding: '10px 24px' }}>
                   이전
                 </Button>
-                <Button type="button" disabled={submitting} onClick={form.handleSubmit(onSubmit)} style={{ fontSize: 14, padding: '10px 24px' }}>
+                <Button type="button" disabled={submitting} onClick={form.handleSubmit(onSubmit)} style={{ fontSize: '1rem', padding: '10px 24px' }}>
                   {course ? '수정' : '생성'}
                 </Button>
               </>
