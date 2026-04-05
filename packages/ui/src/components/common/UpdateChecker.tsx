@@ -138,10 +138,32 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
   }, [autoCheck, checkInterval]);
 
   if (initialChecking) {
+    const skel = { borderRadius: 8, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite' };
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'hsl(var(--background))', fontSize: '1rem', color: 'hsl(var(--muted-foreground))' }}>
-        <Loader2 style={{ width: 48, height: 48, color: 'hsl(var(--primary))' }} className="animate-spin" />
-        <div>업데이트 확인 중...</div>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', background: 'hsl(var(--background))' }}>
+        {/* 사이드바 스켈레톤 */}
+        <div style={{ width: 220, minWidth: 220, background: 'hsl(var(--muted))', borderRight: '1px solid hsl(var(--border))', padding: '52px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ ...skel, height: 14, width: '60%', marginBottom: 16 }} />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} style={{ ...skel, height: 36, width: '100%' }} />
+          ))}
+        </div>
+        {/* 메인 콘텐츠 스켈레톤 */}
+        <div style={{ flex: 1, padding: '68px 24px 24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 16 }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 12 }}>
+                <div style={{ ...skel, height: 10, width: '50%', marginBottom: 8 }} />
+                <div style={{ ...skel, height: 20, width: '60%' }} />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div style={{ ...skel, height: 220 }} />
+            <div style={{ ...skel, height: 220 }} />
+          </div>
+          <div style={{ ...skel, height: 260 }} />
+        </div>
       </div>
     );
   }
