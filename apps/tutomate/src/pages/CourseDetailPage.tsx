@@ -109,6 +109,7 @@ const CourseDetailPage: React.FC = () => {
 		for (const id of ids) {
 			await withdrawEnrollment(id);
 		}
+		await loadEnrollments();
 		toast.success(`${ids.length}명의 수강이 철회되었습니다.`);
 		setSelectedRowKeys([]);
 	};

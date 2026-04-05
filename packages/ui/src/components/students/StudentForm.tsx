@@ -39,6 +39,7 @@ interface StudentFormProps {
 	visible: boolean;
 	onClose: () => void;
 	student?: Student | null;
+	hideDelete?: boolean;
 }
 
 const studentFormSchema = z.object({
@@ -56,6 +57,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 	visible,
 	onClose,
 	student,
+	hideDelete,
 }) => {
 	const [submitting, setSubmitting] = useState(false);
 	const form = useForm<StudentFormValues>({
@@ -456,7 +458,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 					</div>
 
 					<DialogFooter style={{ marginTop: 20 }} className={cn(editingStudent ? "justify-between" : "justify-end", "sm:justify-between")}>
-						{editingStudent && (
+						{editingStudent && !hideDelete && (
 							<Button
 								type="button"
 								variant="destructive"
