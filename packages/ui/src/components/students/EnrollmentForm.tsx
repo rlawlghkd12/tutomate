@@ -51,6 +51,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 	const { getPlan, getLimit } = useLicenseStore();
 	const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
+	const [step, setStep] = useState(1);
 	const [courseSearch, setCourseSearch] = useState("");
 	const [discountAmount, setDiscountAmount] = useState(0);
 	const [isExempt, setIsExempt] = useState(false);
@@ -230,7 +231,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 
 	// 할인 토글 리셋
 	useEffect(() => {
-		if (visible) setShowDiscount(false);
+		if (visible) { setShowDiscount(false); setStep(1); setCourseSearch(""); }
 	}, [visible]);
 
 	return (
@@ -241,10 +242,20 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 					<p style={{ fontSize: '1rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>{student?.name}</p>
 				</DialogHeader>
 
-				<form onSubmit={form.handleSubmit(handleSubmit)} style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 8 }}>
-					{/* 강좌 선택 */}
+				{/* 스텝 인디케이터 */}
+				<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 8 }}>
+					<div style={{ width: 24, height: 24, borderRadius: '50%', background: 'hsl(var(--foreground))', color: 'hsl(var(--background))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.86rem', fontWeight: 700 }}>1</div>
+					<span style={{ fontSize: '0.93rem', fontWeight: step === 1 ? 600 : 400, color: step === 1 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>강좌 선택</span>
+					<span style={{ color: 'hsl(var(--border))' }}>—</span>
+					<div style={{ width: 24, height: 24, borderRadius: '50%', background: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--border))', color: step === 2 ? 'hsl(var(--background))' : 'hsl(var(--muted-foreground))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.86rem', fontWeight: 700 }}>2</div>
+					<span style={{ fontSize: '0.93rem', fontWeight: step === 2 ? 600 : 400, color: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>납부 정보</span>
+				</div>
+
+				<form onSubmit={form.handleSubmit(handleSubmit)} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+				{step === 1 && (
+				<>
 					<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-						<Label>강좌 선택</Label>
 						<Controller
 							control={form.control}
 							name="courseId"
@@ -340,8 +351,15 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 						)}
 					</div>
 
-					{selectedCourseId && (
-						<>
+					<DialogFooter>
+						<Button type="button" variant="outline" onClick={onClose} style={{ fontSize: '1rem', padding: "10px 24px" }}>취소</Button>
+						<Button type="button" onClick={() => { if (!form.getValues('courseId')) { form.setError('courseId', { message: '강좌를 선택하세요' }); return; } setStep(2); }} style={{ fontSize: '1rem', padding: "10px 24px" }}>다음</Button>
+					</DialogFooter>
+				</>
+				)}
+
+				{step === 2 && (
+				<>
 							{/* 할인 / 면제 */}
 							<div style={{ display: 'flex', gap: 8 }}>
 								<Button type="button" variant={showDiscount ? "default" : "outline"} size="sm" style={{ fontSize: '0.93rem', padding: '6px 14px' }}
@@ -446,8 +464,6 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 										</div>
 									)} />
 							</div>
-						</>
-					)}
 
 					<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
 						<Label htmlFor="notes">메모</Label>
@@ -461,18 +477,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 					</div>
 
 					<DialogFooter>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={onClose}
-							style={{ fontSize: '1rem', padding: "10px 24px" }}
-						>
-							취소
-						</Button>
-						<Button type="submit" disabled={submitting} style={{ fontSize: '1rem', padding: "10px 24px" }}>
-							신청
-						</Button>
+						<Button type="button" variant="outline" onClick={() => setStep(1)} style={{ fontSize: '1rem', padding: "10px 24px" }}>이전</Button>
+						<Button type="submit" disabled={submitting} style={{ fontSize: '1rem', padding: "10px 24px" }}>신청</Button>
 					</DialogFooter>
+				</>
+				)}
+
 				</form>
 			</DialogContent>
 		</Dialog>
