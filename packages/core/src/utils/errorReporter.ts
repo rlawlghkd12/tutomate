@@ -7,11 +7,11 @@ export async function reportError(error: Error, component?: string): Promise<voi
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    const appConfig = typeof __APP_CONFIG__ !== 'undefined' ? __APP_CONFIG__ : null;
+    const appConfig = typeof globalThis !== 'undefined' && (globalThis as any).__APP_CONFIG__ ? (globalThis as any).__APP_CONFIG__ : null;
 
     await supabase.from('error_logs').insert({
       user_id: session.user.id,
-      organization_id: null, // RLS에서 org 접근 어려우므로 null
+      organization_id: null,
       app_version: appConfig?.version || 'unknown',
       app_name: appConfig?.appName || 'unknown',
       error_message: error.message,
