@@ -1,26 +1,49 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Modal,
-  Form,
-  Input,
-  InputNumber,
-  Button,
-  message,
-  DatePicker,
-  TimePicker,
-  Checkbox,
-  Divider,
-  Space,
-  Typography,
-  Row,
-  Col,
-} from 'antd';
+import { useForm, Controller } from 'react-hook-form';
+import dayjs from 'dayjs';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import type { Course, CourseFormData } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
 import { useLicenseStore } from '@tutomate/core';
-import dayjs from 'dayjs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { toast } from 'sonner';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
+import { CalendarIcon } from 'lucide-react';
+import { Calendar } from '../ui/calendar';
 
-const { Text } = Typography;
+const DAYS_OF_WEEK = [
+  { label: '일', value: 0 },
+  { label: '월', value: 1 },
+  { label: '화', value: 2 },
+  { label: '수', value: 3 },
+  { label: '목', value: 4 },
+  { label: '금', value: 5 },
+  { label: '토', value: 6 },
+];
+
+const courseFormSchema = z.object({
+  name: z.string().min(1, '강좌 이름을 입력하세요'),
+  classroom: z.string().min(1, '강의실을 입력하세요'),
+  instructorName: z.string().min(1, '강사 이름을 입력하세요'),
+  instructorPhone: z.string().min(1, '강사 전화번호를 입력하세요'),
+  fee: z.number().min(0, '수강료를 입력하세요'),
+  maxStudents: z.number().min(1, '최소 1명 이상이어야 합니다'),
+  schedule_startDate: z.date().optional(),
+  schedule_endDate: z.date().optional(),
+  schedule_daysOfWeek: z.array(z.number()),
+  schedule_startTime: z.string().optional(),
+  schedule_endTime: z.string().optional(),
+  schedule_totalSessions: z.number().optional(),
+});
+
+type CourseFormValues = z.infer<typeof courseFormSchema>;
 
 interface CourseFormProps {
   visible: boolean;
@@ -28,375 +51,429 @@ interface CourseFormProps {
   course?: Course | null;
 }
 
-const CourseForm: React.FC<CourseFormProps> = ({ visible, onClose, course }) => {
-  const [form] = Form.useForm();
+const formatPhone = (value: string) => {
+  const v = value.replace(/[^0-9]/g, '');
+  if (v.length <= 3) return v;
+  if (v.length <= 7) return `${v.slice(0, 3)}-${v.slice(3)}`;
+  if (v.length <= 11) return `${v.slice(0, 3)}-${v.slice(3, 7)}-${v.slice(7)}`;
+  return `${v.slice(0, 3)}-${v.slice(3, 7)}-${v.slice(7, 11)}`;
+};
+
+const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course }) => {
   const { addCourse, updateCourse, courses } = useCourseStore();
   const { getPlan, getLimit } = useLicenseStore();
-  const [enableSchedule, setEnableSchedule] = useState(false);
+  const [step, setStep] = useState<1 | 2>(1);
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^0-9]/g, '');
-    let formattedValue = value;
-
-    if (value.length <= 3) {
-      formattedValue = value;
-    } else if (value.length <= 7) {
-      formattedValue = `${value.slice(0, 3)}-${value.slice(3)}`;
-    } else if (value.length <= 11) {
-      formattedValue = `${value.slice(0, 3)}-${value.slice(3, 7)}-${value.slice(7)}`;
-    } else {
-      formattedValue = `${value.slice(0, 3)}-${value.slice(3, 7)}-${value.slice(7, 11)}`;
-    }
-
-    form.setFieldsValue({ instructorPhone: formattedValue });
-  };
+	const [submitting, setSubmitting] = useState(false);
+  const form = useForm<CourseFormValues>({
+    resolver: zodResolver(courseFormSchema),
+    defaultValues: {
+      name: '',
+      classroom: '',
+      instructorName: '',
+      instructorPhone: '',
+      fee: 30000,
+      maxStudents: 20,
+      schedule_daysOfWeek: [],
+      schedule_startTime: '09:00',
+      schedule_endTime: '12:00',
+      schedule_totalSessions: 12,
+    },
+  });
 
   useEffect(() => {
-    if (visible && course) {
-      // schedule이 있으면 필드 설정
+    if (open && course) {
       if (course.schedule) {
-        setEnableSchedule(true);
-        form.setFieldsValue({
-          ...course,
-          schedule_startDate: dayjs(course.schedule.startDate),
-          schedule_endDate: course.schedule.endDate ? dayjs(course.schedule.endDate) : undefined,
+          form.reset({
+          name: course.name,
+          classroom: course.classroom,
+          instructorName: course.instructorName,
+          instructorPhone: course.instructorPhone,
+          fee: course.fee,
+          maxStudents: course.maxStudents,
+          schedule_startDate: course.schedule.startDate ? dayjs(course.schedule.startDate).toDate() : undefined,
+          schedule_endDate: course.schedule.endDate ? dayjs(course.schedule.endDate).toDate() : undefined,
           schedule_daysOfWeek: course.schedule.daysOfWeek,
-          schedule_startTime: dayjs(course.schedule.startTime, 'HH:mm'),
-          schedule_endTime: dayjs(course.schedule.endTime, 'HH:mm'),
-          schedule_totalSessions: course.schedule.totalSessions,
+          schedule_startTime: course.schedule.startTime?.slice(0, 5) ?? '09:00',
+          schedule_endTime: course.schedule.endTime?.slice(0, 5) ?? '12:00',
+          schedule_totalSessions: course.schedule.totalSessions ?? 12,
         });
       } else {
-        form.setFieldsValue(course);
+        form.reset({
+          name: course.name,
+          classroom: course.classroom,
+          instructorName: course.instructorName,
+          instructorPhone: course.instructorPhone,
+          fee: course.fee,
+          maxStudents: course.maxStudents,
+          schedule_daysOfWeek: [],
+        });
       }
-    } else if (visible) {
-      form.resetFields();
-      setEnableSchedule(false);
+    } else if (open) {
+      form.reset({
+        name: '',
+        classroom: '',
+        instructorName: '',
+        instructorPhone: '',
+        fee: 30000,
+        maxStudents: 20,
+        schedule_daysOfWeek: [],
+        schedule_startTime: '09:00',
+        schedule_endTime: '12:00',
+        schedule_totalSessions: 12,
+      });
+      setStep(1);
     }
-  }, [visible, course, form]);
+  }, [open, course, form]);
 
-  const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
+  const onSubmit = async (values: CourseFormValues) => {
+		if (submitting) return;
+		setSubmitting(true);
+		try {
+    const courseData: CourseFormData = {
+      name: values.name,
+      classroom: values.classroom,
+      instructorName: values.instructorName,
+      instructorPhone: values.instructorPhone,
+      fee: values.fee,
+      maxStudents: values.maxStudents,
+    };
 
-      // schedule 데이터 구성
-      let courseData: any = {
-        name: values.name,
-        classroom: values.classroom,
-        instructorName: values.instructorName,
-        instructorPhone: values.instructorPhone,
-        fee: values.fee,
-        maxStudents: values.maxStudents,
+    if (values.schedule_daysOfWeek?.length > 0 || values.schedule_startDate) {
+      courseData.schedule = {
+        startDate: dayjs(values.schedule_startDate).format('YYYY-MM-DD'),
+        ...(values.schedule_endDate ? { endDate: dayjs(values.schedule_endDate).format('YYYY-MM-DD') } : {}),
+        daysOfWeek: values.schedule_daysOfWeek || [],
+        startTime: values.schedule_startTime || '09:00',
+        endTime: values.schedule_endTime || '12:00',
+        totalSessions: values.schedule_totalSessions || 0,
+        holidays: [],
       };
+    }
 
-      if (enableSchedule && values.schedule_startDate) {
-        courseData.schedule = {
-          startDate: values.schedule_startDate.format('YYYY-MM-DD'),
-          ...(values.schedule_endDate ? { endDate: values.schedule_endDate.format('YYYY-MM-DD') } : {}),
-          daysOfWeek: values.schedule_daysOfWeek || [],
-          startTime: values.schedule_startTime.format('HH:mm'),
-          endTime: values.schedule_endTime.format('HH:mm'),
-          totalSessions: values.schedule_totalSessions || 0,
-          holidays: [],
-        };
-      }
-
+    try {
       if (course) {
         await updateCourse(course.id, courseData);
-        message.success('강좌가 수정되었습니다.');
+        toast.success('강좌가 수정되었습니다.');
       } else {
-        // 체험판 강좌 수 제한 체크
         if (getPlan() === 'trial') {
           const maxCourses = getLimit('maxCourses');
           if (courses.length >= maxCourses) {
-            message.warning(`체험판은 최대 ${maxCourses}개 강좌까지 생성 가능합니다. 설정에서 라이선스를 활성화하세요.`);
+            toast.warning(`체험판은 최대 ${maxCourses}개 강좌까지 생성 가능합니다. 설정에서 라이선스를 활성화하세요.`);
             return;
           }
         }
-        await addCourse(courseData as CourseFormData);
-        message.success('강좌가 생성되었습니다.');
+        await addCourse(courseData);
+        toast.success('강좌가 생성되었습니다.');
       }
 
-      form.resetFields();
-      setEnableSchedule(false);
+      form.reset();
       onClose();
-    } catch (error) {
-      console.error('Validation failed:', error);
+    } catch {
+      toast.error('강좌 저장에 실패했습니다.');
     }
-  };
+  } finally {
+			setSubmitting(false);
+		}
+	};
 
   return (
-    <Modal
-      title={course ? '강좌 수정' : '강좌 개설'}
-      open={visible}
-      onCancel={onClose}
-      width={700}
-      centered
-      styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
-      footer={[
-        <Button key="cancel" onClick={onClose}>
-          취소
-        </Button>,
-        <Button key="submit" type="primary" onClick={handleSubmit}>
-          {course ? '수정' : '생성'}
-        </Button>,
-      ]}
-    >
-      <Form form={form} layout="vertical">
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              name="name"
-              label="강좌 이름"
-              rules={[{ required: true, message: '강좌 이름을 입력하세요' }]}
-            >
-              <Input placeholder="예: 요가 초급" />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="classroom"
-              label="강의실"
-              rules={[{ required: true, message: '강의실을 입력하세요' }]}
-            >
-              <Input placeholder="예: A동 301호" />
-            </Form.Item>
-          </Col>
-        </Row>
+    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-[700px] max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{course ? '강좌 수정' : '강좌 개설'}</DialogTitle>
+        </DialogHeader>
 
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              name="instructorName"
-              label="강사 이름"
-              rules={[{ required: true, message: '강사 이름을 입력하세요' }]}
-            >
-              <Input placeholder="예: 홍길동" />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="instructorPhone"
-              label="강사 전화번호"
-              rules={[{ required: true, message: '강사 전화번호를 입력하세요' }]}
-            >
+        {/* 스텝 인디케이터 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, marginTop: 16 }}>
+          <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'hsl(var(--foreground))', color: 'hsl(var(--background))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>1</div>
+          <span style={{ fontSize: 13, fontWeight: step === 1 ? 600 : 400, color: step === 1 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>기본 정보</span>
+          <div style={{ width: 30, height: 1, background: 'hsl(var(--border))' }} />
+          <div style={{ width: 24, height: 24, borderRadius: '50%', background: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--border))', color: step === 2 ? 'hsl(var(--background))' : 'hsl(var(--muted-foreground))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>2</div>
+          <span style={{ fontSize: 13, fontWeight: step === 2 ? 600 : 400, color: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>일정 설정</span>
+        </div>
+
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+          {step === 1 && (<>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">강좌 이름</Label>
               <Input
+                id="name"
+                {...form.register('name')}
+                placeholder="예: 요가 초급"
+                className="text-base"
+              />
+              {form.formState.errors.name && (
+                <p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.name.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="classroom">강의실</Label>
+              <Input
+                id="classroom"
+                {...form.register('classroom')}
+                placeholder="예: A동 301호"
+                className="text-base"
+              />
+              {form.formState.errors.classroom && (
+                <p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.classroom.message}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="instructorName">강사 이름</Label>
+              <Input
+                id="instructorName"
+                {...form.register('instructorName')}
+                placeholder="예: 홍길동"
+                className="text-base"
+              />
+              {form.formState.errors.instructorName && (
+                <p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.instructorName.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="instructorPhone">강사 전화번호</Label>
+              <Input
+                id="instructorPhone"
+                {...form.register('instructorPhone')}
                 placeholder="01012341234"
-                onChange={handlePhoneChange}
                 maxLength={13}
+                onChange={(e) => {
+                  form.setValue('instructorPhone', formatPhone(e.target.value));
+                }}
+                className="text-base"
               />
-            </Form.Item>
-          </Col>
-        </Row>
+              {form.formState.errors.instructorPhone && (
+                <p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.instructorPhone.message}</p>
+              )}
+            </div>
+          </div>
 
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              name="fee"
-              label="수강료"
-              rules={[{ required: true, message: '수강료를 입력하세요' }]}
-            >
-              <InputNumber
-                style={{ width: '100%' }}
-                min={0}
-                placeholder="30000"
-                formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, '')) || 0) as any}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="fee">수강료</Label>
+              <Controller
+                control={form.control}
+                name="fee"
+                render={({ field }) => (
+                  <div className="space-y-2">
+                    <Input
+                      id="fee"
+                      type="number"
+                      value={field.value}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                      placeholder="30000"
+                      className="text-base"
+                    />
+                    <div className="flex gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('fee', 20000)}>2만원</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('fee', 30000)}>3만원</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('fee', 50000)}>5만원</Button>
+                    </div>
+                  </div>
+                )}
               />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="maxStudents"
-              label="최대 인원"
-              rules={[
-                { required: true, message: '최대 인원을 입력하세요' },
-                { type: 'number', min: 1, message: '최소 1명 이상이어야 합니다' },
-              ]}
-            >
-              <InputNumber
-                style={{ width: '100%' }}
-                min={1}
-                placeholder="20"
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="maxStudents">최대 인원</Label>
+              <Controller
+                control={form.control}
+                name="maxStudents"
+                render={({ field }) => (
+                  <div className="space-y-2">
+                    <Input
+                      id="maxStudents"
+                      type="number"
+                      value={field.value}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                      placeholder="20"
+                      className="text-base"
+                      min={1}
+                    />
+                    <div className="flex flex-wrap gap-1">
+                      {[15, 20, 25, 30, 35].map((n) => (
+                        <Button key={n} type="button" variant="outline" size="sm" onClick={() => form.setValue('maxStudents', n)}>{n}명</Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               />
-            </Form.Item>
-          </Col>
-        </Row>
+            </div>
+          </div>
 
-        <Row gutter={16}>
-          <Col span={12}>
-            <Space wrap>
-              <Button size="small" onClick={() => form.setFieldsValue({ fee: 20000 })}>2만원</Button>
-              <Button size="small" onClick={() => form.setFieldsValue({ fee: 30000 })}>3만원</Button>
-              <Button size="small" onClick={() => form.setFieldsValue({ fee: 50000 })}>5만원</Button>
-            </Space>
-          </Col>
-          <Col span={12}>
-            <Space wrap>
-              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 15 })}>15명</Button>
-              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 20 })}>20명</Button>
-              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 25 })}>25명</Button>
-              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 30 })}>30명</Button>
-              <Button size="small" onClick={() => form.setFieldsValue({ maxStudents: 35 })}>35명</Button>
-            </Space>
-          </Col>
-        </Row>
+          </>)}
 
-        {/* 강좌 일정 섹션 */}
-        <Divider />
-        <Checkbox
-          checked={enableSchedule}
-          onChange={(e) => setEnableSchedule(e.target.checked)}
-          style={{ marginBottom: 16 }}
-        >
-          강좌 일정 설정
-        </Checkbox>
-
-        {enableSchedule && (
-          <div style={{ marginTop: 16 }}>
-            <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              {/* 시작일 / 종료일 */}
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item
-                    name="schedule_startDate"
-                    label="시작일"
-                    rules={enableSchedule ? [{ required: true, message: '시작일을 선택하세요' }] : []}
-                    style={{ marginBottom: 0 }}
-                  >
-                    <DatePicker placeholder="시작일" style={{ width: '100%' }} />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    name="schedule_endDate"
-                    label="종료일 (선택)"
-                    style={{ marginBottom: 0 }}
-                  >
-                    <DatePicker placeholder="종료일" style={{ width: '100%' }} />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              {/* 수업 요일 */}
-              <Form.Item
-                name="schedule_daysOfWeek"
-                label="수업 요일"
-                rules={enableSchedule ? [{ required: true, message: '수업 요일을 선택하세요' }] : []}
-              >
-                <div>
-                  <Checkbox.Group
-                    options={[
-                      { label: '일', value: 0 },
-                      { label: '월', value: 1 },
-                      { label: '화', value: 2 },
-                      { label: '수', value: 3 },
-                      { label: '목', value: 4 },
-                      { label: '금', value: 5 },
-                      { label: '토', value: 6 },
-                    ]}
-                  />
-                  <Space style={{ marginTop: 8 }}>
-                    <Button
-                      size="small"
-                      onClick={() => form.setFieldsValue({ schedule_daysOfWeek: [1, 2, 3, 4, 5] })}
-                    >
-                      주중
-                    </Button>
-                    <Button
-                      size="small"
-                      onClick={() => form.setFieldsValue({ schedule_daysOfWeek: [0, 6] })}
-                    >
-                      주말
-                    </Button>
-                    <Button
-                      size="small"
-                      onClick={() => form.setFieldsValue({ schedule_daysOfWeek: [0, 1, 2, 3, 4, 5, 6] })}
-                    >
-                      전체
-                    </Button>
-                  </Space>
+          {step === 2 && (<>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* 📅 기간 */}
+              <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>📅</span> 기간
                 </div>
-              </Form.Item>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <Controller control={form.control} name="schedule_startDate"
+                    render={({ field }) => (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" style={{ flex: 1, justifyContent: 'flex-start', fontSize: 14, fontWeight: 400 }}>
+                            <CalendarIcon style={{ width: 16, height: 16, marginRight: 8 }} />
+                            {field.value ? format(field.value, 'PPP') : '시작일 선택'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} locale={ko} initialFocus />
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  />
+                  <span style={{ color: 'hsl(var(--muted-foreground))' }}>~</span>
+                  <Controller control={form.control} name="schedule_endDate"
+                    render={({ field }) => (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" style={{ flex: 1, justifyContent: 'flex-start', fontSize: 14, fontWeight: 400 }}>
+                            <CalendarIcon style={{ width: 16, height: 16, marginRight: 8 }} />
+                            {field.value ? format(field.value, 'PPP') : '종료일 선택'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} locale={ko} initialFocus />
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  />
+                </div>
+              </div>
 
-              {/* 수업 시간 */}
-              <div>
-                <Space style={{ width: '100%' }}>
-                  <Form.Item
-                    name="schedule_startTime"
-                    label="시작 시간"
-                    rules={enableSchedule ? [{ required: true, message: '시작 시간을 선택하세요' }] : []}
-                    style={{ marginBottom: 0 }}
-                  >
-                    <TimePicker format="HH:mm" placeholder="09:00" />
-                  </Form.Item>
-                  <Form.Item
-                    name="schedule_endTime"
-                    label="종료 시간"
-                    rules={enableSchedule ? [{ required: true, message: '종료 시간을 선택하세요' }] : []}
-                    style={{ marginBottom: 0 }}
-                  >
-                    <TimePicker format="HH:mm" placeholder="12:00" />
-                  </Form.Item>
-                </Space>
-                <Space style={{ marginTop: 8 }}>
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      form.setFieldsValue({
-                        schedule_startTime: dayjs('09:00', 'HH:mm'),
-                        schedule_endTime: dayjs('12:00', 'HH:mm'),
-                      });
-                    }}
-                  >
-                    오전반 (9-12시)
-                  </Button>
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      form.setFieldsValue({
-                        schedule_startTime: dayjs('13:00', 'HH:mm'),
-                        schedule_endTime: dayjs('17:00', 'HH:mm'),
-                      });
-                    }}
-                  >
-                    오후반 (13-17시)
-                  </Button>
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      form.setFieldsValue({
-                        schedule_startTime: dayjs('18:00', 'HH:mm'),
-                        schedule_endTime: dayjs('21:00', 'HH:mm'),
-                      });
-                    }}
-                  >
-                    저녁반 (18-21시)
-                  </Button>
-                </Space>
+              {/* 📆 요일 */}
+              <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>📆</span> 수업 요일
+                </div>
+                <Controller control={form.control} name="schedule_daysOfWeek"
+                  render={({ field }) => (
+                    <div>
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                        {DAYS_OF_WEEK.map((day) => {
+                          const isOn = field.value?.includes(day.value);
+                          return (
+                            <button key={day.value} type="button"
+                              onClick={() => {
+                                const newVal = isOn
+                                  ? field.value.filter((v: number) => v !== day.value)
+                                  : [...field.value, day.value];
+                                field.onChange(newVal);
+                              }}
+                              style={{
+                                width: 44, height: 44, borderRadius: 10,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 15, fontWeight: 500, cursor: 'pointer',
+                                border: isOn ? '1.5px solid hsl(var(--foreground))' : '1.5px solid hsl(var(--border))',
+                                background: isOn ? 'hsl(var(--foreground))' : 'transparent',
+                                color: isOn ? 'hsl(var(--background))' : 'hsl(var(--muted-foreground))',
+                                transition: 'all 0.15s',
+                              }}
+                            >
+                              {day.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => field.onChange([1, 2, 3, 4, 5])}>주중</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => field.onChange([0, 6])}>주말</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => field.onChange([1, 3, 5])}>월수금</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => field.onChange([2, 4])}>화목</Button>
+                      </div>
+                    </div>
+                  )}
+                />
+              </div>
+
+              {/* 🕐 시간 */}
+              <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>🕐</span> 수업 시간
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                  {[
+                    { label: '오전반', sub: '9:00~12:00', start: '09:00', end: '12:00' },
+                    { label: '오후반', sub: '13:00~17:00', start: '13:00', end: '17:00' },
+                    { label: '저녁반', sub: '18:00~21:00', start: '18:00', end: '21:00' },
+                  ].map((preset) => {
+                    const isActive = form.watch('schedule_startTime') === preset.start && form.watch('schedule_endTime') === preset.end;
+                    return (
+                      <button key={preset.label} type="button"
+                        onClick={() => { form.setValue('schedule_startTime', preset.start); form.setValue('schedule_endTime', preset.end); }}
+                        style={{
+                          flex: 1, padding: '10px 8px', borderRadius: 10, cursor: 'pointer',
+                          textAlign: 'center', transition: 'all 0.15s',
+                          border: isActive ? '1.5px solid hsl(var(--foreground))' : '1.5px solid hsl(var(--border))',
+                          background: isActive ? 'hsl(var(--foreground))' : 'transparent',
+                          color: isActive ? 'hsl(var(--background))' : 'hsl(var(--foreground))',
+                        }}
+                      >
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{preset.label}</div>
+                        <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>{preset.sub}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Controller control={form.control} name="schedule_startTime"
+                    render={({ field }) => (
+                      <input type="time" value={field.value || '09:00'} onChange={(e) => field.onChange(e.target.value)}
+                        style={{ flex: 1, border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px', fontSize: 15, textAlign: 'center', background: 'transparent', color: 'hsl(var(--foreground))' }} />
+                    )} />
+                  <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 16 }}>~</span>
+                  <Controller control={form.control} name="schedule_endTime"
+                    render={({ field }) => (
+                      <input type="time" value={field.value || '12:00'} onChange={(e) => field.onChange(e.target.value)}
+                        style={{ flex: 1, border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px', fontSize: 15, textAlign: 'center', background: 'transparent', color: 'hsl(var(--foreground))' }} />
+                    )} />
+                </div>
               </div>
 
               {/* 총 회차 */}
-              <Form.Item
-                name="schedule_totalSessions"
-                label="총 수업 회차"
-                rules={enableSchedule ? [{ required: true, message: '총 회차를 입력하세요' }] : []}
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={1}
-                  placeholder="예: 12"
-                  addonAfter="회"
-                />
-              </Form.Item>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Label htmlFor="schedule_totalSessions" style={{ whiteSpace: 'nowrap' }}>총 수업 회차</Label>
+                <Controller control={form.control} name="schedule_totalSessions"
+                  render={({ field }) => (
+                    <Input id="schedule_totalSessions" type="number" value={field.value ?? ''} onChange={(e) => field.onChange(Number(e.target.value))} placeholder="12" min={1} style={{ width: 100, fontSize: 15 }} />
+                  )} />
+                <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>회</span>
+              </div>
+            </div>
+          </>)}
 
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                * 실제 수업 날짜는 시작일, 수업 요일, 총 회차를 기준으로 자동 생성됩니다.
-              </Text>
-            </Space>
-          </div>
-        )}
-      </Form>
-    </Modal>
+          <DialogFooter style={{ marginTop: 8 }}>
+            {step === 1 ? (
+              <>
+                <Button type="button" variant="outline" onClick={onClose} style={{ fontSize: 14, padding: '10px 24px' }}>
+                  취소
+                </Button>
+                <Button type="button" onClick={() => setStep(2)} style={{ fontSize: 14, padding: '10px 24px' }}>
+                  다음
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button type="button" variant="outline" onClick={() => setStep(1)} style={{ fontSize: 14, padding: '10px 24px' }}>
+                  이전
+                </Button>
+                <Button type="button" disabled={submitting} onClick={form.handleSubmit(onSubmit)} style={{ fontSize: 14, padding: '10px 24px' }}>
+                  {course ? '수정' : '생성'}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 };
 

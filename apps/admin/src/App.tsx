@@ -1,8 +1,5 @@
 import { HashRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { ConfigProvider, App as AntApp, theme as antdTheme, Button, Typography, Space, Spin, Layout, Menu } from 'antd';
-import { DashboardOutlined, UserOutlined, KeyOutlined, TeamOutlined, LogoutOutlined } from '@ant-design/icons';
-import koKR from 'antd/locale/ko_KR';
-import { ErrorBoundary } from '@tutomate/ui';
+import { ErrorBoundary, Button } from '@tutomate/ui';
 import { useAuthStore, supabase, OAUTH_PROVIDERS, getAuthProviderLabel } from '@tutomate/core';
 import type { OAuthProvider } from '@tutomate/core';
 import DashboardPage from './pages/DashboardPage';
@@ -10,57 +7,66 @@ import UsersPage from './pages/UsersPage';
 import LicensesPage from './pages/LicensesPage';
 import OrganizationsPage from './pages/OrganizationsPage';
 import { useEffect } from 'react';
+import { LayoutDashboard, User, Key, Users, LogOut, Loader2 } from 'lucide-react';
+import { toast, Toaster } from 'sonner';
 
-const { Text, Title } = Typography;
-const { Sider, Content } = Layout;
+const menuItems = [
+  { key: '/', icon: <LayoutDashboard className="h-4 w-4" />, label: '대시보드' },
+  { key: '/users', icon: <User className="h-4 w-4" />, label: '유저' },
+  { key: '/licenses', icon: <Key className="h-4 w-4" />, label: '라이선스' },
+  { key: '/organizations', icon: <Users className="h-4 w-4" />, label: '조직' },
+];
 
 function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const session = useAuthStore((s) => s.session);
 
-  const menuItems = [
-    { key: '/', icon: <DashboardOutlined />, label: '대시보드' },
-    { key: '/users', icon: <UserOutlined />, label: '유저' },
-    { key: '/licenses', icon: <KeyOutlined />, label: '라이선스' },
-    { key: '/organizations', icon: <TeamOutlined />, label: '조직' },
-  ];
-
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider width={200} theme="light" style={{ borderRight: '1px solid #f0f0f0' }}>
-        <div style={{ padding: '16px 16px 8px', fontWeight: 700, fontSize: 16 }}>
+    <div className="flex min-h-screen">
+      {/* Sidebar */}
+      <aside className="flex w-[200px] flex-col border-r bg-white">
+        <div className="px-4 pb-2 pt-4 text-base font-bold">
           TutorMate Admin
         </div>
-        <Menu
-          mode="inline"
-          selectedKeys={[location.pathname]}
-          items={menuItems}
-          onClick={({ key }) => navigate(key)}
-          style={{ border: 'none' }}
-        />
-        <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, padding: '0 16px' }}>
-          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+        <nav className="flex-1">
+          {menuItems.map((item) => (
+            <button
+              key={item.key}
+              onClick={() => navigate(item.key)}
+              className={`flex w-full items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:bg-gray-100 ${
+                location.pathname === item.key ? 'bg-gray-100 font-medium text-primary' : 'text-gray-700'
+              }`}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="border-t p-4">
+          <p className="mb-1 truncate text-xs text-muted-foreground">
             {session?.user?.email}
-          </Text>
-          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
+          </p>
+          <p className="mb-2 text-[11px] text-muted-foreground">
             {getAuthProviderLabel()}
-          </Text>
+          </p>
           <Button
-            size="small"
-            danger
-            block
-            icon={<LogoutOutlined />}
+            variant="destructive"
+            size="sm"
+            className="w-full"
             onClick={async () => {
               await useAuthStore.getState().deactivateCloud();
             }}
           >
+            <LogOut className="mr-1 h-3.5 w-3.5" />
             로그아웃
           </Button>
         </div>
-      </Sider>
-      <Content style={{ padding: 24, background: '#f5f5f5' }}>
-        <div style={{ background: '#fff', borderRadius: 8, padding: 24, minHeight: '100%' }}>
+      </aside>
+
+      {/* Content */}
+      <main className="flex-1 bg-gray-100 p-6">
+        <div className="min-h-full rounded-lg bg-white p-6">
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/users" element={<UsersPage />} />
@@ -69,8 +75,8 @@ function AdminLayout() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
-      </Content>
-    </Layout>
+      </main>
+    </div>
   );
 }
 
@@ -99,74 +105,61 @@ function App() {
       provider,
       options: { redirectTo: window.location.origin + window.location.pathname },
     });
-    if (error) console.error('OAuth error:', error);
+    if (error) {
+      console.error('OAuth error:', error);
+      toast.error(`로그인 실패: ${error.message}`);
+    }
   };
-
-  const themeConfig = { algorithm: antdTheme.defaultAlgorithm };
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Spin size="large" />
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
   if (!session) {
     return (
-      <ConfigProvider locale={koKR} theme={themeConfig}>
-        <AntApp>
-          <div style={{
-            display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh',
-            background: 'linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%)',
-          }}>
-            <div style={{
-              maxWidth: 380, width: '100%', textAlign: 'center',
-              background: '#fff', borderRadius: 16, padding: '48px 36px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
-            }}>
-              <Title level={3} style={{ marginBottom: 4 }}>TutorMate Admin</Title>
-              <Text type="secondary" style={{ display: 'block', marginBottom: 28 }}>
-                관리자 계정으로 로그인하세요
-              </Text>
-              <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                {(Object.keys(OAUTH_PROVIDERS) as OAuthProvider[]).map((provider) => {
-                  const cfg = OAUTH_PROVIDERS[provider];
-                  if (!cfg) return null;
-                  return (
-                    <Button
-                      key={provider}
-                      block
-                      size="large"
-                      onClick={() => handleOAuthLogin(provider)}
-                      style={{
-                        background: cfg.background, color: cfg.color, border: cfg.border,
-                        height: 48, borderRadius: 8, fontWeight: 500,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                      }}
-                    >
-                      <span dangerouslySetInnerHTML={{ __html: cfg.iconSvg }} style={{ display: 'flex', alignItems: 'center' }} />
-                      {cfg.label}
-                    </Button>
-                  );
-                })}
-              </Space>
+      <>
+        <div className="flex h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-200">
+          <div className="w-full max-w-[380px] rounded-2xl bg-white p-12 text-center shadow-lg">
+            <h3 className="mb-1 text-xl font-semibold">TutorMate Admin</h3>
+            <p className="mb-7 text-sm text-muted-foreground">
+              관리자 계정으로 로그인하세요
+            </p>
+            <div className="flex flex-col gap-3">
+              {(Object.keys(OAUTH_PROVIDERS) as OAuthProvider[]).map((provider) => {
+                const cfg = OAUTH_PROVIDERS[provider];
+                if (!cfg) return null;
+                return (
+                  <button
+                    key={provider}
+                    onClick={() => handleOAuthLogin(provider)}
+                    className="flex h-12 w-full items-center justify-center gap-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
+                    style={{
+                      background: cfg.background, color: cfg.color, border: cfg.border,
+                    }}
+                  >
+                    <span dangerouslySetInnerHTML={{ __html: cfg.iconSvg }} className="flex items-center" />
+                    {cfg.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
-        </AntApp>
-      </ConfigProvider>
+        </div>
+        <Toaster position="top-center" richColors />
+      </>
     );
   }
 
   return (
     <ErrorBoundary>
-      <ConfigProvider locale={koKR} theme={themeConfig}>
-        <AntApp>
-          <Router>
-            <AdminLayout />
-          </Router>
-        </AntApp>
-      </ConfigProvider>
+      <Router>
+        <AdminLayout />
+      </Router>
+      <Toaster position="top-center" richColors />
     </ErrorBoundary>
   );
 }

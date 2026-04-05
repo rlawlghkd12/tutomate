@@ -1,6 +1,7 @@
 import React, { Component, type ReactNode } from 'react';
-import { Button, Result } from 'antd';
+import { AlertTriangle, RotateCcw, RefreshCw } from 'lucide-react';
 import { AppError, ErrorType, errorHandler } from '@tutomate/core';
+import { Button } from '../ui/button';
 
 interface Props {
   children: ReactNode;
@@ -68,44 +69,37 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
-          padding: '20px'
-        }}>
-          <Result
-            status="error"
-            title="문제가 발생했습니다"
-            subTitle="예상치 못한 오류가 발생했습니다. 페이지를 새로고침하거나 다시 시도해주세요."
-            extra={[
-              <Button type="primary" key="reset" onClick={this.handleReset}>
+        <div className="flex min-h-screen items-center justify-center p-5">
+          <div className="flex max-w-md flex-col items-center gap-6 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+              <AlertTriangle className="h-8 w-8 text-destructive" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold">문제가 발생했습니다</h2>
+              <p className="text-sm text-muted-foreground">
+                예상치 못한 오류가 발생했습니다. 페이지를 새로고침하거나 다시 시도해주세요.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={this.handleReset}>
+                <RotateCcw className="mr-2 h-4 w-4" />
                 다시 시도
-              </Button>,
-              <Button key="reload" onClick={() => window.location.reload()}>
+              </Button>
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                <RefreshCw className="mr-2 h-4 w-4" />
                 페이지 새로고침
-              </Button>,
-            ]}
-          >
+              </Button>
+            </div>
             {import.meta.env.DEV && this.state.error && (
-              <div style={{
-                textAlign: 'left',
-                marginTop: '20px',
-                padding: '10px',
-                background: 'var(--ant-color-bg-layout, #f5f5f5)',
-                borderRadius: '4px',
-                fontSize: '12px',
-                fontFamily: 'monospace'
-              }}>
+              <div className="w-full rounded-md bg-muted p-3 text-left font-mono text-xs">
                 <strong>개발 모드 정보:</strong>
-                <pre style={{ margin: '10px 0 0 0', whiteSpace: 'pre-wrap' }}>
+                <pre className="mt-2 whitespace-pre-wrap">
                   {this.state.error.toString()}
                   {this.state.errorInfo?.componentStack}
                 </pre>
               </div>
             )}
-          </Result>
+          </div>
         </div>
       );
     }

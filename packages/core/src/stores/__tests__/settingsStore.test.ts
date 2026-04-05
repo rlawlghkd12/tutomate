@@ -42,7 +42,7 @@ describe('settingsStore', () => {
 
   it('saveSettings + loadSettings → localStorage 왕복', () => {
     useSettingsStore.getState().setTheme('dark');
-    useSettingsStore.getState().setFontSize('extra-large');
+    useSettingsStore.getState().setFontSize('xl');
     useSettingsStore.getState().setOrganizationName('테스트 학원');
 
     // reset then load
@@ -53,7 +53,7 @@ describe('settingsStore', () => {
     useSettingsStore.getState().loadSettings();
 
     expect(useSettingsStore.getState().theme).toBe('dark');
-    expect(useSettingsStore.getState().fontSize).toBe('extra-large');
+    expect(useSettingsStore.getState().fontSize).toBe('xl');
     expect(useSettingsStore.getState().organizationName).toBe('테스트 학원');
   });
 
@@ -62,6 +62,47 @@ describe('settingsStore', () => {
     useSettingsStore.getState().loadSettings();
     // 에러 없이 기존 state 유지
     expect(useSettingsStore.getState().theme).toBe('light');
+  });
+
+  it('setFontSize → small, xl 설정 가능', () => {
+    useSettingsStore.getState().setFontSize('small');
+    expect(useSettingsStore.getState().fontSize).toBe('small');
+    useSettingsStore.getState().setFontSize('xl');
+    expect(useSettingsStore.getState().fontSize).toBe('xl');
+  });
+
+  it('setFontSize → 7단계 전체 (xs, small, medium, large, xl, xxl, xxxl)', () => {
+    const sizes = ['xs', 'small', 'medium', 'large', 'xl', 'xxl', 'xxxl'] as const;
+    for (const size of sizes) {
+      useSettingsStore.getState().setFontSize(size);
+      expect(useSettingsStore.getState().fontSize).toBe(size);
+    }
+  });
+
+  it('setNotificationsEnabled → false → true 토글', () => {
+    useSettingsStore.getState().setNotificationsEnabled(false);
+    expect(useSettingsStore.getState().notificationsEnabled).toBe(false);
+    useSettingsStore.getState().setNotificationsEnabled(true);
+    expect(useSettingsStore.getState().notificationsEnabled).toBe(true);
+  });
+
+  it('loadSettings — localStorage 비어있으면 변경 없음', () => {
+    useSettingsStore.getState().loadSettings();
+    expect(useSettingsStore.getState().theme).toBe('light');
+    expect(useSettingsStore.getState().fontSize).toBe('medium');
+  });
+
+  it('saveSettings → localStorage에 모든 필드 저장', () => {
+    useSettingsStore.getState().setTheme('dark');
+    useSettingsStore.getState().setFontSize('large');
+    useSettingsStore.getState().setOrganizationName('테스트');
+    useSettingsStore.getState().setNotificationsEnabled(false);
+
+    const stored = JSON.parse(localStorage.getItem('app-settings')!);
+    expect(stored.theme).toBe('dark');
+    expect(stored.fontSize).toBe('large');
+    expect(stored.organizationName).toBe('테스트');
+    expect(stored.notificationsEnabled).toBe(false);
   });
 
   it('setter 호출 시 자동 저장', () => {

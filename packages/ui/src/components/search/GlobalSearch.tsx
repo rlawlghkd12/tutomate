@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Input, List, Tag, Empty, Typography, Select, theme } from 'antd';
-import { SearchOutlined, BookOutlined, UserOutlined, FileTextOutlined } from '@ant-design/icons';
+import { BookOpen, User, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCourseStore } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
-import { searchAll, searchCourses, searchStudents, searchEnrollments, type SearchResult } from '@tutomate/core';
-import { FLEX_BETWEEN } from '@tutomate/core';
-
-const { Text } = Typography;
+import { searchAll, type SearchResult } from '@tutomate/core';
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandSeparator,
+} from '../ui/command';
+import { Badge } from '../ui/badge';
 
 interface GlobalSearchProps {
   visible: boolean;
@@ -16,9 +22,12 @@ interface GlobalSearchProps {
 }
 
 export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) => {
-  const { token } = theme.useToken();
+  if (!visible) return null;
+  return <GlobalSearchInner onClose={onClose} />;
+};
+
+const GlobalSearchInner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [query, setQuery] = useState('');
-  const [searchField, setSearchField] = useState<string>('all');
   const [results, setResults] = useState<SearchResult[]>([]);
   const navigate = useNavigate();
 
@@ -27,33 +36,13 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
   const { enrollments } = useEnrollmentStore();
 
   useEffect(() => {
-    if (!visible) {
-      setQuery('');
-      setSearchField('all');
-      setResults([]);
-      return;
-    }
-
     if (query.trim()) {
-      let searchResults: SearchResult[];
-      switch (searchField) {
-        case 'course':
-          searchResults = searchCourses(courses, query);
-          break;
-        case 'student':
-          searchResults = searchStudents(students, query);
-          break;
-        case 'enrollment':
-          searchResults = searchEnrollments(enrollments, courses, students, query);
-          break;
-        default:
-          searchResults = searchAll(query, courses, students, enrollments);
-      }
+      const searchResults = searchAll(query, courses, students, enrollments);
       setResults(searchResults);
     } else {
       setResults([]);
     }
-  }, [visible, query, searchField, courses, students, enrollments]);
+  }, [query, courses, students, enrollments]);
 
   const handleSelect = (result: SearchResult) => {
     switch (result.type) {
@@ -73,11 +62,11 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
   const getIcon = (type: SearchResult['type']) => {
     switch (type) {
       case 'course':
-        return <BookOutlined style={{ color: token.colorPrimary }} />;
+        return <BookOpen className="h-4 w-4 text-primary" />;
       case 'student':
-        return <UserOutlined style={{ color: token.colorSuccess }} />;
+        return <User className="h-4 w-4 text-green-600" />;
       case 'enrollment':
-        return <FileTextOutlined style={{ color: token.colorWarning }} />;
+        return <FileText className="h-4 w-4 text-amber-600" />;
     }
   };
 
@@ -92,135 +81,158 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ visible, onClose }) 
     }
   };
 
+  // Group results by type
+  const courseResults = results.filter((r) => r.type === 'course');
+  const studentResults = results.filter((r) => r.type === 'student');
+  const enrollmentResults = results.filter((r) => r.type === 'enrollment');
+
   return (
-    <Modal
-      title={null}
-      open={visible}
-      onCancel={onClose}
-      footer={null}
-      width={600}
-      styles={{
-        body: { padding: 0 },
-      }}
-      closable={false}
-    >
-      <div style={{ padding: '16px 16px 0', display: 'flex', gap: 8 }}>
-        <Select
-          value={searchField}
-          onChange={setSearchField}
-          style={{ width: 110, flexShrink: 0 }}
-          size="large"
-        >
-          <Select.Option value="all">전체</Select.Option>
-          <Select.Option value="course">강좌</Select.Option>
-          <Select.Option value="student">수강생</Select.Option>
-          <Select.Option value="enrollment">수강 신청</Select.Option>
-        </Select>
-        <Input
-          size="large"
-          placeholder={
-            searchField === 'course' ? '강좌 검색... (강좌명, 강의실, 강사 등)' :
-            searchField === 'student' ? '수강생 검색... (이름, 전화번호 등)' :
-            searchField === 'enrollment' ? '수강 신청 검색... (강좌명, 수강생명 등)' :
-            '강좌, 수강생, 수강 신청 검색...'
-          }
-          prefix={<SearchOutlined />}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          autoFocus
-          allowClear
-        />
-      </div>
+    <>
+      {/* 오버레이 */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.15)' }} onClick={onClose} />
+      <div onClick={(e) => e.stopPropagation()} style={{
+        position: 'fixed',
+        left: '50%',
+        top: '15%',
+        transform: 'translateX(-50%)',
+        zIndex: 51,
+        width: 600,
+        maxHeight: '70vh',
+        padding: 0,
+        overflow: 'hidden',
+        border: '1px solid hsl(var(--border))',
+        borderRadius: 12,
+        background: 'hsl(var(--background))',
+        color: 'hsl(var(--foreground))',
+        boxShadow: '0 25px 60px rgba(0,0,0,0.25)',
+      }}>
+      <Command>
+      <CommandInput
+        placeholder="강좌, 수강생, 수강 신청 검색..."
+        value={query}
+        onValueChange={setQuery}
+      />
+      <CommandList style={{ maxHeight: 'calc(70vh - 100px)', overflowY: 'auto', padding: '8px 12px' }}>
+        <CommandEmpty>
+          {query.trim()
+            ? '검색 결과가 없습니다'
+            : '검색어를 입력하여 강좌, 수강생, 수강 신청을 검색하세요'}
+        </CommandEmpty>
 
-      <div
-        style={{
-          maxHeight: '500px',
-          overflowY: 'auto',
-          marginTop: '16px',
-        }}
-      >
-        {results.length > 0 ? (
-          <List
-            dataSource={results}
-            renderItem={(result) => (
-              <List.Item
-                onClick={() => handleSelect(result)}
-                style={{
-                  cursor: 'pointer',
-                  padding: '12px 16px',
-                  transition: 'background 0.2s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = token.colorFillQuaternary;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent';
-                }}
+        {courseResults.length > 0 && (
+          <CommandGroup heading="강좌">
+            {courseResults.map((result) => (
+              <CommandItem
+                key={`course-${result.id}`}
+                value={`${result.title} ${result.subtitle || ''} ${result.description || ''}`}
+                onSelect={() => handleSelect(result)}
+                className="cursor-pointer"
               >
-                <List.Item.Meta
-                  avatar={getIcon(result.type)}
-                  title={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Text strong>{result.title}</Text>
-                      <Tag color="blue">{getTypeLabel(result.type)}</Tag>
-                      {result.matchedFields.length > 0 && (
-                        <Text type="secondary" style={{ fontSize: '12px' }}>
-                          매칭: {result.matchedFields.join(', ')}
-                        </Text>
-                      )}
-                    </div>
-                  }
-                  description={
-                    <div>
-                      <div>{result.subtitle}</div>
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        {result.description}
-                      </Text>
-                    </div>
-                  }
-                />
-              </List.Item>
-            )}
-          />
-        ) : query.trim() ? (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description="검색 결과가 없습니다"
-            style={{ padding: '40px 0' }}
-          />
-        ) : (
-          <div style={{ padding: '40px 16px', textAlign: 'center' }}>
-            <Text type="secondary">
-              검색어를 입력하여 강좌, 수강생, 수강 신청을 검색하세요
-            </Text>
-            <div style={{ marginTop: '12px' }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                💡 팁: 이름, 전화번호, 이메일, 강의실 등으로 검색할 수 있습니다
-              </Text>
-            </div>
-          </div>
+                {getIcon(result.type)}
+                <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-medium">{result.title}</span>
+                    <Badge variant="secondary" className="shrink-0 text-[11px]">{getTypeLabel(result.type)}</Badge>
+                    {result.matchedFields.length > 0 && (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        매칭: {result.matchedFields.join(', ')}
+                      </span>
+                    )}
+                  </div>
+                  {(result.subtitle || result.description) && (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {result.subtitle}{result.subtitle && result.description ? ' · ' : ''}{result.description}
+                    </span>
+                  )}
+                </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
         )}
-      </div>
 
-      <div
-        style={{
-          padding: '12px 16px',
-          borderTop: `1px solid ${token.colorBorderSecondary}`,
-          background: token.colorFillQuaternary,
-          ...FLEX_BETWEEN,
-        }}
-      >
-        <Text type="secondary" style={{ fontSize: '12px' }}>
-          {results.length > 0 && `${results.length}개의 결과`}
-        </Text>
-        <Text type="secondary" style={{ fontSize: '12px' }}>
-          <kbd style={{ padding: '2px 6px', background: token.colorBgContainer, border: `1px solid ${token.colorBorder}`, borderRadius: '3px' }}>
-            ESC
-          </kbd>{' '}
-          닫기
-        </Text>
-      </div>
-    </Modal>
+        {courseResults.length > 0 && studentResults.length > 0 && <CommandSeparator />}
+
+        {studentResults.length > 0 && (
+          <CommandGroup heading="수강생">
+            {studentResults.map((result) => (
+              <CommandItem
+                key={`student-${result.id}`}
+                value={`${result.title} ${result.subtitle || ''} ${result.description || ''}`}
+                onSelect={() => handleSelect(result)}
+                className="cursor-pointer"
+              >
+                {getIcon(result.type)}
+                <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-medium">{result.title}</span>
+                    <Badge variant="secondary" className="shrink-0 text-[11px]">{getTypeLabel(result.type)}</Badge>
+                    {result.matchedFields.length > 0 && (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        매칭: {result.matchedFields.join(', ')}
+                      </span>
+                    )}
+                  </div>
+                  {(result.subtitle || result.description) && (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {result.subtitle}{result.subtitle && result.description ? ' · ' : ''}{result.description}
+                    </span>
+                  )}
+                </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
+        {(courseResults.length > 0 || studentResults.length > 0) && enrollmentResults.length > 0 && <CommandSeparator />}
+
+        {enrollmentResults.length > 0 && (
+          <CommandGroup heading="수강 신청">
+            {enrollmentResults.map((result) => (
+              <CommandItem
+                key={`enrollment-${result.id}`}
+                value={`${result.title} ${result.subtitle || ''} ${result.description || ''}`}
+                onSelect={() => handleSelect(result)}
+                className="cursor-pointer"
+              >
+                {getIcon(result.type)}
+                <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-medium">{result.title}</span>
+                    <Badge variant="secondary" className="shrink-0 text-[11px]">{getTypeLabel(result.type)}</Badge>
+                    {result.matchedFields.length > 0 && (
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        매칭: {result.matchedFields.join(', ')}
+                      </span>
+                    )}
+                  </div>
+                  {(result.subtitle || result.description) && (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {result.subtitle}{result.subtitle && result.description ? ' · ' : ''}{result.description}
+                    </span>
+                  )}
+                </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+      </CommandList>
+
+      {results.length > 0 && (
+        <div className="flex items-center justify-between border-t border-border bg-muted/50 px-4 py-2">
+          <span className="text-xs text-muted-foreground">
+            {results.length}개의 결과
+          </span>
+          <span className="text-xs text-muted-foreground">
+            <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px]">
+              ESC
+            </kbd>{' '}
+            닫기
+          </span>
+        </div>
+      )}
+    </Command>
+    </div>
+    </>
   );
 };
 

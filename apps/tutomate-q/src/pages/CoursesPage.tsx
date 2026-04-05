@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { Plus } from 'lucide-react';
+import { Button } from '@tutomate/ui';
 import { CourseList, CourseForm } from '@tutomate/ui';
 import { useCourseStore } from '@tutomate/core';
 
@@ -17,10 +17,9 @@ const CoursesPage: React.FC = () => {
       <CourseList
         actions={
           <Button
-            type="primary"
-            icon={<PlusOutlined />}
             onClick={() => setIsModalVisible(true)}
           >
+            <Plus className="h-4 w-4" />
             강좌 개설
           </Button>
         }

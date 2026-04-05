@@ -1,35 +1,23 @@
-import { PlusOutlined } from "@ant-design/icons";
-import {
-	Button,
-	Card,
-	Col,
-	Empty,
-	Progress,
-	Row,
-	Spin,
-	Statistic,
-	theme,
-} from "antd";
+import { Plus, Loader2 } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
-
-const { useToken } = theme;
+import { useEffect, useMemo, useState } from "react";
 
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 import { CourseRevenueChart, PaymentStatusChart } from "@tutomate/ui";
 import {
 	EXEMPT_COLOR,
-	FLEX_CENTER,
 	useCourseStore,
 	useEnrollmentStore,
 	useMonthlyPaymentStore,
 	useStudentStore,
 	generateAllNotifications,
 } from "@tutomate/core";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Progress } from "../components/ui/progress";
 
 const DashboardPage: React.FC = () => {
-	const { token } = useToken();
 	const navigate = useNavigate();
 	const { courses, loadCourses } = useCourseStore();
 	const { students, loadStudents } = useStudentStore();
@@ -51,7 +39,6 @@ const DashboardPage: React.FC = () => {
 				generateAllNotifications(enrollments, students, courses);
 			}
 
-			// 기존 enrollment 중 월별 납부 레코드가 없는 것 자동 생성
 			const { payments, loadPayments, addPayment } =
 				useMonthlyPaymentStore.getState();
 			if (payments.length === 0) await loadPayments();
@@ -79,33 +66,50 @@ const DashboardPage: React.FC = () => {
 	const totalCourses = courses.length;
 	const totalStudents = students.length;
 
-	const completedPayments = enrollments.filter(
-		(e) => e.paymentStatus === "completed",
-	).length;
-	const pendingPayments = enrollments.filter(
-		(e) => e.paymentStatus === "pending",
-	).length;
+	const { completedPayments, pendingPayments, totalRevenue, expectedRevenue, paymentRate } = useMemo(() => {
+		const completed = enrollments.filter(
+			(e) => e.paymentStatus === "completed",
+		).length;
+		const pending = enrollments.filter(
+			(e) => e.paymentStatus === "pending",
+		).length;
 
-	const totalRevenue = enrollments
-		.filter((e) => e.paymentStatus !== "exempt")
-		.reduce((sum, enrollment) => {
-			return sum + enrollment.paidAmount;
-		}, 0);
+		const revenue = enrollments
+			.filter((e) => e.paymentStatus !== "exempt")
+			.reduce((sum, enrollment) => {
+				return sum + enrollment.paidAmount;
+			}, 0);
 
-	const expectedRevenue = enrollments
-		.filter((e) => e.paymentStatus !== "exempt")
-		.reduce((sum, enrollment) => {
-			const course = courses.find((c) => c.id === enrollment.courseId);
-			return sum + (course?.fee || 0);
-		}, 0);
+		const expected = enrollments
+			.filter((e) => e.paymentStatus !== "exempt")
+			.reduce((sum, enrollment) => {
+				const course = courses.find((c) => c.id === enrollment.courseId);
+				return sum + (course?.fee || 0);
+			}, 0);
 
-	const paymentRate =
-		expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0;
+		const rate = expected > 0 ? (revenue / expected) * 100 : 0;
+
+		return {
+			completedPayments: completed,
+			pendingPayments: pending,
+			totalRevenue: revenue,
+			expectedRevenue: expected,
+			paymentRate: rate,
+		};
+	}, [enrollments, courses]);
+
+	const enrollmentCountMap = useMemo(() => {
+		const map = new Map<string, number>();
+		for (const e of enrollments) {
+			map.set(e.courseId, (map.get(e.courseId) || 0) + 1);
+		}
+		return map;
+	}, [enrollments]);
 
 	if (loading) {
 		return (
-			<div style={{ ...FLEX_CENTER, height: 400 }}>
-				<Spin size="large" />
+			<div className="flex items-center justify-center h-[400px]">
+				<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
 			</div>
 		);
 	}
@@ -113,160 +117,132 @@ const DashboardPage: React.FC = () => {
 	return (
 		<div>
 			{/* 상단 통계 - 한 줄 */}
-			<Row gutter={[12, 12]}>
-				<Col xs={8} sm={4}>
-					<Card
-						size="small"
-						hoverable
-						onClick={() => navigate("/courses")}
-						bodyStyle={{ padding: "12px" }}
-					>
-						<Statistic
-							title="강좌"
-							value={totalCourses}
-							valueStyle={{ color: token.colorPrimary, fontSize: 20 }}
-						/>
-					</Card>
-				</Col>
-				<Col xs={8} sm={4}>
-					<Card
-						size="small"
-						hoverable
-						onClick={() => navigate("/students")}
-						bodyStyle={{ padding: "12px" }}
-					>
-						<Statistic
-							title="수강생"
-							value={totalStudents}
-							valueStyle={{ color: token.colorSuccess, fontSize: 20 }}
-						/>
-					</Card>
-				</Col>
-				<Col xs={8} sm={4}>
-					<Card
-						size="small"
-						hoverable
-						onClick={() => navigate("/revenue")}
-						bodyStyle={{ padding: "12px" }}
-					>
-						<Statistic
-							title="납부"
-							value={totalRevenue.toLocaleString()}
-							suffix="원"
-							valueStyle={{ color: EXEMPT_COLOR, fontSize: 20 }}
-						/>
-					</Card>
-				</Col>
-				<Col xs={8} sm={4}>
-					<Card size="small" bodyStyle={{ padding: "12px" }}>
-						<Statistic
-							title="납부율"
-							value={paymentRate.toFixed(0)}
-							suffix="%"
-							valueStyle={{
-								color:
-									paymentRate >= 80 ? token.colorSuccess : token.colorWarning,
-								fontSize: 20,
-							}}
-						/>
-					</Card>
-				</Col>
-				<Col xs={8} sm={4}>
-					<Card size="small" bodyStyle={{ padding: "12px" }}>
-						<Statistic
-							title="완납"
-							value={completedPayments}
-							suffix="건"
-							valueStyle={{ color: token.colorSuccess, fontSize: 20 }}
-						/>
-					</Card>
-				</Col>
-				<Col xs={8} sm={4}>
-					<Card size="small" bodyStyle={{ padding: "12px" }}>
-						<Statistic
-							title="미납"
-							value={pendingPayments}
-							suffix="건"
-							valueStyle={{ color: token.colorError, fontSize: 20 }}
-						/>
-					</Card>
-				</Col>
-			</Row>
+			<div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+				<Card
+					className="cursor-pointer hover:shadow-md transition-shadow"
+					onClick={() => navigate("/courses")}
+				>
+					<CardContent className="p-3">
+						<p className="text-xs text-muted-foreground">강좌</p>
+						<p className="text-xl font-bold text-primary">{totalCourses}</p>
+					</CardContent>
+				</Card>
+				<Card
+					className="cursor-pointer hover:shadow-md transition-shadow"
+					onClick={() => navigate("/students")}
+				>
+					<CardContent className="p-3">
+						<p className="text-xs text-muted-foreground">수강생</p>
+						<p className="text-xl font-bold text-success">{totalStudents}</p>
+					</CardContent>
+				</Card>
+				<Card
+					className="cursor-pointer hover:shadow-md transition-shadow"
+					onClick={() => navigate("/revenue")}
+				>
+					<CardContent className="p-3">
+						<p className="text-xs text-muted-foreground">납부</p>
+						<p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>
+							{totalRevenue.toLocaleString()}<span className="text-sm font-normal">원</span>
+						</p>
+					</CardContent>
+				</Card>
+				<Card>
+					<CardContent className="p-3">
+						<p className="text-xs text-muted-foreground">납부율</p>
+						<p className={`text-xl font-bold ${paymentRate >= 80 ? 'text-success' : 'text-warning'}`}>
+							{paymentRate.toFixed(0)}<span className="text-sm font-normal">%</span>
+						</p>
+					</CardContent>
+				</Card>
+				<Card>
+					<CardContent className="p-3">
+						<p className="text-xs text-muted-foreground">완납</p>
+						<p className="text-xl font-bold text-success">
+							{completedPayments}<span className="text-sm font-normal">건</span>
+						</p>
+					</CardContent>
+				</Card>
+				<Card>
+					<CardContent className="p-3">
+						<p className="text-xs text-muted-foreground">미납</p>
+						<p className="text-xl font-bold text-error">
+							{pendingPayments}<span className="text-sm font-normal">건</span>
+						</p>
+					</CardContent>
+				</Card>
+			</div>
 
 			{/* 전체 강좌 */}
-			<Card
-				title={`전체 강좌 (${totalCourses})`}
-				size="small"
-				style={{ marginTop: 16 }}
-			>
-				{courses.length === 0 ? (
-					<Empty
-						image={Empty.PRESENTED_IMAGE_SIMPLE}
-						description="등록된 강좌가 없습니다"
-					>
-						<Button
-							type="primary"
-							icon={<PlusOutlined />}
-							onClick={() => navigate("/courses")}
-						>
-							강좌 등록하기
-						</Button>
-					</Empty>
-				) : (
-					<Row gutter={[8, 8]}>
-						{courses.map((course) => {
-							const currentStudents = enrollments.filter(
-								(e) => e.courseId === course.id,
-							).length;
-							const percentage = (currentStudents / course.maxStudents) * 100;
-							return (
-								<Col key={course.id} xs={12} sm={8} md={6} lg={4}>
+			<Card className="mt-4">
+				<CardHeader className="p-4 pb-2">
+					<CardTitle className="text-sm">전체 강좌 ({totalCourses})</CardTitle>
+				</CardHeader>
+				<CardContent className="p-4 pt-2">
+					{courses.length === 0 ? (
+						<div className="text-center py-8 text-muted-foreground">
+							<p className="mb-4">등록된 강좌가 없습니다</p>
+							<Button onClick={() => navigate("/courses")}>
+								<Plus className="h-4 w-4" />
+								강좌 등록하기
+							</Button>
+						</div>
+					) : (
+						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+							{courses.map((course) => {
+								const currentStudents = enrollmentCountMap.get(course.id) || 0;
+								const percentage = (currentStudents / course.maxStudents) * 100;
+								return (
 									<Card
-										size="small"
-										hoverable
+										key={course.id}
+										className="cursor-pointer hover:shadow-md transition-shadow"
 										onClick={() => navigate(`/courses/${course.id}`)}
-										style={{ cursor: "pointer" }}
-										bodyStyle={{ padding: 12 }}
 									>
-										<div style={{ fontWeight: 600, marginBottom: 4 }}>
-											{course.name}
-										</div>
-										<div
-											style={{
-												fontSize: 12,
-												color: token.colorTextSecondary,
-												marginBottom: 8,
-											}}
-										>
-											{course.instructorName} · {course.classroom}
-										</div>
-										<Progress
-											percent={percentage}
-											size="small"
-											status={percentage >= 100 ? "exception" : "normal"}
-											format={() => `${currentStudents}/${course.maxStudents}`}
-										/>
+										<CardContent className="p-3">
+											<div className="font-semibold text-sm mb-1">
+												{course.name}
+											</div>
+											<div className="text-xs text-muted-foreground mb-2">
+												{course.instructorName} · {course.classroom}
+											</div>
+											<div className="flex items-center gap-2">
+												<Progress
+													value={Math.min(percentage, 100)}
+													className="flex-1 h-1.5"
+													indicatorClassName={percentage >= 100 ? 'bg-destructive' : ''}
+												/>
+												<span className="text-xs text-muted-foreground whitespace-nowrap">
+													{currentStudents}/{course.maxStudents}
+												</span>
+											</div>
+										</CardContent>
 									</Card>
-								</Col>
-							);
-						})}
-					</Row>
-				)}
+								);
+							})}
+						</div>
+					)}
+				</CardContent>
 			</Card>
 
 			{/* 차트 */}
-			<Row gutter={[12, 12]} style={{ marginTop: 16 }}>
-				<Col xs={24} md={16}>
-					<Card title="강좌별 수익" size="small">
+			<div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3 mt-4">
+				<Card>
+					<CardHeader className="p-4 pb-2">
+						<CardTitle className="text-sm">강좌별 수익</CardTitle>
+					</CardHeader>
+					<CardContent className="p-4 pt-2">
 						<CourseRevenueChart enrollments={enrollments} courses={courses} />
-					</Card>
-				</Col>
-				<Col xs={24} md={8}>
-					<Card title="납부 상태" size="small">
+					</CardContent>
+				</Card>
+				<Card>
+					<CardHeader className="p-4 pb-2">
+						<CardTitle className="text-sm">납부 상태</CardTitle>
+					</CardHeader>
+					<CardContent className="p-4 pt-2">
 						<PaymentStatusChart enrollments={enrollments} />
-					</Card>
-				</Col>
-			</Row>
+					</CardContent>
+				</Card>
+			</div>
 		</div>
 	);
 };

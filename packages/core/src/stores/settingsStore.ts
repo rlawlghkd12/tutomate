@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { appConfig } from '../config/appConfig';
 
-export type FontSize = 'small' | 'medium' | 'large' | 'extra-large';
+export type FontSize = 'xs' | 'small' | 'medium' | 'large' | 'xl' | 'xxl' | 'xxxl';
 export type Theme = 'light' | 'dark';
 
 interface Settings {

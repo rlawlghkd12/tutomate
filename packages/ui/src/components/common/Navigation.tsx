@@ -1,89 +1,90 @@
-import React, { useEffect, useState } from 'react';
-import { Menu } from 'antd';
-import type { MenuProps } from 'antd';
-import {
-  DashboardOutlined,
-  BookOutlined,
-  UserOutlined,
-  CalendarOutlined,
-  DollarOutlined,
-  SettingOutlined,
-} from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { LayoutDashboard, BookOpen, Users, Calendar, DollarSign, Settings } from 'lucide-react';
 
-interface NavigationProps {
-  collapsed?: boolean;
-}
+const mainItems = [
+  { key: '/', icon: LayoutDashboard, label: '대시보드' },
+  { key: '/courses', icon: BookOpen, label: '강좌 관리' },
+  { key: '/students', icon: Users, label: '수강생 관리' },
+  { key: '/calendar', icon: Calendar, label: '캘린더' },
+  { key: '/revenue', icon: DollarSign, label: '수익 관리' },
+];
 
-const Navigation: React.FC<NavigationProps> = ({ collapsed = false }) => {
+const bottomItems = [
+  { key: '/settings', icon: Settings, label: '설정' },
+];
+
+const navItemBase: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  width: '100%',
+  padding: '12px 16px',
+  border: 'none',
+  borderRadius: 8,
+  fontSize: 14,
+  fontWeight: 500,
+  cursor: 'pointer',
+  transition: 'background 0.15s, color 0.15s',
+  background: 'transparent',
+  color: 'hsl(var(--muted-foreground))',
+  textAlign: 'left' as const,
+};
+
+const navItemActive: React.CSSProperties = {
+  ...navItemBase,
+  background: 'hsl(var(--primary) / 0.1)',
+  color: 'hsl(var(--primary))',
+  fontWeight: 600,
+};
+
+const Navigation: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-
-  // 접을 때: Sider 전환 끝난 후 inlineCollapsed 적용 (툴팁 깜빡임 방지)
-  // 펼칠 때: 즉시 적용
-  const [delayedCollapsed, setDelayedCollapsed] = useState(collapsed);
-  useEffect(() => {
-    if (collapsed) {
-      const timer = setTimeout(() => setDelayedCollapsed(true), 200);
-      return () => clearTimeout(timer);
-    } else {
-      setDelayedCollapsed(false);
-    }
-  }, [collapsed]);
 
   const getSelectedKey = () => {
     const path = location.pathname;
     if (path === '/') return '/';
-    const base = '/' + path.split('/').filter(Boolean)[0];
-    return base;
+    return '/' + path.split('/').filter(Boolean)[0];
   };
 
-  const menuItems: MenuProps['items'] = [
-    {
-      key: '/',
-      icon: <DashboardOutlined />,
-      label: '대시보드',
-    },
-    {
-      key: '/courses',
-      icon: <BookOutlined />,
-      label: '강좌 관리',
-    },
-    {
-      key: '/students',
-      icon: <UserOutlined />,
-      label: '수강생 관리',
-    },
-    {
-      key: '/calendar',
-      icon: <CalendarOutlined />,
-      label: '캘린더',
-    },
-    {
-      key: '/revenue',
-      icon: <DollarOutlined />,
-      label: '수익 관리',
-    },
-    {
-      key: '/settings',
-      icon: <SettingOutlined />,
-      label: '설정',
-    },
-  ];
+  const selectedKey = getSelectedKey();
 
-  const handleMenuClick: MenuProps['onClick'] = (e) => {
-    navigate(e.key);
+  const renderItem = (item: typeof mainItems[0]) => {
+    const Icon = item.icon;
+    const isActive = selectedKey === item.key;
+    return (
+      <button
+        key={item.key}
+        onClick={() => navigate(item.key)}
+        style={isActive ? navItemActive : navItemBase}
+        onMouseEnter={(e) => {
+          if (!isActive) {
+            e.currentTarget.style.background = 'hsl(var(--accent))';
+            e.currentTarget.style.color = 'hsl(var(--foreground))';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isActive) {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.color = 'hsl(var(--muted-foreground))';
+          }
+        }}
+      >
+        <Icon style={{ width: 20, height: 20, flexShrink: 0 }} />
+        <span>{item.label}</span>
+      </button>
+    );
   };
 
   return (
-    <Menu
-      mode="inline"
-      inlineCollapsed={delayedCollapsed}
-      selectedKeys={[getSelectedKey()]}
-      items={menuItems}
-      onClick={handleMenuClick}
-      style={{ borderInlineEnd: 'none' }}
-    />
+    <nav style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '0 12px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {mainItems.map(renderItem)}
+      </div>
+      <div style={{ marginTop: 'auto', borderTop: '1px solid hsl(var(--border))', paddingTop: 8, paddingBottom: 12 }}>
+        {bottomItems.map(renderItem)}
+      </div>
+    </nav>
   );
 };
 

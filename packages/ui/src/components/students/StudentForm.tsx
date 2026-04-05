@@ -1,51 +1,51 @@
-import { DeleteOutlined } from "@ant-design/icons";
-import {
-	Alert,
-	AutoComplete,
-	Button,
-	Checkbox,
-	Col,
-	Form,
-	Input,
-	InputNumber,
-	Modal,
-	message,
-	Radio,
-	Row,
-	Select,
-	Switch,
-	Tag,
-	theme,
-} from "antd";
-import dayjs from "dayjs";
+import { X, Info, ChevronsUpDown } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useCourseStore } from "@tutomate/core";
-import { useEnrollmentStore } from "@tutomate/core";
-import { useLicenseStore } from "@tutomate/core";
-import { useMonthlyPaymentStore } from "@tutomate/core";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { useStudentStore } from "@tutomate/core";
-import type { PaymentMethod, Student, StudentFormData } from "@tutomate/core";
+import type { Student, StudentFormData } from "@tutomate/core";
 import { formatPhone, parseBirthDate } from "@tutomate/core";
 import { appConfig } from "@tutomate/core";
+
 import {
-	getCurrentQuarter,
-	getQuarterMonths,
-	quarterMonthToYYYYMM,
-} from "@tutomate/core";
-
-const { TextArea } = Input;
-const { Option } = Select;
-const { useToken } = theme;
-
-interface CoursePayment {
-	courseId: string;
-	paidAmount: number;
-	isExempt: boolean;
-	paymentMethod?: PaymentMethod;
-	discountAmount: number;
-	enrolledMonths?: number[];
-}
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogFooter,
+} from "../ui/dialog";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "../ui/alert-dialog";
+import { Alert, AlertDescription } from "../ui/alert";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
+import { Label } from "../ui/label";
+import { Switch } from "../ui/switch";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "../ui/popover";
+import {
+	Command,
+	CommandInput,
+	CommandList,
+	CommandItem,
+	CommandEmpty,
+} from "../ui/command";
+import { toast } from "sonner";
+import { cn } from "../../lib/utils";
 
 interface StudentFormProps {
 	visible: boolean;
@@ -53,71 +53,87 @@ interface StudentFormProps {
 	student?: Student | null;
 }
 
+const studentFormSchema = z.object({
+	name: z.string().min(1, "이름을 입력하세요"),
+	phone: z.string().min(1, "전화번호를 입력하세요"),
+	birthDate: z.string().optional(),
+	address: z.string().optional(),
+	notes: z.string().optional(),
+	isMember: z.boolean(),
+});
+
+type StudentFormValues = z.infer<typeof studentFormSchema>;
+
 const StudentForm: React.FC<StudentFormProps> = ({
 	visible,
 	onClose,
 	student,
 }) => {
-	const { token } = useToken();
-	const [form] = Form.useForm();
-	const { addStudent, updateStudent, deleteStudent, students } = useStudentStore();
-	const { courses, getCourseById } = useCourseStore();
-	const { enrollments, addEnrollment, deleteEnrollment, updateEnrollment } =
-		useEnrollmentStore();
-	const { getPlan, getLimit } = useLicenseStore();
-	const { addPayment: addMonthlyPayment } = useMonthlyPaymentStore();
-	const nameInputRef = useRef<any>(null);
-	const phoneInputRef = useRef<any>(null);
-	const birthDateInputRef = useRef<any>(null);
-	const addressInputRef = useRef<any>(null);
-	const notesInputRef = useRef<any>(null);
+	const [submitting, setSubmitting] = useState(false);
+	const form = useForm<StudentFormValues>({
+		resolver: zodResolver(studentFormSchema),
+		defaultValues: {
+			name: "",
+			phone: "",
+			birthDate: "",
+			address: "",
+			notes: "",
+			isMember: false,
+		},
+	});
 
-	const [coursePayments, setCoursePayments] = useState<CoursePayment[]>([]);
-	const [courseSelectKey, setCourseSelectKey] = useState(0);
+	const { addStudent, updateStudent, deleteStudent, students } = useStudentStore();
+	const nameInputRef = useRef<HTMLInputElement>(null);
+	const phoneInputRef = useRef<HTMLInputElement>(null);
+	const birthDateInputRef = useRef<HTMLInputElement>(null);
+	const addressInputRef = useRef<HTMLInputElement>(null);
+	const notesInputRef = useRef<HTMLTextAreaElement>(null);
+
+	const nameRegister = form.register("name");
+	const birthDateRegister = form.register("birthDate");
+	const addressRegister = form.register("address");
+	const notesRegister = form.register("notes");
+
 	const [nameSearch, setNameSearch] = useState("");
+	const [nameComboboxOpen, setNameComboboxOpen] = useState(false);
 	const [selectedExistingStudent, setSelectedExistingStudent] =
 		useState<Student | null>(null);
-	const [savedCoursePayments, setSavedCoursePayments] = useState<
-		CoursePayment[]
-	>([]);
+	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
 	// 현재 편집 중인 수강생 (props로 받은 것 또는 자동완성으로 선택한 것)
 	const editingStudent = student || selectedExistingStudent;
 
 	useEffect(() => {
 		if (visible && student) {
-			// 수정 모드: 기존 수강 강좌 및 납부 정보 가져오기
-			const studentEnrollments = enrollments.filter(
-				(e) => e.studentId === student.id,
-			);
-			const payments = studentEnrollments.map((e) => ({
-				courseId: e.courseId,
-				paidAmount: e.paidAmount,
-				isExempt: e.paymentStatus === "exempt",
-				paymentMethod: e.paymentMethod,
-				discountAmount: e.discountAmount ?? 0,
-				enrolledMonths: e.enrolledMonths,
-			}));
-			setCoursePayments(payments);
+			// 수정 모드
 			setSelectedExistingStudent(null);
 			setNameSearch("");
-			form.setFieldsValue({
-				...student,
-				isMember: student.isMember ?? false,
+			form.reset({
+				name: student.name,
+				phone: student.phone,
 				birthDate: student.birthDate
 					? student.birthDate.replace(/-/g, "").slice(2)
-					: undefined,
+					: "",
+				address: student.address || "",
+				notes: student.notes || "",
+				isMember: student.isMember ?? false,
 			});
 		} else if (visible) {
-			form.resetFields();
-			setCoursePayments([]);
+			form.reset({
+				name: "",
+				phone: "",
+				birthDate: "",
+				address: "",
+				notes: "",
+				isMember: false,
+			});
 			setSelectedExistingStudent(null);
 			setNameSearch("");
 			setTimeout(() => {
 				nameInputRef.current?.focus();
 			}, 100);
 		}
-	}, [visible, student, form, enrollments]);
+	}, [visible, student, form]);
 
 	// 이름 자동완성 옵션
 	const nameOptions = useMemo(() => {
@@ -129,166 +145,48 @@ const StudentForm: React.FC<StudentFormProps> = ({
 			.map((s) => ({
 				value: s.name,
 				key: s.id,
-				label: (
-					<div style={{ display: "flex", justifyContent: "space-between" }}>
-						<span>{s.name}</span>
-						<span style={{ color: token.colorTextSecondary }}>{s.phone}</span>
-					</div>
-				),
+				phone: s.phone,
 			}));
-	}, [students, nameSearch, student, token]);
+	}, [students, nameSearch, student]);
 
 	// 기존 수강생 선택 시
-	const handleNameSelect = (_value: string, option: { key?: string }) => {
-		const existing = students.find((s) => s.id === option.key);
+	const handleNameSelect = (studentId: string) => {
+		const existing = students.find((s) => s.id === studentId);
 		if (!existing) return;
 
 		setSelectedExistingStudent(existing);
-		setSavedCoursePayments(coursePayments);
+		setNameComboboxOpen(false);
 
 		// 폼에 기존 정보 채우기
-		form.setFieldsValue({
+		form.reset({
 			name: existing.name,
 			phone: existing.phone,
 			birthDate: existing.birthDate
 				? existing.birthDate.replace(/-/g, "").slice(2)
-				: undefined,
+				: "",
 			address: existing.address || "",
 			notes: existing.notes || "",
 			isMember: existing.isMember ?? false,
 		});
 
-		// 기존 수강 정보 로드
-		const studentEnrollments = enrollments.filter(
-			(e) => e.studentId === existing.id,
-		);
-		setCoursePayments(
-			studentEnrollments.map((e) => ({
-				courseId: e.courseId,
-				paidAmount: e.paidAmount,
-				isExempt: e.paymentStatus === "exempt",
-				paymentMethod: e.paymentMethod,
-				discountAmount: e.discountAmount ?? 0,
-				enrolledMonths: e.enrolledMonths,
-			})),
-		);
-
-		message.info(`기존 수강생 "${existing.name}"님의 정보를 불러왔습니다.`);
+		toast.info(`기존 수강생 "${existing.name}"님의 정보를 불러왔습니다.`);
 		phoneInputRef.current?.focus();
 	};
 
 	const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		form.setFieldsValue({ phone: formatPhone(e.target.value) });
-	};
-
-	const handleMemberChange = (checked: boolean) => {
-		form.setFieldsValue({ isMember: checked });
-		setCoursePayments((prev) =>
-			prev.map((cp) => ({
-				...cp,
-				isExempt: checked,
-				paidAmount: checked ? 0 : cp.paidAmount,
-			})),
-		);
-	};
-
-	const handleAddCourse = (courseId: string) => {
-		const course = getCourseById(courseId);
-		if (course && !coursePayments.find((cp) => cp.courseId === courseId)) {
-			const isMember = form.getFieldValue("isMember");
-			setCoursePayments([
-				...coursePayments,
-				{
-					courseId,
-					paidAmount: isMember ? 0 : course.fee,
-					isExempt: !!isMember,
-					discountAmount: 0,
-					...(appConfig.enableQuarterSystem && {
-						enrolledMonths: [...getQuarterMonths(getCurrentQuarter())],
-					}),
-				},
-			]);
-		}
-		setCourseSelectKey((k) => k + 1);
-	};
-
-	const handleRemoveCourse = useCallback((courseId: string) => {
-		setCoursePayments((prev) => prev.filter((cp) => cp.courseId !== courseId));
-		setCourseSelectKey((k) => k + 1);
-	}, []);
-
-	const handlePaymentChange = useCallback(
-		(courseId: string, paidAmount: number) => {
-			setCoursePayments((prev) =>
-				prev.map((cp) =>
-					cp.courseId === courseId
-						? { ...cp, paidAmount, isExempt: false }
-						: cp,
-				),
-			);
-		},
-		[],
-	);
-
-	const handleExemptToggle = useCallback((courseId: string) => {
-		setCoursePayments((prev) =>
-			prev.map((cp) =>
-				cp.courseId === courseId
-					? { ...cp, isExempt: !cp.isExempt, paidAmount: 0 }
-					: cp,
-			),
-		);
-	}, []);
-
-	const handlePaymentMethodChange = useCallback(
-		(courseId: string, method: PaymentMethod) => {
-			setCoursePayments((prev) =>
-				prev.map((cp) =>
-					cp.courseId === courseId ? { ...cp, paymentMethod: method } : cp,
-				),
-			);
-		},
-		[],
-	);
-
-	const handleEnrolledMonthsChange = useCallback(
-		(courseId: string, months: number[]) => {
-			setCoursePayments((prev) =>
-				prev.map((cp) =>
-					cp.courseId === courseId ? { ...cp, enrolledMonths: months } : cp,
-				),
-			);
-		},
-		[],
-	);
-
-	const handleDiscountChange = useCallback(
-		(courseId: string, discount: number) => {
-			setCoursePayments((prev) =>
-				prev.map((cp) => {
-					if (cp.courseId !== courseId) return cp;
-					return { ...cp, discountAmount: discount };
-				}),
-			);
-		},
-		[],
-	);
-
-	const getPaymentStatus = (
-		cp: CoursePayment,
-		fee: number,
-	): "pending" | "partial" | "completed" | "exempt" => {
-		if (cp.isExempt) return "exempt";
-		const effectiveFee = fee - (cp.discountAmount || 0);
-		if (cp.paidAmount === 0) return "pending";
-		if (cp.paidAmount < effectiveFee) return "partial";
-		return "completed";
+		form.setValue("phone", formatPhone(e.target.value));
 	};
 
 	const handleSubmit = async () => {
+		if (submitting) return;
+		setSubmitting(true);
 		try {
-			const values = await form.validateFields();
-			const birthDateParsed = parseBirthDate(values.birthDate);
+		const isValid = await form.trigger();
+		if (!isValid) return;
+
+		try {
+			const values = form.getValues();
+			const birthDateParsed = parseBirthDate(values.birthDate ?? "");
 
 			const formData = {
 				...values,
@@ -300,109 +198,8 @@ const StudentForm: React.FC<StudentFormProps> = ({
 				// 수정 모드 (props 또는 자동완성으로 선택한 기존 수강생)
 				await updateStudent(editingStudent.id, formData);
 
-				const existingEnrollments = enrollments.filter(
-					(e) => e.studentId === editingStudent.id,
-				);
-				const newCourseIds = coursePayments.map((cp) => cp.courseId);
-
-				// 삭제할 enrollment
-				for (const e of existingEnrollments.filter(
-					(e) => !newCourseIds.includes(e.courseId),
-				)) {
-					await deleteEnrollment(e.id);
-				}
-
-				// 추가 또는 수정할 enrollment
-				for (const cp of coursePayments) {
-					const course = getCourseById(cp.courseId);
-					if (!course) continue;
-
-					const existing = existingEnrollments.find(
-						(e) => e.courseId === cp.courseId,
-					);
-					const newStatus = getPaymentStatus(cp, course.fee);
-					const effectiveFee = course.fee - (cp.discountAmount || 0);
-					if (existing) {
-						const existingIsExempt = existing.paymentStatus === "exempt";
-						const needsQuarter = appConfig.enableQuarterSystem && !existing.quarter;
-						if (
-							existing.paidAmount !== cp.paidAmount ||
-							existingIsExempt !== cp.isExempt ||
-							existing.paymentMethod !== cp.paymentMethod ||
-							(existing.discountAmount ?? 0) !== cp.discountAmount ||
-							needsQuarter
-						) {
-							const hasPaid = !cp.isExempt && cp.paidAmount > 0;
-							await updateEnrollment(existing.id, {
-								paidAmount: cp.isExempt ? 0 : cp.paidAmount,
-								remainingAmount: cp.isExempt ? 0 : effectiveFee - cp.paidAmount,
-								paymentStatus: newStatus,
-								paidAt: hasPaid ? dayjs().format("YYYY-MM-DD") : undefined,
-								paymentMethod: cp.paymentMethod,
-								discountAmount: cp.discountAmount,
-								...(needsQuarter && {
-									quarter: getCurrentQuarter(),
-									enrolledMonths: cp.enrolledMonths || getQuarterMonths(getCurrentQuarter()),
-								}),
-							});
-						}
-					} else {
-						const hasPaidNew = !cp.isExempt && cp.paidAmount > 0;
-						const currentQuarter = getCurrentQuarter();
-						await addEnrollment({
-							studentId: editingStudent.id,
-							courseId: cp.courseId,
-							paidAmount: cp.isExempt ? 0 : cp.paidAmount,
-							paymentStatus: newStatus,
-							paidAt: hasPaidNew ? dayjs().format("YYYY-MM-DD") : undefined,
-							paymentMethod: cp.paymentMethod,
-							discountAmount: cp.discountAmount,
-							...(appConfig.enableQuarterSystem && {
-								quarter: currentQuarter,
-								enrolledMonths: cp.enrolledMonths,
-							}),
-						});
-
-						// 월별 납부 레코드 자동 생성
-						const newEnr = useEnrollmentStore
-							.getState()
-							.enrollments.find(
-								(e) =>
-									e.studentId === editingStudent.id &&
-									e.courseId === cp.courseId,
-							);
-						if (newEnr) {
-							const paidAmt = cp.isExempt ? 0 : cp.paidAmount;
-							if (appConfig.enableQuarterSystem && cp.enrolledMonths?.length) {
-								const perMonth = Math.floor(paidAmt / cp.enrolledMonths.length);
-								const remainder = paidAmt % cp.enrolledMonths.length;
-								for (let i = 0; i < cp.enrolledMonths.length; i++) {
-									const yyyymm = quarterMonthToYYYYMM(currentQuarter, cp.enrolledMonths[i]);
-									const amt = i === 0 ? perMonth + remainder : perMonth;
-									await addMonthlyPayment(
-										newEnr.id,
-										yyyymm,
-										amt,
-										cp.paymentMethod,
-										amt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
-									);
-								}
-							} else {
-								await addMonthlyPayment(
-									newEnr.id,
-									dayjs().format("YYYY-MM"),
-									paidAmt,
-									cp.paymentMethod,
-									paidAmt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
-								);
-							}
-						}
-					}
-				}
-
-				message.success("수강생 정보가 수정되었습니다.");
-				form.resetFields();
-				setCoursePayments([]);
+				toast.success("수강생 정보가 수정되었습니다.");
+				form.reset();
 				setSelectedExistingStudent(null);
 				setNameSearch("");
 				onClose();
@@ -412,75 +209,16 @@ const StudentForm: React.FC<StudentFormProps> = ({
 					(s) => s.name === values.name && s.phone === values.phone,
 				);
 				if (duplicate) {
-					message.warning(
+					toast.warning(
 						"동일한 이름과 전화번호의 수강생이 이미 있습니다. 위 목록에서 선택해주세요.",
 					);
 					return;
 				}
 
-				const newStudent = await addStudent(formData as StudentFormData);
+				await addStudent(formData as StudentFormData);
 
-				if (coursePayments.length > 0 && newStudent) {
-					const currentQuarter = getCurrentQuarter();
-					for (const cp of coursePayments) {
-						const course = getCourseById(cp.courseId);
-						if (course) {
-							const hasPaidInit = !cp.isExempt && cp.paidAmount > 0;
-							await addEnrollment({
-								studentId: newStudent.id,
-								courseId: cp.courseId,
-								paidAmount: cp.isExempt ? 0 : cp.paidAmount,
-								paymentStatus: getPaymentStatus(cp, course.fee),
-								paidAt: hasPaidInit ? dayjs().format("YYYY-MM-DD") : undefined,
-								paymentMethod: cp.paymentMethod,
-								discountAmount: cp.discountAmount,
-								...(appConfig.enableQuarterSystem && {
-									quarter: currentQuarter,
-									enrolledMonths: cp.enrolledMonths,
-								}),
-							});
-
-							// 월별 납부 레코드 자동 생성
-							const newEnrollment = useEnrollmentStore
-								.getState()
-								.enrollments.find(
-									(e) =>
-										e.studentId === newStudent.id && e.courseId === cp.courseId,
-								);
-							if (newEnrollment) {
-								const paidAmt = cp.isExempt ? 0 : cp.paidAmount;
-								if (appConfig.enableQuarterSystem && cp.enrolledMonths?.length) {
-									const perMonth = Math.floor(paidAmt / cp.enrolledMonths.length);
-									const remainder = paidAmt % cp.enrolledMonths.length;
-									for (let i = 0; i < cp.enrolledMonths.length; i++) {
-										const yyyymm = quarterMonthToYYYYMM(currentQuarter, cp.enrolledMonths[i]);
-										const amt = i === 0 ? perMonth + remainder : perMonth;
-										await addMonthlyPayment(
-											newEnrollment.id,
-											yyyymm,
-											amt,
-											cp.paymentMethod,
-											amt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
-										);
-									}
-								} else {
-									const currentMonth = dayjs().format("YYYY-MM");
-									await addMonthlyPayment(
-										newEnrollment.id,
-										currentMonth,
-										paidAmt,
-										cp.paymentMethod,
-										paidAmt > 0 ? dayjs().format("YYYY-MM-DD") : undefined,
-									);
-								}
-							}
-						}
-					}
-				}
-
-				message.success("수강생이 등록되었습니다.");
-				form.resetFields();
-				setCoursePayments([]);
+				toast.success("수강생이 등록되었습니다.");
+				form.reset();
 				setSelectedExistingStudent(null);
 				setNameSearch("");
 				setTimeout(() => {
@@ -490,353 +228,263 @@ const StudentForm: React.FC<StudentFormProps> = ({
 		} catch (error) {
 			console.error("Validation failed:", error);
 		}
+	} finally {
+			setSubmitting(false);
+		}
 	};
 
-	// 강좌 상태 확인 함수
-	const getCourseStatus = (courseId: string) => {
-		const isSelected = coursePayments.some((cp) => cp.courseId === courseId);
-		const count = enrollments.filter((e) => e.courseId === courseId).length;
-		const course = getCourseById(courseId);
-		if (!course) return { isDisabled: true, label: "" };
-
-		const maxStudentsLimit =
-			getPlan() === "trial"
-				? getLimit("maxStudentsPerCourse")
-				: course.maxStudents;
-		const effectiveMax = Math.min(course.maxStudents, maxStudentsLimit);
-		const isFull = count >= effectiveMax;
-
-		return {
-			isSelected,
-			isFull: isFull && !isSelected,
-			isDisabled: isSelected || isFull,
-			count,
-		};
-	};
-
-	const handleDelete = () => {
+	const handleDelete = async () => {
 		if (!editingStudent) return;
-		const name = editingStudent.name;
-		const id = editingStudent.id;
-		Modal.confirm({
-			title: "수강생을 삭제하시겠습니까?",
-			content: `"${name}" 수강생을 삭제합니다.`,
-			okText: "삭제",
-			okType: "danger",
-			cancelText: "취소",
-			async onOk() {
-				await deleteStudent(id);
-				message.success("수강생이 삭제되었습니다.");
-				onClose();
-			},
-		});
+		await deleteStudent(editingStudent.id);
+		toast.success("수강생이 삭제되었습니다.");
+		setDeleteDialogOpen(false);
+		onClose();
 	};
 
 	return (
-		<Modal
-			title={editingStudent ? "수강생 정보 수정" : "수강생 등록"}
-			open={visible}
-			onCancel={onClose}
-			width={560}
-			style={{ top: 40, paddingBottom: 40 }}
-			footer={
-				<div style={{ display: "flex", justifyContent: editingStudent ? "space-between" : "flex-end" }}>
-					{editingStudent && (
-						<Button danger onClick={handleDelete}>
-							삭제
-						</Button>
-					)}
-					<div style={{ display: "flex", gap: 8 }}>
-						<Button onClick={onClose}>취소</Button>
-						<Button type="primary" onClick={handleSubmit}>
-							{editingStudent ? "수정" : "등록"}
-						</Button>
-					</div>
-				</div>
-			}
-		>
-			<Form form={form} layout="vertical" size="small">
-				{selectedExistingStudent && (
-					<Alert
-						message={`기존 수강생 "${selectedExistingStudent.name}" (${selectedExistingStudent.phone})의 정보를 수정합니다.`}
-						type="info"
-						showIcon
-						closable
-						onClose={() => {
-							setSelectedExistingStudent(null);
-							setCoursePayments(savedCoursePayments);
-							setSavedCoursePayments([]);
-							form.resetFields();
-							setNameSearch("");
-						}}
-						style={{ marginBottom: 12 }}
-					/>
-				)}
+		<>
+			<Dialog open={visible} onOpenChange={(open) => !open && onClose()}>
+				<DialogContent className="max-w-[560px] max-h-[90vh] overflow-y-auto">
+					<DialogHeader>
+						<DialogTitle>
+							{editingStudent ? "수강생 정보 수정" : "수강생 등록"}
+						</DialogTitle>
+					</DialogHeader>
 
-				{/* 기본 정보 */}
-				<Row gutter={12} align="bottom">
-					<Col flex="1">
-						<Form.Item
-							name="name"
-							label="이름"
-							rules={[{ required: true, message: "이름을 입력하세요" }]}
-							style={{ marginBottom: 12 }}
-						>
-							<AutoComplete
-								options={nameOptions}
-								onSearch={setNameSearch}
-								onSelect={handleNameSelect}
+					{selectedExistingStudent && (
+						<Alert className="relative">
+							<Info className="h-4 w-4" />
+							<AlertDescription className="pr-8">
+								기존 수강생 "{selectedExistingStudent.name}" ({selectedExistingStudent.phone})의 정보를 수정합니다.
+							</AlertDescription>
+							<button
+								type="button"
+								className="absolute top-2 right-2 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100"
+								onClick={() => {
+									setSelectedExistingStudent(null);
+									form.reset();
+									setNameSearch("");
+								}}
 							>
-								<Input
-									ref={nameInputRef}
-									placeholder="김철수"
-									onPressEnter={() => phoneInputRef.current?.focus()}
-								/>
-							</AutoComplete>
-						</Form.Item>
-					</Col>
-					<Col flex="1">
-						<Form.Item
-							name="phone"
-							label="전화번호"
-							rules={[{ required: true, message: "전화번호를 입력하세요" }]}
-							style={{ marginBottom: 12 }}
-						>
-							<Input
-								ref={phoneInputRef}
-								placeholder="01012341234"
-								onChange={handlePhoneChange}
-								maxLength={13}
-								onPressEnter={() => birthDateInputRef.current?.focus()}
-							/>
-						</Form.Item>
-					</Col>
-					<Col flex="none" style={{ width: 100 }}>
-						<Form.Item name="birthDate" label="생년월일" style={{ marginBottom: 12 }}>
-							<Input
-								ref={birthDateInputRef}
-								placeholder="630201"
-								maxLength={6}
-								onPressEnter={() => addressInputRef.current?.focus()}
-							/>
-						</Form.Item>
-					</Col>
-					{appConfig.enableMemberFeature && (
-						<Col flex="none">
-							<Form.Item name="isMember" valuePropName="checked" style={{ marginBottom: 12 }}>
-								<Switch
-									checkedChildren="회원"
-									unCheckedChildren="비회원"
-									onChange={handleMemberChange}
-								/>
-							</Form.Item>
-						</Col>
+								<X className="h-4 w-4" />
+							</button>
+						</Alert>
 					)}
-				</Row>
 
-				{!appConfig.hideAddressField && (
-					<Form.Item name="address" label="주소" style={{ marginBottom: 12 }}>
-						<Input
-							ref={addressInputRef}
-							placeholder="서울시 강남구"
-							onPressEnter={() => notesInputRef.current?.focus()}
-						/>
-					</Form.Item>
-				)}
+					<div className="space-y-3">
+						{/* 기본 정보 */}
+						<div className={cn("grid gap-3", appConfig.enableMemberFeature ? "grid-cols-[1fr_1fr_100px_auto]" : "grid-cols-[1fr_1fr_100px]", "items-end")}>
+							<div className="space-y-1.5">
+								<Label htmlFor="name">이름</Label>
+								{student ? (
+									<Input
+										id="name"
+										{...nameRegister}
+										ref={(el: HTMLInputElement | null) => { nameRegister.ref(el); nameInputRef.current = el; }}
+										placeholder="김철수"
+										className="text-base"
+										onKeyDown={(e) => {
+											if (e.key === "Enter") {
+												e.preventDefault();
+												phoneInputRef.current?.focus();
+											}
+										}}
+									/>
+								) : (
+									<Popover open={nameComboboxOpen} onOpenChange={setNameComboboxOpen}>
+										<PopoverTrigger asChild>
+											<Button
+												variant="outline"
+												role="combobox"
+												aria-expanded={nameComboboxOpen}
+												className={cn(
+													"w-full justify-between text-base font-normal",
+													!form.watch("name") && "text-muted-foreground"
+												)}
+											>
+												{form.watch("name") || "김철수"}
+												<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+											</Button>
+										</PopoverTrigger>
+										<PopoverContent className="w-[240px] p-0" align="start">
+											<Command shouldFilter={false}>
+												<CommandInput
+													placeholder="이름 검색..."
+													value={nameSearch}
+													onValueChange={(value) => {
+														setNameSearch(value);
+														form.setValue("name", value);
+													}}
+												/>
+												<CommandList>
+													{nameOptions.length === 0 && nameSearch.length > 0 && (
+														<CommandEmpty>기존 수강생 없음</CommandEmpty>
+													)}
+													{nameOptions.map((opt) => (
+														<CommandItem
+															key={opt.key}
+															value={opt.key}
+															onSelect={() => handleNameSelect(opt.key)}
+														>
+															<div className="flex justify-between w-full">
+																<span>{opt.value}</span>
+																<span className="text-muted-foreground text-sm">{opt.phone}</span>
+															</div>
+														</CommandItem>
+													))}
+												</CommandList>
+											</Command>
+										</PopoverContent>
+									</Popover>
+								)}
+								{form.formState.errors.name && (
+									<p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.name.message}</p>
+								)}
+							</div>
 
-				<Form.Item name="notes" label="메모" style={{ marginBottom: 16 }}>
-					<TextArea
-						ref={notesInputRef}
-						rows={2}
-						placeholder="추가 정보"
-						onKeyDown={(e) => {
-							if (e.key === "Enter" && !e.shiftKey) {
-								e.preventDefault();
-								handleSubmit();
-							}
-						}}
-					/>
-				</Form.Item>
-
-				{/* 구분선 */}
-				<div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, margin: "0 0 12px" }} />
-
-				{/* 강좌 */}
-				<Form.Item label="강좌 신청" style={{ marginBottom: coursePayments.length > 0 ? 8 : 0 }}>
-					<Select
-						key={courseSelectKey}
-						placeholder="강좌를 선택하세요"
-						onChange={handleAddCourse}
-						showSearch
-						optionFilterProp="label"
-					>
-						{courses.map((course) => {
-							const status = getCourseStatus(course.id);
-							const count =
-								status.count ??
-								enrollments.filter((e) => e.courseId === course.id).length;
-							const label = `${course.name} (₩${course.fee.toLocaleString()}) - ${count}/${course.maxStudents}명`;
-							return (
-								<Option
-									key={course.id}
-									value={course.id}
-									disabled={status.isDisabled}
-									label={label}
-								>
-									<span
-										style={
-											status.isSelected
-												? {
-														textDecoration: "line-through",
-														color: token.colorTextQuaternary,
-													}
-												: undefined
+							<div className="space-y-1.5">
+								<Label htmlFor="phone">전화번호</Label>
+								<Input
+									id="phone"
+									ref={phoneInputRef}
+									value={form.watch("phone")}
+									onChange={handlePhoneChange}
+									placeholder="01012341234"
+									maxLength={13}
+									className="text-base"
+									onKeyDown={(e) => {
+										if (e.key === "Enter") {
+											e.preventDefault();
+											birthDateInputRef.current?.focus();
 										}
-									>
-										{label}
-										{status.isSelected && " [선택됨]"}
-										{status.isFull && " [정원 마감]"}
-									</span>
-								</Option>
-							);
-						})}
-					</Select>
-				</Form.Item>
-
-				{coursePayments.length > 0 && (
-					<div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 }}>
-						{coursePayments.map((cp) => {
-							const course = getCourseById(cp.courseId);
-							if (!course) return null;
-							const effectiveFee = course.fee - (cp.discountAmount || 0);
-							return (
-								<div
-									key={cp.courseId}
-									style={{
-										padding: "8px 10px",
-										backgroundColor: token.colorFillQuaternary,
-										borderRadius: token.borderRadius,
-										border: `1px solid ${token.colorBorderSecondary}`,
 									}}
-								>
-									{/* 헤더: 강좌명 + 금액 + 삭제 */}
-									<div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-										<div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-											<span style={{ fontWeight: 600, fontSize: 13 }}>{course.name}</span>
-											{cp.isExempt ? (
-												<Tag color="purple" style={{ margin: 0 }}>면제</Tag>
-											) : cp.discountAmount > 0 ? (
-												<>
-													<Tag color="blue" style={{ margin: 0 }}>₩{effectiveFee.toLocaleString()}</Tag>
-													<span style={{ fontSize: 11, color: token.colorTextQuaternary, textDecoration: "line-through" }}>
-														₩{course.fee.toLocaleString()}
-													</span>
-												</>
-											) : (
-												<Tag color="blue" style={{ margin: 0 }}>₩{course.fee.toLocaleString()}</Tag>
-											)}
-										</div>
-										<Button
-											type="text"
-											size="small"
-											danger
-											icon={<DeleteOutlined />}
-											onClick={() => handleRemoveCourse(cp.courseId)}
-										/>
-									</div>
+								/>
+								{form.formState.errors.phone && (
+									<p style={{ fontSize: 13, color: 'hsl(var(--destructive))' }}>{form.formState.errors.phone.message}</p>
+								)}
+							</div>
 
-									{/* 수강등록월 (분기 시스템) */}
-									{appConfig.enableQuarterSystem && (
-										<div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-											<span style={{ fontSize: 12, color: token.colorTextSecondary, width: 44 }}>등록월</span>
-											<Checkbox.Group
-												value={cp.enrolledMonths || []}
-												onChange={(values) =>
-													handleEnrolledMonthsChange(cp.courseId, values as number[])
-												}
-											>
-												{getQuarterMonths(getCurrentQuarter()).map((m) => (
-													<Checkbox key={m} value={m} style={{ fontSize: 12 }}>
-														{m}월
-													</Checkbox>
-												))}
-											</Checkbox.Group>
-										</div>
-									)}
+							<div className="space-y-1.5">
+								<Label htmlFor="birthDate">생년월일</Label>
+								<Input
+									id="birthDate"
+									{...birthDateRegister}
+									ref={(el: HTMLInputElement | null) => { birthDateRegister.ref(el); birthDateInputRef.current = el; }}
+									placeholder="630201"
+									maxLength={6}
+									className="text-base"
+									onKeyDown={(e) => {
+										if (e.key === "Enter") {
+											e.preventDefault();
+											addressInputRef.current?.focus();
+										}
+									}}
+								/>
+							</div>
 
-									{/* 납부 */}
-									<div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-										<span style={{ fontSize: 12, color: token.colorTextSecondary, width: 44 }}>납부</span>
-										<InputNumber
-											value={cp.paidAmount}
-											onChange={(value) => handlePaymentChange(cp.courseId, value || 0)}
-											min={0}
-											max={effectiveFee}
-											size="small"
-											formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
-											parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, "")) || 0) as any}
-											style={{ width: 120 }}
-											disabled={cp.isExempt}
-										/>
-										<Button size="small" onClick={() => handlePaymentChange(cp.courseId, effectiveFee)} disabled={cp.isExempt}>완납</Button>
-										<Button size="small" onClick={() => handlePaymentChange(cp.courseId, 0)} disabled={cp.isExempt}>미납</Button>
-										<div style={{ marginLeft: "auto" }}>
-											<Radio.Group
-												size="small"
-												value={cp.paymentMethod}
-												onChange={(e) => handlePaymentMethodChange(cp.courseId, e.target.value)}
-												disabled={cp.isExempt}
-											>
-												<Radio.Button value="cash">현금</Radio.Button>
-												<Radio.Button value="card">카드</Radio.Button>
-												<Radio.Button value="transfer">이체</Radio.Button>
-											</Radio.Group>
-										</div>
-									</div>
-
-									{/* 할인 + 면제 */}
-									<div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-										<span style={{ fontSize: 12, color: token.colorTextSecondary, width: 44 }}>할인</span>
-										<InputNumber
-											value={cp.discountAmount}
-											onChange={(value) => handleDiscountChange(cp.courseId, value || 0)}
-											min={0}
-											max={course.fee}
-											size="small"
-											formatter={(value) => `₩ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
-											parser={(value) => (Number(value?.replace(/₩\s?|(,*)/g, "")) || 0) as any}
-											style={{ width: 120 }}
-											disabled={cp.isExempt}
-										/>
-										<Button
-											size="small"
-											type={cp.isExempt ? "primary" : "default"}
-											danger={cp.isExempt}
-											onClick={() => handleExemptToggle(cp.courseId)}
-										>
-											면제
-										</Button>
-									</div>
+							{appConfig.enableMemberFeature && (
+								<div className="flex items-center gap-2 pb-0.5">
+									<Controller
+										control={form.control}
+										name="isMember"
+										render={({ field }) => (
+											<div className="flex items-center gap-2">
+												<Switch
+													id="isMember"
+													checked={field.value}
+													onCheckedChange={field.onChange}
+												/>
+												<Label htmlFor="isMember" className="text-sm cursor-pointer whitespace-nowrap">
+													{field.value ? "회원" : "비회원"}
+												</Label>
+											</div>
+										)}
+									/>
 								</div>
-							);
-						})}
+							)}
+						</div>
 
-						{/* 합계 */}
-						<div style={{ textAlign: "right", color: token.colorTextSecondary, fontSize: 12, padding: "2px 4px" }}>
-							총 납부: ₩
-							{coursePayments
-								.filter((cp) => !cp.isExempt)
-								.reduce((sum, cp) => sum + cp.paidAmount, 0)
-								.toLocaleString()}
-							{coursePayments.some((cp) => cp.discountAmount > 0) &&
-								` (할인 ₩${coursePayments.reduce((sum, cp) => sum + (cp.discountAmount || 0), 0).toLocaleString()})`}
-							{coursePayments.some((cp) => cp.isExempt) &&
-								` (면제 ${coursePayments.filter((cp) => cp.isExempt).length}건)`}
+						{!appConfig.hideAddressField && (
+							<div className="space-y-1.5">
+								<Label htmlFor="address">주소</Label>
+								<Input
+									id="address"
+									{...addressRegister}
+									ref={(el: HTMLInputElement | null) => { addressRegister.ref(el); addressInputRef.current = el; }}
+									placeholder="서울시 강남구"
+									className="text-base"
+									onKeyDown={(e) => {
+										if (e.key === "Enter") {
+											e.preventDefault();
+											notesInputRef.current?.focus();
+										}
+									}}
+								/>
+							</div>
+						)}
+
+						<div className="space-y-1.5">
+							<Label htmlFor="notes">메모</Label>
+							<Textarea
+								id="notes"
+								{...notesRegister}
+								ref={(el: HTMLTextAreaElement | null) => { notesRegister.ref(el); (notesInputRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el; }}
+								rows={2}
+								placeholder="추가 정보"
+								className="text-base"
+								onKeyDown={(e) => {
+									if (e.key === "Enter" && !e.shiftKey) {
+										e.preventDefault();
+										handleSubmit();
+									}
+								}}
+							/>
 						</div>
 					</div>
-				)}
-			</Form>
-		</Modal>
+
+					<DialogFooter style={{ marginTop: 20 }} className={cn(editingStudent ? "justify-between" : "justify-end", "sm:justify-between")}>
+						{editingStudent && (
+							<Button
+								type="button"
+								variant="destructive"
+								onClick={() => setDeleteDialogOpen(true)}
+							>
+								삭제
+							</Button>
+						)}
+						<div className="flex gap-2">
+							<Button type="button" variant="outline" onClick={onClose} className="text-base">
+								취소
+							</Button>
+							<Button type="button" onClick={handleSubmit} className="text-base">
+								{editingStudent ? "수정" : "등록"}
+							</Button>
+						</div>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* 삭제 확인 다이얼로그 */}
+			<AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>수강생을 삭제하시겠습니까?</AlertDialogTitle>
+						<AlertDialogDescription>
+							"{editingStudent?.name}" 수강생을 삭제합니다.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>취소</AlertDialogCancel>
+						<AlertDialogAction
+							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+							onClick={handleDelete}
+						>
+							삭제
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
 	);
 };
 

@@ -24,7 +24,7 @@ vi.mock('../logger', () => ({
   logWarn: vi.fn(),
 }));
 
-import { createDataHelper } from '../dataHelper';
+import { createDataHelper, clearAllCache } from '../dataHelper';
 import { getOrgId } from '../../stores/authStore';
 
 // ─── 테스트용 타입 ───
@@ -267,6 +267,155 @@ describe('dataHelper', () => {
       // invalidate 후에는 서버 재조회
       await helper.load();
       expect(mockSupabaseLoadData).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // ── 추가 케이스 ──
+
+  describe('빈 데이터', () => {
+    it('supabase가 빈 배열 반환 → 빈 배열 반환', async () => {
+      mockSupabaseLoadData.mockResolvedValue([]);
+
+      const helper = makeHelper();
+      const result = await helper.load();
+
+      expect(result).toEqual([]);
+      expect(mockSupabaseLoadData).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('동시 load 호출', () => {
+    it('첫 번째 load 성공 후 두 번째는 fresh여서 스킵', async () => {
+      mockSupabaseLoadData.mockResolvedValue([]);
+
+      const helper = makeHelper();
+      // 첫 번째 호출 후 바로 두 번째 — fresh 상태가 되어 skip
+      await helper.load();
+      await expect(helper.load()).rejects.toThrow('Skip load');
+      expect(mockSupabaseLoadData).toHaveBeenCalledTimes(1);
+    });
+
+    it('두 개의 fresh하지 않은 helper는 각각 서버 호출', async () => {
+      mockSupabaseLoadData.mockResolvedValue([]);
+
+      const helper1 = makeHelper();
+      const helper2 = makeHelper();
+      await helper1.load();
+      await helper2.load();
+
+      expect(mockSupabaseLoadData).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('electronAPI cache paths', () => {
+    it('electronAPI.saveData 사용 시 localStorage 대신 호출', async () => {
+      const mockSaveData = vi.fn().mockResolvedValue(undefined);
+      const mockLoadData = vi.fn().mockResolvedValue(null);
+      (window as any).electronAPI = { saveData: mockSaveData, loadData: mockLoadData };
+
+      mockSupabaseLoadData.mockResolvedValue([{ id: '1', name: 'test', organization_id: 'org1' }]);
+
+      const helper = makeHelper();
+      await helper.load();
+
+      // saveCache에서 electronAPI.saveData가 호출됨
+      expect(mockSaveData).toHaveBeenCalledWith('cache_courses', expect.any(String));
+
+      (window as any).electronAPI = undefined;
+    });
+
+    it('electronAPI.loadData 사용하여 캐시 복구', async () => {
+      const cachedData = JSON.stringify([{ id: '1', name: '캐시', organization_id: 'org1' }]);
+      const mockSaveData = vi.fn().mockResolvedValue(undefined);
+      const mockLoadData = vi.fn().mockResolvedValue(cachedData);
+      (window as any).electronAPI = { saveData: mockSaveData, loadData: mockLoadData };
+
+      mockSupabaseLoadData.mockRejectedValue(new Error('server fail'));
+
+      const helper = makeHelper();
+      const result = await helper.load();
+
+      expect(result).toEqual([{ id: '1', name: '캐시' }]);
+
+      (window as any).electronAPI = undefined;
+    });
+
+    it('electronAPI.loadData null 반환 + 서버 실패 → throw', async () => {
+      const mockSaveData = vi.fn().mockResolvedValue(undefined);
+      const mockLoadData = vi.fn().mockResolvedValue(null);
+      (window as any).electronAPI = { saveData: mockSaveData, loadData: mockLoadData };
+
+      mockSupabaseLoadData.mockRejectedValue(new Error('fail'));
+
+      const helper = makeHelper();
+      await expect(helper.load()).rejects.toThrow('fail');
+
+      (window as any).electronAPI = undefined;
+    });
+
+    it('clearAllCache — electronAPI 사용 시 saveData 호출', async () => {
+      const mockSaveData = vi.fn().mockResolvedValue(undefined);
+      (window as any).electronAPI = { saveData: mockSaveData };
+
+      await clearAllCache();
+
+      expect(mockSaveData).toHaveBeenCalled();
+
+      (window as any).electronAPI = undefined;
+    });
+  });
+
+  describe('cache edge cases', () => {
+    it('캐시에 비-배열 데이터 → null 반환 → throw', async () => {
+      localStorage.setItem('cache_courses', '"not-an-array"');
+      mockSupabaseLoadData.mockRejectedValue(new Error('server fail'));
+
+      const helper = makeHelper();
+      await expect(helper.load()).rejects.toThrow('server fail');
+    });
+
+    it('saveCache 실패해도 load 결과에 영향 없음', async () => {
+      // localStorage.setItem을 throw하도록 모킹
+      const originalSetItem = localStorage.setItem;
+      localStorage.setItem = vi.fn().mockImplementation(() => { throw new Error('quota exceeded'); });
+
+      mockSupabaseLoadData.mockResolvedValue([{ id: '1', name: 'test', organization_id: 'org1' }]);
+
+      const helper = makeHelper();
+      const result = await helper.load();
+
+      expect(result).toEqual([{ id: '1', name: 'test' }]);
+
+      localStorage.setItem = originalSetItem;
+    });
+  });
+
+  describe('clearAllCache', () => {
+    it('clearAllCache 후 로컬 캐시가 없어져 서버 실패 시 throw', async () => {
+      // 캐시 저장 (courses)
+      const rows: TestRow[] = [{ id: '1', name: '캐시', organization_id: 'org1' }];
+      localStorage.setItem('cache_courses', JSON.stringify(rows));
+
+      // clearAllCache 실행
+      await clearAllCache();
+
+      // 서버 실패 + 캐시 없음 → throw
+      mockSupabaseLoadData.mockRejectedValue(new Error('fail'));
+      const helper = makeHelper();
+      await expect(helper.load()).rejects.toThrow('fail');
+    });
+
+    it('clearAllCache는 모든 테이블 캐시 삭제', async () => {
+      const tables = ['courses', 'students', 'enrollments', 'monthly_payments'];
+      for (const table of tables) {
+        localStorage.setItem(`cache_${table}`, JSON.stringify([{ id: '1' }]));
+      }
+
+      await clearAllCache();
+
+      for (const table of tables) {
+        expect(localStorage.getItem(`cache_${table}`)).toBeNull();
+      }
     });
   });
 });

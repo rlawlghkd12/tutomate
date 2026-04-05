@@ -1,9 +1,3 @@
-interface BackupInfo {
-  filename: string;
-  size: number;
-  created_at: string;
-}
-
 interface UpdateInfo {
   version: string;
   releaseNotes: string | null;
@@ -14,14 +8,6 @@ interface ElectronAPI {
   // 파일 I/O
   saveData(key: string, data: string): Promise<void>;
   loadData(key: string): Promise<string>;
-
-  // 백업
-  createBackup(orgName?: string): Promise<BackupInfo>;
-  listBackups(): Promise<BackupInfo[]>;
-  restoreBackup(filename: string): Promise<void>;
-  deleteBackup(filename: string): Promise<void>;
-  importBackup(sourcePath: string, orgName?: string): Promise<BackupInfo>;
-  exportBackupFile(filename: string, destPath: string): Promise<void>;
 
   // 머신 ID
   getMachineId(): Promise<string>;

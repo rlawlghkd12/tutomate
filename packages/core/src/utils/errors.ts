@@ -1,6 +1,5 @@
 // 에러 타입 정의 및 에러 처리 유틸리티
 
-import { message, notification } from 'antd';
 import { logError } from './logger';
 
 export const ErrorType = {
@@ -89,6 +88,14 @@ export class AppError extends Error {
   }
 }
 
+// 에러를 사용자에게 보여주는 콜백 (UI 레이어에서 설정)
+let _showError: ((msg: string, recoverable: boolean) => void) | null = null;
+
+/** UI 레이어에서 호출하여 에러 표시 방법을 설정 (예: toast) */
+export function setErrorDisplay(fn: (msg: string, recoverable: boolean) => void): void {
+  _showError = fn;
+}
+
 // 에러 핸들러
 export class ErrorHandler {
   private static instance: ErrorHandler;
@@ -129,25 +136,8 @@ export class ErrorHandler {
     });
 
     // 사용자에게 알림
-    if (showNotification) {
-      this.showErrorToUser(appError);
-    }
-  }
-
-  private showErrorToUser(error: AppError): void {
-    if (error.recoverable) {
-      // 복구 가능한 에러는 메시지로 표시
-      message.error({
-        content: error.userMessage,
-        duration: 5,
-      });
-    } else {
-      // 심각한 에러는 notification으로 표시
-      notification.error({
-        message: '오류 발생',
-        description: error.userMessage,
-        duration: 0, // 수동으로 닫아야 함
-      });
+    if (showNotification && _showError) {
+      _showError(appError.userMessage, appError.recoverable);
     }
   }
 
