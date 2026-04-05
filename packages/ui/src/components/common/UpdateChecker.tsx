@@ -139,8 +139,8 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
 
   if (initialChecking) {
     return (
-      <div className="fixed inset-0 z-[9998] flex flex-col items-center justify-center gap-3 bg-background text-sm text-muted-foreground">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'hsl(var(--background))', fontSize: 14, color: 'hsl(var(--muted-foreground))' }}>
+        <Loader2 style={{ width: 48, height: 48, color: 'hsl(var(--primary))' }} className="animate-spin" />
         <div>업데이트 확인 중...</div>
       </div>
     );
@@ -148,10 +148,10 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
 
   if (restarting) {
     return (
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-4 bg-black/85 text-base text-white">
-        <div className="text-[40px]">🔄</div>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, background: 'rgba(0,0,0,0.85)', fontSize: 16, color: '#fff' }}>
+        <div style={{ fontSize: 40 }}>🔄</div>
         <div>업데이트 설치 중...</div>
-        <div className="text-sm opacity-60">잠시 후 앱이 재시작됩니다</div>
+        <div style={{ fontSize: 14, opacity: 0.6 }}>잠시 후 앱이 재시작됩니다</div>
       </div>
     );
   }
