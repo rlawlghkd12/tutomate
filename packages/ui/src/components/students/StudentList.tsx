@@ -268,7 +268,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
           />
         </div>
         {actions && (
-          <div style={{ flex: 1, textAlign: 'right' }}>
+          <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', gap: 8 }}>
             {actions}
           </div>
         )}
