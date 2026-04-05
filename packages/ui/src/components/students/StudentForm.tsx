@@ -144,6 +144,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 
 		setSelectedExistingStudent(existing);
 		setNameComboboxOpen(false);
+		setNameSearch(existing.name);
 
 		// 폼에 기존 정보 채우기
 		form.reset({
