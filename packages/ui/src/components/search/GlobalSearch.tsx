@@ -50,7 +50,7 @@ const GlobalSearchInner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         navigate(`/courses/${result.id}`);
         break;
       case 'student':
-        navigate('/students');
+        navigate(`/students?edit=${result.id}`);
         break;
       case 'enrollment':
         navigate('/revenue');

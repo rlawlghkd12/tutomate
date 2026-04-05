@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Button, Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -13,10 +14,12 @@ import { exportStudentsToExcel, exportStudentsToCSV, STUDENT_EXPORT_FIELDS } fro
 const DEFAULT_EXPORT_FIELDS = ['name', 'phone', 'enrolledCourses', 'totalPaid', 'totalRemaining'];
 
 const StudentsPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [editStudent, setEditStudent] = useState<any>(null);
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState<string[]>(DEFAULT_EXPORT_FIELDS);
-  const { students, loadStudents } = useStudentStore();
+  const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
   const { courses, loadCourses } = useCourseStore();
 
@@ -25,6 +28,17 @@ const StudentsPage: React.FC = () => {
     loadEnrollments();
     loadCourses();
   }, [loadStudents, loadEnrollments, loadCourses]);
+
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && students.length > 0) {
+      const student = getStudentById(editId);
+      if (student) {
+        setEditStudent(student);
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, students, getStudentById, setSearchParams]);
 
   const handleExport = (type: 'excel' | 'csv') => {
     if (selectedExportFields.length === 0) {
@@ -79,6 +93,11 @@ const StudentsPage: React.FC = () => {
         visible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
         student={null}
+      />
+      <StudentForm
+        visible={!!editStudent}
+        onClose={() => setEditStudent(null)}
+        student={editStudent}
       />
 
       <Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
