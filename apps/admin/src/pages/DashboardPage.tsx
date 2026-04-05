@@ -18,16 +18,15 @@ const DashboardPage = () => {
     const fetchStats = async () => {
       if (!supabase) return;
       try {
-        const [orgsRes, licensesRes] = await Promise.all([
+        const { data: { session } } = await supabase.auth.getSession();
+        const [orgsRes, licensesRes, usersData] = await Promise.all([
           supabase.functions.invoke('list-organizations'),
           supabase.functions.invoke('list-licenses'),
+          fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users?action=list`,
+            { headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' } }
+          ).then(r => r.json()),
         ]);
-
-        const { data: { session } } = await supabase.auth.getSession();
-        const usersData = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users?action=list`,
-          { headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' } }
-        ).then(r => r.json());
 
         const orgs = orgsRes.data?.organizations || [];
         const licenses = licensesRes.data?.licenses || [];
