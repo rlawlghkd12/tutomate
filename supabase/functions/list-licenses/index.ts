@@ -36,31 +36,36 @@ Deno.serve(async (req) => {
       );
     }
 
-    // admin 권한 확인
-    const { data: userOrg } = await supabaseAdmin
-      .from('user_organizations')
-      .select('organization_id')
-      .eq('user_id', user.id)
-      .single();
+    // admin 권한 확인: 이메일 화이트리스트 또는 org plan=admin
+    const ADMIN_EMAILS = (Deno.env.get('ADMIN_EMAILS') || '4uphwang@gmail.com').split(',').map((e: string) => e.trim());
+    const isAdminEmail = ADMIN_EMAILS.includes(user.email ?? '');
 
-    if (!userOrg) {
-      return new Response(
-        JSON.stringify({ error: 'forbidden' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
+    if (!isAdminEmail) {
+      const { data: userOrg } = await supabaseAdmin
+        .from('user_organizations')
+        .select('organization_id')
+        .eq('user_id', user.id)
+        .single();
 
-    const { data: org } = await supabaseAdmin
-      .from('organizations')
-      .select('plan')
-      .eq('id', userOrg.organization_id)
-      .single();
+      if (!userOrg) {
+        return new Response(
+          JSON.stringify({ error: 'forbidden' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
 
-    if (!org || org.plan !== 'admin') {
-      return new Response(
-        JSON.stringify({ error: 'forbidden' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
+      const { data: org } = await supabaseAdmin
+        .from('organizations')
+        .select('plan')
+        .eq('id', userOrg.organization_id)
+        .single();
+
+      if (!org || org.plan !== 'admin') {
+        return new Response(
+          JSON.stringify({ error: 'forbidden' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
     }
 
     // 라이선스 목록 조회
