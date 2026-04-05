@@ -147,20 +147,24 @@ const CalendarPage: React.FC = () => {
                     return (
                       <div
                         key={course.id}
-                        className={`py-0.5 px-1 mb-0.5 text-[13px] rounded-sm cursor-pointer ${
-                          isFull
-                            ? 'bg-red-50 dark:bg-red-950 border-l-[3px] border-l-red-500'
-                            : 'bg-blue-50 dark:bg-blue-950 border-l-[3px] border-l-blue-500'
-                        }`}
+                        style={{
+                          padding: '4px 6px',
+                          marginBottom: 2,
+                          fontSize: 13,
+                          borderRadius: 4,
+                          cursor: 'pointer',
+                          borderLeft: `3px solid ${isFull ? 'hsl(var(--destructive))' : 'hsl(var(--info))'}`,
+                          background: isFull ? 'hsl(var(--destructive) / 0.08)' : 'hsl(var(--info) / 0.08)',
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleCourseClick(date);
                         }}
                       >
-                        <div className="font-medium overflow-hidden text-ellipsis whitespace-nowrap">
+                        <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'hsl(var(--foreground))' }}>
                           {course.schedule?.startTime} {course.name}
                         </div>
-                        <div className="text-[12px] text-muted-foreground">
+                        <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
                           {course.classroom} ({enrollmentCount}/{course.maxStudents})
                         </div>
                       </div>
