@@ -51,6 +51,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 	const { getPlan, getLimit } = useLicenseStore();
 	const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
+	const [courseSearch, setCourseSearch] = useState("");
 	const [discountAmount, setDiscountAmount] = useState(0);
 	const [isExempt, setIsExempt] = useState(false);
 
@@ -247,60 +248,90 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 						<Controller
 							control={form.control}
 							name="courseId"
-							render={({ field }) => (
-								<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8, maxHeight: 240, overflowY: 'auto' }}>
-									{courses.map((course) => {
-										const currentCount = enrollments.filter(
-											(e) => e.courseId === course.id,
-										).length;
-										const trialLimit =
-											getPlan() === "trial"
-												? getLimit("maxStudentsPerCourse")
-												: Infinity;
-										const effectiveMax = Math.min(course.maxStudents, trialLimit);
-										const isFull = currentCount >= effectiveMax;
-										const isEnrolled = enrollments.some(
-											(e) =>
-												e.studentId === student?.id &&
-												e.courseId === course.id,
-										);
-										const isDisabled = isFull || isEnrolled;
-										const isSelected = field.value === course.id;
-										return (
-											<button
-												key={course.id}
-												type="button"
-												disabled={isDisabled}
-												onClick={() => { field.onChange(course.id); handleCourseChange(course.id); }}
-												style={{
-													padding: '10px 14px',
-													borderRadius: 8,
-													border: `2px solid ${isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))'}`,
-													background: isSelected ? 'hsl(var(--primary) / 0.05)' : 'transparent',
-													cursor: isDisabled ? 'not-allowed' : 'pointer',
-													opacity: isDisabled ? 0.5 : 1,
-													textAlign: 'left',
-													transition: 'border-color 0.15s, background 0.15s',
-												}}
-											>
-												<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-													<span style={{ fontWeight: 600, fontSize: '1rem', textDecoration: isEnrolled ? 'line-through' : undefined }}>
-														{course.name}
-													</span>
-													<span style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))' }}>
-														{currentCount}/{course.maxStudents}명
-														{isEnrolled && ' · 수강중'}
-														{isFull && !isEnrolled && ' · 마감'}
-													</span>
-												</div>
-												<div style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
-													₩{course.fee.toLocaleString()}
-												</div>
-											</button>
-										);
-									})}
+							render={({ field }) => {
+								const filtered = courses.filter((c) => c.name.toLowerCase().includes(courseSearch.toLowerCase()));
+								return (
+								<div>
+									{courses.length > 5 && (
+										<Input
+											placeholder="강좌명 검색..."
+											value={courseSearch}
+											onChange={(e) => setCourseSearch(e.target.value)}
+											style={{ marginBottom: 8 }}
+										/>
+									)}
+									<div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+										{filtered.map((course) => {
+											const currentCount = enrollments.filter(
+												(e) => e.courseId === course.id,
+											).length;
+											const trialLimit =
+												getPlan() === "trial"
+													? getLimit("maxStudentsPerCourse")
+													: Infinity;
+											const effectiveMax = Math.min(course.maxStudents, trialLimit);
+											const isFull = currentCount >= effectiveMax;
+											const isEnrolled = enrollments.some(
+												(e) =>
+													e.studentId === student?.id &&
+													e.courseId === course.id,
+											);
+											const isDisabled = isFull || isEnrolled;
+											const isSelected = field.value === course.id;
+											const schedule = course.schedule;
+											const dl = ['일','월','화','수','목','금','토'];
+											const daysText = Array.isArray(schedule?.daysOfWeek) && schedule.daysOfWeek.length
+												? schedule.daysOfWeek.sort((a: number, b: number) => a - b).map((d: number) => dl[d]).join(', ')
+												: '';
+											const timeText = schedule?.startTime && schedule?.endTime
+												? `${schedule.startTime}~${schedule.endTime}` : '';
+											const subText = [daysText, timeText].filter(Boolean).join(' · ');
+											return (
+												<button
+													key={course.id}
+													type="button"
+													disabled={isDisabled}
+													onClick={() => { field.onChange(course.id); handleCourseChange(course.id); }}
+													style={{
+														display: 'flex', alignItems: 'center', gap: 12,
+														padding: '10px 12px', borderRadius: 8, border: 'none',
+														background: isSelected ? 'hsl(var(--primary) / 0.06)' : 'transparent',
+														cursor: isDisabled ? 'not-allowed' : 'pointer',
+														opacity: isDisabled ? 0.5 : 1,
+														textAlign: 'left', width: '100%',
+														transition: 'background 0.1s',
+													}}
+												>
+													<div style={{
+														width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+														border: `2px solid ${isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))'}`,
+														background: isSelected ? 'hsl(var(--primary))' : 'transparent',
+														boxShadow: isSelected ? 'inset 0 0 0 3px hsl(var(--background))' : 'none',
+													}} />
+													<div style={{ flex: 1, minWidth: 0 }}>
+														<div style={{ fontWeight: 600, fontSize: '0.93rem', textDecoration: isEnrolled ? 'line-through' : undefined }}>
+															{course.name}
+															{isEnrolled && <span style={{ fontWeight: 400, color: 'hsl(var(--muted-foreground))' }}> 수강중</span>}
+															{isFull && !isEnrolled && <span style={{ fontWeight: 400, color: 'hsl(var(--destructive))' }}> 마감</span>}
+														</div>
+														{subText && <div style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))' }}>{subText}</div>}
+													</div>
+													<div style={{ textAlign: 'right', flexShrink: 0 }}>
+														<div style={{ fontWeight: 600, fontSize: '0.93rem' }}>₩{course.fee.toLocaleString()}</div>
+														<div style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))' }}>{currentCount}/{course.maxStudents}명</div>
+													</div>
+												</button>
+											);
+										})}
+										{filtered.length === 0 && (
+											<div style={{ textAlign: 'center', padding: 16, color: 'hsl(var(--muted-foreground))', fontSize: '0.86rem' }}>
+												검색 결과가 없습니다
+											</div>
+										)}
+									</div>
 								</div>
-							)}
+								);
+							}}
 						/>
 						{form.formState.errors.courseId && (
 							<p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>
