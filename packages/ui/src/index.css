@@ -79,6 +79,10 @@
     transition: font-size 0.2s ease;
   }
 
+  html {
+    transition: font-size 0.2s ease;
+  }
+
   html, body {
     height: 100%;
     overflow: hidden;

@@ -114,7 +114,9 @@ function App() {
     const fontSizeMap: Record<string, number> = {
       xs: 11, small: 12, medium: 14, large: 16, xl: 18, xxl: 20, xxxl: 22,
     };
-    document.documentElement.style.setProperty('--font-size-base-value', `${fontSizeMap[fontSize] ?? 14}px`);
+    const px = fontSizeMap[fontSize] ?? 14;
+    document.documentElement.style.setProperty('--font-size-base-value', `${px}px`);
+    document.documentElement.style.fontSize = `${px}px`;
   }, [fontSize]);
 
   if (isLocked && lockEnabled) {
