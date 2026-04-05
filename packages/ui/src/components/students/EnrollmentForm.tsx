@@ -8,7 +8,7 @@ import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
 import { useLicenseStore } from "@tutomate/core";
 import { usePaymentRecordStore } from "@tutomate/core";
-import { appConfig, isActiveEnrollment } from "@tutomate/core";
+import { appConfig, isActiveEnrollment, PaymentStatus } from "@tutomate/core";
 import type { EnrollmentFormData, Student } from "@tutomate/core";
 import { getCurrentQuarter } from "@tutomate/core";
 import {
@@ -45,7 +45,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 	onClose,
 	student,
 }) => {
-	const { addEnrollment, enrollments } = useEnrollmentStore();
+	const { addEnrollment, updateEnrollment, enrollments } = useEnrollmentStore();
 	const { addPayment } = usePaymentRecordStore();
 	const { courses, getCourseById } = useCourseStore();
 	const { getPlan, getLimit } = useLicenseStore();
@@ -105,7 +105,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 			return;
 		}
 
-		// 중복 등록 체크
+		// 활성 수강 중복 체크
 		const alreadyEnrolled = enrollments.some(
 			(e) => e.studentId === student.id && e.courseId === values.courseId && isActiveEnrollment(e),
 		);
@@ -114,18 +114,17 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 			return;
 		}
 
-		const currentEnrollmentCount = enrollments.filter(
-			(e) => e.courseId === values.courseId,
+		const activeEnrollmentCount = enrollments.filter(
+			(e) => e.courseId === values.courseId && isActiveEnrollment(e),
 		).length;
-		if (currentEnrollmentCount >= course.maxStudents) {
+		if (activeEnrollmentCount >= course.maxStudents) {
 			toast.error("강좌 정원이 마감되었습니다.");
 			return;
 		}
 
-		// 체험판 강좌당 수강생 수 제한 체크
 		if (getPlan() === "trial") {
 			const maxStudentsPerCourse = getLimit("maxStudentsPerCourse");
-			if (currentEnrollmentCount >= maxStudentsPerCourse) {
+			if (activeEnrollmentCount >= maxStudentsPerCourse) {
 				toast.warning(
 					`체험판은 강좌당 최대 ${maxStudentsPerCourse}명까지 등록 가능합니다. 설정에서 라이선스를 활성화하세요.`,
 				);
@@ -149,37 +148,61 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 			paymentStatus = "completed";
 		}
 
-		const enrollmentData: EnrollmentFormData = {
-			courseId: values.courseId,
-			studentId: student.id,
-			paymentStatus,
-			paidAmount,
-			paidAt:
-				paidAmount > 0 || isExempt ? dayjs().format("YYYY-MM-DD") : undefined,
-			paymentMethod: values.paymentMethod,
-			discountAmount: discount,
-			notes: values.notes,
-			...(appConfig.enableQuarterSystem && {
-				quarter: currentQuarter,
-			}),
-		};
+		// 철회된 기존 수강이 있으면 재활성화
+		const withdrawnEnrollment = enrollments.find(
+			(e) => e.studentId === student.id && e.courseId === values.courseId && e.paymentStatus === PaymentStatus.WITHDRAWN,
+		);
 
-		await addEnrollment(enrollmentData);
-
-		// 납부 기록 생성 (paymentRecordStore)
-		const newEnrollment = useEnrollmentStore
-			.getState()
-			.enrollments.find(
-				(e) => e.studentId === student.id && e.courseId === values.courseId,
-			);
-		if (newEnrollment && paidAmount > 0) {
-			await addPayment(
-				newEnrollment.id,
+		if (withdrawnEnrollment) {
+			await updateEnrollment(withdrawnEnrollment.id, {
+				paymentStatus,
 				paidAmount,
-				course.fee,
-				values.paymentMethod,
-				dayjs().format("YYYY-MM-DD"),
-			);
+				remainingAmount: effFee - paidAmount,
+				paidAt: paidAmount > 0 || isExempt ? dayjs().format("YYYY-MM-DD") : undefined,
+				paymentMethod: values.paymentMethod,
+				discountAmount: discount,
+				notes: values.notes,
+				...(appConfig.enableQuarterSystem && { quarter: currentQuarter }),
+			});
+
+			if (paidAmount > 0) {
+				await addPayment(
+					withdrawnEnrollment.id,
+					paidAmount,
+					course.fee,
+					values.paymentMethod,
+					dayjs().format("YYYY-MM-DD"),
+				);
+			}
+		} else {
+			const enrollmentData: EnrollmentFormData = {
+				courseId: values.courseId,
+				studentId: student.id,
+				paymentStatus,
+				paidAmount,
+				paidAt: paidAmount > 0 || isExempt ? dayjs().format("YYYY-MM-DD") : undefined,
+				paymentMethod: values.paymentMethod,
+				discountAmount: discount,
+				notes: values.notes,
+				...(appConfig.enableQuarterSystem && { quarter: currentQuarter }),
+			};
+
+			await addEnrollment(enrollmentData);
+
+			const newEnrollment = useEnrollmentStore
+				.getState()
+				.enrollments.find(
+					(e) => e.studentId === student.id && e.courseId === values.courseId && isActiveEnrollment(e),
+				);
+			if (newEnrollment && paidAmount > 0) {
+				await addPayment(
+					newEnrollment.id,
+					paidAmount,
+					course.fee,
+					values.paymentMethod,
+					dayjs().format("YYYY-MM-DD"),
+				);
+			}
 		}
 
 		toast.success("수강 신청이 완료되었습니다.");
