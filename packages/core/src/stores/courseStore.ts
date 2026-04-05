@@ -8,6 +8,7 @@ import {
 	mapCourseToDb,
 	mapCourseUpdateToDb,
 } from "../utils/fieldMapper";
+import { handleError } from "../utils/errors";
 
 const helper = createDataHelper<Course, CourseRow>({
 	table: "courses",
@@ -20,9 +21,9 @@ interface CourseStore {
 	courses: Course[];
 	loadCourses: () => Promise<void>;
 	invalidate: () => void;
-	addCourse: (courseData: CourseFormData) => Promise<void>;
-	updateCourse: (id: string, courseData: Partial<Course>) => Promise<void>;
-	deleteCourse: (id: string) => Promise<void>;
+	addCourse: (courseData: CourseFormData) => Promise<boolean>;
+	updateCourse: (id: string, courseData: Partial<Course>) => Promise<boolean>;
+	deleteCourse: (id: string) => Promise<boolean>;
 	getCourseById: (id: string) => Course | undefined;
 	incrementCurrentStudents: (id: string) => Promise<void>;
 	decrementCurrentStudents: (id: string) => Promise<void>;
@@ -32,12 +33,14 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
 	courses: [],
 
 	loadCourses: async () => {
-		try {
-			const courses = await helper.load();
-			set({ courses });
-		} catch {
-			// 로드 실패 시 기존 데이터 유지
+		const result = await helper.load();
+		if (result.status === "ok" || result.status === "cached") {
+			set({ courses: result.data });
 		}
+		if (result.status === "error") {
+			handleError(result.error);
+		}
+		// 'skip' or 'cached' — no action needed beyond data update
 	},
 
 	/** stale 마킹 — 다음 loadCourses()에서 서버 재조회 */
@@ -51,37 +54,41 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
 			createdAt: dayjs().toISOString(),
 			updatedAt: dayjs().toISOString(),
 		};
-
-		try {
-			await helper.add(newCourse);
-		} catch {
-			// 서버 저장 실패 — 로컬에만 추가 (새로고침 시 사라질 수 있음)
+		const error = await helper.add(newCourse);
+		if (error) {
+			handleError(error);
+			return false;
 		}
 		set({ courses: [...get().courses, newCourse] });
+		return true;
 	},
 
 	updateCourse: async (id: string, courseData: Partial<Course>) => {
 		const updates = { ...courseData, updatedAt: dayjs().toISOString() };
-
-		try {
-			await helper.update(id, updates);
-		} catch {
-			// 서버 저장 실패 — 로컬에만 반영
+		const error = await helper.update(id, updates);
+		if (error) {
+			handleError(error);
+			return false;
 		}
-		const courses = get().courses.map((c) =>
-			c.id === id ? { ...c, ...updates } : c,
-		);
-		set({ courses });
+		set({
+			courses: get().courses.map((c) =>
+				c.id === id ? { ...c, ...updates } : c,
+			),
+		});
+		return true;
 	},
 
 	deleteCourse: async (id: string) => {
-		const courses = await helper.remove(id, get().courses);
-		set({ courses });
+		const error = await helper.remove(id);
+		if (error) {
+			handleError(error);
+			return false;
+		}
+		set({ courses: get().courses.filter((c) => c.id !== id) });
+		return true;
 	},
 
-	getCourseById: (id: string) => {
-		return get().courses.find((course) => course.id === id);
-	},
+	getCourseById: (id: string) => get().courses.find((c) => c.id === id),
 
 	incrementCurrentStudents: async (id: string) => {
 		const course = get().getCourseById(id);
