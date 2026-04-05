@@ -149,6 +149,7 @@ async function syncEnrollmentTotal(
 
   const enrollment = useEnrollmentStore.getState().getEnrollmentById(enrollmentId);
   if (!enrollment) return;
+  if (enrollment.paymentStatus === 'withdrawn') return;
 
   const discount = enrollment.discountAmount ?? 0;
 
