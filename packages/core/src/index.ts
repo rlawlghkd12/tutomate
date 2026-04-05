@@ -2,7 +2,7 @@
 export { appConfig } from './config/appConfig';
 export { APP_NAME, useAppVersion } from './config/version';
 export { supabase, isSupabaseConfigured } from './config/supabase';
-export { PLAN_LIMITS } from './config/planLimits';
+export { PLAN_LIMITS, PlanTypeEnum } from './config/planLimits';
 export type { PlanType, PlanLimitKey } from './config/planLimits';
 export {
   FLEX_CENTER,

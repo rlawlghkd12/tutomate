@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
 
+import { PlanTypeEnum } from '../config/planLimits';
 import type { PlanType } from '../config/planLimits';
 import { supabase } from '../config/supabase';
 import { appConfig } from '../config/appConfig';
@@ -116,7 +117,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         set({
           session,
           organizationId: orgLink.organization_id,
-          plan: (orgData?.plan as PlanType) || 'trial',
+          plan: (orgData?.plan as PlanType) || PlanTypeEnum.TRIAL,
           isCloud: true,
           loading: false,
         });
@@ -150,7 +151,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
       // 자동 재활성화: trial 상태인데 저장된 라이센스 키가 있으면 복구
       const currentState = useAuthStore.getState();
-      if (currentState.plan === 'trial') {
+      if (currentState.plan === PlanTypeEnum.TRIAL) {
         try {
           const stored = localStorage.getItem('app-license');
           if (stored) {
@@ -229,7 +230,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
       const organizationId = data.organization_id as string;
       const isNewOrg = data.is_new_org as boolean;
-      const plan = (data.plan as PlanType) || 'basic';
+      const plan = (data.plan as PlanType) || PlanTypeEnum.BASIC;
 
       const previousOrgId: string | null = useAuthStore.getState().organizationId;
       const orgChanged: boolean = previousOrgId !== null && previousOrgId !== organizationId;
@@ -283,7 +284,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       }
 
       const organizationId = trialData.organization_id as string;
-      const plan = (trialData.plan as PlanType) || 'trial';
+      const plan = (trialData.plan as PlanType) || PlanTypeEnum.TRIAL;
 
       set({
         session,

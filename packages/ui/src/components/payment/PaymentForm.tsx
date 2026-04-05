@@ -7,7 +7,7 @@ import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
-import { useEnrollmentStore } from '@tutomate/core';
+import { useEnrollmentStore, PaymentMethodEnum } from '@tutomate/core';
 import dayjs from 'dayjs';
 import { cn } from '../../lib/utils';
 import {
@@ -85,7 +85,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     defaultValues: {
       paidAmount: 0,
       paidAt: new Date(),
-      paymentMethod: 'transfer',
+      paymentMethod: PaymentMethodEnum.TRANSFER,
       discountAmount: 0,
     },
   });
@@ -99,7 +99,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       reset({
         paidAmount: enrollment.paidAmount,
         paidAt: enrollment.paidAt ? new Date(enrollment.paidAt) : new Date(),
-        paymentMethod: enrollment.paymentMethod || 'transfer',
+        paymentMethod: enrollment.paymentMethod || PaymentMethodEnum.TRANSFER,
         discountAmount: discount,
       });
     }
