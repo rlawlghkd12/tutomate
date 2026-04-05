@@ -46,7 +46,7 @@ export interface DataHelper<TLocal extends { id: string }, _TRow = unknown> {
 // ─── 로컬 캐시 (Electron IPC 또는 localStorage 폴백) ───
 
 const CACHE_PREFIX = 'cache_';
-const CACHE_TABLES = ['courses', 'students', 'enrollments', 'monthly_payments'];
+const CACHE_TABLES = ['courses', 'students', 'enrollments', 'monthly_payments', 'payment_records'];
 
 /** 모든 테이블의 로컬 캐시 삭제 */
 export async function clearAllCache(): Promise<void> {
