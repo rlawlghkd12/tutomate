@@ -99,8 +99,7 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 	},
 
 	withdrawEnrollment: async (id: string) => {
-		const enrollments = await helper.update(id, { paymentStatus: 'withdrawn' as Enrollment['paymentStatus'] }, get().enrollments);
-		set({ enrollments });
+		await get().updateEnrollment(id, { paymentStatus: 'withdrawn' as Enrollment['paymentStatus'] });
 	},
 
 	getEnrollmentById: (id: string) => {
