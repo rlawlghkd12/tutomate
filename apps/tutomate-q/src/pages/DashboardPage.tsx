@@ -98,7 +98,7 @@ const DashboardPage: React.FC = () => {
 	}
 
 	return (
-		<div>
+		<div className="page-enter">
 			{/* 상단 통계 */}
 			<div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
 				<Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/courses")}>

@@ -115,7 +115,7 @@ const DashboardPage: React.FC = () => {
 	}
 
 	return (
-		<div>
+		<div className="page-enter">
 			{/* 상단 통계 - 한 줄 */}
 			<div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
 				<Card

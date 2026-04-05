@@ -13,7 +13,7 @@ const CoursesPage: React.FC = () => {
   }, [loadCourses]);
 
   return (
-    <div>
+    <div className="page-enter">
       <CourseList
         actions={
           <Button

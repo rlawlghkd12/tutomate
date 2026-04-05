@@ -206,7 +206,7 @@ const RevenueManagementPage: React.FC = () => {
   };
 
   return (
-    <div>
+    <div className="page-enter">
       {/* 필터 섹션 */}
       <Card className="mb-6">
         <CardContent className="p-4 space-y-4">
