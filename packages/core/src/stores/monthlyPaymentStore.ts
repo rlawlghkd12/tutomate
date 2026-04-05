@@ -121,19 +121,24 @@ export const useMonthlyPaymentStore = create<MonthlyPaymentStore>(
 			const toDelete = get().payments.filter(
 				(p) => p.enrollmentId === enrollmentId,
 			);
+			const deletedIds: string[] = [];
 			for (const payment of toDelete) {
 				const error = await helper.remove(payment.id);
 				if (error) {
 					logError(`Failed to delete monthly payment ${payment.id}`, {
 						error,
 					});
+				} else {
+					deletedIds.push(payment.id);
 				}
 			}
-			set({
-				payments: get().payments.filter(
-					(p) => p.enrollmentId !== enrollmentId,
-				),
-			});
+			if (deletedIds.length > 0) {
+				set({
+					payments: get().payments.filter(
+						(p) => !deletedIds.includes(p.id),
+					),
+				});
+			}
 		},
 	}),
 );

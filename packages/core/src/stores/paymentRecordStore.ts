@@ -115,15 +115,20 @@ export const usePaymentRecordStore = create<PaymentRecordStore>(
 
     deletePaymentsByEnrollmentId: async (enrollmentId) => {
       const toDelete = get().records.filter((r) => r.enrollmentId === enrollmentId);
+      const deletedIds: string[] = [];
       for (const record of toDelete) {
         const error = await helper.remove(record.id);
         if (error) {
           logError(`Failed to delete payment record ${record.id}`, { error });
+        } else {
+          deletedIds.push(record.id);
         }
       }
-      set({
-        records: get().records.filter((r) => r.enrollmentId !== enrollmentId),
-      });
+      if (deletedIds.length > 0) {
+        set({
+          records: get().records.filter((r) => !deletedIds.includes(r.id)),
+        });
+      }
     },
   }),
 );
