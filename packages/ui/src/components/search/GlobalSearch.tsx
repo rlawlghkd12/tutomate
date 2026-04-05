@@ -106,7 +106,7 @@ const GlobalSearchInner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         color: 'hsl(var(--foreground))',
         boxShadow: '0 25px 60px rgba(0,0,0,0.25)',
       }}>
-      <Command>
+      <Command shouldFilter={false}>
       <CommandInput
         placeholder="강좌, 수강생, 수강 신청 검색..."
         value={query}
