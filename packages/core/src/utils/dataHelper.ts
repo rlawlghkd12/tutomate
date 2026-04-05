@@ -15,7 +15,7 @@ import {
   supabaseDelete,
 } from './supabaseStorage';
 import { AppError, ErrorType, ErrorCode } from './errors';
-import { logError, logInfo, logWarn } from './logger';
+import { logInfo, logWarn } from './logger';
 
 type TableName = 'courses' | 'students' | 'enrollments' | 'monthly_payments' | 'payment_records';
 

@@ -17,6 +17,8 @@ vi.mock('../authStore', () => ({
 
 vi.mock('../../utils/logger', () => ({
   logError: vi.fn(),
+  logWarn: vi.fn(),
+  logInfo: vi.fn(),
 }));
 
 import { useLicenseStore, reloadAllStores } from '../licenseStore';
