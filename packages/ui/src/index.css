@@ -5,6 +5,12 @@
 @source "../../../apps/tutomate-q/src";
 @source "../../../apps/admin/src";
 
+@property --font-size-base-value {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 14px;
+}
+
 @layer base {
   :root {
     --radius: 0.5rem;
