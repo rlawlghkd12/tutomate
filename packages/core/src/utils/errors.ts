@@ -2,6 +2,7 @@
 
 import { logError } from './logger';
 
+/** @deprecated ErrorCode를 사용하세요 */
 export const ErrorType = {
   // 파일 시스템 에러
   FILE_READ_ERROR: 'FILE_READ_ERROR',
