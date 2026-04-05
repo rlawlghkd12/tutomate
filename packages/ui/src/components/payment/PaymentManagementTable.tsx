@@ -46,6 +46,7 @@ interface PaymentManagementTableProps {
   enrollments: Enrollment[];
   onStudentClick?: (studentId: string) => void;
   onRemoveEnrollments?: (enrollmentIds: string[]) => void;
+  showMemberColumn?: boolean;
   rowSelection?: {
     selectedRowKeys: React.Key[];
     onChange: (keys: React.Key[]) => void;
@@ -69,6 +70,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   enrollments,
   onStudentClick,
   onRemoveEnrollments,
+  showMemberColumn,
   rowSelection,
 }) => {
   const { getStudentById } = useStudentStore();
@@ -309,6 +311,15 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         );
       },
     },
+    ...(showMemberColumn ? [{
+      id: 'member',
+      header: '회원',
+      size: 60,
+      cell: ({ row }: { row: any }) => {
+        const m = row.original.student?.isMember;
+        return m ? <Badge variant="info">회원</Badge> : <span className="text-muted-foreground">-</span>;
+      },
+    } as ColumnDef<TableDataRow>] : []),
     {
       id: 'phone',
       header: '전화번호',

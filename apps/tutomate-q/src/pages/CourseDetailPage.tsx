@@ -291,6 +291,7 @@ const CourseDetailPage: React.FC = () => {
 				courseId={id}
 				courseFee={course.fee}
 				enrollments={courseEnrollments}
+				showMemberColumn
 				onStudentClick={(studentId) => {
 					const student = getStudentById(studentId);
 					if (student) {
