@@ -623,20 +623,7 @@
 
 ---
 
-## 14. 백업 (Electron IPC)
-
-> v0.3.0부터 설정 UI에서 백업 탭 제거됨 (Supabase 전환). IPC 채널은 존재하나 UI 미노출.
-
-- [ ] (IPC) `createBackup` — ZIP 기반 로컬 백업 생성
-- [ ] (IPC) `listBackups` — 백업 목록 배열 반환
-- [ ] (IPC) `restoreBackup` — 백업 복원
-- [ ] (IPC) `deleteBackup` — 백업 삭제
-- [ ] (IPC) `importBackup` — 외부 백업 파일 가져오기
-- [ ] (IPC) `exportBackupFile(filename, destPath)` — 백업 내보내기
-
----
-
-## 15. Electron IPC API
+## 14. Electron IPC API
 
 - [ ] `getAppVersion` — semver 형식 반환
 - [ ] `getMachineId` — 비어있지 않은 문자열
@@ -653,35 +640,35 @@
 
 ---
 
-## 16. 데이터 무결성
+## 15. 데이터 무결성
 
-### 16.1 수강 철회 (소프트 딜리트)
+### 15.1 수강 철회 (소프트 딜리트)
 - [ ] `withdrawEnrollment(id)` → `paymentStatus = 'withdrawn'` 업데이트 (레코드 삭제 안 함)
 - [ ] withdrawn 상태의 수강 등록은 강좌 상세 목록에서 필터링 (`e.paymentStatus !== 'withdrawn'`)
 - [ ] **납부 기록(PaymentRecord) 보존** — 수강 철회 시에도 삭제하지 않음
 - [ ] Enrollment 타입 paymentStatus: `'pending' | 'partial' | 'completed' | 'exempt' | 'withdrawn'`
 
-### 16.2 연쇄 삭제
+### 15.2 연쇄 삭제
 - [ ] 강좌 삭제 → 관련 수강 등록 함께 삭제
 - [ ] 수강생 삭제 → 관련 수강 등록 함께 삭제
 
-### 16.3 에러 복원력
+### 15.3 에러 복원력
 - [ ] 데이터 로드 실패 시 기존 데이터 유지 (빈 배열 초기화 방지)
 - [ ] 데이터 추가/수정 실패 시 로컬 state 미반영 (throw → set() 미도달)
 - [ ] orgId 없을 때 insert 차단 (throw)
 - [ ] Supabase 연결 실패 시 에러 throw (silent fail 방지)
 
-### 16.4 동시성
+### 15.4 동시성
 - [ ] 납부 금액 변경 → enrollment paidAmount 동기화
 
-### 16.5 ErrorBoundary
+### 15.5 ErrorBoundary
 - [ ] React 렌더링 오류 시 전체 화면 에러 UI: "문제가 발생했습니다"
 - [ ] "다시 시도" + "페이지 새로고침" 버튼
 - [ ] DEV 모드에서만 스택 트레이스 표시
 
 ---
 
-## 17. 키보드 단축키
+## 16. 키보드 단축키
 
 - [ ] `Cmd+K` / `Ctrl+K` → 글로벌 검색 토글
 - [ ] `Escape` → 모달/검색 닫기
@@ -690,30 +677,30 @@
 
 ---
 
-## 18. 반응형 / UI / 전역 스타일
+## 17. 반응형 / UI / 전역 스타일
 
-### 18.1 UI 프레임워크
+### 17.1 UI 프레임워크
 - [ ] **shadcn/ui + Tailwind v4** (antd 완전 제거)
 - [ ] 브랜드 컬러: `#007aff`
 - [ ] 다크모드 텍스트 87% opacity
 
-### 18.2 사이드바
+### 17.2 사이드바
 - [ ] **220px 고정**, 접힘 기능 없음 (반응형 접힘 제거)
 
-### 18.3 금액/날짜 형식
+### 17.3 금액/날짜 형식
 - [ ] 금액: `₩{value.toLocaleString()}` 통일
 - [ ] 날짜: `YYYY-MM-DD` 또는 locale string
 
-### 18.4 토스트
+### 17.4 토스트
 - [ ] sonner 기반 토스트
 - [ ] 성공(success), 경고(warning), 에러(error), 정보(info)
 
-### 18.5 폼 공통
+### 17.5 폼 공통
 - [ ] **모든 폼 이중 클릭 방지**: `submitting` state + 제출 중 버튼 disabled
 - [ ] **모달 높이 transition**: 콘텐츠 변경 시 부드러운 높이 변화
 - [ ] **slide-enter 애니메이션**: 조건부 표시 요소에 적용 (할인 입력, 면제 안내 등)
 
-### 18.6 납부 방법
+### 17.6 납부 방법
 - [ ] **모든 곳에서 필수** 필드 (라디오 → 버튼 그룹)
 - [ ] **기본값: cash** (현금)
 - [ ] 3가지: 현금(cash), 카드(card), 계좌이체(transfer)

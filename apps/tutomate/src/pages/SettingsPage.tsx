@@ -40,8 +40,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { Progress } from '../components/ui/progress';
-// useBackup 제거 (v0.3.0 — 백업 탭 비활성화)
-
 const SettingsPage: React.FC = () => {
   const {
     theme: appTheme,
