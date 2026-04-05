@@ -1,4 +1,4 @@
-import { X, Info, ChevronsUpDown } from "lucide-react";
+import { X, Info } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
@@ -32,18 +32,6 @@ import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "../ui/popover";
-import {
-	Command,
-	CommandInput,
-	CommandList,
-	CommandItem,
-	CommandEmpty,
-} from "../ui/command";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 
@@ -291,58 +279,55 @@ const StudentForm: React.FC<StudentFormProps> = ({
 										}}
 									/>
 								) : (
-									<Popover open={nameComboboxOpen} onOpenChange={setNameComboboxOpen}>
-										<PopoverTrigger asChild>
-											<Button
-												variant="outline"
-												role="combobox"
-												aria-expanded={nameComboboxOpen}
-												className={cn(
-													"w-full justify-between text-base font-normal",
-													!form.watch("name") && "text-muted-foreground"
-												)}
-											>
-												{form.watch("name") || "김철수"}
-												<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-											</Button>
-										</PopoverTrigger>
-										<PopoverContent className="w-[240px] p-0" align="start">
-											<Command shouldFilter={false}>
-												<CommandInput
-													placeholder="이름 검색..."
-													value={nameSearch}
-													onValueChange={(value) => {
-														setNameSearch(value);
-														form.setValue("name", value);
-													}}
-													onKeyDown={(e) => {
-														if (e.key === "Enter" || e.key === "Tab") {
-															e.preventDefault();
-															setNameComboboxOpen(false);
-															phoneInputRef.current?.focus();
-														}
-													}}
-												/>
-												<CommandList>
-													{nameOptions.length === 0 && nameSearch.length > 0 && (
-														<CommandEmpty>기존 수강생 없음</CommandEmpty>
-													)}
-													{nameOptions.map((opt) => (
-														<CommandItem
-															key={opt.key}
-															value={opt.key}
-															onSelect={() => handleNameSelect(opt.key)}
-														>
-															<div className="flex justify-between w-full">
-																<span>{opt.value}</span>
-																<span className="text-muted-foreground text-sm">{opt.phone}</span>
-															</div>
-														</CommandItem>
-													))}
-												</CommandList>
-											</Command>
-										</PopoverContent>
-									</Popover>
+									<div style={{ position: 'relative' }}>
+										<Input
+											id="name"
+											placeholder="김철수"
+											className="text-base"
+											value={nameSearch}
+											onChange={(e) => {
+												setNameSearch(e.target.value);
+												form.setValue("name", e.target.value);
+												setNameComboboxOpen(e.target.value.length > 0);
+											}}
+											onFocus={() => { if (nameSearch.length > 0) setNameComboboxOpen(true); }}
+											onKeyDown={(e) => {
+												if (e.key === "Enter" || e.key === "Tab") {
+													e.preventDefault();
+													setNameComboboxOpen(false);
+													phoneInputRef.current?.focus();
+												}
+											}}
+											autoComplete="off"
+										/>
+										{nameComboboxOpen && nameOptions.length > 0 && (
+											<div style={{
+												position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+												marginTop: 4, borderRadius: 8, border: '1px solid hsl(var(--border))',
+												background: 'hsl(var(--popover))', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+												maxHeight: 200, overflowY: 'auto',
+											}}>
+												{nameOptions.map((opt) => (
+													<button
+														key={opt.key}
+														type="button"
+														style={{
+															width: '100%', padding: '8px 12px', border: 'none',
+															background: 'transparent', cursor: 'pointer', textAlign: 'left',
+															fontSize: '0.93rem', display: 'flex', justifyContent: 'space-between',
+														}}
+														onMouseDown={(e) => e.preventDefault()}
+														onClick={() => { handleNameSelect(opt.key); setNameComboboxOpen(false); }}
+														onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'hsl(var(--accent))'; }}
+														onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; }}
+													>
+														<span>{opt.value}</span>
+														<span style={{ color: 'hsl(var(--muted-foreground))' }}>{opt.phone}</span>
+													</button>
+												))}
+											</div>
+										)}
+									</div>
 								)}
 								{form.formState.errors.name && (
 									<p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.name.message}</p>

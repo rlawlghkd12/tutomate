@@ -21,16 +21,8 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "../ui/select";
 import { Textarea } from "../ui/textarea";
 import { toast } from "sonner";
-import { cn } from "../../lib/utils";
 
 const enrollmentFormSchema = z.object({
 	courseId: z.string().min(1, "강좌를 선택하세요"),
@@ -251,63 +243,63 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 				<form onSubmit={form.handleSubmit(handleSubmit)} style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 8 }}>
 					{/* 강좌 선택 */}
 					<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-						<Label htmlFor="courseId">강좌 선택</Label>
+						<Label>강좌 선택</Label>
 						<Controller
 							control={form.control}
 							name="courseId"
 							render={({ field }) => (
-								<Select
-									onValueChange={(value) => {
-										field.onChange(value);
-										handleCourseChange(value);
-									}}
-									value={field.value}
-								>
-									<SelectTrigger id="courseId" style={{ height: 44, fontSize: '1rem' }}>
-										<SelectValue placeholder="강좌를 선택하세요" />
-									</SelectTrigger>
-									<SelectContent>
-										{courses.map((course) => {
-											const currentCount = enrollments.filter(
-												(e) => e.courseId === course.id,
-											).length;
-											const trialLimit =
-												getPlan() === "trial"
-													? getLimit("maxStudentsPerCourse")
-													: Infinity;
-											const effectiveMax = Math.min(course.maxStudents, trialLimit);
-											const isFull = currentCount >= effectiveMax;
-											const isEnrolled = enrollments.some(
-												(e) =>
-													e.studentId === student?.id &&
-													e.courseId === course.id,
-											);
-											const isDisabled = isFull || isEnrolled;
-											return (
-												<SelectItem
-													key={course.id}
-													value={course.id}
-													disabled={isDisabled}
-													className="py-2.5"
-												>
-													<span
-														className={cn(
-															isEnrolled && "line-through text-muted-foreground",
-														)}
-														style={{ fontSize: '0.93rem' }}
-													>
-														<span style={{ fontWeight: 600 }}>{course.name}</span>
-														<span className="text-muted-foreground" style={{ marginLeft: 8 }}>
-															₩{course.fee.toLocaleString()} · {currentCount}/{course.maxStudents}명
-														</span>
-														{isEnrolled && <span className="text-muted-foreground"> [수강중]</span>}
-														{isFull && !isEnrolled && <span className="text-destructive"> [마감]</span>}
+								<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8, maxHeight: 240, overflowY: 'auto' }}>
+									{courses.map((course) => {
+										const currentCount = enrollments.filter(
+											(e) => e.courseId === course.id,
+										).length;
+										const trialLimit =
+											getPlan() === "trial"
+												? getLimit("maxStudentsPerCourse")
+												: Infinity;
+										const effectiveMax = Math.min(course.maxStudents, trialLimit);
+										const isFull = currentCount >= effectiveMax;
+										const isEnrolled = enrollments.some(
+											(e) =>
+												e.studentId === student?.id &&
+												e.courseId === course.id,
+										);
+										const isDisabled = isFull || isEnrolled;
+										const isSelected = field.value === course.id;
+										return (
+											<button
+												key={course.id}
+												type="button"
+												disabled={isDisabled}
+												onClick={() => { field.onChange(course.id); handleCourseChange(course.id); }}
+												style={{
+													padding: '10px 14px',
+													borderRadius: 8,
+													border: `2px solid ${isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))'}`,
+													background: isSelected ? 'hsl(var(--primary) / 0.05)' : 'transparent',
+													cursor: isDisabled ? 'not-allowed' : 'pointer',
+													opacity: isDisabled ? 0.5 : 1,
+													textAlign: 'left',
+													transition: 'border-color 0.15s, background 0.15s',
+												}}
+											>
+												<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+													<span style={{ fontWeight: 600, fontSize: '1rem', textDecoration: isEnrolled ? 'line-through' : undefined }}>
+														{course.name}
 													</span>
-												</SelectItem>
-											);
-										})}
-									</SelectContent>
-								</Select>
+													<span style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))' }}>
+														{currentCount}/{course.maxStudents}명
+														{isEnrolled && ' · 수강중'}
+														{isFull && !isEnrolled && ' · 마감'}
+													</span>
+												</div>
+												<div style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+													₩{course.fee.toLocaleString()}
+												</div>
+											</button>
+										);
+									})}
+								</div>
 							)}
 						/>
 						{form.formState.errors.courseId && (
