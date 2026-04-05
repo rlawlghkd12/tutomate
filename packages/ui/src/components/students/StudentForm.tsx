@@ -525,12 +525,12 @@ function EnrollmentHistory({ studentId }: { studentId: string }) {
 
 	if (history.length === 0) return null;
 
-	const statusLabel: Record<string, { text: string; color: string }> = {
-		pending: { text: '미납', color: 'hsl(var(--destructive))' },
-		partial: { text: '부분납부', color: 'hsl(var(--warning))' },
-		completed: { text: '완납', color: 'hsl(var(--success))' },
-		exempt: { text: '면제', color: 'hsl(var(--info))' },
-		withdrawn: { text: '철회', color: 'hsl(var(--muted-foreground))' },
+	const statusBadge: Record<string, { text: string; bg: string; color: string }> = {
+		pending: { text: '미납', bg: 'hsl(var(--destructive) / 0.1)', color: 'hsl(var(--destructive))' },
+		partial: { text: '부분납부', bg: 'hsl(var(--warning) / 0.1)', color: 'hsl(var(--warning))' },
+		completed: { text: '완납', bg: 'hsl(var(--success) / 0.1)', color: 'hsl(var(--success))' },
+		exempt: { text: '면제', bg: 'hsl(var(--info) / 0.1)', color: 'hsl(var(--info))' },
+		withdrawn: { text: '철회', bg: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' },
 	};
 
 	// 분기 목록 추출 (최신 먼저)
@@ -580,7 +580,7 @@ function EnrollmentHistory({ studentId }: { studentId: string }) {
 			<div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
 				{filtered.map((e) => {
 					const course = courses.find((c) => c.id === e.courseId);
-					const status = statusLabel[e.paymentStatus] || { text: e.paymentStatus, color: 'inherit' };
+					const status = statusBadge[e.paymentStatus] || { text: e.paymentStatus, bg: 'hsl(var(--muted))', color: 'inherit' };
 					const ended = course ? isCourseEnded(course) : false;
 					return (
 						<div key={e.id} style={{
@@ -598,11 +598,14 @@ function EnrollmentHistory({ studentId }: { studentId: string }) {
 									{e.enrolledAt?.slice(0, 10) || '-'}
 								</div>
 							</div>
-							<div style={{ textAlign: 'right' }}>
-								<div style={{ fontSize: '0.79rem', fontWeight: 600, color: status.color }}>{status.text}</div>
+							<div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
 								{e.paymentStatus !== PaymentStatus.WITHDRAWN && e.paymentStatus !== 'exempt' && (
-									<div style={{ fontSize: '0.71rem', color: 'hsl(var(--muted-foreground))' }}>₩{e.paidAmount.toLocaleString()}</div>
+									<span style={{ fontSize: '0.71rem', color: 'hsl(var(--muted-foreground))' }}>₩{e.paidAmount.toLocaleString()}</span>
 								)}
+								<span style={{
+									fontSize: '0.79rem', fontWeight: 600, padding: '3px 10px', borderRadius: 10,
+									background: status.bg, color: status.color,
+								}}>{status.text}</span>
 							</div>
 						</div>
 					);
