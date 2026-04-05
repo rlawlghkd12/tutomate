@@ -303,7 +303,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 										/>
 										{nameComboboxOpen && nameOptions.length > 0 && (
 											<div style={{
-												position: 'absolute', top: '100%', left: 0, zIndex: 50, minWidth: 300, width: 'max-content',
+												position: 'absolute', top: '100%', left: 0, zIndex: 50, width: 'auto', minWidth: '100%',
 												marginTop: 4, borderRadius: 8, border: '1px solid hsl(var(--border))',
 												background: 'hsl(var(--popover))', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
 												maxHeight: 200, overflowY: 'auto',
@@ -315,7 +315,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 														style={{
 															width: '100%', padding: '8px 12px', border: 'none',
 															background: 'transparent', cursor: 'pointer', textAlign: 'left',
-															fontSize: '0.93rem', display: 'flex', justifyContent: 'space-between',
+															fontSize: '0.93rem', display: 'flex', gap: 16, whiteSpace: 'nowrap',
 														}}
 														onMouseDown={(e) => e.preventDefault()}
 														onClick={() => { handleNameSelect(opt.key); setNameComboboxOpen(false); }}
