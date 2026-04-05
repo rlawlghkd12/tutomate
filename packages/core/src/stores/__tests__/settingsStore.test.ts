@@ -42,7 +42,7 @@ describe('settingsStore', () => {
 
   it('saveSettings + loadSettings → localStorage 왕복', () => {
     useSettingsStore.getState().setTheme('dark');
-    useSettingsStore.getState().setFontSize('extra-large');
+    useSettingsStore.getState().setFontSize('xl');
     useSettingsStore.getState().setOrganizationName('테스트 학원');
 
     // reset then load
@@ -53,7 +53,7 @@ describe('settingsStore', () => {
     useSettingsStore.getState().loadSettings();
 
     expect(useSettingsStore.getState().theme).toBe('dark');
-    expect(useSettingsStore.getState().fontSize).toBe('extra-large');
+    expect(useSettingsStore.getState().fontSize).toBe('xl');
     expect(useSettingsStore.getState().organizationName).toBe('테스트 학원');
   });
 
@@ -64,11 +64,19 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().theme).toBe('light');
   });
 
-  it('setFontSize → small, extra-large 설정 가능', () => {
+  it('setFontSize → small, xl 설정 가능', () => {
     useSettingsStore.getState().setFontSize('small');
     expect(useSettingsStore.getState().fontSize).toBe('small');
-    useSettingsStore.getState().setFontSize('extra-large');
-    expect(useSettingsStore.getState().fontSize).toBe('extra-large');
+    useSettingsStore.getState().setFontSize('xl');
+    expect(useSettingsStore.getState().fontSize).toBe('xl');
+  });
+
+  it('setFontSize → 7단계 전체 (xs, small, medium, large, xl, xxl, xxxl)', () => {
+    const sizes = ['xs', 'small', 'medium', 'large', 'xl', 'xxl', 'xxxl'] as const;
+    for (const size of sizes) {
+      useSettingsStore.getState().setFontSize(size);
+      expect(useSettingsStore.getState().fontSize).toBe(size);
+    }
   });
 
   it('setNotificationsEnabled → false → true 토글', () => {

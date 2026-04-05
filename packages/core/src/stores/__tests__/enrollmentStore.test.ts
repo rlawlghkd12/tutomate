@@ -219,3 +219,43 @@ describe('enrollmentStore — CRUD', () => {
     expect(useEnrollmentStore.getState().getEnrollmentCountByCourseId('c99')).toBe(0);
   });
 });
+
+describe('enrollmentStore — withdrawEnrollment', () => {
+  beforeEach(() => {
+    useEnrollmentStore.setState({ enrollments: [] });
+  });
+
+  it('withdrawEnrollment → paymentStatus를 withdrawn으로 변경', async () => {
+    useEnrollmentStore.setState({
+      enrollments: [makeEnrollment({ id: 'e1', courseId: 'c1', paymentStatus: 'pending' })],
+    });
+    await useEnrollmentStore.getState().withdrawEnrollment('e1');
+    const e = useEnrollmentStore.getState().getEnrollmentById('e1')!;
+    expect(e.paymentStatus).toBe('withdrawn');
+  });
+
+  it('withdrawn 수강은 getEnrollmentCountByCourseId에서 제외', () => {
+    useEnrollmentStore.setState({
+      enrollments: [
+        makeEnrollment({ id: 'e1', courseId: 'c1', paymentStatus: 'completed' }),
+        makeEnrollment({ id: 'e2', courseId: 'c1', paymentStatus: 'withdrawn' }),
+        makeEnrollment({ id: 'e3', courseId: 'c1', paymentStatus: 'pending' }),
+      ],
+    });
+    // withdrawn 1건 제외 → 2건
+    expect(useEnrollmentStore.getState().getEnrollmentCountByCourseId('c1')).toBe(2);
+  });
+
+  it('withdrawn 수강은 enrollments 배열에서 삭제되지 않고 유지', () => {
+    useEnrollmentStore.setState({
+      enrollments: [
+        makeEnrollment({ id: 'e1', courseId: 'c1', paymentStatus: 'withdrawn' }),
+        makeEnrollment({ id: 'e2', courseId: 'c1', paymentStatus: 'completed' }),
+      ],
+    });
+    const all = useEnrollmentStore.getState().enrollments;
+    expect(all).toHaveLength(2);
+    expect(all.find((e) => e.id === 'e1')).toBeDefined();
+    expect(all.find((e) => e.id === 'e1')!.paymentStatus).toBe('withdrawn');
+  });
+});
