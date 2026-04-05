@@ -8,7 +8,7 @@ import {
 	mapCourseToDb,
 	mapCourseUpdateToDb,
 } from "../utils/fieldMapper";
-import { handleError } from "../utils/errors";
+import { handleError, showErrorMessage } from "../utils/errors";
 
 const helper = createDataHelper<Course, CourseRow>({
 	table: "courses",
@@ -37,10 +37,12 @@ export const useCourseStore = create<CourseStore>((set, get) => ({
 		if (result.status === "ok" || result.status === "cached") {
 			set({ courses: result.data });
 		}
+		if (result.status === "cached") {
+			showErrorMessage("오프라인 상태입니다. 저장된 데이터를 표시합니다.");
+		}
 		if (result.status === "error") {
 			handleError(result.error);
 		}
-		// 'skip' or 'cached' — no action needed beyond data update
 	},
 
 	/** stale 마킹 — 다음 loadCourses()에서 서버 재조회 */

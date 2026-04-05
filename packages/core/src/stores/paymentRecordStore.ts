@@ -9,7 +9,7 @@ import {
   mapPaymentRecordUpdateToDb,
 } from "../utils/fieldMapper";
 import { useEnrollmentStore } from "./enrollmentStore";
-import { handleError } from "../utils/errors";
+import { handleError, showErrorMessage } from "../utils/errors";
 import { logError } from "../utils/logger";
 
 const helper = createDataHelper<PaymentRecord, PaymentRecordRow>({
@@ -45,6 +45,9 @@ export const usePaymentRecordStore = create<PaymentRecordStore>(
       const result = await helper.load();
       if (result.status === 'ok' || result.status === 'cached') {
         set({ records: result.data });
+      }
+      if (result.status === 'cached') {
+        showErrorMessage('오프라인 상태입니다. 저장된 데이터를 표시합니다.');
       }
       if (result.status === 'error') {
         handleError(result.error);

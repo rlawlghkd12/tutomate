@@ -8,7 +8,7 @@ import {
 	mapStudentToDb,
 	mapStudentUpdateToDb,
 } from "../utils/fieldMapper";
-import { handleError } from "../utils/errors";
+import { handleError, showErrorMessage } from "../utils/errors";
 
 const helper = createDataHelper<Student, StudentRow>({
 	table: "students",
@@ -34,6 +34,9 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
 		const result = await helper.load();
 		if (result.status === "ok" || result.status === "cached") {
 			set({ students: result.data });
+		}
+		if (result.status === "cached") {
+			showErrorMessage("오프라인 상태입니다. 저장된 데이터를 표시합니다.");
 		}
 		if (result.status === "error") {
 			handleError(result.error);
