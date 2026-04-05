@@ -8,6 +8,7 @@ import {
 	mapStudentToDb,
 	mapStudentUpdateToDb,
 } from "../utils/fieldMapper";
+import { handleError } from "../utils/errors";
 
 const helper = createDataHelper<Student, StudentRow>({
 	table: "students",
@@ -20,9 +21,9 @@ interface StudentStore {
 	students: Student[];
 	loadStudents: () => Promise<void>;
 	invalidate: () => void;
-	addStudent: (studentData: StudentFormData) => Promise<Student>;
-	updateStudent: (id: string, studentData: Partial<Student>) => Promise<void>;
-	deleteStudent: (id: string) => Promise<void>;
+	addStudent: (studentData: StudentFormData) => Promise<Student | null>;
+	updateStudent: (id: string, studentData: Partial<Student>) => Promise<boolean>;
+	deleteStudent: (id: string) => Promise<boolean>;
 	getStudentById: (id: string) => Student | undefined;
 }
 
@@ -30,11 +31,12 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
 	students: [],
 
 	loadStudents: async () => {
-		try {
-			const students = await helper.load();
-			set({ students });
-		} catch {
-			// 로드 실패 시 기존 데이터 유지
+		const result = await helper.load();
+		if (result.status === "ok" || result.status === "cached") {
+			set({ students: result.data });
+		}
+		if (result.status === "error") {
+			handleError(result.error);
 		}
 	},
 
@@ -47,37 +49,39 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
 			createdAt: dayjs().toISOString(),
 			updatedAt: dayjs().toISOString(),
 		};
-
-		try {
-			await helper.add(newStudent);
-		} catch {
-			// 서버 저장 실패 — 로컬에만 추가
+		const error = await helper.add(newStudent);
+		if (error) {
+			handleError(error);
+			return null;
 		}
 		set({ students: [...get().students, newStudent] });
-
 		return newStudent;
 	},
 
 	updateStudent: async (id: string, studentData: Partial<Student>) => {
 		const updates = { ...studentData, updatedAt: dayjs().toISOString() };
-
-		try {
-			await helper.update(id, updates);
-		} catch {
-			// 서버 저장 실패 — 로컬에만 반영
+		const error = await helper.update(id, updates);
+		if (error) {
+			handleError(error);
+			return false;
 		}
-		const students = get().students.map((s) =>
-			s.id === id ? { ...s, ...updates } : s,
-		);
-		set({ students });
+		set({
+			students: get().students.map((s) =>
+				s.id === id ? { ...s, ...updates } : s,
+			),
+		});
+		return true;
 	},
 
 	deleteStudent: async (id: string) => {
-		const students = await helper.remove(id, get().students);
-		set({ students });
+		const error = await helper.remove(id);
+		if (error) {
+			handleError(error);
+			return false;
+		}
+		set({ students: get().students.filter((s) => s.id !== id) });
+		return true;
 	},
 
-	getStudentById: (id: string) => {
-		return get().students.find((student) => student.id === id);
-	},
+	getStudentById: (id: string) => get().students.find((s) => s.id === id),
 }));
