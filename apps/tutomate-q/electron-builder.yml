@@ -9,6 +9,9 @@ directories:
 files:
   - dist/**/*
   - dist-electron/**/*
+  - "!node_modules/@tailwindcss/**"
+  - "!node_modules/tailwindcss/**"
+  - "!node_modules/lightningcss/**"
 
 publish:
   provider: github
