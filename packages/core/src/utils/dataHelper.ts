@@ -1,10 +1,11 @@
 /**
  * 통합 CRUD 헬퍼 — Supabase + 로컬 캐시 + stale 체크
  *
- * load: fresh(5분 이내) → store 기존 데이터 유지 (서버 호출 스킵)
- *       stale → 서버 로드 → 로컬 캐시 갱신
- *       서버 실패 → 로컬 캐시에서 반환
- * add/update/remove: 서버 쓰기 후 stale 마킹 (다음 load 시 서버 재조회)
+ * load: fresh(3분 이내) → { status: 'skip' }
+ *       stale → 서버 로드 → { status: 'ok', data }
+ *       서버 실패 + 캐시 → { status: 'cached', data }
+ *       서버 실패 + 캐시 없음 → { status: 'error', error }
+ * add/update/remove: 성공 → null, 실패 → AppError
  */
 import { getOrgId } from '../stores/authStore';
 import {
@@ -13,31 +14,32 @@ import {
   supabaseUpdate,
   supabaseDelete,
 } from './supabaseStorage';
+import { AppError, ErrorType, ErrorCode } from './errors';
 import { logError, logInfo, logWarn } from './logger';
 
 type TableName = 'courses' | 'students' | 'enrollments' | 'monthly_payments' | 'payment_records';
 
-/** load() 스킵 판단 기준 (밀리초) */
-const STALE_TIME = 3 * 60 * 1000; // 3분
+const STALE_TIME = 3 * 60 * 1000;
+
+export type LoadResult<T> =
+  | { status: 'ok'; data: T[] }
+  | { status: 'skip' }
+  | { status: 'cached'; data: T[] }
+  | { status: 'error'; error: AppError };
 
 interface DataHelperConfig<TLocal extends { id: string }, TRow> {
-  /** Supabase 테이블 이름 */
   table: TableName;
-  /** DB Row → 로컬 타입 변환 */
   fromDb: (row: TRow) => TLocal;
-  /** 로컬 타입 → DB Row 변환 (insert 용, orgId 필요) */
   toDb: (item: TLocal, orgId: string) => object;
-  /** Partial 로컬 타입 → DB update 객체 변환 */
   updateToDb: (updates: Partial<TLocal>) => Record<string, unknown>;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export interface DataHelper<TLocal extends { id: string }, _TRow = unknown> {
-  load: () => Promise<TLocal[]>;
-  add: (item: TLocal) => Promise<void>;
-  update: (id: string, updates: Partial<TLocal>) => Promise<void>;
-  remove: (id: string, currentItems: TLocal[]) => Promise<TLocal[]>;
-  /** stale 마킹 — 다음 load()에서 강제 서버 조회 */
+  load: () => Promise<LoadResult<TLocal>>;
+  add: (item: TLocal) => Promise<AppError | null>;
+  update: (id: string, updates: Partial<TLocal>) => Promise<AppError | null>;
+  remove: (id: string) => Promise<AppError | null>;
   invalidate: () => void;
 }
 
@@ -104,52 +106,85 @@ export function createDataHelper<TLocal extends { id: string }, TRow>(
   }
 
   return {
-    async load(): Promise<TLocal[]> {
-      // fresh 상태면 서버 호출 스킵 → store의 catch에서 기존 데이터 유지
+    async load(): Promise<LoadResult<TLocal>> {
       if (isFresh()) {
-        throw new SkipLoadError(table);
+        return { status: 'skip' };
       }
 
       try {
         const rows = await supabaseLoadData<TRow>(table);
         const items = rows.map(fromDb);
         lastLoadedAt = Date.now();
-        // 로컬 캐시 갱신 (비동기, 에러 무시)
         saveCache(table, rows);
-        return items;
+        return { status: 'ok', data: items };
       } catch (error) {
-        if (error instanceof SkipLoadError) throw error;
-        // 서버 실패 → 로컬 캐시에서 복구 시도
         logWarn(`Server load failed for ${table}, trying local cache`, { error });
         const cached = await loadCache<TRow>(table);
         if (cached && cached.length > 0) {
           logInfo(`Loaded ${cached.length} items from local cache: ${table}`);
           lastLoadedAt = Date.now();
-          return cached.map(fromDb);
+          return { status: 'cached', data: cached.map(fromDb) };
         }
-        throw error;
+        const appError = error instanceof AppError ? error : new AppError({
+          type: ErrorType.NETWORK_ERROR,
+          message: `Failed to load: ${table}`,
+          code: ErrorCode.DB_READ_FAILED,
+          originalError: error,
+        });
+        return { status: 'error', error: appError };
       }
     },
 
-    async add(item: TLocal): Promise<void> {
+    async add(item: TLocal): Promise<AppError | null> {
       const orgId = getOrgId();
       if (!orgId) {
-        throw new Error(`No orgId — cannot insert into ${table}`);
+        return new AppError({
+          type: ErrorType.VALIDATION_ERROR,
+          message: `No orgId — cannot insert into ${table}`,
+          code: ErrorCode.DB_PERMISSION,
+        });
       }
-      await supabaseInsert(table, toDb(item, orgId));
+      try {
+        await supabaseInsert(table, toDb(item, orgId));
+        lastLoadedAt = 0; // invalidate
+        return null;
+      } catch (error) {
+        return error instanceof AppError ? error : new AppError({
+          type: ErrorType.NETWORK_ERROR,
+          message: `Failed to add to ${table}`,
+          code: ErrorCode.DB_WRITE_FAILED,
+          originalError: error,
+        });
+      }
     },
 
-    async update(id: string, updates: Partial<TLocal>): Promise<void> {
-      await supabaseUpdate(table, id, updateToDb(updates));
+    async update(id: string, updates: Partial<TLocal>): Promise<AppError | null> {
+      try {
+        await supabaseUpdate(table, id, updateToDb(updates));
+        lastLoadedAt = 0;
+        return null;
+      } catch (error) {
+        return error instanceof AppError ? error : new AppError({
+          type: ErrorType.NETWORK_ERROR,
+          message: `Failed to update in ${table}`,
+          code: ErrorCode.DB_WRITE_FAILED,
+          originalError: error,
+        });
+      }
     },
 
-    async remove(id: string, currentItems: TLocal[]): Promise<TLocal[]> {
+    async remove(id: string): Promise<AppError | null> {
       try {
         await supabaseDelete(table, id);
-        return currentItems.filter((item) => item.id !== id);
+        lastLoadedAt = 0;
+        return null;
       } catch (error) {
-        logError(`Failed to delete from ${table} in cloud`, { error });
-        return currentItems;
+        return error instanceof AppError ? error : new AppError({
+          type: ErrorType.NETWORK_ERROR,
+          message: `Failed to delete from ${table}`,
+          code: ErrorCode.DB_WRITE_FAILED,
+          originalError: error,
+        });
       }
     },
 
@@ -157,12 +192,4 @@ export function createDataHelper<TLocal extends { id: string }, TRow>(
       lastLoadedAt = 0;
     },
   };
-}
-
-/** load() 스킵 시 throw하는 내부 에러 (store catch에서 기존 데이터 유지) */
-class SkipLoadError extends Error {
-  constructor(table: string) {
-    super(`Skip load: ${table} is still fresh`);
-    this.name = 'SkipLoadError';
-  }
 }
