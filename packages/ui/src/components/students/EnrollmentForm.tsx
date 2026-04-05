@@ -410,7 +410,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 											{([{ v: "cash", l: "현금" }, { v: "card", l: "카드" }, { v: "transfer", l: "계좌이체" }] as const).map((m) => (
 												<Button key={m.v} type="button"
 													variant={field.value === m.v ? "default" : "outline"}
-													size="sm" style={{ fontSize: 14, padding: '8px 16px', flex: 1 }}
+													size="sm" style={{ fontSize: 14, padding: '8px 16px', flex: '1 0 auto' }}
 													disabled={isExempt}
 													onClick={() => field.onChange(m.v)}>
 													{m.l}
