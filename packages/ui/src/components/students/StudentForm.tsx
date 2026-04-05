@@ -269,7 +269,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 										id="name"
 										{...nameRegister}
 										ref={(el: HTMLInputElement | null) => { nameRegister.ref(el); nameInputRef.current = el; }}
-										placeholder="김철수"
+										placeholder="이름"
 										className="text-base"
 										onKeyDown={(e) => {
 											if (e.key === "Enter") {
@@ -282,7 +282,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 									<div style={{ position: 'relative' }}>
 										<Input
 											id="name"
-											placeholder="김철수"
+											placeholder="이름"
 											className="text-base"
 											value={nameSearch}
 											onChange={(e) => {
@@ -341,7 +341,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 									ref={phoneInputRef}
 									value={form.watch("phone")}
 									onChange={handlePhoneChange}
-									placeholder="01012341234"
+									placeholder="010-0000-0000"
 									maxLength={13}
 									className="text-base"
 									onKeyDown={(e) => {
