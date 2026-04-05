@@ -23,6 +23,7 @@ import {
   REVENUE_EXPORT_FIELDS,
   getCurrentQuarter,
   getQuarterOptions,
+  isActiveEnrollment,
 } from '@tutomate/core';
 import type { Enrollment } from '@tutomate/core';
 import { PaymentForm } from '@tutomate/ui';
@@ -58,7 +59,7 @@ const RevenueManagementPage: React.FC = () => {
 
   // 날짜 범위 및 결제 상태에 따라 필터링된 수강 신청 목록
   const filteredEnrollments = useMemo(() => {
-    let filtered = enrollments;
+    let filtered = enrollments.filter((e) => isActiveEnrollment(e));
 
     if (dateRange[0] && dateRange[1]) {
       const startDate = dayjs(dateRange[0]).startOf('day');
@@ -139,7 +140,7 @@ const RevenueManagementPage: React.FC = () => {
   // 분기별 수익 현황 (강좌별)
   const quarterRevenueData = useMemo(() => {
     return courses.map((course) => {
-      const courseEnrollments = enrollments.filter((e) => e.courseId === course.id && e.quarter === selectedQuarter);
+      const courseEnrollments = enrollments.filter((e) => isActiveEnrollment(e) && e.courseId === course.id && e.quarter === selectedQuarter);
       const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
       const quarterRevenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
       const quarterExpected = nonExemptEnrollments.length * course.fee;

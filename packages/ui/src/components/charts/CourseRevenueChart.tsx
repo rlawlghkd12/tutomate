@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Empty } from '../ui/empty';
 import type { Enrollment, Course } from '@tutomate/core';
-import { useChartColors, FLEX_CENTER } from '@tutomate/core';
+import { useChartColors, FLEX_CENTER, isActiveEnrollment } from '@tutomate/core';
 
 interface CourseRevenueChartProps {
   enrollments: Enrollment[];
@@ -20,7 +20,7 @@ export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollme
   const courseData = useMemo(() => {
     return courses
       .map((course) => {
-        const courseEnrollments = enrollments.filter((e) => e.courseId === course.id);
+        const courseEnrollments = enrollments.filter((e) => isActiveEnrollment(e) && e.courseId === course.id);
         const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
         const revenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
         const expectedRevenue = nonExemptEnrollments.length * course.fee;

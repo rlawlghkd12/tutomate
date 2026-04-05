@@ -21,7 +21,7 @@ import { usePaymentRecordStore } from '@tutomate/core';
 import { getCurrentQuarter, getQuarterOptions } from '@tutomate/core';
 import { PaymentForm } from '@tutomate/ui';
 import type { Enrollment } from '@tutomate/core';
-import { PAYMENT_METHOD_LABELS } from '@tutomate/core';
+import { PAYMENT_METHOD_LABELS, isActiveEnrollment } from '@tutomate/core';
 import { exportRevenueToExcel, exportRevenueToCSV, REVENUE_EXPORT_FIELDS } from '@tutomate/core';
 
 const RevenueManagementPage: React.FC = () => {
@@ -48,7 +48,7 @@ const RevenueManagementPage: React.FC = () => {
 
   // Filter enrollments
   const filteredEnrollments = useMemo(() => {
-    let filtered = enrollments;
+    let filtered = enrollments.filter((e) => isActiveEnrollment(e));
 
     if (dateRange[0] && dateRange[1]) {
       const startDate = dayjs(dateRange[0]).startOf('day');
@@ -120,7 +120,7 @@ const RevenueManagementPage: React.FC = () => {
   // 분기별 수익 현황 (강좌별)
   const quarterRevenueData = useMemo(() => {
     return courses.map((course) => {
-      const courseEnrollments = enrollments.filter((e) => e.courseId === course.id && e.quarter === selectedQuarter);
+      const courseEnrollments = enrollments.filter((e) => isActiveEnrollment(e) && e.courseId === course.id && e.quarter === selectedQuarter);
       const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
       const quarterRevenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
       const quarterExpected = nonExemptEnrollments.length * course.fee;

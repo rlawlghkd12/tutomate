@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, Sector } from 'recharts';
 import { Empty } from '../ui/empty';
 import type { Enrollment } from '@tutomate/core';
-import { FLEX_CENTER } from '@tutomate/core';
+import { FLEX_CENTER, isActiveEnrollment } from '@tutomate/core';
 
 interface PaymentStatusChartProps {
   enrollments: Enrollment[];
@@ -67,10 +67,10 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
   }, []);
 
   const statusData = useMemo(() => {
-    const completed = enrollments.filter((e) => e.paymentStatus === 'completed').length;
-    const partial = enrollments.filter((e) => e.paymentStatus === 'partial').length;
-    const pending = enrollments.filter((e) => e.paymentStatus === 'pending').length;
-    const exempt = enrollments.filter((e) => e.paymentStatus === 'exempt').length;
+    const completed = enrollments.filter((e) => isActiveEnrollment(e) && e.paymentStatus === 'completed').length;
+    const partial = enrollments.filter((e) => isActiveEnrollment(e) && e.paymentStatus === 'partial').length;
+    const pending = enrollments.filter((e) => isActiveEnrollment(e) && e.paymentStatus === 'pending').length;
+    const exempt = enrollments.filter((e) => isActiveEnrollment(e) && e.paymentStatus === 'exempt').length;
 
     return [
       { name: STATUS_LABELS.completed, value: completed, status: 'completed' },
