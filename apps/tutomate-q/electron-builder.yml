@@ -41,9 +41,8 @@ win:
 
 nsis:
   artifactName: "TutorMate-Q-Setup-${version}.${ext}"
-  oneClick: false
+  oneClick: true
   perMachine: false
-  allowToChangeInstallationDirectory: true
   language: 1042
   installerLanguages:
     - ko
