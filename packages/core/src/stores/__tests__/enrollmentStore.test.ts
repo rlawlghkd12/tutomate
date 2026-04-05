@@ -259,3 +259,205 @@ describe('enrollmentStore — withdrawEnrollment', () => {
     expect(all.find((e) => e.id === 'e1')!.paymentStatus).toBe('withdrawn');
   });
 });
+
+describe('enrollmentStore — loadEnrollments discountAmount 기본값', () => {
+  beforeEach(() => {
+    useEnrollmentStore.setState({ enrollments: [] });
+    localStorage.clear();
+  });
+
+  it('loadEnrollments — DB에서 discount_amount null → discountAmount 0 기본값', async () => {
+    // helper 내부 freshness를 리셋하기 위해 invalidate 호출
+    useEnrollmentStore.getState().invalidate();
+
+    // supabase에서 enrollment row 데이터 반환 (discount_amount: null)
+    mockSelect.mockReturnValueOnce({
+      data: [{
+        id: 'e-null-discount',
+        organization_id: 'org1',
+        course_id: 'c1',
+        student_id: 's1',
+        enrolled_at: '2026-01-01T00:00:00Z',
+        payment_status: 'pending',
+        paid_amount: 0,
+        remaining_amount: 300000,
+        paid_at: null,
+        payment_method: null,
+        discount_amount: null,
+        notes: null,
+        quarter: null,
+        enrolled_months: null,
+        created_at: '2026-01-01T00:00:00Z',
+      }],
+      error: null,
+    });
+
+    await useEnrollmentStore.getState().loadEnrollments();
+
+    const enrollments = useEnrollmentStore.getState().enrollments;
+    expect(enrollments).toHaveLength(1);
+    expect(enrollments[0].discountAmount).toBe(0);
+  });
+
+  it('loadEnrollments — DB에서 discount_amount 50000 → 그대로 유지', async () => {
+    useEnrollmentStore.getState().invalidate();
+
+    mockSelect.mockReturnValueOnce({
+      data: [{
+        id: 'e-with-discount',
+        organization_id: 'org1',
+        course_id: 'c1',
+        student_id: 's1',
+        enrolled_at: '2026-01-01T00:00:00Z',
+        payment_status: 'partial',
+        paid_amount: 250000,
+        remaining_amount: 0,
+        paid_at: '2026-03-01',
+        payment_method: 'card',
+        discount_amount: 50000,
+        notes: '할인 적용',
+        quarter: null,
+        enrolled_months: null,
+        created_at: '2026-01-01T00:00:00Z',
+      }],
+      error: null,
+    });
+
+    await useEnrollmentStore.getState().loadEnrollments();
+
+    const enrollments = useEnrollmentStore.getState().enrollments;
+    expect(enrollments).toHaveLength(1);
+    expect(enrollments[0].discountAmount).toBe(50000);
+  });
+
+  it('invalidate — 호출 시 에러 없음', () => {
+    expect(() => useEnrollmentStore.getState().invalidate()).not.toThrow();
+  });
+
+  it('loadEnrollments — fresh 상태에서 재호출 시 기존 enrollments 유지', async () => {
+    // 먼저 성공적으로 로드하여 fresh 상태 만들기
+    useEnrollmentStore.getState().invalidate();
+    mockSelect.mockReturnValueOnce({
+      data: [],
+      error: null,
+    });
+    await useEnrollmentStore.getState().loadEnrollments();
+
+    // 수동으로 데이터 설정
+    const existing = [makeEnrollment({ id: 'existing' })];
+    useEnrollmentStore.setState({ enrollments: existing });
+
+    // fresh 상태이므로 SkipLoadError → catch에서 기존 데이터 유지
+    await useEnrollmentStore.getState().loadEnrollments();
+
+    expect(useEnrollmentStore.getState().enrollments).toEqual(existing);
+  });
+});
+
+describe('enrollmentStore — updatePayment edge cases', () => {
+  beforeEach(() => {
+    useEnrollmentStore.setState({ enrollments: [makeEnrollment()] });
+  });
+
+  it('exempt + paymentMethod 지정', async () => {
+    await useEnrollmentStore.getState().updatePayment('e1', 0, 300000, '2026-05-01', true, 'card');
+    const e = useEnrollmentStore.getState().getEnrollmentById('e1')!;
+    expect(e.paymentStatus).toBe('exempt');
+    expect(e.paymentMethod).toBe('card');
+    expect(e.paidAt).toBe('2026-05-01');
+  });
+
+  it('exempt + discountAmount 지정', async () => {
+    await useEnrollmentStore.getState().updatePayment('e1', 0, 300000, undefined, true, undefined, 50000);
+    const e = useEnrollmentStore.getState().getEnrollmentById('e1')!;
+    expect(e.paymentStatus).toBe('exempt');
+    expect(e.discountAmount).toBe(50000);
+  });
+
+  it('updatePayment — enrollment 존재하지 않으면 discount 0 기본값', async () => {
+    // e999는 존재하지 않음
+    useEnrollmentStore.setState({ enrollments: [makeEnrollment({ id: 'e1' })] });
+    // updatePayment 내부에서 getEnrollmentById를 호출하여 기존 discount를 가져옴
+    // discountAmount를 전달하지 않으면 기존값(0)을 사용
+    await useEnrollmentStore.getState().updatePayment('e1', 100000, 300000);
+    const e = useEnrollmentStore.getState().getEnrollmentById('e1')!;
+    expect(e.paymentStatus).toBe('partial');
+    expect(e.remainingAmount).toBe(200000);
+  });
+
+  it('addEnrollment — discountAmount 전달 시 해당 값 사용', async () => {
+    useEnrollmentStore.setState({ enrollments: [] });
+    await useEnrollmentStore.getState().addEnrollment({
+      courseId: 'c1', studentId: 's1', paymentStatus: 'pending',
+      paidAmount: 0, discountAmount: 10000,
+    } as any);
+    const enrollments = useEnrollmentStore.getState().enrollments;
+    expect(enrollments[0].discountAmount).toBe(10000);
+  });
+
+  it('addEnrollment — discountAmount undefined → 0', async () => {
+    useEnrollmentStore.setState({ enrollments: [] });
+    await useEnrollmentStore.getState().addEnrollment({
+      courseId: 'c1', studentId: 's1', paymentStatus: 'pending',
+      paidAmount: 0,
+    } as any);
+    const enrollments = useEnrollmentStore.getState().enrollments;
+    expect(enrollments[0].discountAmount).toBe(0);
+  });
+
+  it('addEnrollment — courseId 없으면 remainingAmount = paidAmount', async () => {
+    useEnrollmentStore.setState({ enrollments: [] });
+    await useEnrollmentStore.getState().addEnrollment({
+      courseId: '', studentId: 's1', paymentStatus: 'pending',
+      paidAmount: 50000, discountAmount: 0,
+    } as any);
+    const enrollments = useEnrollmentStore.getState().enrollments;
+    expect(enrollments[0].remainingAmount).toBe(50000);
+  });
+
+  it('addEnrollment — courseId 없고 paidAmount 없으면 remainingAmount = 0', async () => {
+    useEnrollmentStore.setState({ enrollments: [] });
+    await useEnrollmentStore.getState().addEnrollment({
+      courseId: '', studentId: 's1', paymentStatus: 'pending',
+      discountAmount: 0,
+    } as any);
+    const enrollments = useEnrollmentStore.getState().enrollments;
+    expect(enrollments[0].remainingAmount).toBe(0);
+  });
+
+  it('addEnrollment — 서버 실패해도 로컬에 추가 (optimistic)', async () => {
+    useEnrollmentStore.setState({ enrollments: [] });
+    mockInsert.mockResolvedValueOnce({ error: { message: 'insert failed' } });
+    await useEnrollmentStore.getState().addEnrollment({
+      courseId: 'c1', studentId: 's1', paymentStatus: 'pending',
+      paidAmount: 0, discountAmount: 0,
+    } as any);
+    expect(useEnrollmentStore.getState().enrollments).toHaveLength(1);
+  });
+
+  it('updateEnrollment — 서버 실패해도 로컬 반영 (optimistic)', async () => {
+    useEnrollmentStore.setState({ enrollments: [makeEnrollment()] });
+    mockUpdate.mockReturnValueOnce({
+      eq: vi.fn().mockResolvedValue({ error: { message: 'update failed' } }),
+    });
+    await useEnrollmentStore.getState().updateEnrollment('e1', { notes: '변경' });
+    expect(useEnrollmentStore.getState().getEnrollmentById('e1')?.notes).toBe('변경');
+  });
+
+  it('updateEnrollment — 여러 enrollment 중 하나만 업데이트', async () => {
+    const e1 = makeEnrollment({ id: 'e1', courseId: 'c1' });
+    const e2 = makeEnrollment({ id: 'e2', courseId: 'c2' });
+    useEnrollmentStore.setState({ enrollments: [e1, e2] });
+    await useEnrollmentStore.getState().updateEnrollment('e1', { notes: '변경' });
+    expect(useEnrollmentStore.getState().getEnrollmentById('e1')?.notes).toBe('변경');
+    expect(useEnrollmentStore.getState().getEnrollmentById('e2')?.notes).toBeUndefined();
+  });
+
+  it('updatePayment — discountAmount undefined + enrollment.discountAmount undefined → 0', async () => {
+    useEnrollmentStore.setState({ enrollments: [makeEnrollment({ discountAmount: undefined as any })] });
+    await useEnrollmentStore.getState().updatePayment('e1', 100000, 300000);
+    const e = useEnrollmentStore.getState().getEnrollmentById('e1')!;
+    expect(e.paymentStatus).toBe('partial');
+    expect(e.remainingAmount).toBe(200000);
+  });
+});

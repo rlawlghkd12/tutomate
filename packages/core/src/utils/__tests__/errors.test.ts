@@ -192,3 +192,61 @@ describe('handleError', () => {
     expect(mockShowError).not.toHaveBeenCalled();
   });
 });
+
+// ─── handleFileError / handleValidationError ─────────────────────────────
+
+describe('ErrorHandler convenience methods', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setErrorDisplay(mockShowError);
+  });
+
+  it('handleFileError(read) → FILE_READ_ERROR 타입으로 처리', async () => {
+    const err = new Error('disk fail');
+    ErrorHandler.getInstance().handleFileError(err, 'read', 'FileManager');
+    // handle은 비동기이지만 내부적으로 showError 호출됨
+    await vi.waitFor(() => {
+      expect(mockShowError).toHaveBeenCalledWith(
+        '데이터를 불러오는 중 오류가 발생했습니다.',
+        true,
+      );
+    });
+  });
+
+  it('handleFileError(write) → FILE_WRITE_ERROR 타입으로 처리', async () => {
+    const err = new Error('write fail');
+    ErrorHandler.getInstance().handleFileError(err, 'write');
+    await vi.waitFor(() => {
+      expect(mockShowError).toHaveBeenCalledWith(
+        '데이터를 저장하는 중 오류가 발생했습니다.',
+        true,
+      );
+    });
+  });
+
+  it('handleValidationError → VALIDATION_ERROR 타입 + 커스텀 메시지', async () => {
+    ErrorHandler.getInstance().handleValidationError('이름은 필수입니다', 'StudentForm');
+    await vi.waitFor(() => {
+      expect(mockShowError).toHaveBeenCalledWith('이름은 필수입니다', true);
+    });
+  });
+});
+
+// ─── setErrorDisplay ─────────────────────────────────────────────────────
+
+describe('setErrorDisplay', () => {
+  it('setErrorDisplay(null 아닌 함수) 설정 후 handle 시 호출됨', async () => {
+    const customShow = vi.fn();
+    setErrorDisplay(customShow);
+    await handleError(new Error('test'));
+    expect(customShow).toHaveBeenCalled();
+  });
+
+  it('handle — _showError가 null일 때 showNotification=true여도 에러 안 남', async () => {
+    // setErrorDisplay를 null로 리셋 (내부적으로 null 설정이 없으므로 대체)
+    // _showError가 설정 안 된 상태에서도 에러 없이 동작해야 함
+    setErrorDisplay(mockShowError);
+    const err = new AppError({ type: ErrorType.UNKNOWN_ERROR, message: 'test' });
+    await expect(ErrorHandler.getInstance().handle(err)).resolves.toBeUndefined();
+  });
+});

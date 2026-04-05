@@ -307,6 +307,89 @@ describe('dataHelper', () => {
     });
   });
 
+  describe('electronAPI cache paths', () => {
+    it('electronAPI.saveData 사용 시 localStorage 대신 호출', async () => {
+      const mockSaveData = vi.fn().mockResolvedValue(undefined);
+      const mockLoadData = vi.fn().mockResolvedValue(null);
+      (window as any).electronAPI = { saveData: mockSaveData, loadData: mockLoadData };
+
+      mockSupabaseLoadData.mockResolvedValue([{ id: '1', name: 'test', organization_id: 'org1' }]);
+
+      const helper = makeHelper();
+      await helper.load();
+
+      // saveCache에서 electronAPI.saveData가 호출됨
+      expect(mockSaveData).toHaveBeenCalledWith('cache_courses', expect.any(String));
+
+      (window as any).electronAPI = undefined;
+    });
+
+    it('electronAPI.loadData 사용하여 캐시 복구', async () => {
+      const cachedData = JSON.stringify([{ id: '1', name: '캐시', organization_id: 'org1' }]);
+      const mockSaveData = vi.fn().mockResolvedValue(undefined);
+      const mockLoadData = vi.fn().mockResolvedValue(cachedData);
+      (window as any).electronAPI = { saveData: mockSaveData, loadData: mockLoadData };
+
+      mockSupabaseLoadData.mockRejectedValue(new Error('server fail'));
+
+      const helper = makeHelper();
+      const result = await helper.load();
+
+      expect(result).toEqual([{ id: '1', name: '캐시' }]);
+
+      (window as any).electronAPI = undefined;
+    });
+
+    it('electronAPI.loadData null 반환 + 서버 실패 → throw', async () => {
+      const mockSaveData = vi.fn().mockResolvedValue(undefined);
+      const mockLoadData = vi.fn().mockResolvedValue(null);
+      (window as any).electronAPI = { saveData: mockSaveData, loadData: mockLoadData };
+
+      mockSupabaseLoadData.mockRejectedValue(new Error('fail'));
+
+      const helper = makeHelper();
+      await expect(helper.load()).rejects.toThrow('fail');
+
+      (window as any).electronAPI = undefined;
+    });
+
+    it('clearAllCache — electronAPI 사용 시 saveData 호출', async () => {
+      const mockSaveData = vi.fn().mockResolvedValue(undefined);
+      (window as any).electronAPI = { saveData: mockSaveData };
+
+      await clearAllCache();
+
+      expect(mockSaveData).toHaveBeenCalled();
+
+      (window as any).electronAPI = undefined;
+    });
+  });
+
+  describe('cache edge cases', () => {
+    it('캐시에 비-배열 데이터 → null 반환 → throw', async () => {
+      localStorage.setItem('cache_courses', '"not-an-array"');
+      mockSupabaseLoadData.mockRejectedValue(new Error('server fail'));
+
+      const helper = makeHelper();
+      await expect(helper.load()).rejects.toThrow('server fail');
+    });
+
+    it('saveCache 실패해도 load 결과에 영향 없음', async () => {
+      // localStorage.setItem을 throw하도록 모킹
+      const originalSetItem = localStorage.setItem;
+      localStorage.setItem = vi.fn().mockImplementation(() => { throw new Error('quota exceeded'); });
+
+      mockSupabaseLoadData.mockResolvedValue([{ id: '1', name: 'test', organization_id: 'org1' }]);
+
+      const helper = makeHelper();
+      const result = await helper.load();
+
+      expect(result).toEqual([{ id: '1', name: 'test' }]);
+
+      localStorage.setItem = originalSetItem;
+    });
+  });
+
   describe('clearAllCache', () => {
     it('clearAllCache 후 로컬 캐시가 없어져 서버 실패 시 throw', async () => {
       // 캐시 저장 (courses)

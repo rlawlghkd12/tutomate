@@ -4,7 +4,8 @@ import {
   mapStudentFromDb, mapStudentToDb, mapStudentUpdateToDb,
   mapEnrollmentFromDb, mapEnrollmentToDb, mapEnrollmentUpdateToDb,
   mapMonthlyPaymentFromDb, mapMonthlyPaymentToDb, mapMonthlyPaymentUpdateToDb,
-  type CourseRow, type StudentRow, type EnrollmentRow, type MonthlyPaymentRow,
+  mapPaymentRecordFromDb, mapPaymentRecordToDb, mapPaymentRecordUpdateToDb,
+  type CourseRow, type StudentRow, type EnrollmentRow, type MonthlyPaymentRow, type PaymentRecordRow,
 } from '../fieldMapper';
 
 // ─── Course ────────────────────────────────────────────────────
@@ -136,6 +137,21 @@ describe('mapStudentUpdateToDb', () => {
     expect(result).toEqual({ name: '김' });
     expect(result).not.toHaveProperty('phone');
   });
+
+  it('모든 필드 매핑', () => {
+    const result = mapStudentUpdateToDb({
+      name: '홍', phone: '010', email: 'test@test.com',
+      address: '서울시', birthDate: '2000-01-01', notes: '메모', isMember: true,
+    } as any);
+    expect(result.address).toBe('서울시');
+    expect(result.notes).toBe('메모');
+    expect(result.is_member).toBe(true);
+    expect(result.email).toBe('test@test.com');
+  });
+
+  it('빈 객체 → 빈 결과', () => {
+    expect(mapStudentUpdateToDb({})).toEqual({});
+  });
 });
 
 // ─── Enrollment ────────────────────────────────────────────────
@@ -199,6 +215,14 @@ describe('mapEnrollmentToDb', () => {
     expect(result.payment_method).toBeNull();
     expect(result.notes).toBeNull();
   });
+
+  it('discountAmount undefined → 0', () => {
+    const result = mapEnrollmentToDb({
+      id: 'e1', courseId: 'c1', studentId: 's1', enrolledAt: '2026-03-01T00:00:00Z',
+      paymentStatus: 'pending', paidAmount: 0, remainingAmount: 0,
+    } as any, 'org1');
+    expect(result.discount_amount).toBe(0);
+  });
 });
 
 describe('mapEnrollmentUpdateToDb', () => {
@@ -215,6 +239,23 @@ describe('mapEnrollmentUpdateToDb', () => {
   it('여러 필드 동시 매핑', () => {
     const result = mapEnrollmentUpdateToDb({ paidAmount: 100000, remainingAmount: 200000, paymentStatus: 'partial' });
     expect(result).toEqual({ paid_amount: 100000, remaining_amount: 200000, payment_status: 'partial' });
+  });
+
+  it('모든 필드 매핑', () => {
+    const result = mapEnrollmentUpdateToDb({
+      courseId: 'c1', studentId: 's1', paymentStatus: 'completed',
+      paidAmount: 300000, remainingAmount: 0, paidAt: '2026-04-01',
+      paymentMethod: 'card', discountAmount: 50000, notes: '메모',
+      quarter: '2026-Q2', enrolledMonths: ['2026-04', '2026-05', '2026-06'],
+    } as any);
+    expect(result.course_id).toBe('c1');
+    expect(result.student_id).toBe('s1');
+    expect(result.quarter).toBe('2026-Q2');
+    expect(result.enrolled_months).toEqual(['2026-04', '2026-05', '2026-06']);
+  });
+
+  it('빈 객체 → 빈 결과', () => {
+    expect(mapEnrollmentUpdateToDb({})).toEqual({});
   });
 });
 
@@ -259,6 +300,92 @@ describe('mapMonthlyPaymentUpdateToDb', () => {
 
   it('빈 객체 → 빈 결과', () => {
     expect(mapMonthlyPaymentUpdateToDb({})).toEqual({});
+  });
+
+  it('모든 필드 매핑', () => {
+    const result = mapMonthlyPaymentUpdateToDb({
+      amount: 100000, paidAt: '2026-04-01', paymentMethod: 'card',
+      status: 'paid', notes: '메모',
+    });
+    expect(result).toEqual({
+      amount: 100000, paid_at: '2026-04-01', payment_method: 'card',
+      status: 'paid', notes: '메모',
+    });
+  });
+});
+
+// ─── PaymentRecord ────────────────────────────────────────────
+
+describe('mapPaymentRecordFromDb', () => {
+  const row: PaymentRecordRow = {
+    id: 'pr1', organization_id: 'org1', enrollment_id: 'e1',
+    amount: 100000, paid_at: '2026-03-15', payment_method: 'card',
+    notes: '테스트 메모', created_at: '2026-03-01T00:00:00Z',
+  };
+
+  it('기본 매핑', () => {
+    const record = mapPaymentRecordFromDb(row);
+    expect(record.id).toBe('pr1');
+    expect(record.enrollmentId).toBe('e1');
+    expect(record.amount).toBe(100000);
+    expect(record.paidAt).toBe('2026-03-15');
+    expect(record.paymentMethod).toBe('card');
+    expect(record.notes).toBe('테스트 메모');
+    expect(record.createdAt).toBe('2026-03-01T00:00:00Z');
+  });
+
+  it('payment_method null → undefined', () => {
+    const record = mapPaymentRecordFromDb({ ...row, payment_method: null });
+    expect(record.paymentMethod).toBeUndefined();
+  });
+
+  it('notes null → undefined', () => {
+    const record = mapPaymentRecordFromDb({ ...row, notes: null });
+    expect(record.notes).toBeUndefined();
+  });
+});
+
+describe('mapPaymentRecordToDb', () => {
+  it('매핑 정확성', () => {
+    const result = mapPaymentRecordToDb({
+      id: 'pr1', enrollmentId: 'e1', amount: 100000,
+      paidAt: '2026-03-15', paymentMethod: 'card',
+      notes: '메모', createdAt: '2026-03-01T00:00:00Z',
+    }, 'org1');
+    expect(result.enrollment_id).toBe('e1');
+    expect(result.organization_id).toBe('org1');
+    expect(result.payment_method).toBe('card');
+    expect(result.notes).toBe('메모');
+  });
+
+  it('optional 필드 null 처리', () => {
+    const result = mapPaymentRecordToDb({
+      id: 'pr1', enrollmentId: 'e1', amount: 100000,
+      paidAt: '2026-03-15', createdAt: '2026-03-01T00:00:00Z',
+    }, 'org1');
+    expect(result.payment_method).toBeNull();
+    expect(result.notes).toBeNull();
+  });
+});
+
+describe('mapPaymentRecordUpdateToDb', () => {
+  it('정의된 필드만 매핑', () => {
+    const result = mapPaymentRecordUpdateToDb({ amount: 200000, notes: '변경' });
+    expect(result).toEqual({ amount: 200000, notes: '변경' });
+  });
+
+  it('빈 객체 → 빈 결과', () => {
+    expect(mapPaymentRecordUpdateToDb({})).toEqual({});
+  });
+
+  it('paymentMethod → payment_method', () => {
+    const result = mapPaymentRecordUpdateToDb({ paymentMethod: 'transfer' });
+    expect(result).toEqual({ payment_method: 'transfer' });
+  });
+
+  it('paidAt → paid_at', () => {
+    const result = mapPaymentRecordUpdateToDb({ paidAt: '2026-04-01' });
+    expect(result).toEqual({ paid_at: '2026-04-01' });
   });
 });
 

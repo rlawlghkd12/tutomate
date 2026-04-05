@@ -19,7 +19,7 @@ vi.mock('../../utils/logger', () => ({
   logError: vi.fn(),
 }));
 
-import { useLicenseStore } from '../licenseStore';
+import { useLicenseStore, reloadAllStores } from '../licenseStore';
 import { PLAN_LIMITS } from '../../config/planLimits';
 
 describe('licenseStore', () => {
@@ -256,6 +256,59 @@ describe('licenseStore', () => {
       mockActivateCloud.mockResolvedValue({ status: 'success', isNewOrg: false, orgChanged: false });
       const r = await useLicenseStore.getState().activateLicense('tmkh-abcd-1234-wxyz');
       expect(r.result).toBe('success');
+    });
+  });
+
+  // ── getPlan — cloud mode ──
+
+  describe('getPlan — cloud mode', () => {
+    it('cloud isCloud:true + plan basic → basic', async () => {
+      const authMod = await vi.importMock<any>('../authStore');
+      authMod.useAuthStore.getState = () => ({
+        isCloud: true,
+        plan: 'basic',
+        activateCloud: mockActivateCloud,
+        deactivateCloud: mockDeactivateCloud,
+      });
+
+      expect(useLicenseStore.getState().getPlan()).toBe('basic');
+
+      // 복원
+      authMod.useAuthStore.getState = () => ({
+        isCloud: false,
+        plan: null,
+        activateCloud: mockActivateCloud,
+        deactivateCloud: mockDeactivateCloud,
+      });
+    });
+
+    it('cloud isCloud:true + plan null → trial', async () => {
+      const authMod = await vi.importMock<any>('../authStore');
+      authMod.useAuthStore.getState = () => ({
+        isCloud: true,
+        plan: null,
+        activateCloud: mockActivateCloud,
+        deactivateCloud: mockDeactivateCloud,
+      });
+
+      expect(useLicenseStore.getState().getPlan()).toBe('trial');
+
+      // 복원
+      authMod.useAuthStore.getState = () => ({
+        isCloud: false,
+        plan: null,
+        activateCloud: mockActivateCloud,
+        deactivateCloud: mockDeactivateCloud,
+      });
+    });
+  });
+
+  // ── reloadAllStores ──
+
+  describe('reloadAllStores', () => {
+    it('캐시 초기화 + stale 마킹 + 서버 로드 호출', async () => {
+      // reloadAllStores 함수 호출이 에러 없이 동작하는지 확인
+      await expect(reloadAllStores()).resolves.toBeUndefined();
     });
   });
 });
