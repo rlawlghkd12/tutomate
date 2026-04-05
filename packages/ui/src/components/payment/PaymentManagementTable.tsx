@@ -832,17 +832,33 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div style={{ padding: '0 24px 16px' }}>
-            <Label style={{ marginBottom: 6, display: 'block' }}>환불 금액 (원)</Label>
-            <Input
-              type="number"
-              value={refundAmount || ''}
-              onChange={(e) => setRefundAmount(Number(e.target.value) || 0)}
-              placeholder="0 (환불 없음)"
-              min={0}
-            />
-            <p style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
-              환불이 없으면 0으로 두세요
-            </p>
+            {(() => {
+              const selectedIds = (rowSelection?.selectedRowKeys || []) as string[];
+              const selectedRows = filteredData.filter((d) => selectedIds.includes(d.key));
+              const totalPaid = selectedRows.reduce((sum, d) => sum + d.totalPaid, 0);
+              return (
+                <>
+                  <div style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginBottom: 8, padding: '8px 12px', background: 'hsl(var(--muted) / 0.5)', borderRadius: 6 }}>
+                    기납부 합계: <span style={{ fontWeight: 600, color: 'hsl(var(--foreground))' }}>₩{totalPaid.toLocaleString()}</span>
+                  </div>
+                  <Label style={{ marginBottom: 6, display: 'block' }}>환불 금액 (원)</Label>
+                  <Input
+                    type="number"
+                    value={refundAmount || ''}
+                    onChange={(e) => {
+                      const val = Number(e.target.value) || 0;
+                      setRefundAmount(Math.min(val, totalPaid));
+                    }}
+                    placeholder="0 (환불 없음)"
+                    min={0}
+                    max={totalPaid}
+                  />
+                  <p style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+                    최대 ₩{totalPaid.toLocaleString()} 환불 가능
+                  </p>
+                </>
+              );
+            })()}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
