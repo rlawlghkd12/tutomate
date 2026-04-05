@@ -1,5 +1,5 @@
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Layout, ErrorBoundary, UpdateChecker, LockScreen, LicenseKeyInput, Button, Dialog, DialogContent, DialogHeader, DialogTitle, AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@tutomate/ui';
+import { Layout, ErrorBoundary, UpdateChecker, LockScreen, LicenseKeyInput, Button, Dialog, DialogContent, DialogHeader, DialogTitle, AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel, MemberManagementPage } from '@tutomate/ui';
 import { useSettingsStore, useLockStore, useAutoLock, useLicenseStore, useAuthStore, migrateOrgData, reloadAllStores, appConfig, isElectron, OAUTH_PROVIDERS } from '@tutomate/core';
 import type { OAuthProvider } from '@tutomate/core';
 import React, { Suspense, useEffect, useState } from 'react';
@@ -261,6 +261,7 @@ function App() {
               <Route path="/students" element={<StudentsPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/revenue" element={<RevenueManagementPage />} />
+              <Route path="/members" element={<MemberManagementPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
