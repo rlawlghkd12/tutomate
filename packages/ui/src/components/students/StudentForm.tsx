@@ -261,7 +261,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 
 					<div className="space-y-3">
 						{/* 기본 정보 */}
-						<div className={cn("grid gap-3", appConfig.enableMemberFeature ? "grid-cols-[1fr_1fr_100px_auto]" : "grid-cols-[1fr_1fr_100px]", "items-end")}>
+						<div className={cn("grid gap-3", appConfig.enableMemberFeature ? "grid-cols-[120px_1fr_100px_auto]" : "grid-cols-[120px_1fr_100px]", "items-end")}>
 							<div className="space-y-1.5">
 								<Label htmlFor="name">이름</Label>
 								{student ? (
@@ -362,7 +362,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 									id="birthDate"
 									{...birthDateRegister}
 									ref={(el: HTMLInputElement | null) => { birthDateRegister.ref(el); birthDateInputRef.current = el; }}
-									placeholder="630201"
+									placeholder="6자리 입력"
 									maxLength={6}
 									className="text-base"
 									onKeyDown={(e) => {
@@ -403,7 +403,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 									id="address"
 									{...addressRegister}
 									ref={(el: HTMLInputElement | null) => { addressRegister.ref(el); addressInputRef.current = el; }}
-									placeholder="서울시 강남구"
+									placeholder="주소를 입력해주세요"
 									className="text-base"
 									onKeyDown={(e) => {
 										if (e.key === "Enter") {
