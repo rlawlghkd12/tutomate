@@ -112,7 +112,7 @@ const GlobalSearchInner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         value={query}
         onValueChange={setQuery}
       />
-      <CommandList className="max-h-[500px]">
+      <CommandList style={{ maxHeight: 500, padding: '8px 12px' }}>
         <CommandEmpty>
           {query.trim()
             ? '검색 결과가 없습니다'
