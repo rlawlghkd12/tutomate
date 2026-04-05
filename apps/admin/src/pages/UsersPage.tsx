@@ -101,13 +101,13 @@ const UsersPage = () => {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h4 className="text-lg font-semibold m-0">유저 관리</h4>
-        <div style={{ position: 'relative', width: 300 }}>
-          <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: '#a1a1aa', pointerEvents: 'none' }} />
+        <div className="relative w-[300px]">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="이메일 검색"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ paddingLeft: 34 }}
+            className="pl-9"
           />
         </div>
       </div>
