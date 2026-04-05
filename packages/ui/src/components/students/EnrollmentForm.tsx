@@ -8,7 +8,7 @@ import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
 import { useLicenseStore } from "@tutomate/core";
 import { usePaymentRecordStore } from "@tutomate/core";
-import { appConfig, isActiveEnrollment, PaymentStatus } from "@tutomate/core";
+import { appConfig, isActiveEnrollment, isCourseEnded, PaymentStatus } from "@tutomate/core";
 import type { EnrollmentFormData, Student } from "@tutomate/core";
 import { getCurrentQuarter } from "@tutomate/core";
 import {
@@ -282,7 +282,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 							control={form.control}
 							name="courseId"
 							render={({ field }) => {
-								const filtered = courses.filter((c) => c.name.toLowerCase().includes(courseSearch.toLowerCase()));
+								const filtered = courses.filter((c) => !isCourseEnded(c) && c.name.toLowerCase().includes(courseSearch.toLowerCase()));
 								return (
 								<div>
 									<Input
