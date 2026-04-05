@@ -263,15 +263,13 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 								const filtered = courses.filter((c) => c.name.toLowerCase().includes(courseSearch.toLowerCase()));
 								return (
 								<div>
-									{courses.length > 5 && (
-										<Input
+									<Input
 											placeholder="강좌명 검색..."
 											value={courseSearch}
 											onChange={(e) => setCourseSearch(e.target.value)}
 											style={{ marginBottom: 8 }}
 										/>
-									)}
-									<div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+									<div style={{ minHeight: 360, maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
 										{filtered.map((course) => {
 											const currentCount = enrollments.filter(
 												(e) => e.courseId === course.id,
