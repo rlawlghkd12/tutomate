@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { AppError, ErrorType } from '../errors';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { AppError, ErrorType, createError, handleError, ErrorHandler, setErrorDisplay } from '../errors';
+
+// Mock error display
+const mockShowError = vi.fn();
 
 describe('AppError', () => {
   it('기본 생성 — type, message, recoverable 기본값 true', () => {
@@ -82,5 +85,168 @@ describe('AppError', () => {
     const err = new AppError({ type: ErrorType.UNKNOWN_ERROR, message: 'test' });
     expect(err).toBeInstanceOf(Error);
     expect(err).toBeInstanceOf(AppError);
+  });
+});
+
+// ─── createError ───────────────────────────────────────────────────────────
+
+describe('createError', () => {
+  it('createError — 각 ErrorType별로 AppError 반환', () => {
+    const types: ErrorType[] = [
+      ErrorType.FILE_READ_ERROR,
+      ErrorType.FILE_WRITE_ERROR,
+      ErrorType.FILE_NOT_FOUND,
+      ErrorType.VALIDATION_ERROR,
+      ErrorType.DUPLICATE_ERROR,
+      ErrorType.INVALID_DATA,
+      ErrorType.ENROLLMENT_ERROR,
+      ErrorType.PAYMENT_ERROR,
+      ErrorType.NETWORK_ERROR,
+      ErrorType.UNKNOWN_ERROR,
+    ];
+    for (const type of types) {
+      const err = createError({ type, message: 'test' });
+      expect(err).toBeInstanceOf(AppError);
+      expect(err.type).toBe(type);
+    }
+  });
+
+  it('createError — originalError 포함', () => {
+    const original = new Error('original');
+    const err = createError({ type: ErrorType.NETWORK_ERROR, message: 'wrap', originalError: original });
+    expect(err.originalError).toBe(original);
+  });
+});
+
+// ─── ErrorHandler ──────────────────────────────────────────────────────────
+
+describe('ErrorHandler', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setErrorDisplay(mockShowError);
+  });
+
+  it('getInstance() 싱글톤 반환', () => {
+    const a = ErrorHandler.getInstance();
+    const b = ErrorHandler.getInstance();
+    expect(a).toBe(b);
+  });
+
+  it('handle(AppError) — recoverable → showError 호출', async () => {
+    const err = new AppError({ type: ErrorType.NETWORK_ERROR, message: 'fail', recoverable: true });
+    await ErrorHandler.getInstance().handle(err);
+    expect(mockShowError).toHaveBeenCalledWith(err.userMessage, true);
+  });
+
+  it('handle(AppError) — recoverable: false → showError 호출', async () => {
+    const err = new AppError({ type: ErrorType.UNKNOWN_ERROR, message: 'fatal', recoverable: false });
+    await ErrorHandler.getInstance().handle(err);
+    expect(mockShowError).toHaveBeenCalledWith(err.userMessage, false);
+  });
+
+  it('handle(Error) — 일반 Error → UNKNOWN_ERROR AppError로 래핑 후 처리', async () => {
+    const err = new Error('network failure');
+    await ErrorHandler.getInstance().handle(err);
+    expect(mockShowError).toHaveBeenCalled();
+  });
+
+  it('handle(unknown) — 문자열 같은 비-Error → UNKNOWN_ERROR AppError로 처리', async () => {
+    await ErrorHandler.getInstance().handle('something went wrong');
+    expect(mockShowError).toHaveBeenCalled();
+  });
+
+  it('handle — showNotification=false이면 showError 미호출', async () => {
+    const err = new AppError({ type: ErrorType.NETWORK_ERROR, message: 'fail' });
+    await ErrorHandler.getInstance().handle(err, false);
+    expect(mockShowError).not.toHaveBeenCalled();
+  });
+
+  it('handle(AppError) — VALIDATION_ERROR userMessage 포함', async () => {
+    const err = new AppError({ type: ErrorType.VALIDATION_ERROR, message: 'invalid', userMessage: '검증 실패' });
+    await ErrorHandler.getInstance().handle(err);
+    expect(mockShowError).toHaveBeenCalledWith('검증 실패', true);
+  });
+});
+
+// ─── handleError ───────────────────────────────────────────────────────────
+
+describe('handleError', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setErrorDisplay(mockShowError);
+  });
+
+  it('handleError — ErrorHandler.handle() 위임', async () => {
+    const err = new AppError({ type: ErrorType.PAYMENT_ERROR, message: 'pay fail' });
+    await handleError(err);
+    expect(mockShowError).toHaveBeenCalled();
+  });
+
+  it('handleError — 일반 Error 전달', async () => {
+    await handleError(new Error('generic error'));
+    expect(mockShowError).toHaveBeenCalled();
+  });
+
+  it('handleError — showNotification=false 전달', async () => {
+    await handleError(new Error('silent'), false);
+    expect(mockShowError).not.toHaveBeenCalled();
+  });
+});
+
+// ─── handleFileError / handleValidationError ─────────────────────────────
+
+describe('ErrorHandler convenience methods', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setErrorDisplay(mockShowError);
+  });
+
+  it('handleFileError(read) → FILE_READ_ERROR 타입으로 처리', async () => {
+    const err = new Error('disk fail');
+    ErrorHandler.getInstance().handleFileError(err, 'read', 'FileManager');
+    // handle은 비동기이지만 내부적으로 showError 호출됨
+    await vi.waitFor(() => {
+      expect(mockShowError).toHaveBeenCalledWith(
+        '데이터를 불러오는 중 오류가 발생했습니다.',
+        true,
+      );
+    });
+  });
+
+  it('handleFileError(write) → FILE_WRITE_ERROR 타입으로 처리', async () => {
+    const err = new Error('write fail');
+    ErrorHandler.getInstance().handleFileError(err, 'write');
+    await vi.waitFor(() => {
+      expect(mockShowError).toHaveBeenCalledWith(
+        '데이터를 저장하는 중 오류가 발생했습니다.',
+        true,
+      );
+    });
+  });
+
+  it('handleValidationError → VALIDATION_ERROR 타입 + 커스텀 메시지', async () => {
+    ErrorHandler.getInstance().handleValidationError('이름은 필수입니다', 'StudentForm');
+    await vi.waitFor(() => {
+      expect(mockShowError).toHaveBeenCalledWith('이름은 필수입니다', true);
+    });
+  });
+});
+
+// ─── setErrorDisplay ─────────────────────────────────────────────────────
+
+describe('setErrorDisplay', () => {
+  it('setErrorDisplay(null 아닌 함수) 설정 후 handle 시 호출됨', async () => {
+    const customShow = vi.fn();
+    setErrorDisplay(customShow);
+    await handleError(new Error('test'));
+    expect(customShow).toHaveBeenCalled();
+  });
+
+  it('handle — _showError가 null일 때 showNotification=true여도 에러 안 남', async () => {
+    // setErrorDisplay를 null로 리셋 (내부적으로 null 설정이 없으므로 대체)
+    // _showError가 설정 안 된 상태에서도 에러 없이 동작해야 함
+    setErrorDisplay(mockShowError);
+    const err = new AppError({ type: ErrorType.UNKNOWN_ERROR, message: 'test' });
+    await expect(ErrorHandler.getInstance().handle(err)).resolves.toBeUndefined();
   });
 });

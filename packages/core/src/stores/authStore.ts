@@ -123,7 +123,27 @@ export const useAuthStore = create<AuthStore>((set) => ({
         _initialized = true;
         logInfo('Cloud session restored', { data: { orgId: orgLink.organization_id, plan: orgData?.plan } });
       } else {
-        // 로그인됐지만 org 없음 → 라이선스/체험판 화면
+        // 로그인됐지만 org 없음 → 저장된 라이선스 키로 자동 복구 시도
+        const stored = localStorage.getItem('app-license');
+        if (stored) {
+          try {
+            const { licenseKey } = JSON.parse(stored) as { licenseKey: string };
+            if (licenseKey && /^TMK[HA]-/.test(licenseKey)) {
+              logInfo('Auto-reactivating stored license for logged-in user');
+              const result = await useAuthStore.getState().activateCloud(licenseKey);
+              if (result.status === 'success') {
+                logInfo('Auto-reactivation succeeded');
+                return; // activateCloud에서 state 설정 완료
+              }
+              if (result.status === 'invalid_key') {
+                logWarn('Stored license key is invalid, removing');
+                localStorage.removeItem('app-license');
+              }
+            }
+          } catch {
+            // 자동 재활성화 실패 → setup 화면으로 진행
+          }
+        }
         set({ session, loading: false, needsSetup: true });
         logInfo('Logged in but no org, showing setup screen');
       }

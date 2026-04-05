@@ -140,6 +140,45 @@ describe('lockStore', () => {
     expect(ok).toBe(true);
   });
 
+  it('setAutoLockMinutes(0) → 비활성, 저장됨', () => {
+    useLockStore.getState().setAutoLockMinutes(0);
+    expect(useLockStore.getState().autoLockMinutes).toBe(0);
+    const stored = JSON.parse(localStorage.getItem('app-lock-settings')!);
+    expect(stored.autoLockMinutes).toBe(0);
+  });
+
+  it('setAutoLockMinutes(5) → 5분 설정', () => {
+    useLockStore.getState().setAutoLockMinutes(5);
+    expect(useLockStore.getState().autoLockMinutes).toBe(5);
+  });
+
+  it('setEnabled(true) → isEnabled: true, isLocked 변경 없음', () => {
+    useLockStore.getState().setEnabled(true);
+    expect(useLockStore.getState().isEnabled).toBe(true);
+    expect(useLockStore.getState().isLocked).toBe(false);
+  });
+
+  it('loadLockSettings → localStorage 비어있으면 기본값 유지', () => {
+    useLockStore.getState().loadLockSettings();
+    expect(useLockStore.getState().isEnabled).toBe(false);
+    expect(useLockStore.getState().pin).toBeNull();
+    expect(useLockStore.getState().autoLockMinutes).toBe(0);
+  });
+
+  it('lock → unlock → lock 반복 가능', async () => {
+    await useLockStore.getState().setPin('1234');
+    useLockStore.getState().setEnabled(true);
+
+    useLockStore.getState().lock();
+    expect(useLockStore.getState().isLocked).toBe(true);
+
+    await useLockStore.getState().unlock('1234');
+    expect(useLockStore.getState().isLocked).toBe(false);
+
+    useLockStore.getState().lock();
+    expect(useLockStore.getState().isLocked).toBe(true);
+  });
+
   it('6자리 PIN verifyPin 성공 + 다른 길이 실패', async () => {
     await useLockStore.getState().setPin('123456');
     expect(useLockStore.getState().pin).toBeTruthy();

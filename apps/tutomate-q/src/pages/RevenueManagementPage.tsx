@@ -1,86 +1,65 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
-  Card,
-  Row,
-  Col,
-  Statistic,
-  Table,
-  Tag,
-  Typography,
-  Button,
-  Tabs,
-  message,
-  DatePicker,
-  Space,
-  Select,
-  Modal,
-  Checkbox,
-  theme,
-} from 'antd';
-import type { ColumnsType } from 'antd/es/table';
+  DollarSign, CircleCheck, Clock, AlertTriangle,
+  Download, FileSpreadsheet, FileText, Calendar,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import {
-  DollarOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  WarningOutlined,
-  DownloadOutlined,
-  FileExcelOutlined,
-  FileTextOutlined,
-  CalendarOutlined,
-} from '@ant-design/icons';
+  Button, Dialog, DialogContent, DialogHeader, DialogTitle,
+  Card, CardContent, CardHeader, CardTitle, Badge,
+  Tabs, TabsContent, TabsList, TabsTrigger, Checkbox,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Input,
+} from '@tutomate/ui';
 import { EXEMPT_COLOR } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
-import { useMonthlyPaymentStore } from '@tutomate/core';
+import { usePaymentRecordStore } from '@tutomate/core';
+import { getCurrentQuarter, getQuarterOptions, getQuarterLabel } from '@tutomate/core';
 import { PaymentForm } from '@tutomate/ui';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
 import { PAYMENT_METHOD_LABELS } from '@tutomate/core';
 import { exportRevenueToExcel, exportRevenueToCSV, REVENUE_EXPORT_FIELDS } from '@tutomate/core';
-import dayjs from 'dayjs';
-import type { Dayjs } from 'dayjs';
-
-const { RangePicker } = DatePicker;
 
 const RevenueManagementPage: React.FC = () => {
-  const { token } = theme.useToken();
   const { courses, loadCourses, getCourseById } = useCourseStore();
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
-  const { payments: monthlyPayments, loadPayments } = useMonthlyPaymentStore();
+  const { records, loadRecords } = usePaymentRecordStore();
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState<string[]>(['courseName', 'studentName', 'fee', 'paidAmount', 'remainingAmount', 'paymentStatus']);
-  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const [dateRange, setDateRange] = useState<[string, string]>(['', '']);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
 
-  const [selectedMonthForRevenue, setSelectedMonthForRevenue] = useState<string>(dayjs().format('YYYY-MM'));
+  const [selectedQuarter, setSelectedQuarter] = useState<string>(getCurrentQuarter());
 
   useEffect(() => {
     loadCourses();
     loadStudents();
     loadEnrollments();
-    loadPayments();
-  }, [loadCourses, loadStudents, loadEnrollments, loadPayments]);
+    loadRecords();
+  }, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
-  // 날짜 범위 및 결제 상태에 따라 필터링된 수강 신청 목록
+  // Filter enrollments
   const filteredEnrollments = useMemo(() => {
     let filtered = enrollments;
 
-    // 날짜 범위 필터
     if (dateRange[0] && dateRange[1]) {
-      const startDate = dateRange[0].startOf('day');
-      const endDate = dateRange[1].endOf('day');
-
+      const startDate = dayjs(dateRange[0]).startOf('day');
+      const endDate = dayjs(dateRange[1]).endOf('day');
       filtered = filtered.filter((enrollment) => {
         const enrollDate = dayjs(enrollment.enrolledAt);
         return enrollDate.isAfter(startDate) && enrollDate.isBefore(endDate);
       });
     }
 
-    // 결제 상태 필터
     if (paymentStatusFilter.length > 0) {
       filtered = filtered.filter((enrollment) =>
         paymentStatusFilter.includes(enrollment.paymentStatus)
@@ -90,10 +69,8 @@ const RevenueManagementPage: React.FC = () => {
     return filtered;
   }, [enrollments, dateRange, paymentStatusFilter]);
 
-  // 면제 제외한 수익 계산용 목록
   const revenueEnrollments = useMemo(() => filteredEnrollments.filter((e) => e.paymentStatus !== 'exempt'), [filteredEnrollments]);
 
-  // 전체 통계 계산 (면제 제외)
   const totalRevenue = revenueEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
   const expectedRevenue = revenueEnrollments.reduce((sum, e) => {
     const course = getCourseById(e.courseId);
@@ -106,7 +83,6 @@ const RevenueManagementPage: React.FC = () => {
   const pendingPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'pending').length;
   const exemptPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'exempt').length;
 
-  // 강좌별 수익 테이블 데이터
   const courseRevenueData = useMemo(() => courses.map((course) => {
     const courseEnrollments = filteredEnrollments.filter((e) => e.courseId === course.id);
     const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
@@ -126,13 +102,11 @@ const RevenueManagementPage: React.FC = () => {
     };
   }), [courses, filteredEnrollments]);
 
-  // 미납자 목록 (면제 제외)
   const unpaidList = useMemo(() => filteredEnrollments
     .filter((e) => e.paymentStatus !== 'completed' && e.paymentStatus !== 'exempt')
     .map((enrollment) => {
       const student = getStudentById(enrollment.studentId);
       const course = getCourseById(enrollment.courseId);
-
       return {
         ...enrollment,
         studentName: student?.name || '-',
@@ -144,19 +118,14 @@ const RevenueManagementPage: React.FC = () => {
       };
     }), [filteredEnrollments, getStudentById, getCourseById]);
 
-  // 월별 납부 현황 (강좌별)
-  const monthlyRevenueData = useMemo(() => {
-    const monthPayments = monthlyPayments.filter((p) => p.month === selectedMonthForRevenue);
-
+  // 분기별 수익 현황 (강좌별)
+  const quarterRevenueData = useMemo(() => {
     return courses.map((course) => {
-      const courseEnrollments = enrollments.filter((e) => e.courseId === course.id);
+      const courseEnrollments = enrollments.filter((e) => e.courseId === course.id && e.quarter === selectedQuarter);
       const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
-      const courseMonthPayments = monthPayments.filter((mp) =>
-        courseEnrollments.some((e) => e.id === mp.enrollmentId),
-      );
-      const paidCount = courseMonthPayments.filter((p) => p.status === 'paid').length;
-      const monthRevenue = courseMonthPayments.reduce((sum, p) => sum + p.amount, 0);
-      const monthExpected = nonExemptEnrollments.length * course.fee;
+      const quarterRevenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
+      const quarterExpected = nonExemptEnrollments.length * course.fee;
+      const paidCount = courseEnrollments.filter((e) => e.paymentStatus === 'completed').length;
 
       return {
         courseId: course.id,
@@ -164,613 +133,412 @@ const RevenueManagementPage: React.FC = () => {
         studentCount: courseEnrollments.length,
         paidCount,
         unpaidCount: nonExemptEnrollments.length - paidCount,
-        monthRevenue,
-        monthExpected,
-        collectionRate: monthExpected > 0 ? (monthRevenue / monthExpected) * 100 : 0,
+        quarterRevenue,
+        quarterExpected,
+        collectionRate: quarterExpected > 0 ? (quarterRevenue / quarterExpected) * 100 : 0,
       };
     }).filter((d) => d.studentCount > 0);
-  }, [courses, enrollments, monthlyPayments, selectedMonthForRevenue]);
+  }, [courses, enrollments, selectedQuarter]);
 
-  const monthlyTotalRevenue = useMemo(() => monthlyRevenueData.reduce((sum, d) => sum + d.monthRevenue, 0), [monthlyRevenueData]);
-  const monthlyTotalExpected = useMemo(() => monthlyRevenueData.reduce((sum, d) => sum + d.monthExpected, 0), [monthlyRevenueData]);
+  const quarterTotalRevenue = useMemo(() => quarterRevenueData.reduce((sum, d) => sum + d.quarterRevenue, 0), [quarterRevenueData]);
+  const quarterTotalExpected = useMemo(() => quarterRevenueData.reduce((sum, d) => sum + d.quarterExpected, 0), [quarterRevenueData]);
 
   const handlePaymentEdit = (enrollment: Enrollment) => {
     setSelectedEnrollment(enrollment);
     setIsPaymentModalVisible(true);
   };
 
-  // 날짜 범위 빠른 필터
   const setQuickDateRange = (type: 'this-month' | 'last-month' | 'this-year' | 'all') => {
     switch (type) {
       case 'this-month':
-        setDateRange([dayjs().startOf('month'), dayjs().endOf('month')]);
+        setDateRange([dayjs().startOf('month').format('YYYY-MM-DD'), dayjs().endOf('month').format('YYYY-MM-DD')]);
         break;
       case 'last-month':
-        setDateRange([
-          dayjs().subtract(1, 'month').startOf('month'),
-          dayjs().subtract(1, 'month').endOf('month'),
-        ]);
+        setDateRange([dayjs().subtract(1, 'month').startOf('month').format('YYYY-MM-DD'), dayjs().subtract(1, 'month').endOf('month').format('YYYY-MM-DD')]);
         break;
       case 'this-year':
-        setDateRange([dayjs().startOf('year'), dayjs().endOf('year')]);
+        setDateRange([dayjs().startOf('year').format('YYYY-MM-DD'), dayjs().endOf('year').format('YYYY-MM-DD')]);
         break;
       case 'all':
-        setDateRange([null, null]);
+        setDateRange(['', '']);
         break;
     }
   };
 
   const handleExport = (type: 'excel' | 'csv') => {
     if (selectedExportFields.length === 0) {
-      message.warning('내보낼 필드를 1개 이상 선택해주세요.');
+      toast.warning('내보낼 필드를 1개 이상 선택해주세요.');
       return;
     }
-
     if (enrollments.length === 0) {
-      message.warning('내보낼 수익 데이터가 없습니다');
+      toast.warning('내보낼 수익 데이터가 없습니다');
       return;
     }
-
     try {
       if (type === 'excel') {
         exportRevenueToExcel(enrollments, students, courses, selectedExportFields);
-        message.success('Excel 파일이 다운로드되었습니다');
+        toast.success('Excel 파일이 다운로드되었습니다');
       } else {
         exportRevenueToCSV(enrollments, students, courses, 'utf-8', selectedExportFields);
-        message.success('CSV 파일이 다운로드되었습니다');
+        toast.success('CSV 파일이 다운로드되었습니다');
       }
       setIsExportModalVisible(false);
     } catch (error) {
-      message.error('파일 내보내기에 실패했습니다');
+      toast.error('파일 내보내기에 실패했습니다');
     }
   };
 
   const allRevenueFieldKeys = useMemo(() => REVENUE_EXPORT_FIELDS.map((f) => f.key), []);
   const isAllRevenueSelected = selectedExportFields.length === allRevenueFieldKeys.length;
 
-  const courseColumns: ColumnsType<typeof courseRevenueData[0]> = [
-    {
-      title: '강좌명',
-      dataIndex: 'courseName',
-      key: 'courseName',
-    },
-    {
-      title: '수강생 수',
-      dataIndex: 'studentCount',
-      key: 'studentCount',
-      sorter: (a, b) => a.studentCount - b.studentCount,
-    },
-    {
-      title: '수익',
-      dataIndex: 'revenue',
-      key: 'revenue',
-      render: (revenue) => `₩${revenue.toLocaleString()}`,
-      sorter: (a, b) => a.revenue - b.revenue,
-    },
-    {
-      title: '예상 수익',
-      dataIndex: 'expected',
-      key: 'expected',
-      render: (expected) => `₩${expected.toLocaleString()}`,
-      sorter: (a, b) => a.expected - b.expected,
-    },
-    {
-      title: '미수금',
-      dataIndex: 'unpaid',
-      key: 'unpaid',
-      render: (unpaid) => (
-        <span style={{ color: unpaid > 0 ? token.colorError : token.colorSuccess }}>
-          ₩{unpaid.toLocaleString()}
-        </span>
-      ),
-      sorter: (a, b) => a.unpaid - b.unpaid,
-    },
-    {
-      title: '완납률',
-      dataIndex: 'completionRate',
-      key: 'completionRate',
-      render: (rate) => `${rate.toFixed(1)}%`,
-      sorter: (a, b) => a.completionRate - b.completionRate,
-    },
-  ];
+  const statusMap: Record<string, { color: string; text: string }> = {
+    pending: { color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300', text: '미납' },
+    partial: { color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300', text: '부분납부' },
+    completed: { color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300', text: '완납' },
+    exempt: { color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300', text: '면제' },
+  };
 
-  const unpaidColumns: ColumnsType<typeof unpaidList[0]> = [
-    {
-      title: '수강생',
-      dataIndex: 'studentName',
-      key: 'studentName',
-    },
-    {
-      title: '전화번호',
-      dataIndex: 'studentPhone',
-      key: 'studentPhone',
-    },
-    {
-      title: '강좌',
-      dataIndex: 'courseName',
-      key: 'courseName',
-    },
-    {
-      title: '수강료',
-      dataIndex: 'courseFee',
-      key: 'courseFee',
-      render: (fee) => `₩${fee.toLocaleString()}`,
-    },
-    {
-      title: '납부 상태',
-      dataIndex: 'paymentStatus',
-      key: 'paymentStatus',
-      render: (status) => {
-        const statusMap = {
-          pending: { color: 'red', text: '미납' },
-          partial: { color: 'orange', text: '부분납부' },
-          completed: { color: 'green', text: '완납' },
-          exempt: { color: 'purple', text: '면제' },
-        };
-        const s = statusMap[status as keyof typeof statusMap];
-        return <Tag color={s.color}>{s.text}</Tag>;
-      },
-      filters: [
-        { text: '미납', value: 'pending' },
-        { text: '부분납부', value: 'partial' },
-      ],
-      onFilter: (value, record) => record.paymentStatus === value,
-    },
-    {
-      title: '납부 금액',
-      dataIndex: 'paidAmount',
-      key: 'paidAmount',
-      render: (amount) => `₩${amount.toLocaleString()}`,
-      sorter: (a, b) => a.paidAmount - b.paidAmount,
-    },
-    {
-      title: '납부일',
-      dataIndex: 'paidAt',
-      key: 'paidAt',
-      render: (date) => date || '-',
-      sorter: (a, b) => (a.paidAt || '').localeCompare(b.paidAt || ''),
-    },
-    {
-      title: '납부 방법',
-      dataIndex: 'paymentMethod',
-      key: 'paymentMethod',
-      render: (method: PaymentMethod | undefined) => method ? PAYMENT_METHOD_LABELS[method] : '-',
-      filters: [
-        { text: '현금', value: 'cash' },
-        { text: '카드', value: 'card' },
-        { text: '계좌이체', value: 'transfer' },
-      ],
-      onFilter: (value, record) => record.paymentMethod === value,
-    },
-    {
-      title: '할인',
-      dataIndex: 'discountAmount',
-      key: 'discountAmount',
-      render: (amount: number) => amount > 0 ? <span style={{ color: token.colorSuccess }}>-₩{amount.toLocaleString()}</span> : '-',
-      sorter: (a, b) => (a.discountAmount ?? 0) - (b.discountAmount ?? 0),
-    },
-    {
-      title: '잔여 금액',
-      dataIndex: 'remainingAmount',
-      key: 'remainingAmount',
-      render: (amount) => (
-        <span style={{ color: token.colorError, fontWeight: 'bold' }}>
-          ₩{amount.toLocaleString()}
-        </span>
-      ),
-      sorter: (a, b) => a.remainingAmount - b.remainingAmount,
-    },
-    {
-      title: '작업',
-      key: 'action',
-      render: (_, record) => (
-        <Button type="link" onClick={() => handlePaymentEdit(record)}>
-          납부 처리
-        </Button>
-      ),
-    },
-  ];
-
-  const monthlyRevenueColumns: ColumnsType<typeof monthlyRevenueData[0]> = [
-    {
-      title: '강좌명',
-      dataIndex: 'courseName',
-      key: 'courseName',
-    },
-    {
-      title: '수강생',
-      dataIndex: 'studentCount',
-      key: 'studentCount',
-      width: 80,
-    },
-    {
-      title: '납부',
-      dataIndex: 'paidCount',
-      key: 'paidCount',
-      width: 70,
-      render: (count) => <span style={{ color: token.colorSuccess }}>{count}명</span>,
-    },
-    {
-      title: '미납',
-      dataIndex: 'unpaidCount',
-      key: 'unpaidCount',
-      width: 70,
-      render: (count) => <span style={{ color: count > 0 ? token.colorError : token.colorSuccess }}>{count}명</span>,
-    },
-    {
-      title: '월 수익',
-      dataIndex: 'monthRevenue',
-      key: 'monthRevenue',
-      render: (val) => `₩${val.toLocaleString()}`,
-      sorter: (a, b) => a.monthRevenue - b.monthRevenue,
-    },
-    {
-      title: '예상 수익',
-      dataIndex: 'monthExpected',
-      key: 'monthExpected',
-      render: (val) => `₩${val.toLocaleString()}`,
-    },
-    {
-      title: '수납률',
-      dataIndex: 'collectionRate',
-      key: 'collectionRate',
-      render: (rate) => (
-        <span style={{ color: rate >= 100 ? token.colorSuccess : rate >= 50 ? token.colorWarning : token.colorError }}>
-          {rate.toFixed(1)}%
-        </span>
-      ),
-      sorter: (a, b) => a.collectionRate - b.collectionRate,
-    },
-  ];
-
-  const revenueMonths = useMemo(() => {
-    const result: string[] = [];
-    for (let i = -6; i <= 6; i++) {
-      result.push(dayjs().add(i, 'month').format('YYYY-MM'));
-    }
-    return result;
-  }, []);
-
-  const tabItems = [
-    {
-      key: '1',
-      label: '강좌별 수익',
-      children: (
-        <Table
-          columns={courseColumns}
-          dataSource={courseRevenueData}
-          rowKey="courseId"
-          pagination={false}
-          size="small"
-        />
-      ),
-    },
-    {
-      key: '2',
-      label: `미납자 관리 (${unpaidList.length})`,
-      children: (
-        <Table
-          columns={unpaidColumns}
-          dataSource={unpaidList}
-          rowKey="id"
-          pagination={false}
-          size="small"
-        />
-      ),
-    },
-    {
-      key: '3',
-      label: <span><CalendarOutlined /> 월별 납부 현황</span>,
-      children: (
-        <div>
-          <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
-            <Col>
-              <Space>
-                <Select
-                  value={selectedMonthForRevenue}
-                  onChange={setSelectedMonthForRevenue}
-                  style={{ width: 140 }}
-                >
-                  {revenueMonths.map((m) => (
-                    <Select.Option key={m} value={m}>
-                      {dayjs(m + '-01').format('YYYY년 M월')}
-                    </Select.Option>
-                  ))}
-                </Select>
-                <Button
-                  size="small"
-                  onClick={() => setSelectedMonthForRevenue(dayjs().format('YYYY-MM'))}
-                >
-                  이번 달
-                </Button>
-              </Space>
-            </Col>
-            <Col flex="auto" style={{ textAlign: 'right' }}>
-              <Space size="large">
-                <div>
-                  <span style={{ fontSize: 12, color: token.colorTextSecondary }}>월 수익: </span>
-                  <span style={{ fontWeight: 600, color: token.colorSuccess }}>₩{monthlyTotalRevenue.toLocaleString()}</span>
-                </div>
-                <div>
-                  <span style={{ fontSize: 12, color: token.colorTextSecondary }}>예상: </span>
-                  <span style={{ fontWeight: 600 }}>₩{monthlyTotalExpected.toLocaleString()}</span>
-                </div>
-                <div>
-                  <span style={{ fontSize: 12, color: token.colorTextSecondary }}>수납률: </span>
-                  <span style={{ fontWeight: 600, color: monthlyTotalExpected > 0 && monthlyTotalRevenue < monthlyTotalExpected ? token.colorError : token.colorSuccess }}>
-                    {monthlyTotalExpected > 0 ? Math.round((monthlyTotalRevenue / monthlyTotalExpected) * 100) : 0}%
-                  </span>
-                </div>
-              </Space>
-            </Col>
-          </Row>
-          <Table
-            columns={monthlyRevenueColumns}
-            dataSource={monthlyRevenueData}
-            rowKey="courseId"
-            pagination={false}
-            size="small"
-          />
-        </div>
-      ),
-    },
-  ];
+  const isDateRangeActive = (type: string) => {
+    if (type === 'all') return !dateRange[0] && !dateRange[1];
+    if (type === 'this-month') return dateRange[0] === dayjs().startOf('month').format('YYYY-MM-DD') && dateRange[1] === dayjs().endOf('month').format('YYYY-MM-DD');
+    if (type === 'last-month') return dateRange[0] === dayjs().subtract(1, 'month').startOf('month').format('YYYY-MM-DD') && dateRange[1] === dayjs().subtract(1, 'month').endOf('month').format('YYYY-MM-DD');
+    if (type === 'this-year') return dateRange[0] === dayjs().startOf('year').format('YYYY-MM-DD') && dateRange[1] === dayjs().endOf('year').format('YYYY-MM-DD');
+    return false;
+  };
 
   return (
     <div>
       {/* 필터 섹션 */}
-      <Card style={{ marginBottom: 24 }}>
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      <Card className="mb-6">
+        <CardContent className="p-4 space-y-4">
           {/* 날짜 범위 필터 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 500 }}>기간 선택:</span>
-            <RangePicker
-              value={dateRange}
-              onChange={(dates) => setDateRange(dates as [Dayjs | null, Dayjs | null])}
-              format="YYYY-MM-DD"
-              placeholder={['시작일', '종료일']}
-              style={{ width: 280 }}
-            />
-            <Space>
-              <Button
-                size="small"
-                type={!dateRange[0] && !dateRange[1] ? 'primary' : 'default'}
-                onClick={() => setQuickDateRange('all')}
-              >
-                전체
-              </Button>
-              <Button
-                size="small"
-                type={
-                  dateRange[0]?.isSame(dayjs().startOf('month'), 'day') &&
-                  dateRange[1]?.isSame(dayjs().endOf('month'), 'day')
-                    ? 'primary'
-                    : 'default'
-                }
-                onClick={() => setQuickDateRange('this-month')}
-              >
-                이번 달
-              </Button>
-              <Button
-                size="small"
-                type={
-                  dateRange[0]?.isSame(dayjs().subtract(1, 'month').startOf('month'), 'day') &&
-                  dateRange[1]?.isSame(dayjs().subtract(1, 'month').endOf('month'), 'day')
-                    ? 'primary'
-                    : 'default'
-                }
-                onClick={() => setQuickDateRange('last-month')}
-              >
-                지난 달
-              </Button>
-              <Button
-                size="small"
-                type={
-                  dateRange[0]?.isSame(dayjs().startOf('year'), 'day') &&
-                  dateRange[1]?.isSame(dayjs().endOf('year'), 'day')
-                    ? 'primary'
-                    : 'default'
-                }
-                onClick={() => setQuickDateRange('this-year')}
-              >
-                올해
-              </Button>
-            </Space>
+          <div className="flex items-center gap-3 flex-wrap justify-between">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="font-medium text-sm">기간 선택:</span>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={dateRange[0]}
+                  onChange={(e) => setDateRange([e.target.value, dateRange[1]])}
+                  className="w-[150px] h-8 text-sm"
+                />
+                <span className="text-muted-foreground">~</span>
+                <Input
+                  type="date"
+                  value={dateRange[1]}
+                  onChange={(e) => setDateRange([dateRange[0], e.target.value])}
+                  className="w-[150px] h-8 text-sm"
+                />
+              </div>
+              <div className="flex gap-1">
+                {[
+                  { label: '전체', type: 'all' as const },
+                  { label: '이번 달', type: 'this-month' as const },
+                  { label: '지난 달', type: 'last-month' as const },
+                  { label: '올해', type: 'this-year' as const },
+                ].map((btn) => (
+                  <Button
+                    key={btn.type}
+                    variant={isDateRangeActive(btn.type) ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setQuickDateRange(btn.type)}
+                  >
+                    {btn.label}
+                  </Button>
+                ))}
+              </div>
             </div>
-            <Button icon={<DownloadOutlined />} onClick={() => setIsExportModalVisible(true)}>내보내기</Button>
+            <Button variant="outline" size="sm" onClick={() => setIsExportModalVisible(true)}>
+              <Download className="h-4 w-4" />
+              내보내기
+            </Button>
           </div>
 
           {/* 결제 상태 필터 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 500 }}>결제 상태:</span>
-            <Select
-              mode="multiple"
-              placeholder="전체 상태"
-              value={paymentStatusFilter}
-              onChange={setPaymentStatusFilter}
-              style={{ minWidth: 280 }}
-              allowClear
-              options={[
-                { label: '미납', value: 'pending' },
-                { label: '부분납부', value: 'partial' },
-                { label: '완납', value: 'completed' },
-                { label: '면제', value: 'exempt' },
-              ]}
-              maxTagCount="responsive"
-            />
-            <Space>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="font-medium text-sm">결제 상태:</span>
+            <div className="flex gap-1">
               <Button
-                size="small"
-                type={paymentStatusFilter.length === 0 ? 'primary' : 'default'}
+                variant={paymentStatusFilter.length === 0 ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => setPaymentStatusFilter([])}
               >
                 전체
               </Button>
               <Button
-                size="small"
-                type={
-                  paymentStatusFilter.length === 1 && paymentStatusFilter[0] === 'pending'
-                    ? 'primary'
-                    : 'default'
-                }
+                variant={paymentStatusFilter.length === 1 && paymentStatusFilter[0] === 'pending' ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => setPaymentStatusFilter(['pending'])}
               >
                 미납만
               </Button>
               <Button
-                size="small"
-                type={
-                  paymentStatusFilter.length === 2 &&
-                  paymentStatusFilter.includes('pending') &&
-                  paymentStatusFilter.includes('partial')
-                    ? 'primary'
-                    : 'default'
-                }
+                variant={paymentStatusFilter.length === 2 && paymentStatusFilter.includes('pending') && paymentStatusFilter.includes('partial') ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => setPaymentStatusFilter(['pending', 'partial'])}
               >
                 미완납
               </Button>
               <Button
-                size="small"
-                type={
-                  paymentStatusFilter.length === 1 && paymentStatusFilter[0] === 'completed'
-                    ? 'primary'
-                    : 'default'
-                }
+                variant={paymentStatusFilter.length === 1 && paymentStatusFilter[0] === 'completed' ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => setPaymentStatusFilter(['completed'])}
               >
                 완납만
               </Button>
-            </Space>
+            </div>
           </div>
 
           {/* 필터 요약 */}
           {(dateRange[0] || dateRange[1] || paymentStatusFilter.length > 0) && (
-            <Typography.Text type="secondary" style={{ fontSize: '13px' }}>
+            <p className="text-sm text-muted-foreground">
               {dateRange[0] && dateRange[1] && (
-                <>
-                  {dateRange[0].format('YYYY년 M월 D일')} ~ {dateRange[1].format('YYYY년 M월 D일')}
-                </>
+                <>{dayjs(dateRange[0]).format('YYYY년 M월 D일')} ~ {dayjs(dateRange[1]).format('YYYY년 M월 D일')}</>
               )}
               {dateRange[0] && dateRange[1] && paymentStatusFilter.length > 0 && ' | '}
               {paymentStatusFilter.length > 0 && (
                 <>
                   결제 상태:{' '}
-                  {paymentStatusFilter
-                    .map((s) => {
-                      const map: Record<string, string> = {
-                        pending: '미납',
-                        partial: '부분납부',
-                        completed: '완납',
-                      };
-                      return map[s];
-                    })
-                    .join(', ')}
+                  {paymentStatusFilter.map((s) => {
+                    const map: Record<string, string> = { pending: '미납', partial: '부분납부', completed: '완납' };
+                    return map[s];
+                  }).join(', ')}
                 </>
               )}
-              {' ( '}
-              {filteredEnrollments.length}건 )
-            </Typography.Text>
+              {' ( '}{filteredEnrollments.length}건 )
+            </p>
           )}
-        </Space>
+        </CardContent>
       </Card>
 
-      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic
-              title="총 수익"
-              value={totalRevenue}
-              prefix={<DollarOutlined />}
-              suffix="원"
-              valueStyle={{ color: token.colorSuccess, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic
-              title="예상 총 수익"
-              value={expectedRevenue}
-              prefix={<DollarOutlined />}
-              suffix="원"
-              valueStyle={{ color: token.colorPrimary, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic
-              title="총 미수금"
-              value={totalUnpaid}
-              prefix={<WarningOutlined />}
-              suffix="원"
-              valueStyle={{ color: token.colorError, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic
-              title="수익률"
-              value={expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0}
-              precision={1}
-              suffix="%"
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: EXEMPT_COLOR, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      {/* 수익 통계 */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> 총 수익</p>
+            <p className="text-xl font-bold text-green-600 dark:text-green-400">{totalRevenue.toLocaleString()}원</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> 예상 총 수익</p>
+            <p className="text-xl font-bold text-primary">{expectedRevenue.toLocaleString()}원</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> 총 미수금</p>
+            <p className="text-xl font-bold text-red-600 dark:text-red-400">{totalUnpaid.toLocaleString()}원</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><CircleCheck className="h-3 w-3" /> 수익률</p>
+            <p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>
+              {expectedRevenue > 0 ? ((totalRevenue / expectedRevenue) * 100).toFixed(1) : '0.0'}%
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={6}>
-          <Card size="small">
-            <Statistic
-              title="완납"
-              value={completedPayments}
-              suffix="건"
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: token.colorSuccess, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card size="small">
-            <Statistic
-              title="부분납부"
-              value={partialPayments}
-              suffix="건"
-              prefix={<ClockCircleOutlined />}
-              valueStyle={{ color: token.colorWarning, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card size="small">
-            <Statistic
-              title="미납"
-              value={pendingPayments}
-              suffix="건"
-              prefix={<WarningOutlined />}
-              valueStyle={{ color: token.colorError, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card size="small">
-            <Statistic
-              title="면제"
-              value={exemptPayments}
-              suffix="건"
-              valueStyle={{ color: EXEMPT_COLOR, fontSize: 20 }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><CircleCheck className="h-3 w-3" /> 완납</p>
+            <p className="text-xl font-bold text-green-600 dark:text-green-400">{completedPayments}건</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> 부분납부</p>
+            <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400">{partialPayments}건</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> 미납</p>
+            <p className="text-xl font-bold text-red-600 dark:text-red-400">{pendingPayments}건</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground">면제</p>
+            <p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>{exemptPayments}건</p>
+          </CardContent>
+        </Card>
+      </div>
 
-      <Tabs items={tabItems} />
+      {/* Tabs */}
+      <Tabs defaultValue="course-revenue">
+        <TabsList>
+          <TabsTrigger value="course-revenue">강좌별 수익</TabsTrigger>
+          <TabsTrigger value="unpaid">미납자 관리 ({unpaidList.length})</TabsTrigger>
+          <TabsTrigger value="monthly" className="flex items-center gap-1">
+            <Calendar className="h-3.5 w-3.5" /> 분기별 수익 현황
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="course-revenue">
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>강좌명</TableHead>
+                  <TableHead>수강생 수</TableHead>
+                  <TableHead>수익</TableHead>
+                  <TableHead>예상 수익</TableHead>
+                  <TableHead>미수금</TableHead>
+                  <TableHead>완납률</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {courseRevenueData.map((row) => (
+                  <TableRow key={row.courseId}>
+                    <TableCell>{row.courseName}</TableCell>
+                    <TableCell>{row.studentCount}</TableCell>
+                    <TableCell>{'\u20A9'}{row.revenue.toLocaleString()}</TableCell>
+                    <TableCell>{'\u20A9'}{row.expected.toLocaleString()}</TableCell>
+                    <TableCell className={row.unpaid > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
+                      {'\u20A9'}{row.unpaid.toLocaleString()}
+                    </TableCell>
+                    <TableCell>{row.completionRate.toFixed(1)}%</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="unpaid">
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>수강생</TableHead>
+                  <TableHead>전화번호</TableHead>
+                  <TableHead>강좌</TableHead>
+                  <TableHead>수강료</TableHead>
+                  <TableHead>납부 상태</TableHead>
+                  <TableHead>납부 금액</TableHead>
+                  <TableHead>납부일</TableHead>
+                  <TableHead>납부 방법</TableHead>
+                  <TableHead>할인</TableHead>
+                  <TableHead>잔여 금액</TableHead>
+                  <TableHead>작업</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {unpaidList.map((row) => {
+                  const s = statusMap[row.paymentStatus];
+                  return (
+                    <TableRow key={row.id}>
+                      <TableCell>{row.studentName}</TableCell>
+                      <TableCell>{row.studentPhone}</TableCell>
+                      <TableCell>{row.courseName}</TableCell>
+                      <TableCell>{'\u20A9'}{row.courseFee.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Badge className={s?.color} variant="outline">{s?.text}</Badge>
+                      </TableCell>
+                      <TableCell>{'\u20A9'}{row.paidAmount.toLocaleString()}</TableCell>
+                      <TableCell>{row.paidAt || '-'}</TableCell>
+                      <TableCell>
+                        {row.paymentMethod ? PAYMENT_METHOD_LABELS[row.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {row.discountAmount > 0
+                          ? <span className="text-green-600 dark:text-green-400">-{'\u20A9'}{row.discountAmount.toLocaleString()}</span>
+                          : '-'}
+                      </TableCell>
+                      <TableCell className="text-red-600 dark:text-red-400 font-bold">
+                        {'\u20A9'}{row.remainingAmount.toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => handlePaymentEdit(row)}>
+                          납부 처리
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="monthly">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {getQuarterOptions().map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedQuarter(getCurrentQuarter())}
+              >
+                이번 분기
+              </Button>
+            </div>
+            <div className="flex items-center gap-6 text-sm">
+              <div>
+                <span className="text-muted-foreground">분기 수익: </span>
+                <span className="font-semibold text-green-600 dark:text-green-400">{'\u20A9'}{quarterTotalRevenue.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">예상: </span>
+                <span className="font-semibold">{'\u20A9'}{quarterTotalExpected.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">수납률: </span>
+                <span className={`font-semibold ${quarterTotalExpected > 0 && quarterTotalRevenue < quarterTotalExpected ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                  {quarterTotalExpected > 0 ? Math.round((quarterTotalRevenue / quarterTotalExpected) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>강좌명</TableHead>
+                  <TableHead>수강생</TableHead>
+                  <TableHead>납부</TableHead>
+                  <TableHead>미납</TableHead>
+                  <TableHead>분기 수익</TableHead>
+                  <TableHead>예상 수익</TableHead>
+                  <TableHead>수납률</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {quarterRevenueData.map((row) => (
+                  <TableRow key={row.courseId}>
+                    <TableCell>{row.courseName}</TableCell>
+                    <TableCell>{row.studentCount}</TableCell>
+                    <TableCell className="text-green-600 dark:text-green-400">{row.paidCount}명</TableCell>
+                    <TableCell className={row.unpaidCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
+                      {row.unpaidCount}명
+                    </TableCell>
+                    <TableCell>{'\u20A9'}{row.quarterRevenue.toLocaleString()}</TableCell>
+                    <TableCell>{'\u20A9'}{row.quarterExpected.toLocaleString()}</TableCell>
+                    <TableCell className={row.collectionRate >= 100 ? 'text-green-600 dark:text-green-400' : row.collectionRate >= 50 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}>
+                      {row.collectionRate.toFixed(1)}%
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {selectedEnrollment && (
         <PaymentForm
@@ -784,80 +552,60 @@ const RevenueManagementPage: React.FC = () => {
         />
       )}
 
-      <Modal
-        title="수익 현황 내보내기"
-        open={isExportModalVisible}
-        onCancel={() => setIsExportModalVisible(false)}
-        width={320}
-        footer={null}
-        styles={{ body: { paddingBottom: 24 } }}
-      >
-        <div style={{
-          padding: '4px 0 8px',
-          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-          marginBottom: 12,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-          <Checkbox
-            checked={isAllRevenueSelected}
-            indeterminate={selectedExportFields.length > 0 && !isAllRevenueSelected}
-            onChange={(e) => setSelectedExportFields(e.target.checked ? allRevenueFieldKeys : [])}
-          >
-            전체 선택
-          </Checkbox>
-          <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
-            {selectedExportFields.length}/{allRevenueFieldKeys.length}
-          </span>
-        </div>
+      {/* 내보내기 모달 */}
+      <Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
+        <DialogContent className="max-w-[320px]">
+          <DialogHeader>
+            <DialogTitle>수익 현황 내보내기</DialogTitle>
+          </DialogHeader>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 16 }}>
-          {REVENUE_EXPORT_FIELDS.map((field) => {
-            const isChecked = selectedExportFields.includes(field.key);
-            return (
-              <div
-                key={field.key}
-                onClick={() => {
-                  setSelectedExportFields((prev) =>
-                    isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
-                  );
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '6px 8px',
-                  borderRadius: token.borderRadius,
-                  cursor: 'pointer',
-                  background: isChecked ? token.colorPrimaryBg : 'transparent',
-                }}
-              >
-                <Checkbox checked={isChecked} />
-                <span style={{ fontSize: 13 }}>{field.label}</span>
-              </div>
-            );
-          })}
-        </div>
+          <div className="flex justify-between items-center py-1 pb-2 border-b mb-3">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={isAllRevenueSelected}
+                onCheckedChange={(checked) => setSelectedExportFields(checked ? allRevenueFieldKeys : [])}
+              />
+              <span className="text-sm">전체 선택</span>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {selectedExportFields.length}/{allRevenueFieldKeys.length}
+            </span>
+          </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button
-            type="primary"
-            icon={<FileExcelOutlined />}
-            onClick={() => handleExport('excel')}
-            block
-          >
-            Excel
-          </Button>
-          <Button
-            icon={<FileTextOutlined />}
-            onClick={() => handleExport('csv')}
-            block
-          >
-            CSV
-          </Button>
-        </div>
-      </Modal>
+          <div className="flex flex-col gap-0.5 mb-4">
+            {REVENUE_EXPORT_FIELDS.map((field) => {
+              const isChecked = selectedExportFields.includes(field.key);
+              return (
+                <div
+                  key={field.key}
+                  onClick={() => {
+                    setSelectedExportFields((prev) =>
+                      isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
+                    );
+                  }}
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer ${
+                    isChecked ? 'bg-primary/10' : 'hover:bg-accent'
+                  }`}
+                >
+                  <Checkbox checked={isChecked} />
+                  <span className="text-[13px]">{field.label}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex gap-2">
+            <Button className="flex-1" onClick={() => handleExport('excel')}>
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => handleExport('csv')}>
+              <FileText className="h-4 w-4" />
+              CSV
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

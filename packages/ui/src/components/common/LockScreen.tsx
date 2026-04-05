@@ -1,16 +1,15 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Input, Button, Typography, theme } from 'antd';
-import { LockOutlined } from '@ant-design/icons';
+import { Lock, Loader2 } from 'lucide-react';
 import { useLockStore } from '@tutomate/core';
 import { useSettingsStore } from '@tutomate/core';
-
-const { Text, Title } = Typography;
+import { Input } from '../ui/input';
+import { Button } from '../ui/button';
+import { cn } from '../../lib/utils';
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 30;
 
 const LockScreen: React.FC = () => {
-  const { token } = theme.useToken();
   const unlock = useLockStore((s) => s.unlock);
   const organizationName = useSettingsStore((s) => s.organizationName);
 
@@ -20,7 +19,7 @@ const LockScreen: React.FC = () => {
   const [attempts, setAttempts] = useState(0);
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const [loading, setLoading] = useState(false);
-  const inputRef = useRef<any>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -79,22 +78,7 @@ const LockScreen: React.FC = () => {
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 9999,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: token.colorBgContainer,
-        userSelect: 'none',
-      }}
-    >
+    <div className="fixed inset-0 z-[9999] flex select-none flex-col items-center justify-center bg-background">
       <style>
         {`
           @keyframes shake {
@@ -107,22 +91,18 @@ const LockScreen: React.FC = () => {
         `}
       </style>
       <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 24,
-          animation: shake ? 'shake 0.5s ease-in-out' : undefined,
-        }}
+        className="flex flex-col items-center gap-6"
+        style={{ animation: shake ? 'shake 0.5s ease-in-out' : undefined }}
       >
-        <LockOutlined style={{ fontSize: 48, color: token.colorTextSecondary }} />
-        <Title level={4} style={{ margin: 0 }}>
+        <Lock className="h-12 w-12 text-muted-foreground" />
+        <h4 className="m-0 text-lg font-semibold">
           {organizationName}
-        </Title>
-        <Text type="secondary">PIN을 입력하여 잠금을 해제하세요</Text>
+        </h4>
+        <p className="text-sm text-muted-foreground">PIN을 입력하여 잠금을 해제하세요</p>
 
-        <Input.Password
+        <Input
           ref={inputRef}
+          type="password"
           value={pin}
           onChange={(e) => {
             const val = e.target.value.replace(/\D/g, '');
@@ -132,25 +112,26 @@ const LockScreen: React.FC = () => {
           placeholder="PIN 입력"
           maxLength={6}
           disabled={lockoutRemaining > 0}
-          style={{ width: 200, textAlign: 'center', fontSize: 20, letterSpacing: 8 }}
+          className={cn(
+            'w-[200px] text-center text-xl tracking-[8px]',
+          )}
           autoFocus
         />
 
         {error && (
-          <Text type="danger" style={{ fontSize: '0.9em' }}>
+          <p className="text-sm text-destructive">
             {lockoutRemaining > 0
               ? `${MAX_ATTEMPTS}회 실패. ${lockoutRemaining}초 후 다시 시도하세요.`
               : error}
-          </Text>
+          </p>
         )}
 
         <Button
-          type="primary"
           onClick={handleUnlock}
-          loading={loading}
-          disabled={pin.length < 4 || lockoutRemaining > 0}
-          style={{ width: 200 }}
+          disabled={pin.length < 4 || lockoutRemaining > 0 || loading}
+          className="w-[200px]"
         >
+          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           잠금 해제
         </Button>
       </div>

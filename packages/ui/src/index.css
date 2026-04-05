@@ -1,117 +1,161 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+    --font-size-base-value: 14px;
+
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 211 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 211 100% 50%;
+    --success: 142 76% 36%;
+    --warning: 38 92% 50%;
+    --info: 217 91% 60%;
+    --error: 0 84% 60%;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 87%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 87%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 87%;
+    --primary: 211 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 87%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 211 100% 50%;
+    --success: 142 76% 36%;
+    --warning: 38 92% 50%;
+    --info: 217 91% 60%;
+    --error: 0 62.8% 30.6%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-size: var(--font-size-base-value);
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #root {
+    height: 100%;
+  }
 }
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* ─── Tailwind v4 color utilities ─────────────────────────────────
+   @theme inline에서 var()를 쓸 수 없으므로,
+   shadcn/ui 컴포넌트가 사용하는 색상 유틸리티를 직접 정의한다. */
+
+@utility bg-background { background-color: hsl(var(--background)); }
+@utility bg-foreground { background-color: hsl(var(--foreground)); }
+@utility bg-card { background-color: hsl(var(--card)); }
+@utility bg-popover { background-color: hsl(var(--popover)); }
+@utility bg-primary { background-color: hsl(var(--primary)); }
+@utility bg-secondary { background-color: hsl(var(--secondary)); }
+@utility bg-muted { background-color: hsl(var(--muted)); }
+@utility bg-accent { background-color: hsl(var(--accent)); }
+@utility bg-destructive { background-color: hsl(var(--destructive)); }
+@utility bg-border { background-color: hsl(var(--border)); }
+@utility bg-input { background-color: hsl(var(--input)); }
+@utility bg-ring { background-color: hsl(var(--ring)); }
+@utility bg-success { background-color: hsl(var(--success)); }
+@utility bg-warning { background-color: hsl(var(--warning)); }
+@utility bg-info { background-color: hsl(var(--info)); }
+@utility bg-error { background-color: hsl(var(--error)); }
+
+@utility text-background { color: hsl(var(--background)); }
+@utility text-foreground { color: hsl(var(--foreground)); }
+@utility text-card-foreground { color: hsl(var(--card-foreground)); }
+@utility text-popover-foreground { color: hsl(var(--popover-foreground)); }
+@utility text-primary { color: hsl(var(--primary)); }
+@utility text-primary-foreground { color: hsl(var(--primary-foreground)); }
+@utility text-secondary-foreground { color: hsl(var(--secondary-foreground)); }
+@utility text-muted-foreground { color: hsl(var(--muted-foreground)); }
+@utility text-accent-foreground { color: hsl(var(--accent-foreground)); }
+@utility text-destructive { color: hsl(var(--destructive)); }
+@utility text-destructive-foreground { color: hsl(var(--destructive-foreground)); }
+@utility text-success { color: hsl(var(--success)); }
+@utility text-warning { color: hsl(var(--warning)); }
+@utility text-info { color: hsl(var(--info)); }
+@utility text-error { color: hsl(var(--error)); }
+
+@utility border-border { border-color: hsl(var(--border)); }
+@utility border-input { border-color: hsl(var(--input)); }
+@utility border-ring { border-color: hsl(var(--ring)); }
+@utility border-primary { border-color: hsl(var(--primary)); }
+@utility border-destructive { border-color: hsl(var(--destructive)); }
+
+@utility ring-ring { --tw-ring-color: hsl(var(--ring)); }
+@utility ring-border { --tw-ring-color: hsl(var(--border)); }
+
+@utility outline-ring { outline-color: hsl(var(--ring)); }
+
+/* Radius */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-#root {
-  height: 100%;
-}
-
-/* 부드러운 전환 효과 */
-.ant-card {
-  transition: all 0.3s ease;
-}
-
-.ant-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.ant-btn {
-  transition: all 0.2s ease;
-}
-
-.ant-tag {
-  transition: all 0.2s ease;
-}
-
-.ant-tag:hover {
-  transform: scale(1.05);
-}
-
-/* 테이블 행 hover 효과 */
-.ant-table-tbody > tr {
-  transition: background-color 0.2s ease;
-}
-
-/* 사이드바 아이콘 위치 고정 (열림/닫힘 동일) */
-.ant-layout-sider .ant-menu-item {
-  padding-left: 16px !important;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-/* 사이드바 닫힘 시 텍스트 즉시 숨김 */
-.ant-layout-sider-collapsed .ant-menu-title-content {
-  display: none !important;
-}
-
-/* 프로그레스 바 애니메이션 */
-.ant-progress-bg {
-  transition: width 0.5s ease;
-}
-
-/* 통계 숫자 애니메이션 */
-.ant-statistic-content-value {
-  transition: all 0.3s ease;
-}
-
-/* 입력 필드 포커스 */
-.ant-input:focus,
-.ant-select-focused .ant-select-selector {
-  transition: all 0.2s ease;
-}
-
-/* 최상단 스크롤 방지 — 메인 영역에서만 스크롤 */
-html, body {
-  height: 100%;
-  overflow: hidden;
-}
-
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+/* Scrollbar styles */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background-color: rgba(0, 0, 0, 0.2);
   border-radius: 5px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(0, 0, 0, 0.35); }
+::-webkit-scrollbar-corner { background: transparent; }
 
-::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(0, 0, 0, 0.35);
+.dark ::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.12); }
+.dark ::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.25); }
+
+/* Smooth reveal for conditional content */
+.slide-enter {
+  animation: revealIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@keyframes revealIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
-/* 종료된 강좌 행 스타일 */
-.ended-course-row td {
-  opacity: 0.55;
-}
-
-/* 다크모드 스크롤바 */
-html[data-theme='dark'] ::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.12);
-}
-
-html[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.25);
-}
+/* Ended course row */
+.ended-course-row td { opacity: 0.55; }

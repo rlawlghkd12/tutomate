@@ -2,7 +2,7 @@ import { supabase } from "../config/supabase";
 import { AppError, ErrorType } from "./errors";
 import { logError, logInfo } from "./logger";
 
-type TableName = "courses" | "students" | "enrollments" | "monthly_payments";
+type TableName = "courses" | "students" | "enrollments" | "monthly_payments" | "payment_records";
 
 /**
  * Supabase에서 데이터 전체 로드

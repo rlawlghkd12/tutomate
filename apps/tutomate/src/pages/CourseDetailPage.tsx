@@ -1,43 +1,29 @@
-import {
-	Button,
-	Checkbox,
-	Modal,
-	message,
-	Popconfirm,
-	Space,
-	Table,
-	Tabs,
-	Tag,
-	theme,
-} from "antd";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-
-const { useToken } = theme;
-
 import {
-	CalendarOutlined,
-	DeleteOutlined,
-	DownloadOutlined,
-	EditOutlined,
-	FileExcelOutlined,
-	FileTextOutlined,
-	TeamOutlined,
-} from "@ant-design/icons";
-import type { ColumnsType } from "antd/es/table";
-import dayjs from "dayjs";
-import { BulkPaymentForm, CourseForm, MonthlyPaymentTable, PaymentForm } from "@tutomate/ui";
+	Download,
+	FileSpreadsheet,
+	FileText,
+	Pencil,
+	Trash2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { CourseForm, PaymentManagementTable } from "@tutomate/ui";
 import {
 	useCourseStore,
 	useEnrollmentStore,
-	useMonthlyPaymentStore,
+	usePaymentRecordStore,
 	useStudentStore,
 	COURSE_STUDENT_EXPORT_FIELDS,
 	exportCourseStudentsToCSV,
 	exportCourseStudentsToExcel,
 } from "@tutomate/core";
 import type { Enrollment } from "@tutomate/core";
+import { Button } from "../components/ui/button";
+import { Checkbox } from "../components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 
 const DEFAULT_EXPORT_FIELDS = [
 	"name",
@@ -48,39 +34,40 @@ const DEFAULT_EXPORT_FIELDS = [
 ];
 
 const CourseDetailPage: React.FC = () => {
-	const { token } = useToken();
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
 	const { getCourseById, loadCourses, deleteCourse } = useCourseStore();
 	const { getEnrollmentCountByCourseId } = useEnrollmentStore();
 	const { loadStudents, getStudentById } = useStudentStore();
-	const { enrollments, loadEnrollments, deleteEnrollment } =
+	const { enrollments, loadEnrollments, withdrawEnrollment } =
 		useEnrollmentStore();
-	const { loadPayments } = useMonthlyPaymentStore();
+	const { loadRecords } = usePaymentRecordStore();
 
-	const [selectedEnrollment, setSelectedEnrollment] =
-		useState<Enrollment | null>(null);
-	const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
-	const [isBulkPaymentModalVisible, setIsBulkPaymentModalVisible] =
-		useState(false);
 	const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 	const [isExportModalVisible, setIsExportModalVisible] = useState(false);
 	const [selectedExportFields, setSelectedExportFields] = useState<string[]>(
 		DEFAULT_EXPORT_FIELDS,
 	);
 
-	const [activeTab, setActiveTab] = useState<string>("students");
 	const [isCourseEditVisible, setIsCourseEditVisible] = useState(false);
+
+	// Delete course AlertDialog state
+	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+	// Remove student AlertDialog state
+	const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
 
 	useEffect(() => {
 		loadCourses();
 		loadStudents();
 		loadEnrollments();
-		loadPayments();
-	}, [loadCourses, loadStudents, loadEnrollments, loadPayments]);
+		loadRecords();
+	}, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
 	const course = id ? getCourseById(id) : undefined;
-	const courseEnrollments = enrollments.filter((e) => e.courseId === id);
+	const courseEnrollments = useMemo(
+		() => enrollments.filter((e) => e.courseId === id && e.paymentStatus !== 'withdrawn'),
+		[enrollments, id],
+	);
 
 	const enrolledStudents = useMemo(() => {
 		return courseEnrollments.map((enrollment) => {
@@ -92,49 +79,43 @@ const CourseDetailPage: React.FC = () => {
 		});
 	}, [courseEnrollments, getStudentById]);
 
-	const nonExemptEnrollments = courseEnrollments.filter(
-		(e) => e.paymentStatus !== "exempt",
-	);
-	const totalRevenue = nonExemptEnrollments.reduce(
-		(sum, e) => sum + e.paidAmount,
-		0,
-	);
-	const completedPayments = courseEnrollments.filter(
-		(e) => e.paymentStatus === "completed",
-	).length;
+	const { nonExemptEnrollments, totalRevenue, completedPayments } = useMemo(() => {
+		const nonExempt = courseEnrollments.filter(
+			(e) => e.paymentStatus !== "exempt",
+		);
+		const revenue = nonExempt.reduce(
+			(sum, e) => sum + e.paidAmount,
+			0,
+		);
+		const completed = courseEnrollments.filter(
+			(e) => e.paymentStatus === "completed",
+		).length;
+		return { nonExemptEnrollments: nonExempt, totalRevenue: revenue, completedPayments: completed };
+	}, [courseEnrollments]);
 
 	const handleDeleteCourse = () => {
 		if (!course) return;
-		const studentCount = getEnrollmentCountByCourseId(course.id);
-		Modal.confirm({
-			title: studentCount > 0 ? "수강생이 있는 강좌입니다!" : "강좌를 삭제하시겠습니까?",
-			content: studentCount > 0
-				? `"${course.name}" 강좌에 ${studentCount}명의 수강생이 있습니다. 삭제 시 수강 기록도 함께 삭제됩니다.`
-				: `"${course.name}" 강좌를 삭제합니다.`,
-			okText: "삭제",
-			okType: "danger",
-			cancelText: "취소",
-			async onOk() {
-				await deleteCourse(course.id);
-				message.success("강좌가 삭제되었습니다.");
-				navigate("/courses");
-			},
-		});
+		setDeleteDialogOpen(true);
 	};
 
-	const handleRemoveStudent = async (enrollmentId: string) => {
-		await deleteEnrollment(enrollmentId);
-		message.success("수강생이 제거되었습니다.");
+	const confirmDeleteCourse = async () => {
+		if (!course) return;
+		await deleteCourse(course.id);
+		toast.success("강좌가 삭제되었습니다.");
+		navigate("/courses");
 	};
 
-	const handlePaymentEdit = (enrollment: Enrollment) => {
-		setSelectedEnrollment(enrollment);
-		setIsPaymentModalVisible(true);
+	const handleWithdrawStudents = async (ids: string[]) => {
+		for (const id of ids) {
+			await withdrawEnrollment(id);
+		}
+		toast.success(`${ids.length}명의 수강이 철회되었습니다.`);
+		setSelectedRowKeys([]);
 	};
 
 	const handleExport = (type: "excel" | "csv") => {
 		if (selectedExportFields.length === 0) {
-			message.warning("내보낼 필드를 1개 이상 선택해주세요.");
+			toast.warning("내보낼 필드를 1개 이상 선택해주세요.");
 			return;
 		}
 
@@ -143,7 +124,7 @@ const CourseDetailPage: React.FC = () => {
 			.map((es) => ({ student: es.student!, enrollment: es as Enrollment }));
 
 		if (data.length === 0) {
-			message.warning("내보낼 수강생이 없습니다.");
+			toast.warning("내보낼 수강생이 없습니다.");
 			return;
 		}
 
@@ -151,199 +132,94 @@ const CourseDetailPage: React.FC = () => {
 		try {
 			if (type === "excel") {
 				exportCourseStudentsToExcel(course, data, selectedExportFields);
-				message.success("Excel 파일이 다운로드되었습니다.");
+				toast.success("Excel 파일이 다운로드되었습니다.");
 			} else {
 				exportCourseStudentsToCSV(course, data, selectedExportFields);
-				message.success("CSV 파일이 다운로드되었습니다.");
+				toast.success("CSV 파일이 다운로드되었습니다.");
 			}
 			setIsExportModalVisible(false);
 		} catch {
-			message.error("내보내기에 실패했습니다.");
+			toast.error("내보내기에 실패했습니다.");
 		}
 	};
 
 	const allFieldKeys = COURSE_STUDENT_EXPORT_FIELDS.map((f) => f.key);
 	const isAllSelected = selectedExportFields.length === allFieldKeys.length;
 
-	const columns: ColumnsType<(typeof enrolledStudents)[0]> = [
-		{
-			title: "이름",
-			key: "name",
-			render: (_, record) => record.student?.name || "-",
-			sorter: (a, b) =>
-				(a.student?.name || "").localeCompare(b.student?.name || ""),
-		},
-		{
-			title: "전화번호",
-			key: "phone",
-			render: (_, record) => record.student?.phone || "-",
-		},
-		{
-			title: "이번달",
-			key: "monthlyStatus",
-			render: (_, record) => {
-				if (record.paymentStatus === "exempt") {
-					return <Tag color="purple">면제</Tag>;
-				}
-				const currentMonth = dayjs().format("YYYY-MM");
-				const monthlyPayment = useMonthlyPaymentStore
-					.getState()
-					.payments.find(
-						(p) => p.enrollmentId === record.id && p.month === currentMonth,
-					);
-				if (monthlyPayment && monthlyPayment.status === "paid") {
-					return (
-						<Space size={4}>
-							<Tag color="green">납부</Tag>
-							{monthlyPayment.paidAt && (
-								<span style={{ fontSize: 12, color: '#999' }}>
-									{dayjs(monthlyPayment.paidAt).format('M/D')}
-								</span>
-							)}
-						</Space>
-					);
-				}
-				return <Tag color="red">미납</Tag>;
-			},
-			filters: [
-				{ text: "납부", value: "paid" },
-				{ text: "미납", value: "unpaid" },
-				{ text: "면제", value: "exempt" },
-			],
-			onFilter: (value, record) => {
-				if (value === "exempt") return record.paymentStatus === "exempt";
-				const currentMonth = dayjs().format("YYYY-MM");
-				const mp = useMonthlyPaymentStore
-					.getState()
-					.payments.find(
-						(p) => p.enrollmentId === record.id && p.month === currentMonth,
-					);
-				if (value === "paid") return mp?.status === "paid";
-				return !mp || mp.status !== "paid";
-			},
-		},
-		{
-			title: "등록일",
-			key: "enrolledAt",
-			render: (_, record) => new Date(record.enrolledAt).toLocaleDateString(),
-			sorter: (a, b) =>
-				new Date(a.enrolledAt).getTime() - new Date(b.enrolledAt).getTime(),
-		},
-		{
-			title: "작업",
-			key: "action",
-			render: (_, record) => (
-				<Space size="small">
-					<Button type="link" onClick={() => handlePaymentEdit(record)}>
-						납부 관리
-					</Button>
-					<Popconfirm
-						title="정말 이 수강생을 제거하시겠습니까?"
-						onConfirm={() => handleRemoveStudent(record.id)}
-						okText="제거"
-						cancelText="취소"
-					>
-						<Button type="link" danger>
-							제거
-						</Button>
-					</Popconfirm>
-				</Space>
-			),
-		},
-	];
-
-	const selectedEnrollments = enrolledStudents.filter((student) =>
-		selectedRowKeys.includes(student.id),
-	);
-
-	const rowSelection = {
-		selectedRowKeys,
-		onChange: (newSelectedRowKeys: React.Key[]) => {
-			setSelectedRowKeys(newSelectedRowKeys);
-		},
-	};
-
 	if (!id || !course) {
 		return <div>강좌를 찾을 수 없습니다.</div>;
 	}
 
+	const studentCount = getEnrollmentCountByCourseId(course.id);
+
 	return (
 		<div>
 			{/* 브레드크럼 + 내보내기 */}
-			<div
-				style={{
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "space-between",
-					marginBottom: 6,
-				}}
-			>
-				<div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+			<div className="flex items-center justify-between mb-1.5">
+				<div className="flex items-baseline gap-1.5">
 					<a
 						onClick={() => navigate("/courses")}
-						style={{ fontSize: 13, color: token.colorTextSecondary, cursor: "pointer" }}
+						className="text-[13px] text-muted-foreground cursor-pointer hover:underline"
 					>
 						강좌 관리
 					</a>
-					<span style={{ color: token.colorTextQuaternary, fontSize: 12 }}>/</span>
-					<span style={{ fontSize: 15, fontWeight: 600 }}>{course.name}</span>
+					<span className="text-muted-foreground/50 text-xs">/</span>
+					<span className="text-[15px] font-semibold">{course.name}</span>
 				</div>
-				<Space size="small">
+				<div className="flex items-center gap-1.5">
 					<Button
-						size="small"
-						icon={<DownloadOutlined />}
+						variant="outline"
+						size="sm"
 						onClick={() => setIsExportModalVisible(true)}
 						disabled={courseEnrollments.length === 0}
 					>
+						<Download className="h-3.5 w-3.5" />
 						내보내기
 					</Button>
 					<Button
-						size="small"
-						icon={<EditOutlined />}
+						variant="outline"
+						size="sm"
 						onClick={() => setIsCourseEditVisible(true)}
 					>
+						<Pencil className="h-3.5 w-3.5" />
 						수정
 					</Button>
 					<Button
-						size="small"
-						danger
-						icon={<DeleteOutlined />}
+						variant="destructive"
+						size="sm"
 						onClick={handleDeleteCourse}
 					>
+						<Trash2 className="h-3.5 w-3.5" />
 						삭제
 					</Button>
-				</Space>
+				</div>
 			</div>
 
 			{/* 부가 정보 + 통계 — 한 줄 */}
-			<div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+			<div className="flex gap-2.5 mb-3">
 				{[
 					{ label: "강사", value: course.instructorName },
+					{ label: "일정", value: (() => {
+						const dl = ['일','월','화','수','목','금','토'];
+						const days = course.schedule?.daysOfWeek?.length ? course.schedule.daysOfWeek.sort((a: number,b: number) => a-b).map((d: number) => dl[d]).join('') : '-';
+						const time = course.schedule?.startTime && course.schedule?.endTime ? `${course.schedule.startTime}~${course.schedule.endTime}` : '';
+						return `${days} ${time}`.trim() || '-';
+					})() },
 					{ label: "강의실", value: course.classroom },
-					{ label: "수강료", value: `₩${course.fee.toLocaleString()}` },
+					{ label: "수강료", value: `\u20A9${course.fee.toLocaleString()}` },
 					{ label: "수강생", value: `${courseEnrollments.length}/${course.maxStudents}` },
-					{ label: "총 수익", value: `₩${totalRevenue.toLocaleString()}`, color: token.colorSuccess },
-					{ label: "완납률", value: `${nonExemptEnrollments.length > 0 ? ((completedPayments / nonExemptEnrollments.length) * 100).toFixed(1) : "0.0"}%`, color: nonExemptEnrollments.length > 0 && completedPayments === nonExemptEnrollments.length ? token.colorSuccess : token.colorError },
+					{ label: "총 수익", value: `\u20A9${totalRevenue.toLocaleString()}`, colorClass: "text-success" },
+					{ label: "완납률", value: `${nonExemptEnrollments.length > 0 ? ((completedPayments / nonExemptEnrollments.length) * 100).toFixed(1) : "0.0"}%`, colorClass: nonExemptEnrollments.length > 0 && completedPayments === nonExemptEnrollments.length ? "text-success" : "text-error" },
 				].map((item) => (
 					<div
 						key={item.label}
-						style={{
-							flex: 1,
-							padding: "6px 12px",
-							borderRadius: token.borderRadius,
-							border: `1px solid ${token.colorBorderSecondary}`,
-						}}
+						className="flex-1 py-1.5 px-3 rounded-md border border-border"
 					>
-						<div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+						<div className="text-[11px] text-muted-foreground">
 							{item.label}
 						</div>
 						<div
-							style={{
-								fontSize: 14,
-								fontWeight: 600,
-								color: (item as any).color,
-								marginTop: 1,
-							}}
+							className={`text-sm font-semibold mt-0.5 ${(item as any).colorClass || ''}`}
 						>
 							{item.value}
 						</div>
@@ -351,200 +227,155 @@ const CourseDetailPage: React.FC = () => {
 				))}
 			</div>
 
-			<Tabs
-				activeKey={activeTab}
-				onChange={setActiveTab}
-				items={[
-					{
-						key: "students",
-						label: (
-							<span>
-								<TeamOutlined /> 수강생 관리
-							</span>
-						),
-						children: (
-							<>
-								{selectedRowKeys.length > 0 && (
-									<div
-										style={{
-											marginBottom: 16,
-											padding: 12,
-											backgroundColor: token.colorInfoBg,
-											borderRadius: 4,
-										}}
-									>
-										<Space>
-											<span>{selectedRowKeys.length}명 선택됨</span>
-											<Button
-												type="primary"
-												onClick={() => setIsBulkPaymentModalVisible(true)}
-											>
-												일괄 납부 처리
-											</Button>
-											<Button onClick={() => setSelectedRowKeys([])}>
-												선택 해제
-											</Button>
-										</Space>
-									</div>
-								)}
-								<Table
-									columns={columns}
-									dataSource={enrolledStudents}
-									rowKey="id"
-									pagination={false}
-									size="small"
-									rowSelection={rowSelection}
-								/>
-							</>
-						),
-					},
-					{
-						key: "monthly",
-						label: (
-							<span>
-								<CalendarOutlined /> 월별 납부
-							</span>
-						),
-						children: (
-							<MonthlyPaymentTable
-								courseId={id}
-								courseFee={course.fee}
-								enrollments={courseEnrollments}
-								courseCreatedAt={course.createdAt}
-							/>
-						),
-					},
-				]}
-			/>
-
-			<PaymentForm
-				visible={isPaymentModalVisible}
-				onClose={() => {
-					setIsPaymentModalVisible(false);
-					setSelectedEnrollment(null);
-				}}
-				enrollment={selectedEnrollment}
+			{/* 수강생 + 납부 통합 (PaymentManagementTable) */}
+			<PaymentManagementTable
+				courseId={id}
 				courseFee={course.fee}
-			/>
-
-			<BulkPaymentForm
-				visible={isBulkPaymentModalVisible}
-				onClose={() => {
-					setIsBulkPaymentModalVisible(false);
-					setSelectedRowKeys([]);
+				enrollments={courseEnrollments}
+				onRemoveEnrollments={(ids) => {
+					setSelectedRowKeys(ids);
+					setRemoveDialogOpen(true);
 				}}
-				enrollments={selectedEnrollments}
-				courseFee={course.fee}
+				rowSelection={{
+					selectedRowKeys,
+					onChange: (keys) => setSelectedRowKeys(keys as string[]),
+				}}
 			/>
 
 			{/* 내보내기 모달 */}
-			<Modal
-				title="수강생 내보내기"
-				open={isExportModalVisible}
-				onCancel={() => setIsExportModalVisible(false)}
-				width={320}
-				styles={{ body: { paddingBottom: 24 } }}
-				footer={null}
-			>
-				<div
-					style={{
-						padding: "4px 0 8px",
-						borderBottom: `1px solid ${token.colorBorderSecondary}`,
-						marginBottom: 12,
-						display: "flex",
-						justifyContent: "space-between",
-						alignItems: "center",
-					}}
-				>
-					<Checkbox
-						checked={isAllSelected}
-						indeterminate={selectedExportFields.length > 0 && !isAllSelected}
-						onChange={(e) =>
-							setSelectedExportFields(e.target.checked ? allFieldKeys : [])
-						}
-					>
-						전체 선택
-					</Checkbox>
-					<span style={{ fontSize: 12, color: token.colorTextTertiary }}>
-						{selectedExportFields.length}/{allFieldKeys.length}
-					</span>
-				</div>
+			<Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
+				<DialogContent className="max-w-[320px]">
+					<DialogHeader>
+						<DialogTitle>수강생 내보내기</DialogTitle>
+						<DialogDescription className="sr-only">내보낼 필드를 선택하세요</DialogDescription>
+					</DialogHeader>
 
-				<div
-					style={{
-						display: "flex",
-						flexDirection: "column",
-						gap: 2,
-						marginBottom: 16,
-					}}
-				>
-					{COURSE_STUDENT_EXPORT_FIELDS.map((field) => {
-						const isChecked = selectedExportFields.includes(field.key);
-						return (
-							// biome-ignore lint/a11y/useSemanticElements: styled checkbox wrapper
-							<div
-								role="checkbox"
-								aria-checked={isChecked}
-								tabIndex={0}
-								key={field.key}
-								onClick={() => {
-									setSelectedExportFields((prev) =>
-										isChecked
-											? prev.filter((k: string) => k !== field.key)
-											: [...prev, field.key],
-									);
-								}}
-								onKeyDown={(e) => {
-									if (e.key === "Enter" || e.key === " ") {
-										e.preventDefault();
+					<div className="flex justify-between items-center py-1 pb-2 border-b border-border mb-3">
+						<label className="flex items-center gap-2 text-sm cursor-pointer">
+							<Checkbox
+								checked={isAllSelected ? true : selectedExportFields.length > 0 ? "indeterminate" : false}
+								onCheckedChange={(checked) =>
+									setSelectedExportFields(checked ? allFieldKeys : [])
+								}
+							/>
+							전체 선택
+						</label>
+						<span className="text-xs text-muted-foreground">
+							{selectedExportFields.length}/{allFieldKeys.length}
+						</span>
+					</div>
+
+					<div className="flex flex-col gap-0.5 mb-4">
+						{COURSE_STUDENT_EXPORT_FIELDS.map((field) => {
+							const isChecked = selectedExportFields.includes(field.key);
+							return (
+								<div
+									role="checkbox"
+									aria-checked={isChecked}
+									tabIndex={0}
+									key={field.key}
+									onClick={() => {
 										setSelectedExportFields((prev) =>
 											isChecked
 												? prev.filter((k: string) => k !== field.key)
 												: [...prev, field.key],
 										);
-									}
-								}}
-								style={{
-									display: "flex",
-									alignItems: "center",
-									gap: 8,
-									padding: "6px 8px",
-									borderRadius: token.borderRadius,
-									cursor: "pointer",
-									background: isChecked ? token.colorPrimaryBg : "transparent",
-								}}
-							>
-								<Checkbox checked={isChecked} />
-								<span style={{ fontSize: 13 }}>{field.label}</span>
-							</div>
-						);
-					})}
-				</div>
+									}}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											setSelectedExportFields((prev) =>
+												isChecked
+													? prev.filter((k: string) => k !== field.key)
+													: [...prev, field.key],
+											);
+										}
+									}}
+									className={`flex items-center gap-2 py-1.5 px-2 rounded cursor-pointer ${
+										isChecked ? 'bg-primary/10' : 'hover:bg-muted'
+									}`}
+								>
+									<Checkbox checked={isChecked} />
+									<span className="text-[13px]">{field.label}</span>
+								</div>
+							);
+						})}
+					</div>
 
-				<div style={{ display: "flex", gap: 8 }}>
-					<Button
-						type="primary"
-						icon={<FileExcelOutlined />}
-						onClick={() => handleExport("excel")}
-						block
-					>
-						Excel
-					</Button>
-					<Button
-						icon={<FileTextOutlined />}
-						onClick={() => handleExport("csv")}
-						block
-					>
-						CSV
-					</Button>
-				</div>
-			</Modal>
+					<div className="flex gap-2">
+						<Button
+							className="flex-1"
+							onClick={() => handleExport("excel")}
+						>
+							<FileSpreadsheet className="h-4 w-4" />
+							Excel
+						</Button>
+						<Button
+							variant="outline"
+							className="flex-1"
+							onClick={() => handleExport("csv")}
+						>
+							<FileText className="h-4 w-4" />
+							CSV
+						</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
 
 			<CourseForm
 				visible={isCourseEditVisible}
 				onClose={() => setIsCourseEditVisible(false)}
 				course={course}
 			/>
+
+			{/* Delete course AlertDialog */}
+			<AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>
+							{studentCount > 0 ? "수강생이 있는 강좌입니다!" : "강좌를 삭제하시겠습니까?"}
+						</AlertDialogTitle>
+						<AlertDialogDescription>
+							{studentCount > 0
+								? `"${course.name}" 강좌에 ${studentCount}명의 수강생이 있습니다. 삭제 시 수강 기록도 함께 삭제됩니다.`
+								: `"${course.name}" 강좌를 삭제합니다.`}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>취소</AlertDialogCancel>
+						<AlertDialogAction
+							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+							onClick={confirmDeleteCourse}
+						>
+							삭제
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+
+			{/* Remove student AlertDialog */}
+			<AlertDialog open={removeDialogOpen} onOpenChange={setRemoveDialogOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>수강 철회</AlertDialogTitle>
+						<AlertDialogDescription>
+							{selectedRowKeys.length}명의 수강을 철회하시겠습니까? 납부 기록은 유지됩니다.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>취소</AlertDialogCancel>
+						<AlertDialogAction
+							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+							onClick={() => {
+								handleWithdrawStudents(selectedRowKeys as string[]);
+								setRemoveDialogOpen(false);
+							}}
+						>
+							철회
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 };

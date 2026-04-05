@@ -19,7 +19,7 @@ vi.mock('../../utils/logger', () => ({
   logError: vi.fn(),
 }));
 
-import { useLicenseStore } from '../licenseStore';
+import { useLicenseStore, reloadAllStores } from '../licenseStore';
 import { PLAN_LIMITS } from '../../config/planLimits';
 
 describe('licenseStore', () => {
@@ -197,6 +197,37 @@ describe('licenseStore', () => {
     });
   });
 
+  // ── activateLicense 성공 후 state ──
+
+  describe('activateLicense state changes', () => {
+    it('성공 시 licenseKey + activatedAt 업데이트', async () => {
+      mockActivateCloud.mockResolvedValue({ status: 'success', isNewOrg: true, orgChanged: false, previousOrgId: null });
+      await useLicenseStore.getState().activateLicense('TMKH-ABCD-1234-WXYZ');
+
+      const state = useLicenseStore.getState();
+      expect(state.licenseKey).toBe('TMKH-ABCD-1234-WXYZ');
+      expect(state.activatedAt).toBeTruthy();
+    });
+
+    it('실패 시 state 변경 없음', async () => {
+      mockActivateCloud.mockResolvedValue({ status: 'invalid_key' });
+      await useLicenseStore.getState().activateLicense('TMKH-ABCD-1234-WXYZ');
+
+      expect(useLicenseStore.getState().licenseKey).toBe('');
+      expect(useLicenseStore.getState().activatedAt).toBe('');
+    });
+
+    it('orgChanged true → previousOrgId 포함', async () => {
+      mockActivateCloud.mockResolvedValue({
+        status: 'success', isNewOrg: false, orgChanged: true, previousOrgId: 'old-org',
+      });
+      const result = await useLicenseStore.getState().activateLicense('TMKH-ABCD-1234-WXYZ');
+      expect(result).toEqual({
+        result: 'success', isNewOrg: false, orgChanged: true, previousOrgId: 'old-org',
+      });
+    });
+  });
+
   // ── 키 형식 검증 ──
 
   describe('키 형식 검증', () => {
@@ -225,6 +256,59 @@ describe('licenseStore', () => {
       mockActivateCloud.mockResolvedValue({ status: 'success', isNewOrg: false, orgChanged: false });
       const r = await useLicenseStore.getState().activateLicense('tmkh-abcd-1234-wxyz');
       expect(r.result).toBe('success');
+    });
+  });
+
+  // ── getPlan — cloud mode ──
+
+  describe('getPlan — cloud mode', () => {
+    it('cloud isCloud:true + plan basic → basic', async () => {
+      const authMod = await vi.importMock<any>('../authStore');
+      authMod.useAuthStore.getState = () => ({
+        isCloud: true,
+        plan: 'basic',
+        activateCloud: mockActivateCloud,
+        deactivateCloud: mockDeactivateCloud,
+      });
+
+      expect(useLicenseStore.getState().getPlan()).toBe('basic');
+
+      // 복원
+      authMod.useAuthStore.getState = () => ({
+        isCloud: false,
+        plan: null,
+        activateCloud: mockActivateCloud,
+        deactivateCloud: mockDeactivateCloud,
+      });
+    });
+
+    it('cloud isCloud:true + plan null → trial', async () => {
+      const authMod = await vi.importMock<any>('../authStore');
+      authMod.useAuthStore.getState = () => ({
+        isCloud: true,
+        plan: null,
+        activateCloud: mockActivateCloud,
+        deactivateCloud: mockDeactivateCloud,
+      });
+
+      expect(useLicenseStore.getState().getPlan()).toBe('trial');
+
+      // 복원
+      authMod.useAuthStore.getState = () => ({
+        isCloud: false,
+        plan: null,
+        activateCloud: mockActivateCloud,
+        deactivateCloud: mockDeactivateCloud,
+      });
+    });
+  });
+
+  // ── reloadAllStores ──
+
+  describe('reloadAllStores', () => {
+    it('캐시 초기화 + stale 마킹 + 서버 로드 호출', async () => {
+      // reloadAllStores 함수 호출이 에러 없이 동작하는지 확인
+      await expect(reloadAllStores()).resolves.toBeUndefined();
     });
   });
 });

@@ -1,4 +1,4 @@
-import type { Course, Student, Enrollment, MonthlyPayment, CourseSchedule } from '../types';
+import type { Course, Student, Enrollment, MonthlyPayment, PaymentRecord, CourseSchedule } from '../types';
 
 // ─── Course ────────────────────────────────────────────────────────
 
@@ -262,6 +262,58 @@ export function mapMonthlyPaymentUpdateToDb(
   if (updates.paidAt !== undefined) mapped.paid_at = updates.paidAt;
   if (updates.paymentMethod !== undefined) mapped.payment_method = updates.paymentMethod;
   if (updates.status !== undefined) mapped.status = updates.status;
+  if (updates.notes !== undefined) mapped.notes = updates.notes;
+  return mapped;
+}
+
+// ─── PaymentRecord ─────────────────────────────────────────────
+
+export interface PaymentRecordRow {
+  id: string;
+  organization_id: string;
+  enrollment_id: string;
+  amount: number;
+  paid_at: string;
+  payment_method: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export function mapPaymentRecordFromDb(row: PaymentRecordRow): PaymentRecord {
+  return {
+    id: row.id,
+    enrollmentId: row.enrollment_id,
+    amount: row.amount,
+    paidAt: row.paid_at,
+    paymentMethod: (row.payment_method as PaymentRecord['paymentMethod']) ?? undefined,
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+export function mapPaymentRecordToDb(
+  record: PaymentRecord,
+  orgId: string,
+): PaymentRecordRow {
+  return {
+    id: record.id,
+    organization_id: orgId,
+    enrollment_id: record.enrollmentId,
+    amount: record.amount,
+    paid_at: record.paidAt,
+    payment_method: record.paymentMethod ?? null,
+    notes: record.notes ?? null,
+    created_at: record.createdAt,
+  };
+}
+
+export function mapPaymentRecordUpdateToDb(
+  updates: Partial<PaymentRecord>,
+): Record<string, unknown> {
+  const mapped: Record<string, unknown> = {};
+  if (updates.amount !== undefined) mapped.amount = updates.amount;
+  if (updates.paidAt !== undefined) mapped.paid_at = updates.paidAt;
+  if (updates.paymentMethod !== undefined) mapped.payment_method = updates.paymentMethod;
   if (updates.notes !== undefined) mapped.notes = updates.notes;
   return mapped;
 }

@@ -2,7 +2,6 @@ import { app, BrowserWindow, ipcMain, Menu, nativeImage } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerFileHandlers } from './ipc/fileHandler';
-import { registerBackupHandlers } from './ipc/backupHandler';
 import { registerMachineIdHandler } from './ipc/machineId';
 import { registerDialogHandlers } from './ipc/dialogHandler';
 import { registerAuthHandlers } from './ipc/authHandler';
@@ -105,7 +104,6 @@ if (!gotTheLock) {
   app.whenReady().then(() => {
     // IPC 핸들러 등록
     registerFileHandlers(ipcMain);
-    registerBackupHandlers(ipcMain);
     registerMachineIdHandler(ipcMain);
     registerDialogHandlers(ipcMain);
 

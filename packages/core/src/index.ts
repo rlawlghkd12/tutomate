@@ -25,18 +25,13 @@ export { useCourseStore } from './stores/courseStore';
 export { useStudentStore } from './stores/studentStore';
 export { useEnrollmentStore } from './stores/enrollmentStore';
 export { useMonthlyPaymentStore } from './stores/monthlyPaymentStore';
+export { usePaymentRecordStore } from './stores/paymentRecordStore';
 export { useLicenseStore, reloadAllStores } from './stores/licenseStore';
 export type { ActivateResult } from './stores/licenseStore';
 export { useLockStore } from './stores/lockStore';
 export { useNotificationStore } from './stores/notificationStore';
 
 // ─── Utils ───────────────────────────────────────────────────────
-export {
-  dumpSupabaseToLocal,
-  createCloudBackup,
-  restoreCloudBackup,
-} from './utils/backupHelper';
-
 export { createDataHelper, clearAllCache } from './utils/dataHelper';
 export type { DataHelper } from './utils/dataHelper';
 
@@ -49,6 +44,7 @@ export {
   errorHandler,
   handleError,
   createError,
+  setErrorDisplay,
 } from './utils/errors';
 export type { AppErrorOptions } from './utils/errors';
 
@@ -82,12 +78,16 @@ export {
   mapMonthlyPaymentFromDb,
   mapMonthlyPaymentToDb,
   mapMonthlyPaymentUpdateToDb,
+  mapPaymentRecordFromDb,
+  mapPaymentRecordToDb,
+  mapPaymentRecordUpdateToDb,
 } from './utils/fieldMapper';
 export type {
   CourseRow,
   StudentRow,
   EnrollmentRow,
   MonthlyPaymentRow,
+  PaymentRecordRow,
 } from './utils/fieldMapper';
 
 export { formatPhone, parseBirthDate } from './utils/formatters';
@@ -142,15 +142,13 @@ export { isElectron, isTauri } from './utils/tauri';
 export {
   getCurrentQuarter,
   getQuarterLabel,
-  getQuarterMonths,
   getQuarterOptions,
+  getQuarterMonths,
   quarterMonthToYYYYMM,
 } from './utils/quarterUtils';
 
 // ─── Hooks ───────────────────────────────────────────────────────
 export { useAutoLock } from './hooks/useAutoLock';
-export { useBackup } from './hooks/useBackup';
-export type { BackupInfo } from './hooks/useBackup';
 
 // ─── Types ───────────────────────────────────────────────────────
 export * from './types/index';

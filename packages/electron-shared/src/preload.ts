@@ -7,20 +7,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadData: (key: string) =>
     ipcRenderer.invoke('load-data', key),
 
-  // 백업
-  createBackup: (orgName?: string) =>
-    ipcRenderer.invoke('create-backup', orgName),
-  listBackups: () =>
-    ipcRenderer.invoke('list-backups'),
-  restoreBackup: (filename: string) =>
-    ipcRenderer.invoke('restore-backup', filename),
-  deleteBackup: (filename: string) =>
-    ipcRenderer.invoke('delete-backup', filename),
-  importBackup: (sourcePath: string, orgName?: string) =>
-    ipcRenderer.invoke('import-backup', sourcePath, orgName),
-  exportBackupFile: (filename: string, destPath: string) =>
-    ipcRenderer.invoke('export-backup-file', filename, destPath),
-
   // 머신 ID
   getMachineId: () =>
     ipcRenderer.invoke('get-machine-id'),

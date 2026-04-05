@@ -47,7 +47,7 @@ export interface Enrollment {
   courseId: string;
   studentId: string;
   enrolledAt: string;
-  paymentStatus: 'pending' | 'partial' | 'completed' | 'exempt'; // 납부 현황 (exempt: 면제)
+  paymentStatus: 'pending' | 'partial' | 'completed' | 'exempt' | 'withdrawn'; // 납부 현황 (withdrawn: 수강 철회)
   paidAmount: number; // 납부 금액
   remainingAmount: number; // 잔여 금액
   paidAt?: string; // 마지막 납부일 YYYY-MM-DD
@@ -83,6 +83,17 @@ export interface MonthlyPayment {
   paidAt?: string; // 납부일 YYYY-MM-DD
   paymentMethod?: PaymentMethod;
   status: 'pending' | 'paid'; // 미납 / 납부
+  notes?: string;
+  createdAt: string;
+}
+
+// 납부 이력 기록
+export interface PaymentRecord {
+  id: string;
+  enrollmentId: string;
+  amount: number;
+  paidAt: string; // YYYY-MM-DD
+  paymentMethod?: PaymentMethod;
   notes?: string;
   createdAt: string;
 }
