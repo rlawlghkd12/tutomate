@@ -36,7 +36,7 @@ const enrollmentFormSchema = z.object({
 	courseId: z.string().min(1, "강좌를 선택하세요"),
 	discountAmount: z.number().min(0),
 	paidAmount: z.number().min(0, "납부 금액을 입력하세요"),
-	paymentMethod: z.enum(["cash", "card", "transfer"], { required_error: "납부 방법을 선택하세요" }),
+	paymentMethod: z.enum(["cash", "card", "transfer"], { error: "납부 방법을 선택하세요" }),
 	notes: z.string().optional(),
 });
 

@@ -66,7 +66,7 @@ const DashboardPage: React.FC = () => {
 	const totalCourses = courses.length;
 	const totalStudents = students.length;
 
-	const { completedPayments, pendingPayments, totalRevenue, expectedRevenue, paymentRate } = useMemo(() => {
+	const { completedPayments, pendingPayments, totalRevenue, paymentRate } = useMemo(() => {
 		const completed = enrollments.filter(
 			(e) => e.paymentStatus === "completed",
 		).length;

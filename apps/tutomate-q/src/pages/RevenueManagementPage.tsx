@@ -5,10 +5,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
-import type { Dayjs } from 'dayjs';
 import {
   Button, Dialog, DialogContent, DialogHeader, DialogTitle,
-  Card, CardContent, CardHeader, CardTitle, Badge,
+  Card, CardContent, Badge,
   Tabs, TabsContent, TabsList, TabsTrigger, Checkbox,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -19,9 +18,9 @@ import { useCourseStore } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { usePaymentRecordStore } from '@tutomate/core';
-import { getCurrentQuarter, getQuarterOptions, getQuarterLabel } from '@tutomate/core';
+import { getCurrentQuarter, getQuarterOptions } from '@tutomate/core';
 import { PaymentForm } from '@tutomate/ui';
-import type { Enrollment, PaymentMethod } from '@tutomate/core';
+import type { Enrollment } from '@tutomate/core';
 import { PAYMENT_METHOD_LABELS } from '@tutomate/core';
 import { exportRevenueToExcel, exportRevenueToCSV, REVENUE_EXPORT_FIELDS } from '@tutomate/core';
 
@@ -29,7 +28,7 @@ const RevenueManagementPage: React.FC = () => {
   const { courses, loadCourses, getCourseById } = useCourseStore();
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
-  const { records, loadRecords } = usePaymentRecordStore();
+  const { loadRecords } = usePaymentRecordStore();
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);

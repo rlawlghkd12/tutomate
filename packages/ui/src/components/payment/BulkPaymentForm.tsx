@@ -225,7 +225,7 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
             <Label>납부 방법</Label>
             <RadioGroup
               value={paymentMethod ?? 'none'}
-              onValueChange={(v) => setPaymentMethod(v === 'none' ? undefined : v as PaymentMethod)}
+              onValueChange={(v) => setPaymentMethod(v === 'none' ? 'cash' as PaymentMethod : v as PaymentMethod)}
               className="flex gap-2"
             >
               <div className="flex items-center space-x-1">

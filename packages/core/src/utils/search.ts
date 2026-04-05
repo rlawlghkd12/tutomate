@@ -106,6 +106,7 @@ export const searchEnrollments = (
       partial: '부분납부',
       completed: '완납',
       exempt: '면제',
+      withdrawn: '철회',
     };
 
     return [{
