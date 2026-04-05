@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { DayPicker } from 'react-day-picker';
+import { ko } from 'react-day-picker/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { cn } from '../../lib/utils';
@@ -15,6 +16,7 @@ function Calendar({
 }: CalendarProps) {
   return (
     <DayPicker
+      locale={ko}
       showOutsideDays={showOutsideDays}
       className={cn('p-3', className)}
       classNames={{
@@ -25,11 +27,11 @@ function Calendar({
         nav: 'space-x-1 flex items-center',
         button_previous: cn(
           buttonVariants({ variant: 'outline' }),
-          'h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute left-1'
+          'h-9 w-9 bg-transparent p-0 opacity-50 hover:opacity-100 absolute left-1'
         ),
         button_next: cn(
           buttonVariants({ variant: 'outline' }),
-          'h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-1'
+          'h-9 w-9 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-1'
         ),
         month_grid: 'w-full border-collapse space-y-1',
         weekdays: 'flex',
@@ -58,7 +60,7 @@ function Calendar({
       components={{
         Chevron: ({ orientation }) => {
           const Icon = orientation === 'left' ? ChevronLeft : ChevronRight;
-          return <Icon className="h-4 w-4" />;
+          return <Icon className="h-5 w-5" />;
         },
       }}
       {...props}
