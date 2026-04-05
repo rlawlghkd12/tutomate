@@ -84,6 +84,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 
 	const [nameSearch, setNameSearch] = useState("");
 	const [nameComboboxOpen, setNameComboboxOpen] = useState(false);
+	const [highlightedIndex, setHighlightedIndex] = useState(-1);
 	const [selectedExistingStudent, setSelectedExistingStudent] =
 		useState<Student | null>(null);
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -290,13 +291,32 @@ const StudentForm: React.FC<StudentFormProps> = ({
 												setNameSearch(e.target.value);
 												form.setValue("name", e.target.value);
 												setNameComboboxOpen(e.target.value.length > 0);
+												setHighlightedIndex(-1);
 											}}
 											onFocus={() => { if (nameSearch.length > 0) setNameComboboxOpen(true); }}
 											onKeyDown={(e) => {
-												if (e.key === "Enter" || e.key === "Tab") {
+												if (e.key === "ArrowDown") {
 													e.preventDefault();
+													setHighlightedIndex((prev) => Math.min(prev + 1, nameOptions.length - 1));
+												} else if (e.key === "ArrowUp") {
+													e.preventDefault();
+													setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+												} else if (e.key === "Enter") {
+													e.preventDefault();
+													if (highlightedIndex >= 0 && nameOptions[highlightedIndex]) {
+														handleNameSelect(nameOptions[highlightedIndex].key);
+														setNameComboboxOpen(false);
+													} else {
+														setNameComboboxOpen(false);
+														phoneInputRef.current?.focus();
+													}
+													setHighlightedIndex(-1);
+												} else if (e.key === "Tab") {
 													setNameComboboxOpen(false);
-													phoneInputRef.current?.focus();
+													setHighlightedIndex(-1);
+												} else if (e.key === "Escape") {
+													setNameComboboxOpen(false);
+													setHighlightedIndex(-1);
 												}
 											}}
 											autoComplete="off"
@@ -308,19 +328,19 @@ const StudentForm: React.FC<StudentFormProps> = ({
 												background: 'hsl(var(--popover))', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
 												maxHeight: 200, overflowY: 'auto',
 											}}>
-												{nameOptions.map((opt) => (
+												{nameOptions.map((opt, idx) => (
 													<button
 														key={opt.key}
 														type="button"
 														style={{
 															width: '100%', padding: '8px 12px', border: 'none',
-															background: 'transparent', cursor: 'pointer', textAlign: 'left',
+															background: idx === highlightedIndex ? 'hsl(var(--accent))' : 'transparent',
+															cursor: 'pointer', textAlign: 'left',
 															fontSize: '0.93rem', display: 'flex', gap: 16, whiteSpace: 'nowrap',
 														}}
 														onMouseDown={(e) => e.preventDefault()}
-														onClick={() => { handleNameSelect(opt.key); setNameComboboxOpen(false); }}
-														onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'hsl(var(--accent))'; }}
-														onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; }}
+														onClick={() => { handleNameSelect(opt.key); setNameComboboxOpen(false); setHighlightedIndex(-1); }}
+														onMouseEnter={() => setHighlightedIndex(idx)}
 													>
 														<span>{opt.value}</span>
 														<span style={{ color: 'hsl(var(--muted-foreground))' }}>{opt.phone}</span>
