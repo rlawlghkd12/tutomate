@@ -46,6 +46,7 @@ async function getDeviceId(): Promise<string> {
 interface AuthStore {
   session: Session | null;
   organizationId: string | null;
+  role: 'owner' | 'member' | null;
   plan: PlanType | null;
   isCloud: boolean;
   loading: boolean;
@@ -64,6 +65,7 @@ interface AuthStore {
 export const useAuthStore = create<AuthStore>((set) => ({
   session: null,
   organizationId: null,
+  role: null,
   plan: null,
   isCloud: false,
   loading: true,
@@ -97,7 +99,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       // 기존 조직 연결 확인
       const { data: orgLink, error: orgLinkError } = await supabase
         .from('user_organizations')
-        .select('organization_id')
+        .select('organization_id, role')
         .eq('user_id', session.user.id)
         .single();
 
@@ -117,6 +119,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         set({
           session,
           organizationId: orgLink.organization_id,
+          role: (orgLink.role as 'owner' | 'member') || 'member',
           plan: (orgData?.plan as PlanType) || PlanTypeEnum.TRIAL,
           isCloud: true,
           loading: false,
@@ -238,6 +241,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       set({
         session,
         organizationId,
+        role: 'owner',
         plan,
         isCloud: true,
         needsSetup: false,
@@ -289,6 +293,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       set({
         session,
         organizationId,
+        role: 'owner',
         plan,
         isCloud: true,
         loading: false,
@@ -326,6 +331,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
     set({
       session: null,
       organizationId: null,
+      role: null,
       plan: null,
       isCloud: false,
       needsSetup: false,
@@ -402,6 +408,7 @@ if (supabase) {
 export const isCloud = (): boolean => useAuthStore.getState().isCloud;
 export const getOrgId = (): string | null => useAuthStore.getState().organizationId;
 export const getPlan = (): PlanType | null => useAuthStore.getState().plan;
+export const isOwner = (): boolean => useAuthStore.getState().role === 'owner';
 
 export function getAuthProvider(): string {
   const user = useAuthStore.getState().session?.user;

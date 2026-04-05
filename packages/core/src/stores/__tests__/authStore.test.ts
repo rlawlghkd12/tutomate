@@ -67,7 +67,7 @@ vi.mock('../../utils/tauri', () => ({
   isElectron: () => false,
 }));
 
-import { useAuthStore, isCloud, getOrgId, getPlan, migrateOrgData, _resetAuthFlags, getAuthProvider, getAuthProviderLabel, getAuthProviderColor } from '../authStore';
+import { useAuthStore, isCloud, getOrgId, getPlan, isOwner, migrateOrgData, _resetAuthFlags, getAuthProvider, getAuthProviderLabel, getAuthProviderColor } from '../authStore';
 
 // onAuthStateChange는 모듈 로드 시 1회 호출됨 — clearAllMocks 전에 캡처
 const authStateCallback = mockOnAuthStateChange.mock.calls[0]?.[0] as
@@ -86,6 +86,7 @@ describe('authStore', () => {
     useAuthStore.setState({
       session: null,
       organizationId: null,
+      role: null,
       plan: null,
       isCloud: false,
       loading: true,
@@ -100,7 +101,7 @@ describe('authStore', () => {
     it('기존 세션 + 기존 org → session restored', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
 
-      const orgLinkBuilder = createQueryBuilder({ organization_id: 'org-abc' });
+      const orgLinkBuilder = createQueryBuilder({ organization_id: 'org-abc', role: 'owner' });
       const orgBuilder = createQueryBuilder({ plan: 'basic' });
       mockFromHandlers['user_organizations'] = orgLinkBuilder;
       mockFromHandlers['organizations'] = orgBuilder;
@@ -111,11 +112,12 @@ describe('authStore', () => {
       expect(state.loading).toBe(false);
       expect(state.isCloud).toBe(true);
       expect(state.organizationId).toBe('org-abc');
+      expect(state.role).toBe('owner');
       expect(state.plan).toBe('basic');
       expect(state.session).toBe(fakeSession);
 
       // 올바른 쿼리 파라미터로 호출됐는지 검증
-      expect(orgLinkBuilder.select).toHaveBeenCalledWith('organization_id');
+      expect(orgLinkBuilder.select).toHaveBeenCalledWith('organization_id, role');
       expect(orgLinkBuilder.eq).toHaveBeenCalledWith('user_id', 'user-123');
       expect(orgBuilder.select).toHaveBeenCalledWith('plan');
       expect(orgBuilder.eq).toHaveBeenCalledWith('id', 'org-abc');
@@ -368,6 +370,38 @@ describe('authStore', () => {
       expect(state.plan).toBe('trial');
 
       useAuthStore.setState({ activateCloud: originalActivateCloud });
+    });
+
+    it('role이 member이면 state에 member 저장', async () => {
+      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
+
+      const orgLinkBuilder = createQueryBuilder({ organization_id: 'org-123', role: 'member' });
+      const orgBuilder = createQueryBuilder({ plan: 'basic' });
+      mockFromHandlers['user_organizations'] = orgLinkBuilder;
+      mockFromHandlers['organizations'] = orgBuilder;
+
+      await useAuthStore.getState().initialize();
+
+      expect(useAuthStore.getState().role).toBe('member');
+    });
+  });
+
+  // ── isOwner ──
+
+  describe('isOwner', () => {
+    it('role=owner이면 true', () => {
+      useAuthStore.setState({ role: 'owner' });
+      expect(isOwner()).toBe(true);
+    });
+
+    it('role=member이면 false', () => {
+      useAuthStore.setState({ role: 'member' });
+      expect(isOwner()).toBe(false);
+    });
+
+    it('role=null이면 false', () => {
+      useAuthStore.setState({ role: null });
+      expect(isOwner()).toBe(false);
     });
   });
 
