@@ -11,9 +11,8 @@ import {
 import { Search } from 'lucide-react';
 import type { Course } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
-import { useEnrollmentStore } from '@tutomate/core';
+import { useEnrollmentStore, isCourseEnded } from '@tutomate/core';
 import { useNavigate } from 'react-router-dom';
-import dayjs from 'dayjs';
 import { cn } from '../../lib/utils';
 import {
   Table,
@@ -87,12 +86,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
     });
   }, [courses, searchText, searchField]);
 
-  const isCourseEnded = useCallback((course: Course): boolean => {
-    if (!course.schedule?.endDate) return false;
-    return course.schedule.endDate < dayjs().format('YYYY-MM-DD');
-  }, []);
-
-  const activeCourses = useMemo(() => filteredCourses.filter(c => !isCourseEnded(c)), [filteredCourses, isCourseEnded]);
+  const activeCourses = useMemo(() => filteredCourses.filter(c => !isCourseEnded(c)), [filteredCourses]);
   const endedCourses = useMemo(() => filteredCourses.filter(c => isCourseEnded(c)), [filteredCourses, isCourseEnded]);
   const displayedCourses = activeTab === 'active' ? activeCourses : endedCourses;
 

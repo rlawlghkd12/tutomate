@@ -12,7 +12,7 @@ import { Search, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Student } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
-import { appConfig, isActiveEnrollment } from '@tutomate/core';
+import { appConfig, isActiveEnrollment, isCourseEnded } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
 import {
@@ -83,7 +83,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
       const studentCourses = studentEnrollments
         .map((enrollment) => {
           const course = courses.find((c) => c.id === enrollment.courseId);
-          return course ? { id: course.id, name: course.name } : null;
+          return course && !isCourseEnded(course) ? { id: course.id, name: course.name } : null;
         })
         .filter((c): c is { id: string; name: string } => c !== null);
 
