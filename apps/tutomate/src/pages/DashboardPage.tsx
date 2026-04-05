@@ -1,4 +1,4 @@
-import { Plus, Loader2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 
