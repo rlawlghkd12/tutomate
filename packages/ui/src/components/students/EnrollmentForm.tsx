@@ -182,7 +182,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 			);
 		}
 
-		toast.success("강좌 신청이 완료되었습니다.");
+		toast.success("수강 신청이 완료되었습니다.");
 
 		form.reset();
 		setSelectedCourseId(null);
@@ -238,8 +238,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 		<Dialog open={visible} onOpenChange={(open) => !open && onClose()}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle style={{ fontSize: '1.29rem', fontWeight: 700, marginBottom: 4 }}>강좌 신청</DialogTitle>
-					<p style={{ fontSize: '1rem', color: 'hsl(var(--muted-foreground))', margin: 0 }}>{student?.name}</p>
+					<DialogTitle style={{ fontSize: '1.29rem', fontWeight: 700, marginBottom: 0 }}>수강 신청 — {student?.name}</DialogTitle>
 				</DialogHeader>
 
 				{/* 스텝 인디케이터 */}
