@@ -24,10 +24,12 @@ export interface Course {
   updatedAt: string;
 }
 
-/** 종료된 강좌 여부 (endDate가 오늘 이전) */
+/** 종료된 강좌 여부 (endDate가 오늘 이전, KST 기준) */
 export const isCourseEnded = (course: Course): boolean => {
   if (!course.schedule?.endDate) return false;
-  return course.schedule.endDate < new Date().toISOString().slice(0, 10);
+  const today = new Date();
+  const kstDate = new Date(today.getTime() + 9 * 60 * 60 * 1000);
+  return course.schedule.endDate < kstDate.toISOString().slice(0, 10);
 };
 
 // 수강생/회원 인터페이스
