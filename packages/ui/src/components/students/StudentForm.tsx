@@ -315,6 +315,13 @@ const StudentForm: React.FC<StudentFormProps> = ({
 														setNameSearch(value);
 														form.setValue("name", value);
 													}}
+													onKeyDown={(e) => {
+														if (e.key === "Enter" || e.key === "Tab") {
+															e.preventDefault();
+															setNameComboboxOpen(false);
+															phoneInputRef.current?.focus();
+														}
+													}}
 												/>
 												<CommandList>
 													{nameOptions.length === 0 && nameSearch.length > 0 && (
