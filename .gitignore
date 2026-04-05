@@ -44,3 +44,13 @@ supabase/.temp/
 
 # Claude Code
 CLAUDE.md
+.claude/
+.superpowers/
+.playwright-mcp/
+
+# Coverage
+**/coverage/
+
+# Misc
+max.txt
+packages/ui/@/
