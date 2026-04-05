@@ -8,7 +8,7 @@ import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
 import { useLicenseStore } from "@tutomate/core";
 import { usePaymentRecordStore } from "@tutomate/core";
-import { appConfig } from "@tutomate/core";
+import { appConfig, isActiveEnrollment } from "@tutomate/core";
 import type { EnrollmentFormData, Student } from "@tutomate/core";
 import { getCurrentQuarter } from "@tutomate/core";
 import {
@@ -107,7 +107,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 
 		// 중복 등록 체크
 		const alreadyEnrolled = enrollments.some(
-			(e) => e.studentId === student.id && e.courseId === values.courseId,
+			(e) => e.studentId === student.id && e.courseId === values.courseId && isActiveEnrollment(e),
 		);
 		if (alreadyEnrolled) {
 			toast.error("이미 등록된 강좌입니다.");
@@ -282,7 +282,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 											const isEnrolled = enrollments.some(
 												(e) =>
 													e.studentId === student?.id &&
-													e.courseId === course.id,
+													e.courseId === course.id &&
+													isActiveEnrollment(e),
 											);
 											const isDisabled = isFull || isEnrolled;
 											const isSelected = field.value === course.id;
