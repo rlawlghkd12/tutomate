@@ -234,38 +234,6 @@ const CourseDetailPage: React.FC = () => {
 				))}
 			</div>
 
-			{/* 분기 선택 + 선택 제거 */}
-			<div className="flex justify-between items-center mb-3">
-				<div>
-					{appConfig.enableQuarterSystem && (
-						<Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-							<SelectTrigger className="w-[180px]">
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								{getQuarterOptions().map((opt) => (
-									<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					)}
-				</div>
-				{selectedRowKeys.length > 0 && (
-					<div className="flex items-center gap-2">
-						<span className="text-[13px] text-muted-foreground">{selectedRowKeys.length}명 선택됨</span>
-						<Button
-							variant="destructive"
-							size="sm"
-							onClick={() => setRemoveStudentsDialogOpen(true)}
-						>
-							선택 제거
-						</Button>
-						<Button variant="outline" size="sm" onClick={() => setSelectedRowKeys([])}>
-							선택 해제
-						</Button>
-					</div>
-				)}
-			</div>
 
 			{/* Remove students dialog */}
 			<AlertDialog open={removeStudentsDialogOpen} onOpenChange={setRemoveStudentsDialogOpen}>
@@ -293,6 +261,18 @@ const CourseDetailPage: React.FC = () => {
 				courseFee={course.fee}
 				enrollments={courseEnrollments}
 				showMemberColumn
+				quarterSelector={appConfig.enableQuarterSystem ? (
+					<Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+						<SelectTrigger className="w-[180px]">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{getQuarterOptions().map((opt) => (
+								<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				) : undefined}
 				onStudentClick={(studentId) => {
 					const student = getStudentById(studentId);
 					if (student) {
@@ -300,6 +280,7 @@ const CourseDetailPage: React.FC = () => {
 						setIsStudentEditVisible(true);
 					}
 				}}
+				onRemoveEnrollments={handleRemoveStudents}
 				rowSelection={{
 					selectedRowKeys,
 					onChange: (keys) => setSelectedRowKeys(keys),

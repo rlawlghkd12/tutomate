@@ -47,6 +47,7 @@ interface PaymentManagementTableProps {
   onStudentClick?: (studentId: string) => void;
   onRemoveEnrollments?: (enrollmentIds: string[]) => void;
   showMemberColumn?: boolean;
+  quarterSelector?: React.ReactNode;
   rowSelection?: {
     selectedRowKeys: React.Key[];
     onChange: (keys: React.Key[]) => void;
@@ -71,6 +72,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   onStudentClick,
   onRemoveEnrollments,
   showMemberColumn,
+  quarterSelector,
   rowSelection,
 }) => {
   const { getStudentById } = useStudentStore();
@@ -497,6 +499,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
     <div>
       {/* 통계 + 전체 완납 */}
       <div className="mb-4 p-3 bg-muted/50 rounded-md flex items-center gap-6">
+        {quarterSelector && <div style={{ flexShrink: 0 }}>{quarterSelector}</div>}
         <div>
           <span className="text-xs text-muted-foreground">완납 인원</span>
           <div className="font-semibold">
