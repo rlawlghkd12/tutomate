@@ -282,11 +282,23 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
-                  style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
+                  style={{
+                    width: header.getSize() !== 150 ? header.getSize() : undefined,
+                    cursor: header.column.getCanSort() ? 'pointer' : undefined,
+                    userSelect: header.column.getCanSort() ? 'none' : undefined,
+                  }}
+                  onClick={header.column.getToggleSortingHandler()}
                 >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())}
+                  {header.isPlaceholder ? null : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.column.getCanSort() && (
+                        <span style={{ fontSize: '0.71rem', opacity: header.column.getIsSorted() ? 1 : 0.3 }}>
+                          {header.column.getIsSorted() === 'asc' ? '▲' : header.column.getIsSorted() === 'desc' ? '▼' : '⇅'}
+                        </span>
+                      )}
+                    </span>
+                  )}
                 </TableHead>
               ))}
             </TableRow>
