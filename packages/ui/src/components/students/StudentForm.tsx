@@ -261,7 +261,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 
 					<div className="space-y-3">
 						{/* 기본 정보 */}
-						<div className={cn("grid gap-3", appConfig.enableMemberFeature ? "grid-cols-[120px_1fr_100px_auto]" : "grid-cols-[120px_1fr_100px]", "items-end")}>
+						<div className={cn("grid gap-3", appConfig.enableMemberFeature ? "grid-cols-[1fr_1fr_100px_auto]" : "grid-cols-[1fr_1fr_100px]", "items-end")}>
 							<div className="space-y-1.5">
 								<Label htmlFor="name">이름</Label>
 								{student ? (
