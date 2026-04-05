@@ -64,6 +64,7 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn("", className)}
+        {...props}
         style={{
           position: 'fixed',
           left: '50%',
@@ -79,8 +80,8 @@ const DialogContent = React.forwardRef<
           boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
           overflow: 'hidden',
           transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          ...props.style,
         }}
-        {...props}
       >
         <div ref={setupRef} data-dialog-wrapper="" style={{ overflow: 'hidden' }}>
           <div style={{ padding: 24 }}>
