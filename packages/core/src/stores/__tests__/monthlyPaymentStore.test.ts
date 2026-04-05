@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../authStore", () => ({
+	isCloud: () => true,
 	getOrgId: () => "test-org-id",
 }));
 
@@ -33,8 +34,17 @@ vi.mock("../../utils/logger", () => ({
 	logDebug: vi.fn(),
 }));
 
+vi.mock("../../utils/errors", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../utils/errors")>();
+	return {
+		...actual,
+		handleError: vi.fn(),
+	};
+});
+
 import type { MonthlyPayment } from "../../types";
 import { useMonthlyPaymentStore } from "../monthlyPaymentStore";
+import { handleError } from "../../utils/errors";
 
 function makePayment(overrides: Partial<MonthlyPayment> = {}): MonthlyPayment {
 	return {
@@ -63,11 +73,12 @@ describe("monthlyPaymentStore", () => {
 				.getState()
 				.addPayment("e1", "2026-03", 200000, "card", "2026-03-01");
 
-			expect(result.enrollmentId).toBe("e1");
-			expect(result.month).toBe("2026-03");
-			expect(result.amount).toBe(200000);
-			expect(result.status).toBe("paid");
-			expect(result.paymentMethod).toBe("card");
+			expect(result).not.toBeNull();
+			expect(result!.enrollmentId).toBe("e1");
+			expect(result!.month).toBe("2026-03");
+			expect(result!.amount).toBe(200000);
+			expect(result!.status).toBe("paid");
+			expect(result!.paymentMethod).toBe("card");
 			expect(useMonthlyPaymentStore.getState().payments).toHaveLength(1);
 		});
 
@@ -76,8 +87,9 @@ describe("monthlyPaymentStore", () => {
 				.getState()
 				.addPayment("e1", "2026-03", 0);
 
-			expect(result.status).toBe("pending");
-			expect(result.paidAt).toBeUndefined();
+			expect(result).not.toBeNull();
+			expect(result!.status).toBe("pending");
+			expect(result!.paidAt).toBeUndefined();
 		});
 
 		it("금액 > 0이고 paidAt 미전달 → 오늘 날짜 자동 설정", async () => {
@@ -85,8 +97,9 @@ describe("monthlyPaymentStore", () => {
 				.getState()
 				.addPayment("e1", "2026-03", 100000);
 
-			expect(result.paidAt).toBeTruthy();
-			expect(result.status).toBe("paid");
+			expect(result).not.toBeNull();
+			expect(result!.paidAt).toBeTruthy();
+			expect(result!.status).toBe("paid");
 		});
 
 		it("메모 포함 추가", async () => {
@@ -94,40 +107,89 @@ describe("monthlyPaymentStore", () => {
 				.getState()
 				.addPayment("e1", "2026-03", 200000, undefined, undefined, "현금 수납");
 
-			expect(result.notes).toBe("현금 수납");
+			expect(result).not.toBeNull();
+			expect(result!.notes).toBe("현금 수납");
+		});
+
+		it("서버 실패 시 null 반환, 로컬 state 변경 없음", async () => {
+			mockInsert.mockResolvedValueOnce({ error: { message: "insert failed" } });
+
+			const result = await useMonthlyPaymentStore
+				.getState()
+				.addPayment("e1", "2026-03", 200000, "card");
+
+			expect(result).toBeNull();
+			expect(useMonthlyPaymentStore.getState().payments).toHaveLength(0);
+			expect(handleError).toHaveBeenCalled();
 		});
 	});
 
 	// ── updatePayment ──
 
 	describe("updatePayment", () => {
-		it("납부 금액 변경", async () => {
+		it("납부 금액 변경 → true 반환", async () => {
 			const payment = makePayment();
 			useMonthlyPaymentStore.setState({ payments: [payment] });
 
-			await useMonthlyPaymentStore
+			const result = await useMonthlyPaymentStore
 				.getState()
 				.updatePayment("p1", { amount: 150000 });
 
+			expect(result).toBe(true);
 			const updated = useMonthlyPaymentStore.getState().payments[0];
 			expect(updated.amount).toBe(150000);
 			expect(updated.enrollmentId).toBe("e1"); // 다른 필드 유지
+		});
+
+		it("서버 실패 시 false 반환, 로컬 state 변경 없음", async () => {
+			const payment = makePayment({ id: "p1", amount: 200000 });
+			useMonthlyPaymentStore.setState({ payments: [payment] });
+
+			mockUpdate.mockReturnValueOnce({
+				eq: vi.fn().mockResolvedValue({ error: { message: "update failed" } }),
+			});
+
+			const result = await useMonthlyPaymentStore
+				.getState()
+				.updatePayment("p1", { amount: 150000 });
+
+			expect(result).toBe(false);
+			expect(useMonthlyPaymentStore.getState().payments[0].amount).toBe(200000);
+			expect(handleError).toHaveBeenCalled();
 		});
 	});
 
 	// ── deletePayment ──
 
 	describe("deletePayment", () => {
-		it("납부 삭제 → state에서 제거", async () => {
+		it("납부 삭제 → state에서 제거, true 반환", async () => {
 			const p1 = makePayment({ id: "p1" });
 			const p2 = makePayment({ id: "p2", month: "2026-04" });
 			useMonthlyPaymentStore.setState({ payments: [p1, p2] });
 
-			await useMonthlyPaymentStore.getState().deletePayment("p1");
+			const result = await useMonthlyPaymentStore.getState().deletePayment("p1");
 
+			expect(result).toBe(true);
 			const payments = useMonthlyPaymentStore.getState().payments;
 			expect(payments).toHaveLength(1);
 			expect(payments[0].id).toBe("p2");
+		});
+
+		it("서버 삭제 실패 시 false 반환, 로컬 state 변경 없음", async () => {
+			const p1 = makePayment({ id: "p-fail" });
+			useMonthlyPaymentStore.setState({ payments: [p1] });
+
+			mockDelete.mockReturnValueOnce({
+				eq: vi.fn().mockResolvedValue({ error: { message: "delete failed" } }),
+			});
+
+			const result = await useMonthlyPaymentStore
+				.getState()
+				.deletePayment("p-fail");
+
+			expect(result).toBe(false);
+			expect(useMonthlyPaymentStore.getState().payments).toHaveLength(1);
+			expect(handleError).toHaveBeenCalled();
 		});
 	});
 
@@ -214,10 +276,11 @@ describe("monthlyPaymentStore", () => {
 				payments: [makePayment()],
 			});
 
-			await useMonthlyPaymentStore
+			const result = await useMonthlyPaymentStore
 				.getState()
 				.updatePayment("p999", { amount: 100000 });
 
+			expect(result).toBe(true);
 			expect(useMonthlyPaymentStore.getState().payments).toHaveLength(1);
 			expect(useMonthlyPaymentStore.getState().payments[0].amount).toBe(200000);
 		});
@@ -237,5 +300,67 @@ describe("monthlyPaymentStore", () => {
 				.getPaymentsByMonth("2026-03");
 			expect(result).toHaveLength(2);
 		});
+	});
+
+	// ── loadPayments ──
+
+	describe("loadPayments", () => {
+		it("빈 state에서 빈 배열 유지", async () => {
+			await useMonthlyPaymentStore.getState().loadPayments();
+			expect(useMonthlyPaymentStore.getState().payments).toEqual([]);
+		});
+
+		it("서버 에러 시 기존 payments 유지, handleError 호출", async () => {
+			const existing = [makePayment({ id: "existing" })];
+			useMonthlyPaymentStore.setState({ payments: existing });
+
+			useMonthlyPaymentStore.getState().invalidate();
+
+			mockSelect.mockReturnValueOnce({
+				data: null,
+				error: { message: "fail" },
+			});
+
+			await useMonthlyPaymentStore.getState().loadPayments();
+
+			expect(useMonthlyPaymentStore.getState().payments).toEqual(existing);
+			expect(handleError).toHaveBeenCalled();
+		});
+
+		it("서버 성공 시 payments 갱신", async () => {
+			useMonthlyPaymentStore.getState().invalidate();
+
+			mockSelect.mockReturnValueOnce({
+				data: [
+					{
+						id: "p-loaded",
+						organization_id: "org1",
+						enrollment_id: "e1",
+						month: "2026-03",
+						amount: 200000,
+						status: "paid",
+						paid_at: "2026-03-01",
+						payment_method: "card",
+						notes: null,
+						created_at: "2026-03-01T00:00:00Z",
+					},
+				],
+				error: null,
+			});
+
+			await useMonthlyPaymentStore.getState().loadPayments();
+
+			const payments = useMonthlyPaymentStore.getState().payments;
+			expect(payments).toHaveLength(1);
+			expect(payments[0].id).toBe("p-loaded");
+		});
+	});
+
+	// ── invalidate ──
+
+	it("invalidate — 호출 시 에러 없음", () => {
+		expect(
+			() => useMonthlyPaymentStore.getState().invalidate(),
+		).not.toThrow();
 	});
 });
