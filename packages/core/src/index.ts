@@ -137,6 +137,8 @@ export {
   supabaseBulkInsert,
 } from './utils/supabaseStorage';
 
+export { reportError } from './utils/errorReporter';
+
 export { isElectron, isTauri } from './utils/tauri';
 
 export {
