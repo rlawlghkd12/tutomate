@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Notification } from '../types';
 import { nanoid } from 'nanoid';
+import { logError } from '../utils/logger';
 
 interface NotificationStore {
   notifications: Notification[];
@@ -27,7 +28,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         set({ notifications });
       }
     } catch (error) {
-      console.error('Failed to load notifications:', error);
+      logError('Failed to load notifications', { error });
     }
   },
 
@@ -36,7 +37,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       const { notifications } = get();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications));
     } catch (error) {
-      console.error('Failed to save notifications:', error);
+      logError('Failed to save notifications', { error });
     }
   },
 
