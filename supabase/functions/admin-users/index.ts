@@ -259,6 +259,80 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 대시보드 통합 (orgs + licenses + users 한번에)
+    if (action === 'dashboard') {
+      const [
+        { data: organizations },
+        { data: licenses },
+        usersResult,
+      ] = await Promise.all([
+        adminClient.from('organizations').select('id, name, license_key, plan, max_seats, created_at').order('created_at', { ascending: false }),
+        adminClient.from('license_keys').select('key_hash, key, plan, memo, assigned_email, created_at').order('created_at', { ascending: false }),
+        adminClient.auth.admin.listUsers({ page: 1, perPage: 50 }),
+      ]);
+
+      // org 통계
+      const orgIds = (organizations || []).map((o: any) => o.id);
+      const [{ data: memberRows }, { data: courseRows }, { data: studentRows }, { data: enrollmentRows }] = orgIds.length > 0
+        ? await Promise.all([
+            adminClient.from('user_organizations').select('organization_id').in('organization_id', orgIds),
+            adminClient.from('courses').select('organization_id').in('organization_id', orgIds),
+            adminClient.from('students').select('organization_id').in('organization_id', orgIds),
+            adminClient.from('enrollments').select('organization_id').in('organization_id', orgIds),
+          ])
+        : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
+
+      const countByOrg = (rows: any[] | null) => {
+        const map: Record<string, number> = {};
+        (rows || []).forEach((r: any) => { map[r.organization_id] = (map[r.organization_id] || 0) + 1; });
+        return map;
+      };
+      const memberMap = countByOrg(memberRows);
+      const courseMap = countByOrg(courseRows);
+      const studentMap = countByOrg(studentRows);
+      const enrollmentMap = countByOrg(enrollmentRows);
+
+      const orgs = (organizations || []).map((org: any) => ({
+        ...org,
+        member_count: memberMap[org.id] || 0,
+        course_count: courseMap[org.id] || 0,
+        student_count: studentMap[org.id] || 0,
+        enrollment_count: enrollmentMap[org.id] || 0,
+      }));
+
+      // license 통계
+      const { data: usedOrgs } = await adminClient.from('organizations').select('license_key, name').not('license_key', 'is', null);
+      const usedMap = new Map((usedOrgs || []).map((o: any) => [o.license_key, o.name]));
+      const enrichedLicenses = (licenses || []).map((l: any) => ({
+        ...l, used: usedMap.has(l.key), used_by: usedMap.get(l.key) || null,
+      }));
+
+      // users 통계
+      const userIds = (usersResult.data?.users || []).map((u: any) => u.id);
+      const { data: userOrgLinks } = userIds.length > 0
+        ? await adminClient.from('user_organizations').select('user_id, organization_id').in('user_id', userIds)
+        : { data: [] };
+      const linkMap = new Map((userOrgLinks || []).map((l: any) => [l.user_id, l.organization_id]));
+      const orgMap = new Map((organizations || []).map((o: any) => [o.id, o]));
+
+      const users = (usersResult.data?.users || []).map((u: any) => {
+        const orgId = linkMap.get(u.id);
+        const orgInfo = orgId ? orgMap.get(orgId) : null;
+        return {
+          id: u.id, email: u.email,
+          provider: u.user_metadata?.auth_provider || u.app_metadata?.provider || 'unknown',
+          created_at: u.created_at, last_sign_in_at: u.last_sign_in_at,
+          organization: orgInfo ? { id: orgInfo.id, name: orgInfo.name, plan: orgInfo.plan } : null,
+          course_count: orgId ? (courseMap[orgId] || 0) : 0,
+          student_count: orgId ? (studentMap[orgId] || 0) : 0,
+        };
+      });
+
+      return new Response(JSON.stringify({ organizations: orgs, licenses: enrichedLicenses, users, total_users: users.length }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     return new Response(JSON.stringify({ error: 'unknown_action' }), { status: 400, headers: corsHeaders });
   } catch (error) {
     return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: corsHeaders });
