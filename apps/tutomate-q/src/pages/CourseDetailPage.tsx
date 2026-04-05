@@ -93,6 +93,7 @@ const CourseDetailPage: React.FC = () => {
 			await withdrawEnrollment(id);
 		}
 		setSelectedRowKeys([]);
+		await loadEnrollments();
 		toast.success(`${enrollmentIds.length}명의 수강이 철회되었습니다.`);
 	};
 
@@ -391,6 +392,7 @@ const CourseDetailPage: React.FC = () => {
 					setSelectedStudent(null);
 				}}
 				student={selectedStudent}
+				hideDelete
 			/>
 
 			<CourseForm
