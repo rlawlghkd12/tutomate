@@ -333,6 +333,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 디버그: 모든 강좌의 schedule 데이터 확인
+    if (action === 'debug-courses') {
+      const { data: allCourses } = await adminClient.from('courses').select('id, name, organization_id, schedule');
+      return new Response(JSON.stringify({ courses: allCourses }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     return new Response(JSON.stringify({ error: 'unknown_action' }), { status: 400, headers: corsHeaders });
   } catch (error) {
     return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: corsHeaders });
