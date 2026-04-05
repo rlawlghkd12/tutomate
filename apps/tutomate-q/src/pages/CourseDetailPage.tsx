@@ -39,7 +39,7 @@ const CourseDetailPage: React.FC = () => {
 	const { getCourseById, loadCourses, deleteCourse } = useCourseStore();
 	const { getEnrollmentCountByCourseId } = useEnrollmentStore();
 	const { loadStudents, getStudentById } = useStudentStore();
-	const { enrollments, loadEnrollments, deleteEnrollment } =
+	const { enrollments, loadEnrollments, withdrawEnrollment } =
 		useEnrollmentStore();
 	const { loadRecords } = usePaymentRecordStore();
 
@@ -90,10 +90,10 @@ const CourseDetailPage: React.FC = () => {
 
 	const handleRemoveStudents = async (enrollmentIds: string[]) => {
 		for (const id of enrollmentIds) {
-			await deleteEnrollment(id);
+			await withdrawEnrollment(id);
 		}
 		setSelectedRowKeys([]);
-		toast.success(`${enrollmentIds.length}명의 수강생이 제거되었습니다.`);
+		toast.success(`${enrollmentIds.length}명의 수강이 철회되었습니다.`);
 	};
 
 	const handleExport = (type: "excel" | "csv") => {
