@@ -289,7 +289,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
             style={{ paddingLeft: 34 }}
           />
         </div>
-        {actions && <div style={{ flex: 1, textAlign: 'right' }}>{actions}</div>}
+        {actions && <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', gap: 8 }}>{actions}</div>}
       </div>
 
       <Table>
