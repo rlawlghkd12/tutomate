@@ -315,9 +315,12 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       id: 'member',
       header: '회원',
       size: 60,
+      enableSorting: true,
+      accessorFn: (row: TableDataRow) => row.student?.isMember ? 1 : 0,
+      sortingFn: 'basic' as const,
       cell: ({ row }: { row: any }) => {
         const m = row.original.student?.isMember;
-        return m ? <Badge variant="info">회원</Badge> : <span className="text-muted-foreground">-</span>;
+        return m ? <Badge variant="info">회원</Badge> : null;
       },
     } as ColumnDef<TableDataRow>] : []),
     {
