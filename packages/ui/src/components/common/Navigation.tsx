@@ -32,8 +32,8 @@ const navItemBase: React.CSSProperties = {
 
 const navItemActive: React.CSSProperties = {
   ...navItemBase,
-  background: 'hsl(var(--accent))',
-  color: 'hsl(var(--foreground))',
+  background: 'hsl(var(--primary) / 0.1)',
+  color: 'hsl(var(--primary))',
   fontWeight: 600,
 };
 
