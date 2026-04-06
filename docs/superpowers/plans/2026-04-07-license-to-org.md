@@ -1021,13 +1021,72 @@ git commit -m "refactor: App.tsx 라이선스 온보딩 다이얼로그 삭제"
 
 ---
 
-### Task 7: SettingsPage 계정 섹션 전환
+### Task 7: Layout.tsx 사이드바 조직 전환 + SettingsPage 정리
 
 **Files:**
+- Modify: `packages/ui/src/components/common/Layout.tsx`
 - Modify: `apps/tutomate/src/pages/SettingsPage.tsx`
 - Modify: `apps/tutomate-q/src/pages/SettingsPage.tsx`
 
-- [ ] **Step 1: tutomate SettingsPage 정리**
+- [ ] **Step 1: Layout.tsx — useLicenseStore → useAuthStore 전환 + 조직 전환 드롭다운**
+
+Layout.tsx 변경:
+- `useLicenseStore` import 제거 → `useAuthStore` 사용
+- `getPlan()` → `useAuthStore.plan`
+- 사이드바 상단의 조직명 영역을 드롭다운(Popover)으로 변경
+- 소속 조직 목록 표시 (`list-my-organizations` 호출)
+- 조직 클릭 시 `switchOrganization()` + `reloadAllStores()` 호출
+- 활성 조직에 체크 표시
+- 플랜 배지 (trial/basic) 유지
+
+```tsx
+// Layout.tsx 사이드바 상단 — 조직 전환 드롭다운
+import { useAuthStore, supabase, reloadAllStores } from '@tutomate/core';
+import { ChevronDown, Check } from 'lucide-react';
+
+// 조직 목록 상태
+const [orgs, setOrgs] = useState<{ id: string; name: string; plan: string; role: string; isActive: boolean }[]>([]);
+const [orgMenuOpen, setOrgMenuOpen] = useState(false);
+const plan = useAuthStore((s) => s.plan) || 'trial';
+const switchOrganization = useAuthStore((s) => s.switchOrganization);
+
+// 조직 목록 로드
+useEffect(() => {
+  if (!supabase) return;
+  supabase.functions.invoke('list-my-organizations').then(({ data }) => {
+    if (data?.organizations) setOrgs(data.organizations);
+  });
+}, []);
+
+// 사이드바 상단 렌더링
+<div onClick={() => orgs.length > 1 && setOrgMenuOpen(!orgMenuOpen)} style={{ cursor: orgs.length > 1 ? 'pointer' : 'default' }}>
+  <img src="./app-icon.png" ... />
+  <span>{activeOrg?.name || organizationName || 'TutorMate'}</span>
+  {plan === 'trial' && <Badge>체험판</Badge>}
+  {orgs.length > 1 && <ChevronDown size={14} />}
+</div>
+
+// 드롭다운 메뉴
+{orgMenuOpen && (
+  <div style={{ position: 'absolute', ... }}>
+    {orgs.map(org => (
+      <button key={org.id} onClick={async () => {
+        if (!org.isActive) {
+          await switchOrganization(org.id);
+          await reloadAllStores();
+        }
+        setOrgMenuOpen(false);
+      }}>
+        {org.isActive && <Check size={14} />}
+        {org.name}
+        <Badge>{org.plan}</Badge>
+      </button>
+    ))}
+  </div>
+)}
+```
+
+- [ ] **Step 2: SettingsPage 라이선스 코드 삭제**
 
 라이선스 관련 코드 삭제:
 - `useLicenseStore` import 및 모든 참조 (`getPlan`, `activateLicense`, `licenseKey`)
@@ -1038,21 +1097,21 @@ git commit -m "refactor: App.tsx 라이선스 온보딩 다이얼로그 삭제"
 
 대체 UI (계정 섹션):
 - 현재 플랜 배지 (`useAuthStore.plan`)
-- 초대 코드 입력 (Input + Button → `joinOrganization()` 호출)
-- 조직 전환 (소속 조직 목록 → `switchOrganization()` + `reloadAllStores()`)
+- 초대 코드 입력 (Input + Button → `joinOrganization()` 호출 + `reloadAllStores()`)
 - 로그아웃 (`signOut()`)
 
 `getPlan()` 호출은 `useAuthStore.plan || 'trial'`로 대체.
+조직 전환 UI는 Layout.tsx 사이드바로 이동했으므로 SettingsPage에서 제거.
 
-- [ ] **Step 2: tutomate-q SettingsPage 동일 정리**
+- [ ] **Step 3: tutomate-q SettingsPage 동일 정리**
 
-- [ ] **Step 3: TypeScript 빌드 + 테스트 확인**
+- [ ] **Step 4: TypeScript 빌드 + 테스트 확인**
 
-- [ ] **Step 4: 커밋**
+- [ ] **Step 5: 커밋**
 
 ```bash
-git add apps/tutomate/src/pages/SettingsPage.tsx apps/tutomate-q/src/pages/SettingsPage.tsx
-git commit -m "refactor: SettingsPage 라이선스 → 계정 섹션 전환"
+git add packages/ui/src/components/common/Layout.tsx apps/tutomate/src/pages/SettingsPage.tsx apps/tutomate-q/src/pages/SettingsPage.tsx
+git commit -m "refactor: 사이드바 조직 전환 + SettingsPage 라이선스 제거"
 ```
 
 ---
