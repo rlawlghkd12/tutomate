@@ -55,7 +55,7 @@ function AdminLayout() {
             size="sm"
             className="w-full"
             onClick={async () => {
-              await useAuthStore.getState().deactivateCloud();
+              await useAuthStore.getState().signOut();
             }}
           >
             <LogOut className="mr-1 h-3.5 w-3.5" />

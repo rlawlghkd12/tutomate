@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import type { Course, CourseFormData } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
-import { useLicenseStore } from '@tutomate/core';
+import { useAuthStore, PLAN_LIMITS } from '@tutomate/core';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -61,7 +61,7 @@ const formatPhone = (value: string) => {
 
 const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course }) => {
   const { addCourse, updateCourse, courses } = useCourseStore();
-  const { getPlan, getLimit } = useLicenseStore();
+  const plan = useAuthStore((s) => s.plan) || 'trial';
   const [step, setStep] = useState<1 | 2>(1);
 
 	const [submitting, setSubmitting] = useState(false);
@@ -156,10 +156,10 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
         await updateCourse(course.id, courseData);
         toast.success('강좌가 수정되었습니다.');
       } else {
-        if (getPlan() === 'trial') {
-          const maxCourses = getLimit('maxCourses');
+        if (plan === 'trial') {
+          const maxCourses = PLAN_LIMITS.trial.maxCourses;
           if (courses.length >= maxCourses) {
-            toast.warning(`체험판은 최대 ${maxCourses}개 강좌까지 생성 가능합니다. 설정에서 라이선스를 활성화하세요.`);
+            toast.warning(`체험판은 최대 ${maxCourses}개 강좌까지 생성 가능합니다.`);
             return;
           }
         }

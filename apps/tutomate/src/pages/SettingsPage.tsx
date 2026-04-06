@@ -23,7 +23,6 @@ import {
   reloadAllStores,
   getAuthProviderLabel,
   getAuthProviderColor,
-  appConfig,
 } from '@tutomate/core';
 import type { FontSize } from '@tutomate/core';
 import { AdminTab } from '@tutomate/ui';

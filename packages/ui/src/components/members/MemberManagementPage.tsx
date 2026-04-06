@@ -158,7 +158,7 @@ export function MemberManagementPage() {
           </Button>
           <span style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))' }}>7일간 유효</span>
         </div>
-      )
+      )}
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
