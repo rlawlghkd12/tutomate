@@ -27,8 +27,6 @@ export { useEnrollmentStore } from './stores/enrollmentStore';
 export { useMonthlyPaymentStore } from './stores/monthlyPaymentStore';
 export { usePaymentRecordStore } from './stores/paymentRecordStore';
 export { reloadAllStores } from './stores/reloadStores';
-export { useLicenseStore } from './stores/licenseStore';
-export type { ActivateResult } from './stores/licenseStore';
 export { useLockStore } from './stores/lockStore';
 export { useNotificationStore } from './stores/notificationStore';
 

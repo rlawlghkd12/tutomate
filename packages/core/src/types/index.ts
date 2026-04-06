@@ -138,17 +138,11 @@ export interface PaymentRecord {
   createdAt: string;
 }
 
-// 라이선스 인터페이스
-export interface LicenseInfo {
-  licenseKey: string;
-  activatedAt: string;
-}
-
 // 조직 인터페이스 (Supabase)
 export interface Organization {
   id: string;
   name: string;
-  licenseKey: string;
+  licenseKey?: string;
   plan: string;
   maxSeats: number;
   createdAt: string;
