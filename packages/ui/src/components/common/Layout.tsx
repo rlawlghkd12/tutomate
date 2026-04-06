@@ -1,8 +1,8 @@
-import { Wifi, X, Search } from 'lucide-react';
+import { Wifi, X, Search, ChevronDown, Check } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useLicenseStore } from '@tutomate/core';
+import { useAuthStore, supabase, reloadAllStores } from '@tutomate/core';
 import { useSettingsStore } from '@tutomate/core';
 import { NotificationCenter } from '../notification/NotificationCenter';
 import { GlobalSearch, useGlobalSearch } from '../search/GlobalSearch';
@@ -11,6 +11,11 @@ import { Button } from '../ui/button';
 
 interface LayoutProps {
 	children: React.ReactNode;
+}
+
+interface OrgItem {
+	id: string;
+	name: string;
 }
 
 const PAGE_TITLES: Record<string, string> = {
@@ -28,12 +33,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 	const [offline, setOffline] = useState(!navigator.onLine);
 	const [offlineDismissed, setOfflineDismissed] = useState(false);
 	const organizationName = useSettingsStore((s) => s.organizationName);
-	const getPlan = useLicenseStore((s) => s.getPlan);
-	const plan = getPlan();
+	const plan = useAuthStore((s) => s.plan) || 'trial';
 	const isTrial = plan === 'trial';
 	const location = useLocation();
 	const navigate = useNavigate();
 	const { visible: searchVisible, open: openSearch, close: closeSearch } = useGlobalSearch();
+
+	const [orgs, setOrgs] = useState<OrgItem[]>([]);
+	const [orgMenuOpen, setOrgMenuOpen] = useState(false);
+	const orgMenuRef = useRef<HTMLDivElement>(null);
+	const currentOrgId = useAuthStore((s) => s.organizationId);
 
 	useEffect(() => {
 		const goOffline = () => { setOffline(true); setOfflineDismissed(false); };
@@ -42,6 +51,38 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 		window.addEventListener('online', goOnline);
 		return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline); };
 	}, []);
+
+	// Load org list
+	useEffect(() => {
+		if (!supabase) return;
+		supabase.functions.invoke('list-my-organizations').then(({ data }) => {
+			if (Array.isArray(data)) {
+				setOrgs(data as OrgItem[]);
+			}
+		}).catch(() => {});
+	}, []);
+
+	// Close org menu on outside click
+	useEffect(() => {
+		if (!orgMenuOpen) return;
+		const handler = (e: MouseEvent) => {
+			if (orgMenuRef.current && !orgMenuRef.current.contains(e.target as Node)) {
+				setOrgMenuOpen(false);
+			}
+		};
+		document.addEventListener('mousedown', handler);
+		return () => document.removeEventListener('mousedown', handler);
+	}, [orgMenuOpen]);
+
+	const handleSwitchOrg = async (orgId: string) => {
+		try {
+			await useAuthStore.getState().switchOrganization(orgId);
+			await reloadAllStores();
+			setOrgMenuOpen(false);
+		} catch {
+			// error handled in store
+		}
+	};
 
 	const pageTitle = useMemo(() => {
 		const path = location.pathname;
@@ -75,18 +116,31 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 						WebkitAppRegion: 'drag',
 					} as React.CSSProperties}
 				>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 8, WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+					<div ref={orgMenuRef} style={{ display: 'flex', alignItems: 'center', gap: 8, WebkitAppRegion: 'no-drag', position: 'relative' } as React.CSSProperties}>
 						<img
 							src="./app-icon.png"
 							alt=""
 							style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }}
 						/>
-						<span style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}>
+						<span
+							style={{
+								fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))',
+								cursor: orgs.length > 1 ? 'pointer' : 'default',
+								display: 'flex', alignItems: 'center', gap: 2,
+							}}
+							onClick={() => { if (orgs.length > 1) setOrgMenuOpen(!orgMenuOpen); }}
+							role={orgs.length > 1 ? 'button' : undefined}
+							tabIndex={orgs.length > 1 ? 0 : undefined}
+							onKeyDown={(e) => { if (orgs.length > 1 && e.key === 'Enter') setOrgMenuOpen(!orgMenuOpen); }}
+						>
 							{organizationName || 'TutorMate'}
+							{orgs.length > 1 && (
+								<ChevronDown style={{ width: 14, height: 14, opacity: 0.6 }} />
+							)}
 						</span>
 						{isTrial && (
 							<span
-								onClick={() => navigate('/settings?tab=license')}
+								onClick={() => navigate('/settings')}
 								style={{
 									fontSize: '0.71rem', fontWeight: 600,
 									color: 'hsl(var(--warning))', background: 'hsl(var(--warning) / 0.1)',
@@ -95,10 +149,61 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 								}}
 								role="button"
 								tabIndex={0}
-								onKeyDown={(e) => { if (e.key === 'Enter') navigate('/settings?tab=license'); }}
+								onKeyDown={(e) => { if (e.key === 'Enter') navigate('/settings'); }}
 							>
 								체험판
 							</span>
+						)}
+
+						{/* Org switcher dropdown */}
+						{orgMenuOpen && orgs.length > 1 && (
+							<div
+								style={{
+									position: 'absolute',
+									top: '100%',
+									left: 0,
+									marginTop: 4,
+									minWidth: 180,
+									background: 'hsl(var(--background))',
+									border: '1px solid hsl(var(--border))',
+									borderRadius: 8,
+									boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+									zIndex: 50,
+									padding: 4,
+								}}
+							>
+								{orgs.map((org) => (
+									<div
+										key={org.id}
+										onClick={() => handleSwitchOrg(org.id)}
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 8,
+											padding: '8px 12px',
+											borderRadius: 6,
+											cursor: 'pointer',
+											fontSize: '0.93rem',
+											fontWeight: org.id === currentOrgId ? 600 : 400,
+											background: org.id === currentOrgId ? 'hsl(var(--muted))' : 'transparent',
+										}}
+										onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'hsl(var(--muted))'; }}
+										onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = org.id === currentOrgId ? 'hsl(var(--muted))' : 'transparent'; }}
+										role="button"
+										tabIndex={0}
+										onKeyDown={(e) => { if (e.key === 'Enter') handleSwitchOrg(org.id); }}
+									>
+										{org.id === currentOrgId ? (
+											<Check style={{ width: 14, height: 14, flexShrink: 0 }} />
+										) : (
+											<span style={{ width: 14, flexShrink: 0 }} />
+										)}
+										<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+											{org.name || '이름 없음'}
+										</span>
+									</div>
+								))}
+							</div>
 						)}
 					</div>
 				</div>
