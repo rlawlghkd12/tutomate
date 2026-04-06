@@ -26,6 +26,9 @@ ALTER TABLE user_organizations ADD PRIMARY KEY (user_id, organization_id);
 
 -- 활성 조직 표시 (한 유저당 1개만 active)
 ALTER TABLE user_organizations ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT true;
+
+-- 유저당 active 조직 1개만 허용 (데이터 무결성)
+CREATE UNIQUE INDEX idx_user_active_org ON user_organizations (user_id) WHERE is_active = true;
 ```
 
 #### 1-2. `get_user_org_id()` 함수 수정
@@ -184,6 +187,8 @@ needsSetup 분기 완전 제거. 자동 복구 로직(라이선스 키 재활성
 - 플랜 조회 → authStore에서 직접
 - 플랜 리밋 → `planLimits.ts` 그대로 유지, authStore.plan으로 조회
 
+`reloadAllStores()` 함수는 현재 licenseStore에 있지만 여러 곳에서 사용 중 — `packages/core/src/stores/licenseStore.ts`에서 독립 유틸로 분리하여 `packages/core/src/stores/reloadStores.ts`로 이동. 기존 export 경로 유지.
+
 `licenseStore` import/export 모두 제거. `PLAN_LIMITS`와 `PlanTypeEnum`은 `planLimits.ts`에서 직접 사용.
 
 ### 5. UI 변경
@@ -217,6 +222,15 @@ needsSetup 분기 완전 제거. 자동 복구 로직(라이선스 키 재활성
 
 - `LicenseKeyInput.tsx` → 삭제
 - `AdminTab.tsx` 내 라이선스 생성 UI → 삭제 or 초대 코드 생성으로 전환
+- 데이터 마이그레이션 다이얼로그 (App.tsx) → 삭제 (초대 코드 가입은 다른 조직의 member로 들어가는 것이므로 데이터 이전 의미 없음)
+
+#### 5-6. device_id 처리
+
+`user_organizations.device_id` 컬럼은 OAuth 전환 후 불필요. 신규 Edge Function에서 무시. 기존 컬럼은 nullable로 유지, 추후 마이그레이션으로 정리.
+
+#### 5-7. max_seats 유지
+
+`organizations.max_seats` 유지 — 조직당 멤버 수 제한 용도. `auto-create-org`에서 기본값 5 설정. `join-organization`에서 max_seats 초과 시 `max_seats_reached` 에러 반환.
 
 ### 6. Admin 앱 영향
 
