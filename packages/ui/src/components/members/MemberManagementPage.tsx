@@ -7,7 +7,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
 } from '../ui/alert-dialog';
 import { supabase, useAuthStore } from '@tutomate/core';
-import { Users, Trash2, Loader2, RefreshCw } from 'lucide-react';
+import { Input } from '../ui/input';
+import { Users, Trash2, Loader2, RefreshCw, Plus, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Member {
@@ -28,6 +29,8 @@ export function MemberManagementPage() {
   const [loading, setLoading] = useState(true);
   const [removeTarget, setRemoveTarget] = useState<Member | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
+  const [creatingInvite, setCreatingInvite] = useState(false);
   const currentUserId = useAuthStore((s) => s.session?.user?.id);
 
   const loadMembers = useCallback(async () => {
@@ -85,6 +88,26 @@ export function MemberManagementPage() {
     }
   };
 
+  const handleCreateInvite = async () => {
+    if (!supabase) return;
+    setCreatingInvite(true);
+    try {
+      const { data: result, error } = await supabase.functions.invoke('create-invite', {
+        body: { expires_in_days: 7, max_uses: 0 },
+      });
+      if (error || result?.error) {
+        toast.error('초대 코드 생성에 실패했습니다.');
+        return;
+      }
+      setInviteCode(result.code as string);
+      toast.success('초대 코드가 생성되었습니다.');
+    } catch {
+      toast.error('초대 코드 생성에 실패했습니다.');
+    } finally {
+      setCreatingInvite(false);
+    }
+  };
+
   return (
     <div className="page-enter" style={{ padding: '2rem', maxWidth: 800 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
@@ -97,11 +120,45 @@ export function MemberManagementPage() {
             </Badge>
           )}
         </div>
-        <Button variant="outline" size="sm" onClick={loadMembers} disabled={loading}>
-          <RefreshCw style={{ width: 16, height: 16, marginRight: 4 }} />
-          새로고침
-        </Button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Button variant="outline" size="sm" onClick={handleCreateInvite} disabled={creatingInvite}>
+            {creatingInvite ? <Loader2 style={{ width: 16, height: 16, marginRight: 4, animation: 'spin 1s linear infinite' }} /> : <Plus style={{ width: 16, height: 16, marginRight: 4 }} />}
+            초대 코드 생성
+          </Button>
+          <Button variant="outline" size="sm" onClick={loadMembers} disabled={loading}>
+            <RefreshCw style={{ width: 16, height: 16, marginRight: 4 }} />
+            새로고침
+          </Button>
+        </div>
       </div>
+
+      {inviteCode && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '12px 16px', marginBottom: '1rem',
+          background: 'hsl(var(--muted))', borderRadius: 8,
+          border: '1px solid hsl(var(--border))',
+        }}>
+          <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>초대 코드:</span>
+          <Input
+            value={inviteCode}
+            readOnly
+            className="w-[240px] font-mono text-center"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              navigator.clipboard.writeText(inviteCode);
+              toast.success('초대 코드가 복사되었습니다.');
+            }}
+          >
+            <Copy style={{ width: 14, height: 14, marginRight: 4 }} />
+            복사
+          </Button>
+          <span style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))' }}>7일간 유효</span>
+        </div>
+      )
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
