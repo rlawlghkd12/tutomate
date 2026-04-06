@@ -4,7 +4,6 @@ import type { Session } from '@supabase/supabase-js';
 import { PlanTypeEnum } from '../config/planLimits';
 import type { PlanType } from '../config/planLimits';
 import { supabase } from '../config/supabase';
-import { appConfig } from '../config/appConfig';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { isElectron } from '../utils/tauri';
 import type { OAuthProvider } from '../lib/oauth';
@@ -19,30 +18,6 @@ export function _resetAuthFlags() {
   _initialized = false;
 }
 
-async function getDeviceId(): Promise<string> {
-  let machineId: string;
-
-  if (isElectron()) {
-    machineId = await window.electronAPI.getMachineId();
-  } else {
-    const stored = localStorage.getItem(appConfig.deviceIdKey);
-    if (stored) {
-      machineId = stored;
-    } else {
-      machineId = crypto.randomUUID();
-      localStorage.setItem(appConfig.deviceIdKey, machineId);
-    }
-  }
-
-  machineId = machineId.toUpperCase();
-  const raw = `${appConfig.deviceIdKey}:${machineId}`;
-  const encoder = new TextEncoder();
-  const data = encoder.encode(raw);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
 interface AuthStore {
   session: Session | null;
   organizationId: string | null;
@@ -50,14 +25,10 @@ interface AuthStore {
   plan: PlanType | null;
   isCloud: boolean;
   loading: boolean;
-  needsSetup: boolean; // 로그인됐지만 org 없음 → 라이선스/체험판 화면
   initialize: () => Promise<void>;
-  activateCloud: (licenseKey: string) => Promise<
-    | { status: 'success'; isNewOrg: boolean; orgChanged: boolean; previousOrgId: string | null }
-    | { status: 'invalid_key' | 'max_seats_reached' | 'error' }
-  >;
-  startTrial: () => Promise<void>;
-  deactivateCloud: () => Promise<void>;
+  joinOrganization: (code: string) => Promise<void>;
+  switchOrganization: (orgId: string) => Promise<void>;
+  signOut: () => Promise<void>;
   signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
   handleOAuthCallback: (callbackUrl: string) => Promise<void>;
 }
@@ -69,12 +40,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
   plan: null,
   isCloud: false,
   loading: true,
-  needsSetup: false,
 
   initialize: async () => {
     if (_initializing || _initialized) return;
     _initializing = true;
-    set({ loading: true, needsSetup: false });
+    set({ loading: true });
 
     if (!supabase) {
       logWarn('Supabase not configured, running in local-only mode');
@@ -96,11 +66,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
         return;
       }
 
-      // 기존 조직 연결 확인
+      // 기존 조직 연결 확인 (활성 조직만)
       const { data: orgLink, error: orgLinkError } = await supabase
         .from('user_organizations')
         .select('organization_id, role')
         .eq('user_id', session.user.id)
+        .eq('is_active', true)
         .single();
 
       if (orgLinkError && orgLinkError.code !== 'PGRST116') {
@@ -127,49 +98,33 @@ export const useAuthStore = create<AuthStore>((set) => ({
         _initialized = true;
         logInfo('Cloud session restored', { data: { orgId: orgLink.organization_id, plan: orgData?.plan } });
       } else {
-        // 로그인됐지만 org 없음 → 저장된 라이선스 키로 자동 복구 시도
-        const stored = localStorage.getItem('app-license');
-        if (stored) {
-          try {
-            const { licenseKey } = JSON.parse(stored) as { licenseKey: string };
-            if (licenseKey && /^TMK[HA]-/.test(licenseKey)) {
-              logInfo('Auto-reactivating stored license for logged-in user');
-              const result = await useAuthStore.getState().activateCloud(licenseKey);
-              if (result.status === 'success') {
-                logInfo('Auto-reactivation succeeded');
-                return; // activateCloud에서 state 설정 완료
-              }
-              if (result.status === 'invalid_key') {
-                logWarn('Stored license key is invalid, removing');
-                localStorage.removeItem('app-license');
-              }
-            }
-          } catch {
-            // 자동 재활성화 실패 → setup 화면으로 진행
-          }
-        }
-        set({ session, loading: false, needsSetup: true });
-        logInfo('Logged in but no org, showing setup screen');
-      }
-
-      // 자동 재활성화: trial 상태인데 저장된 라이센스 키가 있으면 복구
-      const currentState = useAuthStore.getState();
-      if (currentState.plan === PlanTypeEnum.TRIAL) {
+        // 로그인됐지만 org 없음 → 자동으로 조직 생성
+        logInfo('No active org found, auto-creating org');
         try {
-          const stored = localStorage.getItem('app-license');
-          if (stored) {
-            const { licenseKey } = JSON.parse(stored) as { licenseKey: string };
-            if (licenseKey && /^TMK[HA]-/.test(licenseKey)) {
-              logInfo('Auto-reactivating stored license');
-              const result = await useAuthStore.getState().activateCloud(licenseKey);
-              if (result.status === 'invalid_key') {
-                logWarn('Stored license key is invalid, removing');
-                localStorage.removeItem('app-license');
-              }
-            }
+          const { data: autoData, error: autoError } = await supabase.functions.invoke('auto-create-org');
+
+          if (autoError || autoData?.error) {
+            logError('Auto-create org failed', { error: autoError, data: autoData });
+            set({ session, loading: false });
+            return;
           }
-        } catch {
-          // 자동 재활성화 실패 → trial 유지
+
+          const organizationId = autoData.organization_id as string;
+          const plan = (autoData.plan as PlanType) || PlanTypeEnum.TRIAL;
+
+          set({
+            session,
+            organizationId,
+            role: 'owner',
+            plan,
+            isCloud: true,
+            loading: false,
+          });
+          _initialized = true;
+          logInfo('Auto-created org', { data: { orgId: organizationId, plan } });
+        } catch (error) {
+          logError('Auto-create org error', { error });
+          set({ session, loading: false });
         }
       }
     } catch (error) {
@@ -180,147 +135,75 @@ export const useAuthStore = create<AuthStore>((set) => ({
     }
   },
 
-  activateCloud: async (licenseKey: string): Promise<
-    | { status: 'success'; isNewOrg: boolean; orgChanged: boolean; previousOrgId: string | null }
-    | { status: 'invalid_key' | 'max_seats_reached' | 'error' }
-  > => {
-    if (!supabase) {
-      logError('Supabase client not initialized', {});
-      return { status: 'error' };
-    }
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        logError('No session for license activation');
-        return { status: 'error' };
-      }
-
-      let deviceId: string;
-      try {
-        deviceId = await getDeviceId();
-        logInfo('Device ID retrieved', { data: { deviceId: deviceId.slice(0, 8) + '...' } });
-      } catch (error) {
-        logError('Failed to get device ID, aborting activation', { error });
-        return { status: 'error' };
-      }
-
-      logInfo('Calling activate-license edge function');
-      const { data, error } = await supabase.functions.invoke('activate-license', {
-        body: { license_key: licenseKey, device_id: deviceId },
-      });
-
-      if (error) {
-        logError('License activation failed', { error, data: { message: error.message } });
-        return { status: 'error' };
-      }
-
-      logInfo('Edge function response', { data });
-
-      if (data?.error === 'max_seats_reached') {
-        return { status: 'max_seats_reached' };
-      }
-
-      if (data?.error === 'invalid_key' || data?.error === 'invalid_format') {
-        return { status: 'invalid_key' };
-      }
-
-      if (data?.error) {
-        logError('License activation returned error', { data: { error: data.error } });
-        return { status: 'error' };
-      }
-
-      const organizationId = data.organization_id as string;
-      const isNewOrg = data.is_new_org as boolean;
-      const plan = (data.plan as PlanType) || PlanTypeEnum.BASIC;
-
-      const previousOrgId: string | null = useAuthStore.getState().organizationId;
-      const orgChanged: boolean = previousOrgId !== null && previousOrgId !== organizationId;
-
-      set({
-        session,
-        organizationId,
-        role: 'owner',
-        plan,
-        isCloud: true,
-        needsSetup: false,
-      });
-
-      _initialized = true;
-      logInfo('License activated, cloud upgraded', { data: { orgId: organizationId, isNewOrg, plan, orgChanged } });
-      return { status: 'success', isNewOrg, orgChanged, previousOrgId };
-    } catch (error) {
-      logError('activateCloud error', { error });
-      return { status: 'error' };
-    }
-  },
-
-  startTrial: async () => {
+  joinOrganization: async (code: string) => {
     if (!supabase) return;
     set({ loading: true });
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      const { data, error } = await supabase.functions.invoke('join-organization', {
+        body: { code },
+      });
+
+      if (error || data?.error) {
+        logError('Join organization failed', { error, data });
         set({ loading: false });
-        return;
+        throw new Error(data?.error || error?.message || 'Failed to join organization');
       }
 
-      let deviceId: string;
-      try {
-        deviceId = await getDeviceId();
-      } catch (error) {
-        logError('Failed to get device ID', { error });
-        set({ loading: false });
-        return;
-      }
-
-      const { data: trialData, error: trialError } = await supabase.functions.invoke(
-        'create-trial-org',
-        { body: { device_id: deviceId } },
-      );
-
-      if (trialError || trialData?.error) {
-        logError('Trial org creation failed', { error: trialError, data: trialData });
-        set({ loading: false });
-        return;
-      }
-
-      const organizationId = trialData.organization_id as string;
-      const plan = (trialData.plan as PlanType) || PlanTypeEnum.TRIAL;
+      const organizationId = data.organization_id as string;
+      const role = (data.role as 'owner' | 'member') || 'member';
+      const plan = (data.plan as PlanType) || PlanTypeEnum.TRIAL;
 
       set({
-        session,
         organizationId,
-        role: 'owner',
+        role,
         plan,
         isCloud: true,
         loading: false,
-        needsSetup: false,
       });
       _initialized = true;
-      logInfo('Trial started', { data: { orgId: organizationId } });
+      logInfo('Joined organization', { data: { orgId: organizationId, role, plan } });
     } catch (error) {
-      logError('startTrial error', { error });
       set({ loading: false });
+      throw error;
     }
   },
 
-  deactivateCloud: async () => {
+  switchOrganization: async (orgId: string) => {
     if (!supabase) return;
+    set({ loading: true });
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await supabase
-          .from('user_organizations')
-          .delete()
-          .eq('user_id', session.user.id);
+      const { data, error } = await supabase.functions.invoke('switch-organization', {
+        body: { organization_id: orgId },
+      });
+
+      if (error || data?.error) {
+        logError('Switch organization failed', { error, data });
+        set({ loading: false });
+        throw new Error(data?.error || error?.message || 'Failed to switch organization');
       }
+
+      const organizationId = data.organization_id as string;
+      const role = (data.role as 'owner' | 'member') || 'member';
+      const plan = (data.plan as PlanType) || PlanTypeEnum.TRIAL;
+
+      set({
+        organizationId,
+        role,
+        plan,
+        isCloud: true,
+        loading: false,
+      });
+      logInfo('Switched organization', { data: { orgId: organizationId, role, plan } });
     } catch (error) {
-      logError('Failed to delete user_organizations', { error });
+      set({ loading: false });
+      throw error;
     }
+  },
+
+  signOut: async () => {
+    if (!supabase) return;
 
     try {
       await supabase.auth.signOut();
@@ -334,11 +217,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
       role: null,
       plan: null,
       isCloud: false,
-      needsSetup: false,
     });
 
     _initialized = false;
-    logInfo('Cloud deactivated');
+    logInfo('Signed out');
   },
 
   signInWithOAuth: async (provider: OAuthProvider) => {
@@ -423,21 +305,4 @@ export function getAuthProviderLabel(): string {
 export function getAuthProviderColor(): string {
   const p = getAuthProvider() as OAuthProvider;
   return OAUTH_PROVIDERS[p]?.tagColor || 'default';
-}
-
-/**
- * 체험판 → 라이선스 전환 시 기존 데이터의 organization_id 일괄 변경
- */
-export async function migrateOrgData(oldOrgId: string, newOrgId: string): Promise<boolean> {
-  if (!supabase) return false;
-  const { error } = await supabase.rpc('migrate_org_data', {
-    old_org_id: oldOrgId,
-    new_org_id: newOrgId,
-  });
-  if (error) {
-    logError('Failed to migrate org data', { error });
-    return false;
-  }
-  logInfo('Org data migrated', { data: { from: oldOrgId, to: newOrgId } });
-  return true;
 }

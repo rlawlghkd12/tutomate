@@ -4,7 +4,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // ── Mock supabase (vi.hoisted로 hoisting 문제 해결) ──
 const {
   mockGetSession,
-  mockSignInAnonymously,
   mockSignOut,
   mockOnAuthStateChange,
   mockGetUser,
@@ -15,7 +14,6 @@ const {
 } = vi.hoisted(() => {
   const fns = {
     mockGetSession: vi.fn(),
-    mockSignInAnonymously: vi.fn(),
     mockSignOut: vi.fn(),
     mockOnAuthStateChange: vi.fn(),
     mockGetUser: vi.fn(),
@@ -40,7 +38,6 @@ vi.mock('../../config/supabase', () => ({
   supabase: {
     auth: {
       getSession: (...args: unknown[]) => mockGetSession(...args),
-      signInAnonymously: (...args: unknown[]) => mockSignInAnonymously(...args),
       signOut: (...args: unknown[]) => mockSignOut(...args),
       onAuthStateChange: (...args: unknown[]) => mockOnAuthStateChange(...args),
       getUser: (...args: unknown[]) => mockGetUser(...args),
@@ -67,7 +64,7 @@ vi.mock('../../utils/tauri', () => ({
   isElectron: () => false,
 }));
 
-import { useAuthStore, isCloud, getOrgId, getPlan, isOwner, migrateOrgData, _resetAuthFlags, getAuthProvider, getAuthProviderLabel, getAuthProviderColor } from '../authStore';
+import { useAuthStore, isCloud, getOrgId, getPlan, isOwner, _resetAuthFlags, getAuthProvider, getAuthProviderLabel, getAuthProviderColor } from '../authStore';
 
 // onAuthStateChange는 모듈 로드 시 1회 호출됨 — clearAllMocks 전에 캡처
 const authStateCallback = mockOnAuthStateChange.mock.calls[0]?.[0] as
@@ -90,7 +87,6 @@ describe('authStore', () => {
       plan: null,
       isCloud: false,
       loading: true,
-      needsSetup: false,
     });
     Object.keys(mockFromHandlers).forEach((k) => delete mockFromHandlers[k]);
   });
@@ -98,7 +94,7 @@ describe('authStore', () => {
   // ── initialize ──
 
   describe('initialize', () => {
-    it('기존 세션 + 기존 org → session restored', async () => {
+    it('기존 세션 + 기존 active org → session restored', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
 
       const orgLinkBuilder = createQueryBuilder({ organization_id: 'org-abc', role: 'owner' });
@@ -116,9 +112,10 @@ describe('authStore', () => {
       expect(state.plan).toBe('basic');
       expect(state.session).toBe(fakeSession);
 
-      // 올바른 쿼리 파라미터로 호출됐는지 검증
+      // 올바른 쿼리 파라미터로 호출됐는지 검증 (is_active 포함)
       expect(orgLinkBuilder.select).toHaveBeenCalledWith('organization_id, role');
       expect(orgLinkBuilder.eq).toHaveBeenCalledWith('user_id', 'user-123');
+      expect(orgLinkBuilder.eq).toHaveBeenCalledWith('is_active', true);
       expect(orgBuilder.select).toHaveBeenCalledWith('plan');
       expect(orgBuilder.eq).toHaveBeenCalledWith('id', 'org-abc');
     });
@@ -132,8 +129,6 @@ describe('authStore', () => {
       expect(state.loading).toBe(false);
       expect(state.session).toBeNull();
       expect(state.isCloud).toBe(false);
-      // anonymous sign-in 호출 안 함
-      expect(mockSignInAnonymously).not.toHaveBeenCalled();
     });
 
     it('anonymous 세션이면 로그아웃 후 로그인 화면 표시', async () => {
@@ -149,159 +144,69 @@ describe('authStore', () => {
       expect(mockSignOut).toHaveBeenCalled();
     });
 
-    it('세션 있지만 org 없으면 needsSetup: true', async () => {
+    it('세션 있지만 org 없으면 auto-create-org 호출', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
       mockFromHandlers['user_organizations'] = createQueryBuilder(null);
+
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { organization_id: 'auto-org', plan: 'trial' },
+        error: null,
+      });
+
+      await useAuthStore.getState().initialize();
+
+      expect(mockFunctionsInvoke).toHaveBeenCalledWith('auto-create-org');
+      const state = useAuthStore.getState();
+      expect(state.loading).toBe(false);
+      expect(state.organizationId).toBe('auto-org');
+      expect(state.plan).toBe('trial');
+      expect(state.isCloud).toBe(true);
+    });
+
+    it('auto-create-org 실패 → loading: false, org 없음', async () => {
+      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
+      mockFromHandlers['user_organizations'] = createQueryBuilder(null);
+
+      mockFunctionsInvoke.mockResolvedValue({
+        data: null,
+        error: new Error('edge function error'),
+      });
 
       await useAuthStore.getState().initialize();
 
       const state = useAuthStore.getState();
       expect(state.loading).toBe(false);
-      expect(state.needsSetup).toBe(true);
+      expect(state.organizationId).toBeNull();
       expect(state.session).toBe(fakeSession);
     });
 
-    // ── 자동 재활성화 ──
-
-    it('trial org + 저장된 라이센스 키 → 자동 재활성화 호출', async () => {
+    it('auto-create-org data.error → loading: false, org 없음', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'trial-org' });
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'trial' });
+      mockFromHandlers['user_organizations'] = createQueryBuilder(null);
 
       mockFunctionsInvoke.mockResolvedValue({
-        data: { organization_id: 'licensed-org', is_new_org: false, plan: 'basic' },
+        data: { error: 'some_error' },
         error: null,
       });
-
-      localStorage.setItem('app-license', JSON.stringify({ licenseKey: 'TMKH-ABCD-1234-WXYZ' }));
-
-      await useAuthStore.getState().initialize();
-
-      expect(mockFunctionsInvoke).toHaveBeenCalledWith('activate-license', expect.any(Object));
-      expect(useAuthStore.getState().organizationId).toBe('licensed-org');
-      expect(useAuthStore.getState().plan).toBe('basic');
-    });
-
-    it('trial org + 라이센스 없음 → 자동 재활성화 안 함', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'trial-org' });
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'trial' });
-
-      await useAuthStore.getState().initialize();
-
-      expect(mockFunctionsInvoke).not.toHaveBeenCalled();
-    });
-
-    it('trial org + TMKA 키 → 자동 재활성화 호출 (Admin 키도 매칭)', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'trial-org' });
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'trial' });
-
-      mockFunctionsInvoke.mockResolvedValue({
-        data: { organization_id: 'admin-org', is_new_org: false, plan: 'admin' },
-        error: null,
-      });
-
-      localStorage.setItem('app-license', JSON.stringify({ licenseKey: 'TMKA-ABCD-1234-WXYZ' }));
-
-      await useAuthStore.getState().initialize();
-
-      expect(mockFunctionsInvoke).toHaveBeenCalledWith('activate-license', expect.any(Object));
-      expect(useAuthStore.getState().plan).toBe('admin');
-    });
-
-    it('trial org + 잘못된 형식 라이센스 키 → 자동 재활성화 안 함', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'trial-org' });
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'trial' });
-
-      localStorage.setItem('app-license', JSON.stringify({ licenseKey: 'INVALID-KEY' }));
-
-      await useAuthStore.getState().initialize();
-
-      expect(mockFunctionsInvoke).not.toHaveBeenCalled();
-    });
-
-    it('기존 org가 basic이면 자동 재활성화 안 함', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'org-abc' });
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'basic' });
-
-      localStorage.setItem('app-license', JSON.stringify({ licenseKey: 'TMKH-ABCD-1234-WXYZ' }));
-
-      await useAuthStore.getState().initialize();
-
-      // orgLink 경로에서 state 올바르게 설정됐는지 확인
-      const state = useAuthStore.getState();
-      expect(state.plan).toBe('basic');
-      expect(state.organizationId).toBe('org-abc');
-      expect(state.isCloud).toBe(true);
-      // plan이 basic이므로 자동 재활성화 안 함
-      expect(mockFunctionsInvoke).not.toHaveBeenCalled();
-    });
-
-    it('orgData null → plan fallback to trial (자동 재활성화 경로도 진입하지만 localStorage 비어서 무동작)', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'org-abc' });
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: null });
 
       await useAuthStore.getState().initialize();
 
       const state = useAuthStore.getState();
-      expect(state.plan).toBe('trial');
-      expect(state.organizationId).toBe('org-abc');
-      expect(state.isCloud).toBe(true);
-      // plan이 'trial'이므로 자동 재활성화 코드까지 도달하지만, localStorage 비어서 activateCloud 미호출
-      expect(mockFunctionsInvoke).not.toHaveBeenCalled();
+      expect(state.loading).toBe(false);
+      expect(state.organizationId).toBeNull();
     });
 
-    it('자동 재활성화: invalid_key 반환 시 저장된 키 제거', async () => {
+    it('auto-create-org 예외 → loading: false', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'trial-org' });
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'trial' });
+      mockFromHandlers['user_organizations'] = createQueryBuilder(null);
 
-      mockFunctionsInvoke.mockResolvedValue({
-        data: { error: 'invalid_key' },
-        error: null,
-      });
-
-      localStorage.setItem('app-license', JSON.stringify({ licenseKey: 'TMKH-ABCD-1234-WXYZ' }));
+      mockFunctionsInvoke.mockRejectedValue(new Error('unexpected'));
 
       await useAuthStore.getState().initialize();
 
-      expect(localStorage.getItem('app-license')).toBeNull();
-      expect(useAuthStore.getState().plan).toBe('trial');
-    });
-
-    it('자동 재활성화: max_seats_reached는 키 유지', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'trial-org' });
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'trial' });
-
-      mockFunctionsInvoke.mockResolvedValue({
-        data: { error: 'max_seats_reached' },
-        error: null,
-      });
-
-      localStorage.setItem('app-license', JSON.stringify({ licenseKey: 'TMKH-ABCD-1234-WXYZ' }));
-
-      await useAuthStore.getState().initialize();
-
-      expect(localStorage.getItem('app-license')).not.toBeNull();
-      expect(useAuthStore.getState().plan).toBe('trial');
-    });
-
-    it('자동 재활성화: 깨진 JSON localStorage → 무시하고 trial 유지', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'trial-org' });
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'trial' });
-
-      localStorage.setItem('app-license', '{broken-json');
-
-      await useAuthStore.getState().initialize();
-
-      expect(useAuthStore.getState().plan).toBe('trial');
-      expect(mockFunctionsInvoke).not.toHaveBeenCalled();
+      const state = useAuthStore.getState();
+      expect(state.loading).toBe(false);
+      expect(state.session).toBe(fakeSession);
     });
 
     it('두 번 호출 시 중복 실행 방지', async () => {
@@ -335,43 +240,6 @@ describe('authStore', () => {
       expect(useAuthStore.getState().loading).toBe(false);
     });
 
-    it('자동 재활성화: activateCloud가 error 반환해도 trial 유지', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'trial-org' });
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'trial' });
-
-      mockFunctionsInvoke.mockRejectedValue(new Error('network error'));
-
-      localStorage.setItem('app-license', JSON.stringify({ licenseKey: 'TMKH-ABCD-1234-WXYZ' }));
-
-      await useAuthStore.getState().initialize();
-
-      const state = useAuthStore.getState();
-      expect(state.organizationId).toBe('trial-org');
-      expect(state.plan).toBe('trial');
-    });
-
-    it('자동 재활성화: activateCloud 자체가 throw해도 catch로 trial 유지', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'trial-org' });
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'trial' });
-
-      localStorage.setItem('app-license', JSON.stringify({ licenseKey: 'TMKH-ABCD-1234-WXYZ' }));
-
-      const originalActivateCloud = useAuthStore.getState().activateCloud;
-      useAuthStore.setState({
-        activateCloud: () => { throw new Error('unexpected throw'); },
-      } as any);
-
-      await useAuthStore.getState().initialize();
-
-      const state = useAuthStore.getState();
-      expect(state.organizationId).toBe('trial-org');
-      expect(state.plan).toBe('trial');
-
-      useAuthStore.setState({ activateCloud: originalActivateCloud });
-    });
-
     it('role이 member이면 state에 member 저장', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
 
@@ -383,6 +251,33 @@ describe('authStore', () => {
       await useAuthStore.getState().initialize();
 
       expect(useAuthStore.getState().role).toBe('member');
+    });
+
+    it('orgData null → plan fallback to trial', async () => {
+      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
+      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'org-abc' });
+      mockFromHandlers['organizations'] = createQueryBuilder({ plan: null });
+
+      await useAuthStore.getState().initialize();
+
+      const state = useAuthStore.getState();
+      expect(state.plan).toBe('trial');
+      expect(state.organizationId).toBe('org-abc');
+      expect(state.isCloud).toBe(true);
+    });
+
+    it('auto-create-org plan 미반환 시 trial 기본값', async () => {
+      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
+      mockFromHandlers['user_organizations'] = createQueryBuilder(null);
+
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { organization_id: 'auto-org', plan: null },
+        error: null,
+      });
+
+      await useAuthStore.getState().initialize();
+
+      expect(useAuthStore.getState().plan).toBe('trial');
     });
   });
 
@@ -405,136 +300,131 @@ describe('authStore', () => {
     });
   });
 
-  // ── activateCloud ──
+  // ── joinOrganization ──
 
-  describe('activateCloud', () => {
-    beforeEach(() => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-    });
-
-    it('정상 활성화 → success + state 업데이트', async () => {
+  describe('joinOrganization', () => {
+    it('성공 → org + role + plan 설정', async () => {
       mockFunctionsInvoke.mockResolvedValue({
-        data: { organization_id: 'org-new', is_new_org: true, plan: 'basic' },
+        data: { organization_id: 'joined-org', role: 'member', plan: 'basic' },
         error: null,
       });
 
-      const result = await useAuthStore.getState().activateCloud('TMKH-TEST-1234-ABCD');
+      await useAuthStore.getState().joinOrganization('INVITE-CODE');
 
-      expect(result).toEqual({
-        status: 'success',
-        isNewOrg: true,
-        orgChanged: false,
-        previousOrgId: null,
+      expect(mockFunctionsInvoke).toHaveBeenCalledWith('join-organization', {
+        body: { code: 'INVITE-CODE' },
       });
-      expect(useAuthStore.getState().organizationId).toBe('org-new');
-      expect(useAuthStore.getState().plan).toBe('basic');
+      const state = useAuthStore.getState();
+      expect(state.organizationId).toBe('joined-org');
+      expect(state.role).toBe('member');
+      expect(state.plan).toBe('basic');
+      expect(state.isCloud).toBe(true);
+      expect(state.loading).toBe(false);
     });
 
-    it('org 변경 감지 (trial → licensed)', async () => {
-      useAuthStore.setState({ organizationId: 'old-trial-org' });
+    it('edge function 에러 → throw + loading: false', async () => {
       mockFunctionsInvoke.mockResolvedValue({
-        data: { organization_id: 'new-licensed-org', is_new_org: false, plan: 'basic' },
+        data: null,
+        error: new Error('edge function error'),
+      });
+
+      await expect(
+        useAuthStore.getState().joinOrganization('BAD-CODE'),
+      ).rejects.toThrow();
+
+      expect(useAuthStore.getState().loading).toBe(false);
+    });
+
+    it('data.error → throw + loading: false', async () => {
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { error: 'invalid_code' },
         error: null,
       });
 
-      const result = await useAuthStore.getState().activateCloud('TMKH-TEST-1234-ABCD');
+      await expect(
+        useAuthStore.getState().joinOrganization('BAD-CODE'),
+      ).rejects.toThrow('invalid_code');
 
-      expect(result).toEqual({
-        status: 'success',
-        isNewOrg: false,
-        orgChanged: true,
-        previousOrgId: 'old-trial-org',
-      });
+      expect(useAuthStore.getState().loading).toBe(false);
     });
 
-    it('max_seats_reached → 해당 status 반환', async () => {
+    it('role 미반환 시 member 기본값', async () => {
       mockFunctionsInvoke.mockResolvedValue({
-        data: { error: 'max_seats_reached' },
+        data: { organization_id: 'joined-org', plan: 'basic' },
         error: null,
       });
 
-      const result = await useAuthStore.getState().activateCloud('TMKH-TEST-1234-ABCD');
-      expect(result).toEqual({ status: 'max_seats_reached' });
+      await useAuthStore.getState().joinOrganization('CODE');
+
+      expect(useAuthStore.getState().role).toBe('member');
     });
 
-    it('invalid_key → 해당 status 반환', async () => {
+    it('plan 미반환 시 trial 기본값', async () => {
       mockFunctionsInvoke.mockResolvedValue({
-        data: { error: 'invalid_key' },
+        data: { organization_id: 'joined-org', role: 'member' },
         error: null,
       });
 
-      const result = await useAuthStore.getState().activateCloud('TMKH-TEST-1234-ABCD');
-      expect(result).toEqual({ status: 'invalid_key' });
-    });
+      await useAuthStore.getState().joinOrganization('CODE');
 
-    it('edge function 에러 → error', async () => {
-      mockFunctionsInvoke.mockResolvedValue({ data: null, error: new Error('network') });
-
-      const result = await useAuthStore.getState().activateCloud('TMKH-TEST-1234-ABCD');
-      expect(result).toEqual({ status: 'error' });
-    });
-
-    it('세션 없으면 error 반환', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: null } });
-
-      const result = await useAuthStore.getState().activateCloud('TMKH-TEST-1234-ABCD');
-
-      expect(result).toEqual({ status: 'error' });
-      expect(mockFunctionsInvoke).not.toHaveBeenCalled();
-    });
-
-    it('invalid_format → invalid_key로 매핑', async () => {
-      mockFunctionsInvoke.mockResolvedValue({
-        data: { error: 'invalid_format' },
-        error: null,
-      });
-
-      const result = await useAuthStore.getState().activateCloud('TMKH-TEST-1234-ABCD');
-      expect(result).toEqual({ status: 'invalid_key' });
-    });
-
-    it('data.error 기타 문자열 → error', async () => {
-      mockFunctionsInvoke.mockResolvedValue({
-        data: { error: 'unknown_server_error' },
-        error: null,
-      });
-
-      const result = await useAuthStore.getState().activateCloud('TMKH-TEST-1234-ABCD');
-      expect(result).toEqual({ status: 'error' });
-    });
-
-    it('같은 org로 재활성화 → orgChanged: false', async () => {
-      useAuthStore.setState({ organizationId: 'same-org' });
-      mockFunctionsInvoke.mockResolvedValue({
-        data: { organization_id: 'same-org', is_new_org: false, plan: 'basic' },
-        error: null,
-      });
-
-      const result = await useAuthStore.getState().activateCloud('TMKH-TEST-1234-ABCD');
-
-      expect(result).toEqual({
-        status: 'success',
-        isNewOrg: false,
-        orgChanged: false,
-        previousOrgId: 'same-org',
-      });
-    });
-
-    it('예외 발생 → error', async () => {
-      mockGetSession.mockRejectedValue(new Error('unexpected crash'));
-
-      const result = await useAuthStore.getState().activateCloud('TMKH-TEST-1234-ABCD');
-      expect(result).toEqual({ status: 'error' });
+      expect(useAuthStore.getState().plan).toBe('trial');
     });
   });
 
-  // ── deactivateCloud ──
+  // ── switchOrganization ──
 
-  describe('deactivateCloud', () => {
-    it('org 연결 해제 + sign out + state 초기화', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      const deleteBuilder = createQueryBuilder();
-      mockFromHandlers['user_organizations'] = deleteBuilder;
+  describe('switchOrganization', () => {
+    it('성공 → org + role + plan 변경', async () => {
+      useAuthStore.setState({ organizationId: 'old-org', role: 'owner', plan: 'basic', isCloud: true });
+
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { organization_id: 'new-org', role: 'member', plan: 'trial' },
+        error: null,
+      });
+
+      await useAuthStore.getState().switchOrganization('new-org');
+
+      expect(mockFunctionsInvoke).toHaveBeenCalledWith('switch-organization', {
+        body: { organization_id: 'new-org' },
+      });
+      const state = useAuthStore.getState();
+      expect(state.organizationId).toBe('new-org');
+      expect(state.role).toBe('member');
+      expect(state.plan).toBe('trial');
+      expect(state.loading).toBe(false);
+    });
+
+    it('edge function 에러 → throw + loading: false', async () => {
+      mockFunctionsInvoke.mockResolvedValue({
+        data: null,
+        error: new Error('network error'),
+      });
+
+      await expect(
+        useAuthStore.getState().switchOrganization('bad-org'),
+      ).rejects.toThrow();
+
+      expect(useAuthStore.getState().loading).toBe(false);
+    });
+
+    it('data.error → throw + loading: false', async () => {
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { error: 'not_a_member' },
+        error: null,
+      });
+
+      await expect(
+        useAuthStore.getState().switchOrganization('bad-org'),
+      ).rejects.toThrow('not_a_member');
+
+      expect(useAuthStore.getState().loading).toBe(false);
+    });
+  });
+
+  // ── signOut ──
+
+  describe('signOut', () => {
+    it('sign out + state 초기화 (user_organizations 삭제 안 함)', async () => {
       mockSignOut.mockResolvedValue({});
 
       useAuthStore.setState({
@@ -544,11 +434,7 @@ describe('authStore', () => {
         isCloud: true,
       });
 
-      await useAuthStore.getState().deactivateCloud();
-
-      // delete가 실제로 호출됐는지 검증
-      expect(deleteBuilder.delete).toHaveBeenCalled();
-      expect(deleteBuilder.eq).toHaveBeenCalledWith('user_id', 'user-123');
+      await useAuthStore.getState().signOut();
 
       const state = useAuthStore.getState();
       expect(state.session).toBeNull();
@@ -556,56 +442,16 @@ describe('authStore', () => {
       expect(state.plan).toBeNull();
       expect(state.isCloud).toBe(false);
       expect(mockSignOut).toHaveBeenCalled();
-    });
-
-    it('session 없으면 delete 스킵, signOut만 호출', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: null } });
-      mockSignOut.mockResolvedValue({});
-
-      // delete 호출 감지용 spy builder
-      const spyBuilder = createQueryBuilder();
-      mockFromHandlers['user_organizations'] = spyBuilder;
-
-      useAuthStore.setState({ isCloud: true, organizationId: 'org-abc' });
-
-      await useAuthStore.getState().deactivateCloud();
-
-      // session이 null이므로 if(session) 블록 진입 안 함 → delete 미호출
-      expect(spyBuilder.delete).not.toHaveBeenCalled();
-      expect(mockSignOut).toHaveBeenCalled();
-      expect(useAuthStore.getState().isCloud).toBe(false);
-    });
-
-    it('delete 실패해도 signOut + state 초기화 진행', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockSignOut.mockResolvedValue({});
-
-      // delete().eq().then() 에서 예외 발생하도록 설정
-      const failBuilder: Record<string, any> = {};
-      failBuilder.select = vi.fn().mockReturnValue(failBuilder);
-      failBuilder.insert = vi.fn().mockReturnValue(failBuilder);
-      failBuilder.delete = vi.fn().mockReturnValue(failBuilder);
-      failBuilder.eq = vi.fn().mockRejectedValue(new Error('delete failed'));
-      mockFromHandlers['user_organizations'] = failBuilder;
-
-      useAuthStore.setState({ isCloud: true });
-
-      await useAuthStore.getState().deactivateCloud();
-
-      // delete 실패해도 signOut + state 초기화 진행
-      expect(failBuilder.delete).toHaveBeenCalled();
-      expect(mockSignOut).toHaveBeenCalled();
-      expect(useAuthStore.getState().isCloud).toBe(false);
+      // user_organizations delete 호출 없음
+      expect(mockFromHandlers['user_organizations']).toBeUndefined();
     });
 
     it('signOut 실패해도 state 초기화 진행', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder();
       mockSignOut.mockRejectedValue(new Error('signOut fail'));
 
       useAuthStore.setState({ isCloud: true, organizationId: 'org-abc' });
 
-      await useAuthStore.getState().deactivateCloud();
+      await useAuthStore.getState().signOut();
 
       const state = useAuthStore.getState();
       expect(state.session).toBeNull();
@@ -633,7 +479,7 @@ describe('authStore', () => {
 
       const state = useAuthStore.getState();
       expect(state.session).toBeNull();
-      // organizationId/plan/isCloud는 deactivateCloud()에서만 초기화
+      // organizationId/plan/isCloud는 signOut()에서만 초기화
       expect(state.organizationId).toBe('org-abc');
       expect(state.plan).toBe('basic');
       expect(state.isCloud).toBe(true);
@@ -660,17 +506,7 @@ describe('authStore', () => {
   // ── signInWithOAuth ──
 
   describe('signInWithOAuth', () => {
-    const mockSignInWithOAuth = vi.fn();
-
-    beforeEach(() => {
-      // Patch supabase.auth.signInWithOAuth via the mock
-      // The mock setup uses mockGetSession etc. but signInWithOAuth is on supabase.auth
-      // We access it through the import
-    });
-
     it('google provider → supabase.auth.signInWithOAuth 호출', async () => {
-      // signInWithOAuth is called through supabase.auth, which is mocked
-      // We need to mock import.meta.env
       const { supabase } = await import('../../config/supabase');
       (supabase as any).auth.signInWithOAuth = vi.fn().mockResolvedValue({
         data: { url: 'https://accounts.google.com/o/oauth2/auth?...' },
@@ -744,98 +580,11 @@ describe('authStore', () => {
         useAuthStore.getState().handleOAuthCallback('#error=access_denied&error_description=User+cancelled'),
       ).rejects.toThrow('User cancelled');
     });
-  });
 
-  // ── startTrial ──
-
-  describe('startTrial', () => {
-    it('성공 → session + org + trial plan 설정', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFunctionsInvoke.mockResolvedValue({
-        data: { organization_id: 'trial-org-1', plan: 'trial' },
-        error: null,
-      });
-
-      await useAuthStore.getState().startTrial();
-
-      const state = useAuthStore.getState();
-      expect(state.session).toBe(fakeSession);
-      expect(state.organizationId).toBe('trial-org-1');
-      expect(state.plan).toBe('trial');
-      expect(state.isCloud).toBe(true);
-      expect(state.loading).toBe(false);
-      expect(state.needsSetup).toBe(false);
-    });
-
-    it('세션 없으면 loading: false, 상태 변경 없음', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: null } });
-
-      await useAuthStore.getState().startTrial();
-
-      const state = useAuthStore.getState();
-      expect(state.loading).toBe(false);
-      expect(state.organizationId).toBeNull();
-    });
-
-    it('edge function 에러 → loading: false, 상태 변경 없음', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFunctionsInvoke.mockResolvedValue({
-        data: null,
-        error: new Error('edge function error'),
-      });
-
-      await useAuthStore.getState().startTrial();
-
-      const state = useAuthStore.getState();
-      expect(state.loading).toBe(false);
-      expect(state.organizationId).toBeNull();
-    });
-
-    it('data.error 포함 → loading: false', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFunctionsInvoke.mockResolvedValue({
-        data: { error: 'some_error' },
-        error: null,
-      });
-
-      await useAuthStore.getState().startTrial();
-
-      expect(useAuthStore.getState().loading).toBe(false);
-      expect(useAuthStore.getState().organizationId).toBeNull();
-    });
-
-    it('예외 발생 → loading: false', async () => {
-      mockGetSession.mockRejectedValue(new Error('unexpected'));
-
-      await useAuthStore.getState().startTrial();
-
-      expect(useAuthStore.getState().loading).toBe(false);
-    });
-
-    it('plan 미반환 시 trial 기본값', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFunctionsInvoke.mockResolvedValue({
-        data: { organization_id: 'trial-org-2', plan: null },
-        error: null,
-      });
-
-      await useAuthStore.getState().startTrial();
-
-      expect(useAuthStore.getState().plan).toBe('trial');
-    });
-
-    it('getDeviceId 실패 → loading: false', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-
-      // crypto.subtle.digest를 throw하도록 모킹
-      const originalDigest = crypto.subtle.digest;
-      crypto.subtle.digest = vi.fn().mockRejectedValue(new Error('digest failed'));
-
-      await useAuthStore.getState().startTrial();
-
-      expect(useAuthStore.getState().loading).toBe(false);
-
-      crypto.subtle.digest = originalDigest;
+    it('error만 있고 error_description 없으면 error 값으로 throw', async () => {
+      await expect(
+        useAuthStore.getState().handleOAuthCallback('#error=server_error'),
+      ).rejects.toThrow('server_error');
     });
   });
 
@@ -857,26 +606,6 @@ describe('authStore', () => {
     it('getPlan() → store plan 반환', () => {
       useAuthStore.setState({ plan: 'basic' });
       expect(getPlan()).toBe('basic');
-    });
-  });
-
-  // ── migrateOrgData ──
-
-  describe('migrateOrgData', () => {
-    it('성공 시 true 반환', async () => {
-      mockRpc.mockResolvedValue({ error: null });
-      const result = await migrateOrgData('old-org', 'new-org');
-      expect(result).toBe(true);
-      expect(mockRpc).toHaveBeenCalledWith('migrate_org_data', {
-        old_org_id: 'old-org',
-        new_org_id: 'new-org',
-      });
-    });
-
-    it('실패 시 false 반환', async () => {
-      mockRpc.mockResolvedValue({ error: new Error('rpc fail') });
-      const result = await migrateOrgData('old-org', 'new-org');
-      expect(result).toBe(false);
     });
   });
 
@@ -951,7 +680,6 @@ describe('authStore', () => {
 
   describe('signInWithOAuth — naver', () => {
     it('naver provider → Naver OAuth URL 생성 (Electron 아님)', async () => {
-      // VITE_NAVER_CLIENT_ID가 설정된 환경에서
       const originalEnv = import.meta.env.VITE_NAVER_CLIENT_ID;
       import.meta.env.VITE_NAVER_CLIENT_ID = 'test-naver-client-id';
       import.meta.env.VITE_SUPABASE_URL = 'http://127.0.0.1:54321';
@@ -982,7 +710,6 @@ describe('authStore', () => {
 
   describe('onAuthStateChange — SIGNED_IN', () => {
     it('SIGNED_IN + session + not initialized → initialize 호출', async () => {
-      // _initialized가 false 상태이므로 SIGNED_IN 시 initialize 호출됨
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
       mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'org-cb' });
       mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'basic' });
@@ -994,132 +721,6 @@ describe('authStore', () => {
 
       const state = useAuthStore.getState();
       expect(state.session).toBe(fakeSession);
-    });
-  });
-
-  // ── initialize — org 없음 + 저장된 키로 자동 복구 ──
-
-  describe('initialize — no org + stored license auto-reactivation', () => {
-    it('org 없음 + 유효 키 → activateCloud 호출 + success → return', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder(null);
-
-      localStorage.setItem('app-license', JSON.stringify({ licenseKey: 'TMKH-AUTO-1234-WXYZ' }));
-
-      mockFunctionsInvoke.mockResolvedValue({
-        data: { organization_id: 'auto-org', is_new_org: false, plan: 'basic' },
-        error: null,
-      });
-
-      await useAuthStore.getState().initialize();
-
-      expect(mockFunctionsInvoke).toHaveBeenCalledWith('activate-license', expect.any(Object));
-      expect(useAuthStore.getState().organizationId).toBe('auto-org');
-    });
-
-    it('org 없음 + 유효 키 + invalid_key → 키 제거 + needsSetup', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder(null);
-
-      localStorage.setItem('app-license', JSON.stringify({ licenseKey: 'TMKH-BAD1-1234-WXYZ' }));
-
-      mockFunctionsInvoke.mockResolvedValue({
-        data: { error: 'invalid_key' },
-        error: null,
-      });
-
-      await useAuthStore.getState().initialize();
-
-      expect(localStorage.getItem('app-license')).toBeNull();
-      expect(useAuthStore.getState().needsSetup).toBe(true);
-    });
-
-    it('org 없음 + 잘못된 형식 키 → activateCloud 미호출, needsSetup', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder(null);
-
-      localStorage.setItem('app-license', JSON.stringify({ licenseKey: 'BADFORMAT' }));
-
-      await useAuthStore.getState().initialize();
-
-      expect(mockFunctionsInvoke).not.toHaveBeenCalled();
-      expect(useAuthStore.getState().needsSetup).toBe(true);
-    });
-
-    it('org 없음 + 깨진 JSON → needsSetup', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder(null);
-
-      localStorage.setItem('app-license', '{broken');
-
-      await useAuthStore.getState().initialize();
-
-      expect(useAuthStore.getState().needsSetup).toBe(true);
-    });
-
-    it('org 없음 + activateCloud error → needsSetup', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder(null);
-
-      localStorage.setItem('app-license', JSON.stringify({ licenseKey: 'TMKH-ERR1-1234-WXYZ' }));
-
-      mockFunctionsInvoke.mockResolvedValue({
-        data: { error: 'some_error' },
-        error: null,
-      });
-
-      await useAuthStore.getState().initialize();
-
-      expect(useAuthStore.getState().needsSetup).toBe(true);
-    });
-  });
-
-  // ── activateCloud — getDeviceId failure ──
-
-  describe('activateCloud — getDeviceId failure', () => {
-    it('getDeviceId 실패 → error 반환', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-
-      const originalDigest = crypto.subtle.digest;
-      crypto.subtle.digest = vi.fn().mockRejectedValue(new Error('digest fail'));
-
-      const result = await useAuthStore.getState().activateCloud('TMKH-TEST-1234-ABCD');
-
-      expect(result).toEqual({ status: 'error' });
-
-      crypto.subtle.digest = originalDigest;
-    });
-  });
-
-  // ── activateCloud — plan fallback ──
-
-  describe('activateCloud — plan fallback', () => {
-    it('data.plan 없으면 basic 기본값', async () => {
-      mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFunctionsInvoke.mockResolvedValue({
-        data: { organization_id: 'org-fb', is_new_org: true, plan: null },
-        error: null,
-      });
-
-      const result = await useAuthStore.getState().activateCloud('TMKH-TEST-1234-ABCD');
-
-      expect(result).toEqual({
-        status: 'success',
-        isNewOrg: true,
-        orgChanged: false,
-        previousOrgId: null,
-      });
-      expect(useAuthStore.getState().plan).toBe('basic');
-    });
-  });
-
-  // ── handleOAuthCallback — error only (no error_description) ──
-
-  describe('handleOAuthCallback — error only', () => {
-    it('error만 있고 error_description 없으면 error 값으로 throw', async () => {
-      await expect(
-        useAuthStore.getState().handleOAuthCallback('#error=server_error'),
-      ).rejects.toThrow('server_error');
     });
   });
 });
