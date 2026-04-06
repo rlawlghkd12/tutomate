@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Save, Eye, EyeOff, Copy, Lock, Loader2,
-  KeyRound, Building2, Palette, Bell, Info,
+  Save, Lock, Loader2,
+  KeyRound, Building2, Palette, Bell, Info, UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -15,20 +15,18 @@ import {
   isElectron,
   useSettingsStore,
   useLockStore,
-  useLicenseStore,
   PLAN_LIMITS,
   useAppVersion,
   APP_NAME,
   supabase,
   useAuthStore,
-  migrateOrgData,
   reloadAllStores,
   getAuthProviderLabel,
   getAuthProviderColor,
   appConfig,
 } from '@tutomate/core';
 import type { FontSize } from '@tutomate/core';
-import { LicenseKeyInput, AdminTab } from '@tutomate/ui';
+import { AdminTab } from '@tutomate/ui';
 
 const SettingsPage: React.FC = () => {
   const {
@@ -62,13 +60,8 @@ const SettingsPage: React.FC = () => {
 
   const APP_VERSION = useAppVersion();
   const session = useAuthStore((s) => s.session);
-  const { getPlan, activateLicense, licenseKey } = useLicenseStore();
+  const currentPlan = useAuthStore((s) => s.plan) || 'trial';
   const [orgNameInput, setOrgNameInput] = useState(organizationName);
-  const [showKey, setShowKey] = useState(false);
-  const [licenseInput, setLicenseInput] = useState(['', '', '', '']);
-  const [activating, setActivating] = useState(false);
-  const [licenseModalVisible, setLicenseModalVisible] = useState(false);
-  const currentPlan = getPlan();
 
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [isLatest, setIsLatest] = useState(false);
@@ -78,12 +71,13 @@ const SettingsPage: React.FC = () => {
 
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
-  const [migrateDialogOpen, setMigrateDialogOpen] = useState(false);
-  const [migrateResolve, setMigrateResolve] = useState<((val: boolean) => void) | null>(null);
+
+  // 초대 코드 입력
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
+  const [joiningOrg, setJoiningOrg] = useState(false);
 
   useEffect(() => {
     loadSettings();
-    useLicenseStore.getState().loadLicense();
   }, [loadSettings]);
 
   useEffect(() => {
@@ -215,43 +209,19 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleActivateLicense = async () => {
-    const key = licenseInput.join('-');
-    if (licenseInput.some((g) => g.length !== 4)) { toast.warning('라이선스 키를 모두 입력하세요.'); return; }
-    setActivating(true);
+  const handleJoinOrganization = async () => {
+    const code = inviteCodeInput.trim();
+    if (!code) { toast.warning('초대 코드를 입력하세요.'); return; }
+    setJoiningOrg(true);
     try {
-      const result = await activateLicense(key);
-      if (result.result === 'success') {
-        if (result.orgChanged && result.previousOrgId) {
-          const newOrgId = useAuthStore.getState().organizationId!;
-          const migrate = await new Promise<boolean>((resolve) => {
-            setMigrateResolve(() => resolve);
-            setMigrateDialogOpen(true);
-          });
-          if (migrate) {
-            const ok = await migrateOrgData(result.previousOrgId, newOrgId);
-            await reloadAllStores();
-            toast.success(ok ? '라이선스가 활성화되었습니다! 기존 데이터가 이전되었습니다.' : '라이선스는 활성화되었지만 데이터 이전에 실패했습니다.');
-          } else {
-            await reloadAllStores();
-            toast.success('라이선스가 활성화되었습니다! 새로 시작합니다.');
-          }
-        } else {
-          toast.success('라이선스가 활성화되었습니다!');
-        }
-        setLicenseInput(['', '', '', '']);
-        setLicenseModalVisible(false);
-      } else if (result.result === 'invalid_format') {
-        toast.error('유효하지 않은 형식입니다.');
-      } else if (result.result === 'network_error') {
-        toast.error('서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요.');
-      } else if (result.result === 'max_seats_reached') {
-        toast.error('이 라이선스의 최대 사용자 수에 도달했습니다.');
-      } else {
-        toast.error('유효하지 않은 라이선스 키입니다.');
-      }
+      await useAuthStore.getState().joinOrganization(code);
+      await reloadAllStores();
+      setInviteCodeInput('');
+      toast.success('조직에 참여했습니다!');
+    } catch (err: any) {
+      toast.error(`참여 실패: ${err.message}`);
     } finally {
-      setActivating(false);
+      setJoiningOrg(false);
     }
   };
 
@@ -272,7 +242,7 @@ const SettingsPage: React.FC = () => {
           {/* ── 섹션 1: 계정 ── */}
           <div style={{ marginTop: 0, marginBottom: 16 }}>
             <h3 style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}><KeyRound style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />계정</h3>
-            <p style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>로그인 및 라이선스 관리</p>
+            <p style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>로그인 및 조직 관리</p>
           </div>
           <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
             <div className="flex justify-between items-center" style={{ borderBottom: '1px solid hsl(var(--border))', padding: '16px 0' }}>
@@ -285,7 +255,7 @@ const SettingsPage: React.FC = () => {
                 <Button variant="destructive" size="sm" onClick={() => setLogoutDialogOpen(true)}>로그아웃</Button>
               </div>
             </div>
-            <div className="flex justify-between items-center" style={{ padding: '16px 0' }}>
+            <div className="flex justify-between items-center" style={{ borderBottom: '1px solid hsl(var(--border))', padding: '16px 0' }}>
               <div>
                 <p className="font-semibold text-sm">현재 플랜</p>
                 <p className="text-muted-foreground text-[0.85em]">
@@ -294,43 +264,31 @@ const SettingsPage: React.FC = () => {
                     : '모든 기능을 제한 없이 사용 가능'}
                 </p>
               </div>
+              <Badge variant={planBadgeVariant} className="text-[13px] px-2.5 py-0.5">
+                {currentPlan === 'trial' ? '체험판' : currentPlan === 'admin' ? 'Admin' : 'Basic'}
+              </Badge>
+            </div>
+            {/* 초대 코드 */}
+            <div className="flex justify-between items-center" style={{ padding: '16px 0' }}>
+              <div>
+                <p className="font-semibold text-sm">초대 코드로 조직 참여</p>
+                <p className="text-muted-foreground text-[0.85em]">관리자로부터 받은 초대 코드를 입력하세요</p>
+              </div>
               <div className="flex items-center gap-2">
-                <Badge variant={planBadgeVariant} className="text-[13px] px-2.5 py-0.5">
-                  {currentPlan === 'trial' ? '체험판' : currentPlan === 'admin' ? 'Admin' : 'Basic'}
-                </Badge>
-                {currentPlan !== 'trial' && licenseKey ? (
-                  <>
-                    <code className="text-sm bg-muted px-2 py-0.5 rounded">{showKey ? licenseKey : `${licenseKey.slice(0, 9)}****-****`}</code>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowKey(!showKey)}>
-                      {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { navigator.clipboard.writeText(licenseKey); toast.success('키가 복사되었습니다.'); }}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </>
-                ) : (
-                  <Button size="sm" onClick={() => setLicenseModalVisible(true)}>라이선스 활성화</Button>
-                )}
+                <Input
+                  value={inviteCodeInput}
+                  onChange={(e) => setInviteCodeInput(e.target.value)}
+                  placeholder="초대 코드 입력"
+                  className="w-[200px]"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleJoinOrganization(); }}
+                />
+                <Button size="sm" onClick={handleJoinOrganization} disabled={joiningOrg}>
+                  {joiningOrg ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                  참여
+                </Button>
               </div>
             </div>
           </div>
-
-          <Dialog open={licenseModalVisible} onOpenChange={setLicenseModalVisible}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>라이선스 활성화</DialogTitle>
-                <DialogDescription className="text-[0.85em]">키를 직접 입력하거나 전체 붙여넣기 하세요</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 pt-2">
-                <LicenseKeyInput value={licenseInput} onChange={setLicenseInput} onPressEnter={handleActivateLicense} />
-                <Button className="w-full" onClick={handleActivateLicense} disabled={activating}>
-                  {activating && <Loader2 className="h-4 w-4 animate-spin" />}
-                  활성화
-                </Button>
-                <p className="text-muted-foreground text-[0.85em] text-center">문의: {appConfig.contactInfo}</p>
-              </div>
-            </DialogContent>
-          </Dialog>
 
           {/* ── 섹션 2: 학원 정보 ── */}
           <div style={{ marginTop: 32, marginBottom: 16 }}>
@@ -341,13 +299,11 @@ const SettingsPage: React.FC = () => {
             <div className="flex justify-between items-center" style={{ padding: '16px 0' }}>
               <div className="flex-1 mr-6">
                 <p className="font-semibold text-sm">이름</p>
-                <p className="text-muted-foreground text-[0.85em]">
-                  {currentPlan === 'trial' ? '라이선스 활성화 후 변경 가능' : '사이드바와 헤더에 표시됩니다'}
-                </p>
+                <p className="text-muted-foreground text-[0.85em]">사이드바와 헤더에 표시됩니다</p>
               </div>
               <div className="flex items-center gap-2">
-                <Input value={orgNameInput} onChange={(e) => setOrgNameInput(e.target.value)} placeholder="이름을 입력하세요" className="w-[240px]" disabled={currentPlan === 'trial'} />
-                <Button size="sm" disabled={currentPlan === 'trial' || orgNameInput === organizationName} onClick={async () => {
+                <Input value={orgNameInput} onChange={(e) => setOrgNameInput(e.target.value)} placeholder="이름을 입력하세요" className="w-[240px]" />
+                <Button size="sm" disabled={orgNameInput === organizationName} onClick={async () => {
                   const prevName = organizationName;
                   setOrganizationName(orgNameInput);
                   const orgId = useAuthStore.getState().organizationId;
@@ -533,7 +489,7 @@ const SettingsPage: React.FC = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => { await useAuthStore.getState().deactivateCloud(); toast.success('로그아웃되었습니다.'); }}>로그아웃</AlertDialogAction>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => { await useAuthStore.getState().signOut(); toast.success('로그아웃되었습니다.'); }}>로그아웃</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -547,19 +503,6 @@ const SettingsPage: React.FC = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>나중에</AlertDialogCancel>
             <AlertDialogAction onClick={() => window.electronAPI.installUpdate()}>설치 및 재시작</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={migrateDialogOpen} onOpenChange={(open) => { if (!open && migrateResolve) { migrateResolve(false); setMigrateResolve(null); } setMigrateDialogOpen(open); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>체험판 데이터 이전</AlertDialogTitle>
-            <AlertDialogDescription>체험판에서 입력한 데이터를 라이선스 계정으로 이전하시겠습니까? "새로 시작"을 선택하면 빈 상태로 시작합니다.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { if (migrateResolve) { migrateResolve(false); setMigrateResolve(null); } setMigrateDialogOpen(false); }}>새로 시작</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { if (migrateResolve) { migrateResolve(true); setMigrateResolve(null); } setMigrateDialogOpen(false); }}>이전</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
