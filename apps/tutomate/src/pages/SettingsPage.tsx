@@ -23,9 +23,8 @@ import {
   getAuthProviderColor,
 } from '@tutomate/core';
 import type { FontSize } from '@tutomate/core';
-import { AdminTab, PageEnter } from '@tutomate/ui';
+import { PageEnter } from '@tutomate/ui';
 import { Button } from '../components/ui/button';
-import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Switch } from '../components/ui/switch';
 import { Badge } from '../components/ui/badge';
@@ -557,14 +556,6 @@ const SettingsPage: React.FC = () => {
           </div>
 
       </div>
-
-      {currentPlan === 'admin' && (
-        <Card className="max-w-[1000px] mt-4">
-          <CardContent className="p-6">
-            <AdminTab />
-          </CardContent>
-        </Card>
-      )}
 
       {/* 로그아웃 확인 AlertDialog */}
       <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
