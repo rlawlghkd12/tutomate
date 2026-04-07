@@ -6,10 +6,11 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
 } from '../ui/alert-dialog';
-import { supabase, useAuthStore, ORG_ROLE_LABELS } from '@tutomate/core';
+import { supabase, useAuthStore, canManageMembers, ORG_ROLE_LABELS } from '@tutomate/core';
 import type { OrgRoleType } from '@tutomate/core';
+import { useNavigate } from 'react-router-dom';
 import { Input } from '../ui/input';
-import { Users, Trash2, Loader2, RefreshCw, Plus, Copy } from 'lucide-react';
+import { Trash2, Loader2, RefreshCw, Plus, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageEnter } from '../common/PageEnter';
 
@@ -34,6 +35,15 @@ export function MemberManagementPage() {
   const [inviteCode, setInviteCode] = useState('');
   const [creatingInvite, setCreatingInvite] = useState(false);
   const currentUserId = useAuthStore((s) => s.session?.user?.id);
+  const role = useAuthStore((s) => s.role);
+  const navigate = useNavigate();
+
+  // 권한 없으면 메인으로
+  useEffect(() => {
+    if (!canManageMembers()) {
+      navigate('/', { replace: true });
+    }
+  }, [role, navigate]);
 
   const loadMembers = useCallback(async () => {
     if (!supabase) return;
