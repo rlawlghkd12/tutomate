@@ -79,16 +79,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    const memberDetails = [];
-    for (const link of memberLinks) {
-      const { data: { user: memberUser } } = await adminClient.auth.admin.getUserById(link.user_id);
-      memberDetails.push({
-        userId: link.user_id,
-        email: memberUser?.email || 'unknown',
-        role: link.role || 'member',
-        createdAt: link.created_at,
-      });
-    }
+    const memberDetails = await Promise.all(
+      memberLinks.map(async (link: any) => {
+        const { data: { user: memberUser } } = await adminClient.auth.admin.getUserById(link.user_id);
+        return {
+          userId: link.user_id,
+          email: memberUser?.email || 'unknown',
+          role: link.role || 'member',
+          createdAt: link.created_at,
+        };
+      })
+    );
 
     return new Response(JSON.stringify({
       members: memberDetails,
