@@ -7,18 +7,42 @@ interface PageEnterProps {
   style?: React.CSSProperties;
 }
 
-/** 마운트 시 1회만 stagger 애니메이션 적용. 완료 후 클래스 제거하여 리렌더링 시 재생 방지. */
+/** 마운트 시 1회만 stagger reveal. JS transition 기반 — CSS animation replay 문제 없음. */
 export function PageEnter({ children, className = '', style }: PageEnterProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const animated = useRef(false);
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
-    el.classList.add('page-enter-active');
-    const timer = setTimeout(() => {
-      el.classList.remove('page-enter-active');
-    }, 600); // 최대 animation-delay(0.4s) + duration(0.4s)보다 약간 짧게
-    return () => clearTimeout(timer);
+    if (!el || animated.current) return;
+    animated.current = true;
+
+    const kids = Array.from(el.children) as HTMLElement[];
+    kids.forEach((child, i) => {
+      child.style.opacity = '0';
+      child.style.transform = 'translateY(8px)';
+      child.style.transition = 'opacity 0.4s cubic-bezier(0.4,0,0.2,1), transform 0.4s cubic-bezier(0.4,0,0.2,1)';
+      child.style.transitionDelay = `${Math.min(i * 0.04, 0.4)}s`;
+    });
+
+    // rAF로 다음 프레임에서 최종 상태로 전환
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        kids.forEach((child) => {
+          child.style.opacity = '1';
+          child.style.transform = 'translateY(0)';
+        });
+        // transition 완료 후 인라인 스타일 정리
+        setTimeout(() => {
+          kids.forEach((child) => {
+            child.style.opacity = '';
+            child.style.transform = '';
+            child.style.transition = '';
+            child.style.transitionDelay = '';
+          });
+        }, 800);
+      });
+    });
   }, []);
 
   return (
