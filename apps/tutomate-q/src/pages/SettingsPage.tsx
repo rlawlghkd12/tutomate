@@ -8,7 +8,7 @@ import {
   Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
-  Card, CardContent, Badge, Input, Switch, Progress,
+  Badge, Input, Switch, Progress,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   PageEnter,
 } from '@tutomate/ui';
@@ -25,7 +25,7 @@ import {
   getAuthProviderColor,
 } from '@tutomate/core';
 import type { FontSize } from '@tutomate/core';
-import { AdminTab } from '@tutomate/ui';
+// AdminTab removed — admin 앱에서 관리
 
 const SettingsPage: React.FC = () => {
   const {
@@ -436,12 +436,6 @@ const SettingsPage: React.FC = () => {
             )}
           </div>
       </div>
-
-      {currentPlan === 'admin' && (
-        <Card className="max-w-[1000px] mt-4">
-          <CardContent className="p-6"><AdminTab /></CardContent>
-        </Card>
-      )}
 
       <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
         <AlertDialogContent>
