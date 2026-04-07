@@ -78,6 +78,7 @@ const SettingsPage: React.FC = () => {
 
   // 로그아웃 AlertDialog 상태
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   // 업데이트 설치 AlertDialog 상태
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
 
@@ -292,12 +293,23 @@ const SettingsPage: React.FC = () => {
               </Badge>
             </div>
 
-            {/* 현재 플랜 하단 여백 */}
+            {/* 현재 워크스페이스 나가기 (owner 아닐 때만) */}
+            {useAuthStore.getState().role !== 'owner' && (
+            <div className="flex justify-between items-center" style={{ padding: '16px 0' }}>
+              <div>
+                <p className="font-semibold text-sm">워크스페이스 나가기</p>
+                <p className="text-muted-foreground text-[0.85em]">이 워크스페이스에서 나가면 더 이상 데이터에 접근할 수 없습니다</p>
+              </div>
+              <Button variant="outline" size="sm" style={{ color: 'hsl(var(--destructive))' }} onClick={() => setLeaveDialogOpen(true)}>
+                나가기
+              </Button>
+            </div>
+            )}
           </div>
 
-          {/* ── 섹션 2: 학원 정보 ── */}
+          {/* ── 섹션 2: 워크스페이스 ── */}
           <div style={{ marginTop: 32, marginBottom: 16 }}>
-            <h3 style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}><Building2 style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />학원 정보</h3>
+            <h3 style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}><Building2 style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />워크스페이스</h3>
             <p style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>사이드바와 헤더에 표시되는 이름</p>
           </div>
           <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
@@ -580,6 +592,46 @@ const SettingsPage: React.FC = () => {
       </AlertDialog>
 
       {/* 업데이트 설치 AlertDialog */}
+      <AlertDialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>워크스페이스 나가기</AlertDialogTitle>
+            <AlertDialogDescription>이 워크스페이스에서 나가면 더 이상 데이터에 접근할 수 없습니다. 계속하시겠습니까?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async () => {
+              if (!supabase) return;
+              const orgId = useAuthStore.getState().organizationId;
+              if (!orgId) return;
+              const { showSwitchOverlay, hideSwitchOverlay } = await import('@tutomate/ui');
+              try {
+                const { data: orgList } = await supabase.functions.invoke('list-my-organizations');
+                const myOrgs = orgList?.organizations || [];
+                const ownerOrg = myOrgs.find((o: any) => o.role === 'owner' && o.id !== orgId) || myOrgs.find((o: any) => o.id !== orgId);
+
+                const { data: leaveResult, error: leaveErr } = await supabase.functions.invoke('leave-organization', {
+                  body: { organization_id: orgId },
+                });
+                if (leaveErr || leaveResult?.error) {
+                  const msg = leaveResult?.error === 'owner_cannot_leave' ? '소유자는 워크스페이스를 나갈 수 없습니다.' : '나가기 실패';
+                  toast.error(msg);
+                  return;
+                }
+
+                if (ownerOrg) {
+                  showSwitchOverlay(ownerOrg.name);
+                  await useAuthStore.getState().switchOrganization(ownerOrg.id);
+                  if (ownerOrg.name) useSettingsStore.getState().setOrganizationName(ownerOrg.name);
+                  const { reloadAllStores } = await import('@tutomate/core');
+                  await reloadAllStores();
+                }
+              } finally { hideSwitchOverlay(); }
+            }}>나가기</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={installDialogOpen} onOpenChange={setInstallDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

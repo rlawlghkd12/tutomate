@@ -28,7 +28,7 @@ interface AuthStore {
   isCloud: boolean;
   loading: boolean;
   initialize: () => Promise<void>;
-  joinOrganization: (code: string) => Promise<void>;
+  joinOrganization: (code: string) => Promise<{ name: string } | void>;
   switchOrganization: (orgId: string) => Promise<void>;
   signOut: () => Promise<void>;
   signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
@@ -68,18 +68,19 @@ export const useAuthStore = create<AuthStore>((set) => ({
         return;
       }
 
-      // 기존 조직 연결 확인 (활성 조직만)
-      const { data: orgLink, error: orgLinkError } = await supabase
+      // 기존 조직 연결 확인 — owner 우선
+      const { data: orgLinks, error: orgLinkError } = await supabase
         .from('user_organizations')
         .select('organization_id, role')
-        .eq('user_id', session.user.id)
-        .single();
+        .eq('user_id', session.user.id);
 
-      if (orgLinkError && orgLinkError.code !== 'PGRST116') {
+      if (orgLinkError) {
         logError('Failed to query user_organizations', { error: orgLinkError });
         set({ loading: false });
         return;
       }
+
+      const orgLink = orgLinks?.find((l: any) => l.role === 'owner') || orgLinks?.[0] || null;
 
       if (orgLink) {
         const { data: orgData } = await supabase
@@ -145,10 +146,22 @@ export const useAuthStore = create<AuthStore>((set) => ({
         body: { code },
       });
 
-      if (error || data?.error) {
-        logError('Join organization failed', { error, data });
+      if (error) {
+        // Edge Function non-2xx — response body에서 에러 상세 추출
+        let detail = error?.message || 'unknown';
+        try {
+          const ctx = (error as any)?.context;
+          if (ctx?.json) { const j = await ctx.json(); detail = j?.error || j?.details || detail; }
+          else if (ctx?.text) { detail = await ctx.text(); }
+        } catch (_) { /* ignore */ }
+        logError('Join organization failed', { error: detail, data });
         set({ loading: false });
-        throw new Error(data?.error || error?.message || 'Failed to join organization');
+        throw new Error(detail);
+      }
+      if (data?.error) {
+        logError('Join organization failed', { data });
+        set({ loading: false });
+        throw new Error(data.error);
       }
 
       const organizationId = data.organization_id as string;
@@ -163,7 +176,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
         loading: false,
       });
       _initialized = true;
-      logInfo('Joined organization', { data: { orgId: organizationId, role, plan } });
+      const name = (data.name as string) || '';
+      logInfo('Joined organization', { data: { orgId: organizationId, name, role, plan } });
+      return { name };
     } catch (error) {
       set({ loading: false });
       throw error;

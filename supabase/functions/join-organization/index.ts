@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
 
     const { data: org } = await adminClient
       .from('organizations')
-      .select('max_seats, plan')
+      .select('max_seats, plan, name')
       .eq('id', orgId)
       .single();
 
@@ -97,16 +97,23 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 기존 활성 조직 비활성화
+    await adminClient
+      .from('user_organizations')
+      .update({ is_active: false })
+      .eq('user_id', user.id);
+
     const { error: insertError } = await adminClient
       .from('user_organizations')
       .insert({
         user_id: user.id,
         organization_id: orgId,
         role: 'member',
+        is_active: true,
       });
 
     if (insertError) {
-      return new Response(JSON.stringify({ error: 'join_failed' }), {
+      return new Response(JSON.stringify({ error: 'join_failed', details: insertError.message }), {
         status: 500, headers: corsHeaders,
       });
     }
@@ -118,13 +125,14 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       organization_id: orgId,
+      name: org?.name || '',
       plan: org?.plan || 'trial',
       role: 'member',
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch {
-    return new Response(JSON.stringify({ error: 'internal_error' }), {
+  } catch (_e) {
+    return new Response(JSON.stringify({ error: 'internal_error', details: String(_e) }), {
       status: 500, headers: corsHeaders,
     });
   }

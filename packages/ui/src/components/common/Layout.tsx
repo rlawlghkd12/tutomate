@@ -11,6 +11,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { AlertDialog, AlertDialogContent, AlertDialogCancel } from '../ui/alert-dialog';
 import { toast } from 'sonner';
+import { showSwitchOverlay, hideSwitchOverlay, updateSwitchOverlayName } from './switchOverlay';
 
 interface LayoutProps {
 	children: React.ReactNode;
@@ -19,6 +20,7 @@ interface LayoutProps {
 interface OrgItem {
 	id: string;
 	name: string;
+	role?: string;
 }
 
 const PAGE_TITLES: Record<string, string> = {
@@ -50,7 +52,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 	// 현재 활성 조직 이름: orgs에서 가져오고, 없으면 settings fallback
 	const activeOrg = orgs.find((o) => o.id === currentOrgId);
-	const organizationName = activeOrg?.name || settingsOrgName;
+	const organizationName = settingsOrgName || activeOrg?.name;
 	const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 	const [inviteCode, setInviteCode] = useState('');
 	const [joining, setJoining] = useState(false);
@@ -73,7 +75,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 	};
 
 	// Load org list
-	useEffect(() => { loadOrgs(); }, []);
+	useEffect(() => { loadOrgs(); }, [currentOrgId]);
 
 	// Close org menu on outside click
 	useEffect(() => {
@@ -88,27 +90,59 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 	}, [orgMenuOpen]);
 
 	const handleSwitchOrg = async (orgId: string) => {
+		if (orgId === currentOrgId) { setOrgMenuOpen(false); return; }
+		const targetOrg = orgs.find((o) => o.id === orgId);
+		const targetName = targetOrg?.name || '';
+		setOrgMenuOpen(false);
+
+		showSwitchOverlay(targetName);
+
 		try {
 			await useAuthStore.getState().switchOrganization(orgId);
+			// 전환된 조직 이름으로 설정 업데이트
+			if (targetName) {
+				useSettingsStore.getState().setOrganizationName(targetName);
+			}
 			await reloadAllStores();
 			loadOrgs();
-			setOrgMenuOpen(false);
 		} catch {
 			// error handled in store
+		} finally {
+			hideSwitchOverlay();
 		}
 	};
+
 
 	const handleJoinOrg = async () => {
 		if (!inviteCode.trim()) return;
 		setJoining(true);
 		try {
-			await useAuthStore.getState().joinOrganization(inviteCode.trim());
-			toast.success('조직에 참여했습니다.');
+			setInviteDialogOpen(false);
+			// 1. 이름 먼저 조회
+			let orgName = '';
+			if (supabase) {
+				const { data: lookup } = await supabase.functions.invoke('lookup-invite', {
+					body: { code: inviteCode.trim() },
+				});
+				orgName = lookup?.name || '';
+			}
+			// 2. 이름으로 오버레이 + 홈으로
+			showSwitchOverlay(orgName);
+			navigate('/');
+			// 3. join
+			const result = await useAuthStore.getState().joinOrganization(inviteCode.trim());
+			if (!orgName && result?.name) {
+				updateSwitchOverlayName(result.name);
+				orgName = result.name;
+			}
+			if (orgName) useSettingsStore.getState().setOrganizationName(orgName);
+			// 4. 데이터 로드
 			await reloadAllStores();
 			loadOrgs();
-			setInviteDialogOpen(false);
 			setInviteCode('');
+			hideSwitchOverlay();
 		} catch (err: any) {
+			hideSwitchOverlay();
 			const msg = err?.message || '';
 			const msgs: Record<string, string> = {
 				invalid_code: '유효하지 않은 초대 코드입니다.',
@@ -165,15 +199,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 								style={{
 									fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))',
 									cursor: 'pointer',
-									display: 'flex', alignItems: 'center', gap: 2,
+									display: 'flex', alignItems: 'center', gap: 4,
+									maxWidth: '100%',
 								}}
 								onClick={() => setOrgMenuOpen(!orgMenuOpen)}
 								role="button"
 								tabIndex={0}
 								onKeyDown={(e) => { if (e.key === 'Enter') setOrgMenuOpen(!orgMenuOpen); }}
 							>
-								{organizationName || 'TutorMate'}
-								<ChevronDown style={{ width: 14, height: 14, opacity: 0.6 }} />
+								<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+									{organizationName || 'TutorMate'}
+								</span>
+								<ChevronDown style={{ width: 14, height: 14, opacity: 0.6, flexShrink: 0 }} />
 							</span>
 							{isTrial && (
 								<span
@@ -202,7 +239,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 									top: '100%',
 									left: 0,
 									marginTop: 4,
-									minWidth: 200,
+									minWidth: 240,
 									background: 'hsl(var(--background))',
 									border: '1px solid hsl(var(--border))',
 									borderRadius: 8,
@@ -211,9 +248,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 									padding: 4,
 								}}
 							>
-								{/* API 실패해도 현재 조직은 항상 표시 */}
+								{/* owner 조직 먼저, API 실패 시 현재 조직 fallback */}
 								{(orgs.length > 0
-									? orgs
+									? [...orgs].sort((a, b) => {
+										const roleOrder: Record<string, number> = { owner: 0, admin: 1, member: 2 };
+										return (roleOrder[a.role || 'member']) - (roleOrder[b.role || 'member']);
+									})
 									: [{ id: currentOrgId || '_current', name: organizationName || 'TutorMate' }]
 								).map((org) => (
 									<div
@@ -236,11 +276,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 										tabIndex={0}
 										onKeyDown={(e) => { if (e.key === 'Enter') handleSwitchOrg(org.id); }}
 									>
-										<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+										<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
 											{org.name || '이름 없음'}
 										</span>
+										{org.role === 'owner' && (
+											<span style={{ fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))', flexShrink: 0 }}>내 조직</span>
+										)}
 										{org.id === currentOrgId && (
-											<Check style={{ width: 14, height: 14, flexShrink: 0, marginLeft: 'auto', opacity: 0.6 }} />
+											<Check style={{ width: 14, height: 14, flexShrink: 0, opacity: 0.6 }} />
 										)}
 									</div>
 								))}
@@ -264,7 +307,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 									onKeyDown={(e) => { if (e.key === 'Enter') { setOrgMenuOpen(false); setInviteDialogOpen(true); } }}
 								>
 									<Plus style={{ width: 14, height: 14, flexShrink: 0 }} />
-									<span>조직 추가하기</span>
+									<span>워크스페이스 추가</span>
 								</div>
 							</div>
 						)}
@@ -276,7 +319,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 			</aside>
 
 			{/* ── Main area ── */}
-			<div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+			<div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
 				{/* 헤더 (52px) */}
 				<header
 					style={{
@@ -361,7 +404,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 					textAlign: 'center',
 				}}>
 					<h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>
-						조직 추가하기
+						워크스페이스 추가
 					</h3>
 					<p style={{
 						fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))',
