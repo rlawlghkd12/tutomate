@@ -1,4 +1,4 @@
-import { Wifi, X, Search, ChevronDown, Check } from 'lucide-react';
+import { Wifi, X, Search, ChevronDown, Check, Plus } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -8,6 +8,12 @@ import { NotificationCenter } from '../notification/NotificationCenter';
 import { GlobalSearch, useGlobalSearch } from '../search/GlobalSearch';
 import Navigation from './Navigation';
 import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import {
+	AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
+	AlertDialogDescription, AlertDialogFooter, AlertDialogCancel,
+} from '../ui/alert-dialog';
+import { toast } from 'sonner';
 
 interface LayoutProps {
 	children: React.ReactNode;
@@ -43,6 +49,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 	const [orgMenuOpen, setOrgMenuOpen] = useState(false);
 	const orgMenuRef = useRef<HTMLDivElement>(null);
 	const currentOrgId = useAuthStore((s) => s.organizationId);
+	const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+	const [inviteCode, setInviteCode] = useState('');
+	const [joining, setJoining] = useState(false);
 
 	useEffect(() => {
 		const goOffline = () => { setOffline(true); setOfflineDismissed(false); };
@@ -52,15 +61,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 		return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline); };
 	}, []);
 
-	// Load org list
-	useEffect(() => {
+	const loadOrgs = () => {
 		if (!supabase) return;
 		supabase.functions.invoke('list-my-organizations').then(({ data }) => {
-			if (Array.isArray(data)) {
-				setOrgs(data as OrgItem[]);
+			if (data?.organizations && Array.isArray(data.organizations)) {
+				setOrgs(data.organizations as OrgItem[]);
 			}
 		}).catch(() => {});
-	}, []);
+	};
+
+	// Load org list
+	useEffect(() => { loadOrgs(); }, []);
 
 	// Close org menu on outside click
 	useEffect(() => {
@@ -81,6 +92,30 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 			setOrgMenuOpen(false);
 		} catch {
 			// error handled in store
+		}
+	};
+
+	const handleJoinOrg = async () => {
+		if (!inviteCode.trim()) return;
+		setJoining(true);
+		try {
+			await useAuthStore.getState().joinOrganization(inviteCode.trim());
+			toast.success('조직에 참여했습니다.');
+			await reloadAllStores();
+			loadOrgs();
+			setInviteDialogOpen(false);
+			setInviteCode('');
+		} catch (err: any) {
+			const msg = err?.message || '';
+			const msgs: Record<string, string> = {
+				invalid_code: '유효하지 않은 초대 코드입니다.',
+				expired: '만료된 초대 코드입니다.',
+				already_member: '이미 참여한 조직입니다.',
+				max_seats_reached: '이 조직의 최대 인원에 도달했습니다.',
+			};
+			toast.error(msgs[msg] || '조직 참여에 실패했습니다.');
+		} finally {
+			setJoining(false);
 		}
 	};
 
@@ -126,18 +161,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 							<span
 								style={{
 									fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))',
-									cursor: orgs.length > 1 ? 'pointer' : 'default',
+									cursor: 'pointer',
 									display: 'flex', alignItems: 'center', gap: 2,
 								}}
-								onClick={() => { if (orgs.length > 1) setOrgMenuOpen(!orgMenuOpen); }}
-								role={orgs.length > 1 ? 'button' : undefined}
-								tabIndex={orgs.length > 1 ? 0 : undefined}
-								onKeyDown={(e) => { if (orgs.length > 1 && e.key === 'Enter') setOrgMenuOpen(!orgMenuOpen); }}
+								onClick={() => setOrgMenuOpen(!orgMenuOpen)}
+								role="button"
+								tabIndex={0}
+								onKeyDown={(e) => { if (e.key === 'Enter') setOrgMenuOpen(!orgMenuOpen); }}
 							>
 								{organizationName || 'TutorMate'}
-								{orgs.length > 1 && (
-									<ChevronDown style={{ width: 14, height: 14, opacity: 0.6 }} />
-								)}
+								<ChevronDown style={{ width: 14, height: 14, opacity: 0.6 }} />
 							</span>
 							{isTrial && (
 								<span
@@ -159,22 +192,27 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 						</div>
 
 						{/* Org switcher dropdown */}
-						{orgMenuOpen && orgs.length > 1 && (
+						{orgMenuOpen && (
 							<div
 								style={{
 									position: 'absolute',
 									top: '100%',
 									left: 0,
 									marginTop: 4,
-									minWidth: 180,
+									minWidth: 200,
 									background: 'hsl(var(--background))',
 									border: '1px solid hsl(var(--border))',
 									borderRadius: 8,
-									boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+									boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
 									zIndex: 50,
 									padding: 4,
 								}}
 							>
+								{/* 내 계정 */}
+								<div style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
+									{useAuthStore.getState().session?.user?.email || ''}
+								</div>
+								<div style={{ borderTop: '1px solid hsl(var(--border))', margin: '2px 0' }} />
 								{orgs.map((org) => (
 									<div
 										key={org.id}
@@ -206,6 +244,28 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 										</span>
 									</div>
 								))}
+								<div style={{ borderTop: '1px solid hsl(var(--border))', margin: '4px 0' }} />
+								<div
+									onClick={() => { setOrgMenuOpen(false); setInviteDialogOpen(true); }}
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 8,
+										padding: '8px 12px',
+										borderRadius: 6,
+										cursor: 'pointer',
+										fontSize: '0.93rem',
+										color: 'hsl(var(--muted-foreground))',
+									}}
+									onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'hsl(var(--muted))'; }}
+									onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+									role="button"
+									tabIndex={0}
+									onKeyDown={(e) => { if (e.key === 'Enter') { setOrgMenuOpen(false); setInviteDialogOpen(true); } }}
+								>
+									<Plus style={{ width: 14, height: 14, flexShrink: 0 }} />
+									<span>조직 추가하기</span>
+								</div>
 							</div>
 						)}
 					</div>
@@ -288,6 +348,33 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 			</div>
 		</div>
 		<GlobalSearch visible={searchVisible} onClose={closeSearch} />
+
+		{/* 초대 코드 입력 다이얼로그 */}
+		<AlertDialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+			<AlertDialogContent>
+				<AlertDialogHeader>
+					<AlertDialogTitle>조직 추가하기</AlertDialogTitle>
+					<AlertDialogDescription>
+						관리자로부터 받은 초대 코드를 입력하세요.
+					</AlertDialogDescription>
+				</AlertDialogHeader>
+				<Input
+					placeholder="초대 코드 (예: A3K9M2X7)"
+					value={inviteCode}
+					onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+					onKeyDown={(e) => { if (e.key === 'Enter') handleJoinOrg(); }}
+					maxLength={8}
+					style={{ fontFamily: 'monospace', fontSize: '1.1rem', letterSpacing: 2, textAlign: 'center' }}
+					disabled={joining}
+				/>
+				<AlertDialogFooter>
+					<AlertDialogCancel disabled={joining}>취소</AlertDialogCancel>
+					<Button onClick={handleJoinOrg} disabled={joining || inviteCode.trim().length < 4}>
+						{joining ? '참여 중...' : '참여하기'}
+					</Button>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
 	</>
 	);
 };

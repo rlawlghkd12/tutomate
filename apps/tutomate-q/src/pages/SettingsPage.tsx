@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Save, Lock, Loader2,
-  KeyRound, Building2, Palette, Bell, Info, UserPlus,
+  KeyRound, Building2, Palette, Bell, Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -20,7 +20,6 @@ import {
   APP_NAME,
   supabase,
   useAuthStore,
-  reloadAllStores,
   getAuthProviderLabel,
   getAuthProviderColor,
 } from '@tutomate/core';
@@ -71,9 +70,6 @@ const SettingsPage: React.FC = () => {
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
 
-  // 초대 코드 입력
-  const [inviteCodeInput, setInviteCodeInput] = useState('');
-  const [joiningOrg, setJoiningOrg] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -208,21 +204,6 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleJoinOrganization = async () => {
-    const code = inviteCodeInput.trim();
-    if (!code) { toast.warning('초대 코드를 입력하세요.'); return; }
-    setJoiningOrg(true);
-    try {
-      await useAuthStore.getState().joinOrganization(code);
-      await reloadAllStores();
-      setInviteCodeInput('');
-      toast.success('조직에 참여했습니다!');
-    } catch (err: any) {
-      toast.error(`참여 실패: ${err.message}`);
-    } finally {
-      setJoiningOrg(false);
-    }
-  };
 
   const providerColor = getAuthProviderColor();
   const providerBadgeVariant = providerColor === 'green' ? 'success' as const
@@ -267,26 +248,7 @@ const SettingsPage: React.FC = () => {
                 {currentPlan === 'trial' ? '체험판' : currentPlan === 'admin' ? 'Admin' : 'Basic'}
               </Badge>
             </div>
-            {/* 초대 코드 */}
-            <div className="flex justify-between items-center" style={{ padding: '16px 0' }}>
-              <div>
-                <p className="font-semibold text-sm">초대 코드로 조직 참여</p>
-                <p className="text-muted-foreground text-[0.85em]">관리자로부터 받은 초대 코드를 입력하세요</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={inviteCodeInput}
-                  onChange={(e) => setInviteCodeInput(e.target.value)}
-                  placeholder="초대 코드 입력"
-                  className="w-[200px]"
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleJoinOrganization(); }}
-                />
-                <Button size="sm" onClick={handleJoinOrganization} disabled={joiningOrg}>
-                  {joiningOrg ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-                  참여
-                </Button>
-              </div>
-            </div>
+            {/* 현재 플랜 하단 여백 */}
           </div>
 
           {/* ── 섹션 2: 학원 정보 ── */}
