@@ -33,25 +33,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: callerLink } = await userClient
+    const { data: callerLinks } = await userClient
       .from('user_organizations')
       .select('organization_id, role')
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', user.id);
 
-    if (!callerLink) {
+    if (!callerLinks || callerLinks.length === 0) {
       return new Response(JSON.stringify({ error: 'no_organization' }), {
         status: 403, headers: corsHeaders,
       });
     }
 
-    if (callerLink.role !== 'owner') {
+    // owner인 조직 우선, 없으면 첫 번째
+    const ownerLink = callerLinks.find((l: any) => l.role === 'owner');
+    if (!ownerLink) {
       return new Response(JSON.stringify({ error: 'owner_only' }), {
         status: 403, headers: corsHeaders,
       });
     }
 
-    const orgId = callerLink.organization_id;
+    const orgId = ownerLink.organization_id;
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },

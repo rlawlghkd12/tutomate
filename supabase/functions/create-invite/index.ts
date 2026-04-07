@@ -42,13 +42,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: callerLink } = await userClient
+    const { data: callerLinks } = await userClient
       .from('user_organizations')
       .select('organization_id, role')
       .eq('user_id', user.id)
-      .single();
+      .eq('role', 'owner')
+      .limit(1);
 
-    if (!callerLink || callerLink.role !== 'owner') {
+    const callerLink = callerLinks?.[0];
+    if (!callerLink) {
       return new Response(JSON.stringify({ error: 'owner_only' }), {
         status: 403, headers: corsHeaders,
       });
