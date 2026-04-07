@@ -138,6 +138,21 @@ export interface PaymentRecord {
   createdAt: string;
 }
 
+// 조직 역할
+export const OrgRole = {
+  OWNER: 'owner',
+  ADMIN: 'admin',
+  MEMBER: 'member',
+} as const;
+
+export type OrgRoleType = typeof OrgRole[keyof typeof OrgRole];
+
+export const ORG_ROLE_LABELS: Record<OrgRoleType, string> = {
+  owner: '소유자',
+  admin: '관리자',
+  member: '멤버',
+};
+
 // 조직 인터페이스 (Supabase)
 export interface Organization {
   id: string;

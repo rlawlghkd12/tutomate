@@ -8,6 +8,8 @@ import { logInfo, logError, logWarn } from '../utils/logger';
 import { isElectron } from '../utils/tauri';
 import type { OAuthProvider } from '../lib/oauth';
 import { OAUTH_PROVIDERS } from '../lib/oauth';
+import { OrgRole } from '../types';
+import type { OrgRoleType } from '../types';
 
 let _initializing = false;
 let _initialized = false;
@@ -21,7 +23,7 @@ export function _resetAuthFlags() {
 interface AuthStore {
   session: Session | null;
   organizationId: string | null;
-  role: 'owner' | 'member' | null;
+  role: OrgRoleType | null;
   plan: PlanType | null;
   isCloud: boolean;
   loading: boolean;
@@ -89,7 +91,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         set({
           session,
           organizationId: orgLink.organization_id,
-          role: (orgLink.role as 'owner' | 'member') || 'member',
+          role: (orgLink.role as OrgRoleType) || 'member',
           plan: (orgData?.plan as PlanType) || PlanTypeEnum.TRIAL,
           isCloud: true,
           loading: false,
@@ -150,7 +152,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       }
 
       const organizationId = data.organization_id as string;
-      const role = (data.role as 'owner' | 'member') || 'member';
+      const role = (data.role as OrgRoleType) || 'member';
       const plan = (data.plan as PlanType) || PlanTypeEnum.TRIAL;
 
       set({
@@ -184,7 +186,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       }
 
       const organizationId = data.organization_id as string;
-      const role = (data.role as 'owner' | 'member') || 'member';
+      const role = (data.role as OrgRoleType) || 'member';
       const plan = (data.plan as PlanType) || PlanTypeEnum.TRIAL;
 
       set({
@@ -295,7 +297,11 @@ if (supabase) {
 export const isCloud = (): boolean => useAuthStore.getState().isCloud;
 export const getOrgId = (): string | null => useAuthStore.getState().organizationId;
 export const getPlan = (): PlanType | null => useAuthStore.getState().plan;
-export const isOwner = (): boolean => useAuthStore.getState().role === 'owner';
+export const isOwner = (): boolean => useAuthStore.getState().role === OrgRole.OWNER;
+export const canManageMembers = (): boolean => {
+  const role = useAuthStore.getState().role;
+  return role === OrgRole.OWNER || role === OrgRole.ADMIN;
+};
 
 export function getAuthProvider(): string {
   const user = useAuthStore.getState().session?.user;

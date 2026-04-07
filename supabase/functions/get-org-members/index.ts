@@ -44,8 +44,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // owner인 조직 우선, 없으면 첫 번째
-    const ownerLink = callerLinks.find((l: any) => l.role === 'owner');
+    // owner 또는 admin인 조직 우선
+    const ownerLink = callerLinks.find((l: any) => l.role === 'owner' || l.role === 'admin');
     if (!ownerLink) {
       return new Response(JSON.stringify({ error: 'owner_only' }), {
         status: 403, headers: corsHeaders,

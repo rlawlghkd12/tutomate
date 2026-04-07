@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, BookOpen, Users, Calendar, DollarSign, Settings, UserCog } from 'lucide-react';
-import { isOwner } from '@tutomate/core';
+import { canManageMembers } from '@tutomate/core';
 
 const mainItems = [
   { key: '/', icon: LayoutDashboard, label: '대시보드' },
@@ -42,7 +42,7 @@ const Navigation: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const ownerItems = isOwner()
+  const ownerItems = canManageMembers()
     ? [{ key: '/members', icon: UserCog, label: '멤버 관리' }]
     : [];
 
