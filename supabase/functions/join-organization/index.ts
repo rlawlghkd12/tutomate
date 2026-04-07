@@ -97,19 +97,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    await adminClient
-      .from('user_organizations')
-      .update({ is_active: false })
-      .eq('user_id', user.id)
-      .eq('is_active', true);
-
     const { error: insertError } = await adminClient
       .from('user_organizations')
       .insert({
         user_id: user.id,
         organization_id: orgId,
         role: 'member',
-        is_active: true,
       });
 
     if (insertError) {

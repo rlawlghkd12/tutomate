@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
 
     const { data: links } = await adminClient
       .from('user_organizations')
-      .select('organization_id, role, is_active')
+      .select('organization_id, role')
       .eq('user_id', user.id);
 
     if (!links || links.length === 0) {
@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
         name: org?.name || '알 수 없는 조직',
         plan: org?.plan || 'trial',
         role: link.role,
-        isActive: link.is_active,
+        isActive: true, // 마이그레이션 전: 유저당 1개 org만 존재
       };
     });
 
