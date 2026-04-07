@@ -39,8 +39,9 @@ export function MemberManagementPage() {
     setLoading(true);
     try {
       const { data: result, error } = await supabase.functions.invoke('get-org-members');
-      if (error) {
-        toast.error('멤버 목록을 불러오지 못했습니다.');
+      if (error || result?.error) {
+        console.error('get-org-members error:', error, result);
+        toast.error(`멤버 목록 실패: ${result?.error || error?.message || 'unknown'}`);
         return;
       }
       setData(result as MembersData);
