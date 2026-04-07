@@ -10,7 +10,7 @@ import {
 	AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
 	AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
 	Checkbox, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-	CourseForm, PaymentManagementTable, StudentForm,
+	CourseForm, PaymentManagementTable, StudentForm, PageEnter,
 } from "@tutomate/ui";
 import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
@@ -143,7 +143,7 @@ const CourseDetailPage: React.FC = () => {
 	}
 
 	return (
-		<div className="page-enter">
+		<PageEnter>
 			{/* 브레드크럼 + 내보내기 */}
 			<div className="flex items-center justify-between mb-1.5">
 				<div className="flex items-baseline gap-1.5">
@@ -387,7 +387,7 @@ const CourseDetailPage: React.FC = () => {
 				onClose={() => setIsCourseEditVisible(false)}
 				course={course}
 			/>
-		</div>
+		</PageEnter>
 	);
 };
 

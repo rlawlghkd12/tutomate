@@ -6,7 +6,7 @@ import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 import {
 	CourseRevenueChart, PaymentStatusChart, Button,
-	Card, CardContent, CardHeader, CardTitle, Progress,
+	Card, CardContent, CardHeader, CardTitle, Progress, PageEnter,
 } from "@tutomate/ui";
 import {
 	EXEMPT_COLOR,
@@ -92,7 +92,7 @@ const DashboardPage: React.FC = () => {
 
 	if (loading) {
 		return (
-			<div className="page-enter">
+			<PageEnter>
 				<div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
 					{Array.from({ length: 6 }).map((_, i) => (
 						<div key={i} style={{ borderRadius: 8, border: '1px solid hsl(var(--border))', padding: 12 }}>
@@ -106,12 +106,12 @@ const DashboardPage: React.FC = () => {
 					<div style={{ height: 250, borderRadius: 8, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
 				</div>
 				<div style={{ height: 300, borderRadius: 8, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite', marginTop: 16 }} />
-			</div>
+			</PageEnter>
 		);
 	}
 
 	return (
-		<div className="page-enter">
+		<PageEnter>
 			{/* 상단 통계 */}
 			<div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
 				<Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/courses")}>
@@ -225,7 +225,7 @@ const DashboardPage: React.FC = () => {
 					</CardContent>
 				</Card>
 			</div>
-		</div>
+		</PageEnter>
 	);
 };
 

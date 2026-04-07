@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import dayjs from "dayjs";
-import { CourseForm, PaymentManagementTable } from "@tutomate/ui";
+import { CourseForm, PaymentManagementTable, PageEnter } from "@tutomate/ui";
 import {
 	useCourseStore,
 	useEnrollmentStore,
@@ -161,7 +161,7 @@ const CourseDetailPage: React.FC = () => {
 	const studentCount = getEnrollmentCountByCourseId(course.id);
 
 	return (
-		<div className="page-enter">
+		<PageEnter>
 			{/* 브레드크럼 + 내보내기 */}
 			<div className="flex items-center justify-between mb-1.5">
 				<div className="flex items-baseline gap-1.5">
@@ -384,7 +384,7 @@ const CourseDetailPage: React.FC = () => {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-		</div>
+		</PageEnter>
 	);
 };
 

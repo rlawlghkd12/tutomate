@@ -4,6 +4,7 @@ import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { useCourseStore, useEnrollmentStore, DAY_LABELS } from '@tutomate/core';
 import type { Course } from '@tutomate/core';
+import { PageEnter } from '@tutomate/ui';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -80,7 +81,7 @@ const CalendarPage: React.FC = () => {
   }
 
   return (
-    <div className="page-enter">
+    <PageEnter>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold m-0">강좌 캘린더</h2>
         <div className="flex items-center gap-2">
@@ -241,7 +242,7 @@ const CalendarPage: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageEnter>
   );
 };
 

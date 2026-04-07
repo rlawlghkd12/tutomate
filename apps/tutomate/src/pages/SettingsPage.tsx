@@ -23,7 +23,7 @@ import {
   getAuthProviderColor,
 } from '@tutomate/core';
 import type { FontSize } from '@tutomate/core';
-import { AdminTab } from '@tutomate/ui';
+import { AdminTab, PageEnter } from '@tutomate/ui';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -249,7 +249,7 @@ const SettingsPage: React.FC = () => {
     : 'success' as const;
 
   return (
-    <div className="page-enter">
+    <PageEnter>
       <div className="max-w-[1000px]">
 
           {/* ── 섹션 1: 계정 ── */}
@@ -601,7 +601,7 @@ const SettingsPage: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageEnter>
   );
 };
 
