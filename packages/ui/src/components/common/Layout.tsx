@@ -346,7 +346,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 		{/* 초대 코드 입력 다이얼로그 */}
 		<AlertDialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
 			<AlertDialogContent style={{ maxWidth: 400, padding: 0, overflow: 'hidden' }}>
-				{/* 상단 아이콘 + 제목 */}
+				{/* 상단 제목 */}
 				<div style={{
 					padding: '28px 28px 0',
 					display: 'flex',
@@ -354,14 +354,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 					alignItems: 'center',
 					textAlign: 'center',
 				}}>
-					<div style={{
-						width: 48, height: 48, borderRadius: 12,
-						background: 'hsl(var(--primary) / 0.1)',
-						display: 'flex', alignItems: 'center', justifyContent: 'center',
-						marginBottom: 16,
-					}}>
-						<Plus style={{ width: 24, height: 24, color: 'hsl(var(--primary))' }} />
-					</div>
 					<h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>
 						조직 추가하기
 					</h3>
