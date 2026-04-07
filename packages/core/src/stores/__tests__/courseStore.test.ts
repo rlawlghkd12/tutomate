@@ -34,6 +34,10 @@ vi.mock("../../utils/logger", () => ({
 	logDebug: vi.fn(),
 }));
 
+vi.mock("../../utils/errorReporter", () => ({
+	reportError: vi.fn(),
+}));
+
 import type { Course } from "../../types";
 import { useCourseStore } from "../courseStore";
 
@@ -58,8 +62,8 @@ describe("courseStore", () => {
 		useCourseStore.setState({ courses: [] });
 	});
 
-	it("addCourse → state에 추가, currentStudents 0 초기화", async () => {
-		await useCourseStore.getState().addCourse({
+	it("addCourse — 성공 시 true + state 추가", async () => {
+		const result = await useCourseStore.getState().addCourse({
 			name: "영어",
 			classroom: "B201",
 			instructorName: "박강사",
@@ -67,6 +71,7 @@ describe("courseStore", () => {
 			fee: 250000,
 			maxStudents: 20,
 		});
+		expect(result).toBe(true);
 		const courses = useCourseStore.getState().courses;
 		expect(courses).toHaveLength(1);
 		expect(courses[0].currentStudents).toBe(0);
@@ -77,9 +82,10 @@ describe("courseStore", () => {
 
 	it("updateCourse → 부분 업데이트, 다른 필드 유지", async () => {
 		useCourseStore.setState({ courses: [makeCourse()] });
-		await useCourseStore
+		const result = await useCourseStore
 			.getState()
 			.updateCourse("c1", { name: "고급수학", fee: 400000 });
+		expect(result).toBe(true);
 		const c = useCourseStore.getState().getCourseById("c1")!;
 		expect(c.name).toBe("고급수학");
 		expect(c.fee).toBe(400000);
@@ -140,14 +146,14 @@ describe("courseStore", () => {
 		expect(useCourseStore.getState().courses).toHaveLength(1);
 	});
 
-	// ── 서버 실패 시 state 보호 ──
+	// ── 서버 실패 시 state 보호 (server-first) ──
 
-	it("addCourse — 서버 실패해도 로컬에 추가 (optimistic)", async () => {
+	it("addCourse — 서버 실패 시 false, state 변경 없음", async () => {
 		const existing = makeCourse({ id: "c1", name: "기존 강좌" });
 		useCourseStore.setState({ courses: [existing] });
 		mockInsert.mockResolvedValueOnce({ error: { message: "insert failed" } });
 
-		await useCourseStore.getState().addCourse({
+		const result = await useCourseStore.getState().addCourse({
 			name: "새 강좌",
 			classroom: "B",
 			instructorName: "강사",
@@ -156,19 +162,21 @@ describe("courseStore", () => {
 			maxStudents: 20,
 		});
 
-		// optimistic update: 서버 실패해도 로컬에 추가됨
+		// server-first: 서버 실패 시 로컬에 추가하지 않음
+		expect(result).toBe(false);
 		const courses = useCourseStore.getState().courses;
-		expect(courses).toHaveLength(2);
-		expect(courses[1].name).toBe("새 강좌");
+		expect(courses).toHaveLength(1);
+		expect(courses[0].name).toBe("기존 강좌");
 	});
 
-	it("deleteCourse → state에서 제거", async () => {
+	it("deleteCourse — 성공 시 true + state 제거", async () => {
 		const c1 = makeCourse({ id: "c1", name: "수학" });
 		const c2 = makeCourse({ id: "c2", name: "영어" });
 		useCourseStore.setState({ courses: [c1, c2] });
 
-		await useCourseStore.getState().deleteCourse("c1");
+		const result = await useCourseStore.getState().deleteCourse("c1");
 
+		expect(result).toBe(true);
 		const courses = useCourseStore.getState().courses;
 		expect(courses).toHaveLength(1);
 		expect(courses[0].id).toBe("c2");
@@ -185,18 +193,21 @@ describe("courseStore", () => {
 		expect(useCourseStore.getState().courses).toHaveLength(1);
 	});
 
-	it("updateCourse — 서버 실패해도 로컬 반영 (optimistic)", async () => {
+	it("updateCourse — 서버 실패 시 false, state 변경 없음", async () => {
 		const existing = makeCourse({ id: "c1", name: "원래 이름" });
 		useCourseStore.setState({ courses: [existing] });
 		mockUpdate.mockReturnValueOnce({
 			eq: vi.fn().mockResolvedValue({ error: { message: "update failed" } }),
 		});
 
-		await useCourseStore.getState().updateCourse("c1", { name: "변경 이름" });
+		const result = await useCourseStore
+			.getState()
+			.updateCourse("c1", { name: "변경 이름" });
 
-		// optimistic update: 서버 실패해도 로컬에 반영됨
+		// server-first: 서버 실패 시 로컬에 반영하지 않음
+		expect(result).toBe(false);
 		expect(useCourseStore.getState().getCourseById("c1")?.name).toBe(
-			"변경 이름",
+			"원래 이름",
 		);
 	});
 
@@ -205,28 +216,41 @@ describe("courseStore", () => {
 		const c2 = makeCourse({ id: "c2", name: "영어" });
 		useCourseStore.setState({ courses: [c1, c2] });
 
-		await useCourseStore.getState().updateCourse("c1", { name: "수학(변경)" });
+		const result = await useCourseStore
+			.getState()
+			.updateCourse("c1", { name: "수학(변경)" });
 
-		expect(useCourseStore.getState().getCourseById("c1")?.name).toBe("수학(변경)");
+		expect(result).toBe(true);
+		expect(useCourseStore.getState().getCourseById("c1")?.name).toBe(
+			"수학(변경)",
+		);
 		expect(useCourseStore.getState().getCourseById("c2")?.name).toBe("영어");
 	});
 
-	it("updateCourse — 서버 실패해도 로컬 반영", async () => {
+	it("updateCourse — 서버 에러 시 false, state 변경 없음", async () => {
 		useCourseStore.setState({ courses: [makeCourse()] });
 		mockUpdate.mockReturnValueOnce({
-			eq: vi.fn().mockRejectedValue(new Error("server error")),
+			eq: vi.fn().mockResolvedValue({ error: { message: "server error" } }),
 		});
-		await useCourseStore.getState().updateCourse("c1", { fee: 999 });
-		expect(useCourseStore.getState().getCourseById("c1")?.fee).toBe(999);
+		const result = await useCourseStore
+			.getState()
+			.updateCourse("c1", { fee: 999 });
+		expect(result).toBe(false);
+		expect(useCourseStore.getState().getCourseById("c1")?.fee).toBe(300000);
 	});
 
-	it("addCourse — 서버 실패해도 로컬에 추가", async () => {
+	it("addCourse — 서버 실패 시 false, state에 추가 안됨", async () => {
 		mockInsert.mockResolvedValueOnce({ error: { message: "fail" } });
-		await useCourseStore.getState().addCourse({
-			name: "실패강좌", classroom: "A", instructorName: "김",
-			instructorPhone: "010", fee: 100000, maxStudents: 10,
+		const result = await useCourseStore.getState().addCourse({
+			name: "실패강좌",
+			classroom: "A",
+			instructorName: "김",
+			instructorPhone: "010",
+			fee: 100000,
+			maxStudents: 10,
 		});
-		expect(useCourseStore.getState().courses.some(c => c.name === "실패강좌")).toBe(true);
+		expect(result).toBe(false);
+		expect(useCourseStore.getState().courses).toHaveLength(0);
 	});
 
 	it("loadCourses — 서버 에러 시 기존 courses 유지", async () => {
@@ -249,20 +273,22 @@ describe("courseStore", () => {
 		useCourseStore.getState().invalidate();
 
 		mockSelect.mockReturnValueOnce({
-			data: [{
-				id: "c-loaded",
-				organization_id: "org1",
-				name: "서버강좌",
-				classroom: "A",
-				instructor_name: "강사",
-				instructor_phone: "010",
-				fee: 100000,
-				max_students: 20,
-				current_students: 5,
-				schedule: null,
-				created_at: "2026-01-01T00:00:00Z",
-				updated_at: "2026-01-01T00:00:00Z",
-			}],
+			data: [
+				{
+					id: "c-loaded",
+					organization_id: "org1",
+					name: "서버강좌",
+					classroom: "A",
+					instructor_name: "강사",
+					instructor_phone: "010",
+					fee: 100000,
+					max_students: 20,
+					current_students: 5,
+					schedule: null,
+					created_at: "2026-01-01T00:00:00Z",
+					updated_at: "2026-01-01T00:00:00Z",
+				},
+			],
 			error: null,
 		});
 
@@ -271,5 +297,58 @@ describe("courseStore", () => {
 		const courses = useCourseStore.getState().courses;
 		expect(courses).toHaveLength(1);
 		expect(courses[0].name).toBe("서버강좌");
+	});
+
+	it("loadCourses — 캐시 폴백 시 showErrorMessage 호출", async () => {
+		// 캐시 데이터 설정
+		localStorage.setItem(
+			"cache_courses",
+			JSON.stringify([
+				{
+					id: "c-cached",
+					organization_id: "org1",
+					name: "캐시강좌",
+					classroom: "B",
+					instructor_name: "캐시강사",
+					instructor_phone: "010",
+					fee: 200000,
+					max_students: 15,
+					current_students: 3,
+					schedule: null,
+					created_at: "2026-01-01T00:00:00Z",
+					updated_at: "2026-01-01T00:00:00Z",
+				},
+			]),
+		);
+
+		useCourseStore.getState().invalidate();
+
+		// select가 에러를 반환하여 supabaseLoadData에서 throw 발생
+		mockSelect.mockReturnValueOnce({
+			data: null,
+			error: { message: "network error" },
+		});
+
+		await useCourseStore.getState().loadCourses();
+
+		// cached 상태면 데이터 설정 + showErrorMessage 호출됨
+		const courses = useCourseStore.getState().courses;
+		expect(courses).toHaveLength(1);
+		expect(courses[0].name).toBe("캐시강좌");
+	});
+
+	it("deleteCourse — 서버 실패 시 false, state 변경 없음", async () => {
+		const c1 = makeCourse({ id: "c1", name: "수학" });
+		useCourseStore.setState({ courses: [c1] });
+
+		mockDelete.mockReturnValueOnce({
+			eq: vi.fn().mockResolvedValue({ error: { message: "delete failed" } }),
+		});
+
+		const result = await useCourseStore.getState().deleteCourse("c1");
+
+		expect(result).toBe(false);
+		expect(useCourseStore.getState().courses).toHaveLength(1);
+		expect(useCourseStore.getState().courses[0].name).toBe("수학");
 	});
 });

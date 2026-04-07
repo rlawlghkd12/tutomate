@@ -34,9 +34,18 @@ vi.mock("../../utils/logger", () => ({
 	logDebug: vi.fn(),
 }));
 
+vi.mock("../../utils/errors", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../utils/errors")>();
+	return {
+		...actual,
+		handleError: vi.fn(),
+	};
+});
+
 import type { Enrollment, PaymentRecord } from "../../types";
 import { useEnrollmentStore } from "../enrollmentStore";
 import { usePaymentRecordStore } from "../paymentRecordStore";
+import { handleError } from "../../utils/errors";
 
 function makeRecord(overrides: Partial<PaymentRecord> = {}): PaymentRecord {
 	return {
@@ -69,6 +78,7 @@ describe("paymentRecordStore", () => {
 	beforeEach(() => {
 		usePaymentRecordStore.setState({ records: [] });
 		useEnrollmentStore.setState({ enrollments: [] });
+		vi.mocked(handleError).mockClear();
 	});
 
 	// ── loadRecords ──
@@ -89,13 +99,14 @@ describe("paymentRecordStore", () => {
 			.getState()
 			.addPayment("e1", 100000, 300000, "card", "2026-03-15", "테스트 메모");
 
-		expect(result.enrollmentId).toBe("e1");
-		expect(result.amount).toBe(100000);
-		expect(result.paymentMethod).toBe("card");
-		expect(result.paidAt).toBe("2026-03-15");
-		expect(result.notes).toBe("테스트 메모");
-		expect(result.id).toBeTruthy();
-		expect(result.createdAt).toBeTruthy();
+		expect(result).not.toBeNull();
+		expect(result!.enrollmentId).toBe("e1");
+		expect(result!.amount).toBe(100000);
+		expect(result!.paymentMethod).toBe("card");
+		expect(result!.paidAt).toBe("2026-03-15");
+		expect(result!.notes).toBe("테스트 메모");
+		expect(result!.id).toBeTruthy();
+		expect(result!.createdAt).toBeTruthy();
 
 		const records = usePaymentRecordStore.getState().records;
 		expect(records).toHaveLength(1);
@@ -111,8 +122,9 @@ describe("paymentRecordStore", () => {
 			.getState()
 			.addPayment("e1", 100000, 300000);
 
+		expect(result).not.toBeNull();
 		// paidAt이 YYYY-MM-DD 형식으로 설정됨
-		expect(result.paidAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		expect(result!.paidAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 	});
 
 	it("addPayment — enrollment paidAmount/paymentStatus 갱신", async () => {
@@ -179,17 +191,35 @@ describe("paymentRecordStore", () => {
 		expect(enrollment?.paymentStatus).toBe("completed");
 	});
 
+	// ── addPayment — 서버 실패 (server-first) ──
+
+	it("addPayment — 서버 실패 시 null 반환, 로컬 state 변경 없음", async () => {
+		useEnrollmentStore.setState({
+			enrollments: [makeEnrollment()],
+		});
+		mockInsert.mockResolvedValueOnce({ error: { message: "insert failed" } });
+
+		const result = await usePaymentRecordStore
+			.getState()
+			.addPayment("e1", 100000, 300000, "card");
+
+		expect(result).toBeNull();
+		expect(usePaymentRecordStore.getState().records).toHaveLength(0);
+		expect(handleError).toHaveBeenCalled();
+	});
+
 	// ── deletePayment ──
 
-	it("deletePayment — 납부 기록 제거", async () => {
+	it("deletePayment — 납부 기록 제거, true 반환", async () => {
 		const record = makeRecord({ id: "pr1" });
 		usePaymentRecordStore.setState({ records: [record] });
 		useEnrollmentStore.setState({
 			enrollments: [makeEnrollment({ paidAmount: 100000, paymentStatus: "partial" })],
 		});
 
-		await usePaymentRecordStore.getState().deletePayment("pr1", 300000);
+		const result = await usePaymentRecordStore.getState().deletePayment("pr1", 300000);
 
+		expect(result).toBe(true);
 		const records = usePaymentRecordStore.getState().records;
 		expect(records).toHaveLength(0);
 	});
@@ -228,12 +258,31 @@ describe("paymentRecordStore", () => {
 		expect(enrollment?.paymentStatus).toBe("pending");
 	});
 
-	it("deletePayment — 존재하지 않는 id → 에러 없이 무시", async () => {
+	it("deletePayment — 존재하지 않는 id → false 반환", async () => {
 		usePaymentRecordStore.setState({ records: [makeRecord()] });
 
-		await usePaymentRecordStore.getState().deletePayment("non-existent", 300000);
+		const result = await usePaymentRecordStore.getState().deletePayment("non-existent", 300000);
 
+		expect(result).toBe(false);
 		expect(usePaymentRecordStore.getState().records).toHaveLength(1);
+	});
+
+	it("deletePayment — 서버 삭제 실패 시 false 반환, 로컬 state 변경 없음", async () => {
+		const record = makeRecord({ id: "pr-fail" });
+		usePaymentRecordStore.setState({ records: [record] });
+		useEnrollmentStore.setState({
+			enrollments: [makeEnrollment({ paidAmount: 100000 })],
+		});
+
+		mockDelete.mockReturnValueOnce({
+			eq: vi.fn().mockResolvedValue({ error: { message: "delete failed" } }),
+		});
+
+		const result = await usePaymentRecordStore.getState().deletePayment("pr-fail", 300000);
+
+		expect(result).toBe(false);
+		expect(usePaymentRecordStore.getState().records).toHaveLength(1);
+		expect(handleError).toHaveBeenCalled();
 	});
 
 	// ── getRecordsByEnrollmentId ──
@@ -284,10 +333,11 @@ describe("paymentRecordStore", () => {
 			enrollments: [makeEnrollment()],
 		});
 
-		await usePaymentRecordStore
+		const result = await usePaymentRecordStore
 			.getState()
 			.addPayment("e1", 0, 300000, "cash");
 
+		expect(result).not.toBeNull();
 		const records = usePaymentRecordStore.getState().records;
 		expect(records).toHaveLength(1);
 		expect(records[0].amount).toBe(0);
@@ -295,21 +345,6 @@ describe("paymentRecordStore", () => {
 		const enrollment = useEnrollmentStore.getState().getEnrollmentById("e1");
 		expect(enrollment?.paymentStatus).toBe("pending");
 		expect(enrollment?.paidAmount).toBe(0);
-	});
-
-	it("addPayment — 서버 실패해도 로컬에 추가 (optimistic)", async () => {
-		useEnrollmentStore.setState({
-			enrollments: [makeEnrollment()],
-		});
-		mockInsert.mockResolvedValueOnce({ error: { message: "insert failed" } });
-
-		await usePaymentRecordStore
-			.getState()
-			.addPayment("e1", 100000, 300000, "card");
-
-		const records = usePaymentRecordStore.getState().records;
-		expect(records).toHaveLength(1);
-		expect(records[0].amount).toBe(100000);
 	});
 
 	it("deletePaymentsByEnrollmentId — enrollmentId 기준 일괄 삭제", async () => {
@@ -331,10 +366,11 @@ describe("paymentRecordStore", () => {
 		const record = makeRecord({ id: "pr1", amount: 100000, notes: "원래 메모" });
 		usePaymentRecordStore.setState({ records: [record] });
 
-		await usePaymentRecordStore
+		const result = await usePaymentRecordStore
 			.getState()
 			.updateRecord("pr1", { notes: "변경된 메모" });
 
+		expect(result).toBe(true);
 		const updated = usePaymentRecordStore
 			.getState()
 			.records.find((r) => r.id === "pr1");
@@ -342,9 +378,9 @@ describe("paymentRecordStore", () => {
 		expect(updated?.amount).toBe(100000); // 변경 안됨
 	});
 
-	// ── loadRecords — catch branch ──
+	// ── loadRecords — error branch ──
 
-	it("loadRecords — 서버 에러 시 기존 records 유지", async () => {
+	it("loadRecords — 서버 에러 시 기존 records 유지, handleError 호출", async () => {
 		const existing = [makeRecord({ id: "existing" })];
 		usePaymentRecordStore.setState({ records: existing });
 
@@ -361,6 +397,7 @@ describe("paymentRecordStore", () => {
 
 		// 기존 데이터 유지
 		expect(usePaymentRecordStore.getState().records).toEqual(existing);
+		expect(handleError).toHaveBeenCalled();
 	});
 
 	it("loadRecords — 서버 성공 시 records 갱신", async () => {
@@ -403,7 +440,8 @@ describe("paymentRecordStore", () => {
 			.getState()
 			.addPayment("e-nonexistent", 50000, 200000, "cash");
 
-		expect(result.enrollmentId).toBe("e-nonexistent");
+		expect(result).not.toBeNull();
+		expect(result!.enrollmentId).toBe("e-nonexistent");
 		expect(usePaymentRecordStore.getState().records).toHaveLength(1);
 	});
 
@@ -414,14 +452,15 @@ describe("paymentRecordStore", () => {
 		usePaymentRecordStore.setState({ records: [record] });
 		useEnrollmentStore.setState({ enrollments: [] });
 
-		await usePaymentRecordStore.getState().deletePayment("pr-orphan", 300000);
+		const result = await usePaymentRecordStore.getState().deletePayment("pr-orphan", 300000);
 
+		expect(result).toBe(true);
 		expect(usePaymentRecordStore.getState().records).toHaveLength(0);
 	});
 
-	// ── updateRecord — 서버 실패 ──
+	// ── updateRecord — 서버 실패 (server-first) ──
 
-	it("updateRecord — 서버 실패해도 로컬 state 유지", async () => {
+	it("updateRecord — 서버 실패 시 false 반환, 로컬 state 변경 없음", async () => {
 		const record = makeRecord({ id: "pr1" });
 		usePaymentRecordStore.setState({ records: [record] });
 
@@ -429,14 +468,16 @@ describe("paymentRecordStore", () => {
 			eq: vi.fn().mockResolvedValue({ error: { message: "update failed" } }),
 		});
 
-		await usePaymentRecordStore
+		const result = await usePaymentRecordStore
 			.getState()
 			.updateRecord("pr1", { amount: 999 });
 
+		expect(result).toBe(false);
 		const updated = usePaymentRecordStore
 			.getState()
 			.records.find((r) => r.id === "pr1");
-		expect(updated?.amount).toBe(999);
+		expect(updated?.amount).toBe(100000); // 원래 값 유지
+		expect(handleError).toHaveBeenCalled();
 	});
 
 	// ── addPayment — 할인 적용 enrollment ──
@@ -466,24 +507,6 @@ describe("paymentRecordStore", () => {
 		expect(result).toHaveLength(2);
 	});
 
-	// ── deletePayment — 서버 실패해도 로컬 반영 ──
-
-	it("deletePayment — 서버 삭제 실패해도 로컬에서 제거", async () => {
-		const record = makeRecord({ id: "pr-fail" });
-		usePaymentRecordStore.setState({ records: [record] });
-		useEnrollmentStore.setState({
-			enrollments: [makeEnrollment({ paidAmount: 100000 })],
-		});
-
-		mockDelete.mockReturnValueOnce({
-			eq: vi.fn().mockResolvedValue({ error: { message: "delete failed" } }),
-		});
-
-		await usePaymentRecordStore.getState().deletePayment("pr-fail", 300000);
-
-		expect(usePaymentRecordStore.getState().records).toHaveLength(0);
-	});
-
 	// ── syncEnrollmentTotal — discount 처리 ──
 
 	it("syncEnrollmentTotal — enrollment의 discountAmount null → 0으로 처리", async () => {
@@ -499,60 +522,22 @@ describe("paymentRecordStore", () => {
 		expect(enrollment?.paymentStatus).toBe("partial");
 	});
 
-	// ── updateRecord — 서버 실패 optimistic ──
-
-	it("updateRecord — 서버 에러 발생해도 로컬 state 정상 갱신", async () => {
-		const record = makeRecord({ id: "pr-update-fail" });
-		usePaymentRecordStore.setState({ records: [record] });
-
-		mockUpdate.mockReturnValueOnce({
-			eq: vi.fn().mockRejectedValue(new Error("server error")),
-		});
-
-		await usePaymentRecordStore
-			.getState()
-			.updateRecord("pr-update-fail", { notes: "새 메모" });
-
-		const updated = usePaymentRecordStore
-			.getState()
-			.records.find((r) => r.id === "pr-update-fail");
-		expect(updated?.notes).toBe("새 메모");
-	});
-
 	it("updateRecord — 여러 레코드 중 하나만 업데이트", async () => {
 		const r1 = makeRecord({ id: "pr1", amount: 100000 });
 		const r2 = makeRecord({ id: "pr2", amount: 200000 });
 		usePaymentRecordStore.setState({ records: [r1, r2] });
 
-		await usePaymentRecordStore
+		const result = await usePaymentRecordStore
 			.getState()
 			.updateRecord("pr1", { amount: 150000 });
 
+		expect(result).toBe(true);
 		expect(
 			usePaymentRecordStore.getState().records.find((r) => r.id === "pr1")?.amount,
 		).toBe(150000);
 		expect(
 			usePaymentRecordStore.getState().records.find((r) => r.id === "pr2")?.amount,
 		).toBe(200000);
-	});
-
-	// ── deletePayment — 서버 삭제 실패 시 로컬 records에서 이미 제거됨 ──
-
-	it("deletePayment — helper.remove가 throw해도 로컬에서 이미 제거", async () => {
-		const record = makeRecord({ id: "pr-throw" });
-		usePaymentRecordStore.setState({ records: [record] });
-		useEnrollmentStore.setState({
-			enrollments: [makeEnrollment()],
-		});
-
-		mockDelete.mockReturnValueOnce({
-			eq: vi.fn().mockRejectedValue(new Error("delete error")),
-		});
-
-		await usePaymentRecordStore.getState().deletePayment("pr-throw", 300000);
-
-		// 로컬에서는 이미 제거
-		expect(usePaymentRecordStore.getState().records).toHaveLength(0);
 	});
 
 	// ── syncEnrollmentTotal with undefined paidAt ──
@@ -572,6 +557,65 @@ describe("paymentRecordStore", () => {
 
 		const enrollment = useEnrollmentStore.getState().getEnrollmentById("e1");
 		expect(enrollment?.paidAmount).toBe(150000);
+	});
+
+	// ── loadRecords — cached branch ──
+
+	it("loadRecords — 캐시 폴백 시 showErrorMessage 호출", async () => {
+		localStorage.setItem(
+			"cache_payment_records",
+			JSON.stringify([
+				{
+					id: "pr-cached",
+					organization_id: "org1",
+					enrollment_id: "e1",
+					amount: 80000,
+					paid_at: "2026-04-01",
+					payment_method: null,
+					notes: null,
+					created_at: "2026-04-01T00:00:00Z",
+				},
+			]),
+		);
+
+		usePaymentRecordStore.getState().invalidate();
+
+		mockSelect.mockReturnValueOnce({
+			data: null,
+			error: { message: "network error" },
+		});
+
+		await usePaymentRecordStore.getState().loadRecords();
+
+		const records = usePaymentRecordStore.getState().records;
+		expect(records).toHaveLength(1);
+		expect(records[0].id).toBe("pr-cached");
+	});
+
+	// ── deletePaymentsByEnrollmentId — 부분 실패 ──
+
+	it("deletePaymentsByEnrollmentId — 일부 삭제 실패 시 성공한 것만 state에서 제거", async () => {
+		const r1 = makeRecord({ id: "pr1", enrollmentId: "e1" });
+		const r2 = makeRecord({ id: "pr2", enrollmentId: "e1" });
+		usePaymentRecordStore.setState({ records: [r1, r2] });
+
+		// 첫 번째 삭제 성공, 두 번째 삭제 실패
+		mockDelete
+			.mockReturnValueOnce({
+				eq: vi.fn().mockResolvedValue({ error: null }),
+			})
+			.mockReturnValueOnce({
+				eq: vi.fn().mockResolvedValue({ error: { message: "delete failed" } }),
+			});
+
+		await usePaymentRecordStore
+			.getState()
+			.deletePaymentsByEnrollmentId("e1");
+
+		const remaining = usePaymentRecordStore.getState().records;
+		// pr1은 삭제 성공, pr2는 실패하여 남음
+		expect(remaining).toHaveLength(1);
+		expect(remaining[0].id).toBe("pr2");
 	});
 
 	// ── syncEnrollmentTotal — latestRecord paidAt 기준 정렬 ──
@@ -594,5 +638,21 @@ describe("paymentRecordStore", () => {
 		const enrollment = useEnrollmentStore.getState().getEnrollmentById("e1");
 		expect(enrollment?.paymentMethod).toBe("card");
 		expect(enrollment?.paidAmount).toBe(150000);
+	});
+
+	// ── syncEnrollmentTotal — withdrawn enrollment 무시 ──
+
+	it("syncEnrollmentTotal — withdrawn enrollment → 갱신 안 함", async () => {
+		useEnrollmentStore.setState({
+			enrollments: [makeEnrollment({ paymentStatus: "withdrawn" })],
+		});
+
+		await usePaymentRecordStore
+			.getState()
+			.addPayment("e1", 100000, 300000, "card");
+
+		// withdrawn enrollment은 paymentStatus가 변경되지 않음
+		const enrollment = useEnrollmentStore.getState().getEnrollmentById("e1");
+		expect(enrollment?.paymentStatus).toBe("withdrawn");
 	});
 });

@@ -3,13 +3,14 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import dayjs from "dayjs";
 import {
 	Button,
 	Dialog, DialogContent, DialogHeader, DialogTitle,
 	AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
 	AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
 	Checkbox, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-	CourseForm, PaymentManagementTable, StudentForm,
+	CourseForm, PaymentManagementTable, StudentForm, PageEnter,
 } from "@tutomate/ui";
 import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
@@ -41,7 +42,7 @@ const CourseDetailPage: React.FC = () => {
 	const { loadStudents, getStudentById } = useStudentStore();
 	const { enrollments, loadEnrollments, withdrawEnrollment } =
 		useEnrollmentStore();
-	const { loadRecords } = usePaymentRecordStore();
+	const { loadRecords, addPayment } = usePaymentRecordStore();
 
 	const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 	const [isExportModalVisible, setIsExportModalVisible] = useState(false);
@@ -88,13 +89,18 @@ const CourseDetailPage: React.FC = () => {
 		navigate("/courses");
 	};
 
-	const handleRemoveStudents = async (enrollmentIds: string[]) => {
+	const handleRemoveStudents = async (enrollmentIds: string[], refundAmount?: number) => {
 		for (const id of enrollmentIds) {
 			await withdrawEnrollment(id);
+			if (refundAmount && refundAmount > 0) {
+				await addPayment(id, -refundAmount, course?.fee || 0, undefined, dayjs().format("YYYY-MM-DD"));
+			}
 		}
 		setSelectedRowKeys([]);
 		await loadEnrollments();
-		toast.success(`${enrollmentIds.length}명의 수강이 철회되었습니다.`);
+		await loadRecords();
+		const refundMsg = refundAmount ? ` (환불 ₩${refundAmount.toLocaleString()})` : '';
+		toast.success(`${enrollmentIds.length}명의 수강이 철회되었습니다.${refundMsg}`);
 	};
 
 	const handleExport = (type: "excel" | "csv") => {
@@ -137,7 +143,7 @@ const CourseDetailPage: React.FC = () => {
 	}
 
 	return (
-		<div className="page-enter">
+		<PageEnter>
 			{/* 브레드크럼 + 내보내기 */}
 			<div className="flex items-center justify-between mb-1.5">
 				<div className="flex items-baseline gap-1.5">
@@ -381,7 +387,7 @@ const CourseDetailPage: React.FC = () => {
 				onClose={() => setIsCourseEditVisible(false)}
 				course={course}
 			/>
-		</div>
+		</PageEnter>
 	);
 };
 

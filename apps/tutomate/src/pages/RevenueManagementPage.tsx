@@ -26,7 +26,7 @@ import {
   isActiveEnrollment,
 } from '@tutomate/core';
 import type { Enrollment } from '@tutomate/core';
-import { PaymentForm } from '@tutomate/ui';
+import { PaymentForm, PageEnter } from '@tutomate/ui';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -232,7 +232,7 @@ const RevenueManagementPage: React.FC = () => {
   };
 
   return (
-    <div className="page-enter">
+    <PageEnter>
       {/* 필터 섹션 */}
       <Card className="mb-6">
         <CardContent className="p-4 space-y-4">
@@ -655,7 +655,7 @@ const RevenueManagementPage: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageEnter>
   );
 };
 

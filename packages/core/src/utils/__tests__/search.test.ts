@@ -328,4 +328,16 @@ describe('searchAll', () => {
     // student1의 주소 '서울시 강남구' 매칭
     expect(results.some((r) => r.type === 'student')).toBe(true);
   });
+
+  it('email 없는 학생 검색 시 description 빈 문자열', () => {
+    const noEmailStudent: Student = {
+      ...student1,
+      id: 's-no-email',
+      name: '이메일없음',
+      email: undefined,
+    };
+    const results = searchStudents([noEmailStudent], '이메일없음');
+    expect(results).toHaveLength(1);
+    expect(results[0].description).toBe('');
+  });
 });

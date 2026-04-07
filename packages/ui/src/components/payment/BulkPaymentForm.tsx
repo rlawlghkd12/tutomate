@@ -3,7 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
-import { useEnrollmentStore } from '@tutomate/core';
+import { useEnrollmentStore, PaymentMethodEnum } from '@tutomate/core';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -34,7 +34,7 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
 }) => {
   const { updatePayment } = useEnrollmentStore();
   const [paymentType, setPaymentType] = useState<'fixed' | 'ratio'>('fixed');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethodEnum.CASH);
 
 	const [submitting, setSubmitting] = useState(false);
   const form = useForm<BulkPaymentFormValues>({
@@ -225,7 +225,7 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
             <Label>납부 방법</Label>
             <RadioGroup
               value={paymentMethod ?? 'none'}
-              onValueChange={(v) => setPaymentMethod(v === 'none' ? 'cash' as PaymentMethod : v as PaymentMethod)}
+              onValueChange={(v) => setPaymentMethod(v === 'none' ? PaymentMethodEnum.CASH : v as PaymentMethod)}
               className="flex gap-2"
             >
               <div className="flex items-center space-x-1">

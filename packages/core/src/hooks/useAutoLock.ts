@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useLockStore } from '../stores/lockStore';
 
 export function useAutoLock() {
-  const { isEnabled, autoLockMinutes, lock, loadLockSettings } = useLockStore();
+  const isEnabled = useLockStore((s) => s.isEnabled);
+  const autoLockMinutes = useLockStore((s) => s.autoLockMinutes);
+  const lock = useLockStore((s) => s.lock);
+  const loadLockSettings = useLockStore((s) => s.loadLockSettings);
   const lastActivityRef = useRef(Date.now());
 
   // 앱 시작 시 설정 로드 + 활성화 상태면 잠금

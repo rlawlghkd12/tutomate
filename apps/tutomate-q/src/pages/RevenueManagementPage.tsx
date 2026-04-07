@@ -11,7 +11,7 @@ import {
   Tabs, TabsContent, TabsList, TabsTrigger, Checkbox,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-  Input,
+  Input, PageEnter,
 } from '@tutomate/ui';
 import { EXEMPT_COLOR } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
@@ -206,7 +206,7 @@ const RevenueManagementPage: React.FC = () => {
   };
 
   return (
-    <div className="page-enter">
+    <PageEnter>
       {/* 필터 섹션 */}
       <Card className="mb-6">
         <CardContent className="p-4 space-y-4">
@@ -612,7 +612,7 @@ const RevenueManagementPage: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageEnter>
   );
 };
 

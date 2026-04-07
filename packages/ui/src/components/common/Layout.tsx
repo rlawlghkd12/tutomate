@@ -1,16 +1,26 @@
-import { Wifi, X, Search } from 'lucide-react';
+import { Wifi, X, Search, ChevronDown, Check, Plus } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useLicenseStore } from '@tutomate/core';
+import { useAuthStore, supabase, reloadAllStores, getUnreadCountForOrg } from '@tutomate/core';
 import { useSettingsStore } from '@tutomate/core';
 import { NotificationCenter } from '../notification/NotificationCenter';
 import { GlobalSearch, useGlobalSearch } from '../search/GlobalSearch';
 import Navigation from './Navigation';
 import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { AlertDialog, AlertDialogContent, AlertDialogCancel } from '../ui/alert-dialog';
+import { toast } from 'sonner';
+import { showSwitchOverlay, hideSwitchOverlay, updateSwitchOverlayName } from './switchOverlay';
 
 interface LayoutProps {
 	children: React.ReactNode;
+}
+
+interface OrgItem {
+	id: string;
+	name: string;
+	role?: string;
 }
 
 const PAGE_TITLES: Record<string, string> = {
@@ -19,6 +29,7 @@ const PAGE_TITLES: Record<string, string> = {
 	'/students': '수강생 관리',
 	'/calendar': '캘린더',
 	'/revenue': '수익 관리',
+	'/members': '멤버 관리',
 	'/settings': '설정',
 };
 
@@ -27,13 +38,24 @@ const SIDEBAR_WIDTH = 220;
 const Layout: React.FC<LayoutProps> = ({ children }) => {
 	const [offline, setOffline] = useState(!navigator.onLine);
 	const [offlineDismissed, setOfflineDismissed] = useState(false);
-	const organizationName = useSettingsStore((s) => s.organizationName);
-	const getPlan = useLicenseStore((s) => s.getPlan);
-	const plan = getPlan();
+	const settingsOrgName = useSettingsStore((s) => s.organizationName);
+	const plan = useAuthStore((s) => s.plan) || 'trial';
 	const isTrial = plan === 'trial';
 	const location = useLocation();
 	const navigate = useNavigate();
 	const { visible: searchVisible, open: openSearch, close: closeSearch } = useGlobalSearch();
+
+	const [orgs, setOrgs] = useState<OrgItem[]>([]);
+	const [orgMenuOpen, setOrgMenuOpen] = useState(false);
+	const orgMenuRef = useRef<HTMLDivElement>(null);
+	const currentOrgId = useAuthStore((s) => s.organizationId);
+
+	// 현재 활성 조직 이름: orgs에서 가져오고, 없으면 settings fallback
+	const activeOrg = orgs.find((o) => o.id === currentOrgId);
+	const organizationName = settingsOrgName || activeOrg?.name;
+	const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+	const [inviteCode, setInviteCode] = useState('');
+	const [joining, setJoining] = useState(false);
 
 	useEffect(() => {
 		const goOffline = () => { setOffline(true); setOfflineDismissed(false); };
@@ -42,6 +64,97 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 		window.addEventListener('online', goOnline);
 		return () => { window.removeEventListener('offline', goOffline); window.removeEventListener('online', goOnline); };
 	}, []);
+
+	const loadOrgs = () => {
+		if (!supabase) return;
+		supabase.functions.invoke('list-my-organizations').then(({ data }) => {
+			if (data?.organizations && Array.isArray(data.organizations)) {
+				setOrgs(data.organizations as OrgItem[]);
+			}
+		}).catch(() => {});
+	};
+
+	// Load org list
+	useEffect(() => { loadOrgs(); }, [currentOrgId]);
+
+	// Close org menu on outside click
+	useEffect(() => {
+		if (!orgMenuOpen) return;
+		const handler = (e: MouseEvent) => {
+			if (orgMenuRef.current && !orgMenuRef.current.contains(e.target as Node)) {
+				setOrgMenuOpen(false);
+			}
+		};
+		document.addEventListener('mousedown', handler);
+		return () => document.removeEventListener('mousedown', handler);
+	}, [orgMenuOpen]);
+
+	const handleSwitchOrg = async (orgId: string) => {
+		if (orgId === currentOrgId) { setOrgMenuOpen(false); return; }
+		const targetOrg = orgs.find((o) => o.id === orgId);
+		const targetName = targetOrg?.name || '';
+		setOrgMenuOpen(false);
+
+		showSwitchOverlay(targetName);
+
+		try {
+			await useAuthStore.getState().switchOrganization(orgId);
+			// 전환된 조직 이름으로 설정 업데이트
+			if (targetName) {
+				useSettingsStore.getState().setOrganizationName(targetName);
+			}
+			await reloadAllStores();
+			loadOrgs();
+		} catch {
+			// error handled in store
+		} finally {
+			hideSwitchOverlay();
+		}
+	};
+
+
+	const handleJoinOrg = async () => {
+		if (!inviteCode.trim()) return;
+		setJoining(true);
+		try {
+			setInviteDialogOpen(false);
+			// 1. 이름 먼저 조회
+			let orgName = '';
+			if (supabase) {
+				const { data: lookup } = await supabase.functions.invoke('lookup-invite', {
+					body: { code: inviteCode.trim() },
+				});
+				orgName = lookup?.name || '';
+			}
+			// 2. 이름으로 오버레이 + 홈으로
+			showSwitchOverlay(orgName);
+			navigate('/');
+			// 3. join
+			const result = await useAuthStore.getState().joinOrganization(inviteCode.trim());
+			if (!orgName && result?.name) {
+				updateSwitchOverlayName(result.name);
+				orgName = result.name;
+			}
+			if (orgName) useSettingsStore.getState().setOrganizationName(orgName);
+			// 4. 데이터 로드
+			await reloadAllStores();
+			loadOrgs();
+			setInviteCode('');
+			hideSwitchOverlay();
+		} catch (err: any) {
+			hideSwitchOverlay();
+			const msg = err?.message || '';
+			const msgs: Record<string, string> = {
+				invalid_code: '유효하지 않은 초대 코드입니다.',
+				expired: '만료된 초대 코드입니다.',
+				already_member: '이미 참여한 조직입니다.',
+				max_seats_reached: '이 조직의 최대 인원에 도달했습니다.',
+			};
+			toast.error(msgs[msg] || '조직 참여에 실패했습니다.');
+		} finally {
+			setJoining(false);
+		}
+	};
 
 	const pageTitle = useMemo(() => {
 		const path = location.pathname;
@@ -68,37 +181,146 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 				{/* 사이드바 상단: 트래픽 라이트 + 조직명 한 줄 */}
 				<div
 					style={{
-						height: 52,
+						minHeight: 52,
 						display: 'flex',
 						alignItems: 'flex-end',
-						padding: '0 16px 10px',
+						padding: '0 16px 8px',
 						WebkitAppRegion: 'drag',
 					} as React.CSSProperties}
 				>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 8, WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+					<div ref={orgMenuRef} style={{ display: 'flex', alignItems: 'center', gap: 8, WebkitAppRegion: 'no-drag', position: 'relative' } as React.CSSProperties}>
 						<img
 							src="./app-icon.png"
 							alt=""
-							style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }}
+							style={{ width: 28, height: 28, borderRadius: 6, flexShrink: 0 }}
 						/>
-						<span style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}>
-							{organizationName || 'TutorMate'}
-						</span>
-						{isTrial && (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
 							<span
-								onClick={() => navigate('/settings?tab=license')}
 								style={{
-									fontSize: '0.71rem', fontWeight: 600,
-									color: 'hsl(var(--warning))', background: 'hsl(var(--warning) / 0.1)',
-									border: '1px solid hsl(var(--warning) / 0.3)', borderRadius: 10,
-									padding: '1px 7px', cursor: 'pointer', whiteSpace: 'nowrap',
+									fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))',
+									cursor: 'pointer',
+									display: 'flex', alignItems: 'center', gap: 4,
+									maxWidth: '100%',
 								}}
+								onClick={() => setOrgMenuOpen(!orgMenuOpen)}
 								role="button"
 								tabIndex={0}
-								onKeyDown={(e) => { if (e.key === 'Enter') navigate('/settings?tab=license'); }}
+								onKeyDown={(e) => { if (e.key === 'Enter') setOrgMenuOpen(!orgMenuOpen); }}
 							>
-								체험판
+								<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+									{organizationName || 'TutorMate'}
+								</span>
+								<ChevronDown style={{ width: 14, height: 14, opacity: 0.6, flexShrink: 0 }} />
 							</span>
+							{isTrial && (
+								<span
+									onClick={() => navigate('/settings')}
+									style={{
+										fontSize: '0.64rem', fontWeight: 600,
+										color: 'hsl(var(--warning))', background: 'hsl(var(--warning) / 0.1)',
+										border: '1px solid hsl(var(--warning) / 0.3)', borderRadius: 8,
+										padding: '0px 6px', cursor: 'pointer', whiteSpace: 'nowrap',
+										alignSelf: 'flex-start',
+									}}
+									role="button"
+									tabIndex={0}
+									onKeyDown={(e) => { if (e.key === 'Enter') navigate('/settings'); }}
+								>
+									체험판
+								</span>
+							)}
+						</div>
+
+						{/* Org switcher dropdown */}
+						{orgMenuOpen && (
+							<div
+								style={{
+									position: 'absolute',
+									top: '100%',
+									left: 0,
+									marginTop: 4,
+									minWidth: 240,
+									background: 'hsl(var(--background))',
+									border: '1px solid hsl(var(--border))',
+									borderRadius: 8,
+									boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+									zIndex: 50,
+									padding: 4,
+								}}
+							>
+								{/* owner 조직 먼저, API 실패 시 현재 조직 fallback */}
+								{(orgs.length > 0
+									? [...orgs].sort((a, b) => {
+										const roleOrder: Record<string, number> = { owner: 0, admin: 1, member: 2 };
+										return (roleOrder[a.role || 'member']) - (roleOrder[b.role || 'member']);
+									})
+									: [{ id: currentOrgId || '_current', name: organizationName || 'TutorMate' }]
+								).map((org) => (
+									<div
+										key={org.id}
+										onClick={() => handleSwitchOrg(org.id)}
+										style={{
+											display: 'flex',
+											alignItems: 'center',
+											gap: 8,
+											padding: '8px 12px',
+											borderRadius: 6,
+											cursor: 'pointer',
+											fontSize: '0.93rem',
+											fontWeight: org.id === currentOrgId ? 600 : 400,
+											background: org.id === currentOrgId ? 'hsl(var(--muted))' : 'transparent',
+										}}
+										onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'hsl(var(--muted))'; }}
+										onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = org.id === currentOrgId ? 'hsl(var(--muted))' : 'transparent'; }}
+										role="button"
+										tabIndex={0}
+										onKeyDown={(e) => { if (e.key === 'Enter') handleSwitchOrg(org.id); }}
+									>
+										<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+											{org.name || '이름 없음'}
+										</span>
+										{org.role === 'owner' && (
+											<span style={{ fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))', flexShrink: 0 }}>내 조직</span>
+										)}
+										{org.id !== currentOrgId && (() => {
+											const count = getUnreadCountForOrg(org.id);
+											return count > 0 ? (
+												<span style={{
+													fontSize: '0.65rem', fontWeight: 700,
+													background: 'hsl(var(--destructive))', color: 'white',
+													borderRadius: 10, padding: '1px 5px', flexShrink: 0,
+													minWidth: 16, textAlign: 'center',
+												}}>{count}</span>
+											) : null;
+										})()}
+										{org.id === currentOrgId && (
+											<Check style={{ width: 14, height: 14, flexShrink: 0, opacity: 0.6 }} />
+										)}
+									</div>
+								))}
+								<div style={{ borderTop: '1px solid hsl(var(--border))', margin: '4px 0' }} />
+								<div
+									onClick={() => { setOrgMenuOpen(false); setInviteDialogOpen(true); }}
+									style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 8,
+										padding: '8px 12px',
+										borderRadius: 6,
+										cursor: 'pointer',
+										fontSize: '0.93rem',
+										color: 'hsl(var(--muted-foreground))',
+									}}
+									onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'hsl(var(--muted))'; }}
+									onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+									role="button"
+									tabIndex={0}
+									onKeyDown={(e) => { if (e.key === 'Enter') { setOrgMenuOpen(false); setInviteDialogOpen(true); } }}
+								>
+									<Plus style={{ width: 14, height: 14, flexShrink: 0 }} />
+									<span>워크스페이스 추가</span>
+								</div>
+							</div>
 						)}
 					</div>
 				</div>
@@ -108,7 +330,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 			</aside>
 
 			{/* ── Main area ── */}
-			<div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+			<div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
 				{/* 헤더 (52px) */}
 				<header
 					style={{
@@ -180,6 +402,74 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 			</div>
 		</div>
 		<GlobalSearch visible={searchVisible} onClose={closeSearch} />
+
+		{/* 초대 코드 입력 다이얼로그 */}
+		<AlertDialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+			<AlertDialogContent style={{ maxWidth: 400, padding: 0, overflow: 'hidden' }}>
+				{/* 상단 제목 */}
+				<div style={{
+					padding: '28px 28px 0',
+					display: 'flex',
+					flexDirection: 'column',
+					alignItems: 'center',
+					textAlign: 'center',
+				}}>
+					<h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>
+						워크스페이스 추가
+					</h3>
+					<p style={{
+						fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))',
+						marginTop: 6, lineHeight: 1.5,
+					}}>
+						관리자로부터 받은 8자리 초대 코드를 입력하세요
+					</p>
+				</div>
+
+				{/* 코드 입력 */}
+				<div style={{ padding: '20px 28px' }}>
+					<Input
+						placeholder="A3K9M2X7"
+						value={inviteCode}
+						onChange={(e) => setInviteCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+						onKeyDown={(e) => { if (e.key === 'Enter') handleJoinOrg(); }}
+						maxLength={8}
+						autoFocus
+						style={{
+							fontFamily: 'monospace',
+							fontSize: '1.4rem',
+							fontWeight: 600,
+							letterSpacing: 4,
+							textAlign: 'center',
+							height: 52,
+							borderRadius: 10,
+							background: 'hsl(var(--muted) / 0.5)',
+						}}
+						disabled={joining}
+					/>
+				</div>
+
+				{/* 하단 버튼 */}
+				<div style={{
+					padding: '0 28px 24px',
+					display: 'flex',
+					gap: 8,
+				}}>
+					<AlertDialogCancel
+						disabled={joining}
+						style={{ flex: 1, height: 42, borderRadius: 10 }}
+					>
+						취소
+					</AlertDialogCancel>
+					<Button
+						onClick={handleJoinOrg}
+						disabled={joining || inviteCode.trim().length < 4}
+						style={{ flex: 1, height: 42, borderRadius: 10 }}
+					>
+						{joining ? '참여 중...' : '참여하기'}
+					</Button>
+				</div>
+			</AlertDialogContent>
+		</AlertDialog>
 	</>
 	);
 };

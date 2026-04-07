@@ -34,10 +34,14 @@ vi.mock('@tutomate/core', () => ({
   },
   formatPhone: (v: string) => v,
   parseBirthDate: (v: string) => v || undefined,
-  useLicenseStore: () => ({
-    getPlan: () => 'trial',
-    getLimit: () => 999,
+  useAuthStore: () => ({
+    plan: 'trial',
   }),
+  PLAN_LIMITS: {
+    trial: { maxCourses: 5, maxStudentsPerCourse: 10 },
+    basic: { maxCourses: Infinity, maxStudentsPerCourse: Infinity },
+    admin: { maxCourses: Infinity, maxStudentsPerCourse: Infinity },
+  },
   usePaymentRecordStore: () => ({
     addPayment: vi.fn(),
   }),

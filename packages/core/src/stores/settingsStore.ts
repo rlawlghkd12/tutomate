@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { appConfig } from '../config/appConfig';
+import { logError } from '../utils/logger';
 
 export type FontSize = 'xs' | 'small' | 'medium' | 'large' | 'xl' | 'xxl' | 'xxxl';
 export type Theme = 'light' | 'dark';
@@ -60,7 +61,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         set(settings);
       }
     } catch (error) {
-      console.error('Failed to load settings:', error);
+      logError('Failed to load settings', { error });
     }
   },
 
@@ -70,7 +71,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       const settings: Settings = { theme, fontSize, notificationsEnabled, organizationName };
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     } catch (error) {
-      console.error('Failed to save settings:', error);
+      logError('Failed to save settings', { error });
     }
   },
 }));

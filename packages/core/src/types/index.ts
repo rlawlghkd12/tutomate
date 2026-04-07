@@ -24,10 +24,12 @@ export interface Course {
   updatedAt: string;
 }
 
-/** 종료된 강좌 여부 (endDate가 오늘 이전) */
+/** 종료된 강좌 여부 (endDate가 오늘 이전, KST 기준) */
 export const isCourseEnded = (course: Course): boolean => {
   if (!course.schedule?.endDate) return false;
-  return course.schedule.endDate < new Date().toISOString().slice(0, 10);
+  const today = new Date();
+  const kstDate = new Date(today.getTime() + 9 * 60 * 60 * 1000);
+  return course.schedule.endDate < kstDate.toISOString().slice(0, 10);
 };
 
 // 수강생/회원 인터페이스
@@ -45,7 +47,16 @@ export interface Student {
 }
 
 // 납부 방법
-export type PaymentMethod = 'cash' | 'card' | 'transfer';
+export const PaymentMethodEnum = {
+  CASH: 'cash',
+  CARD: 'card',
+  TRANSFER: 'transfer',
+} as const;
+
+export type PaymentMethod = typeof PaymentMethodEnum[keyof typeof PaymentMethodEnum];
+
+// 요일 라벨
+export const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as const;
 
 // 납부 상태
 export const PaymentStatus = {
@@ -57,6 +68,15 @@ export const PaymentStatus = {
 } as const;
 
 export type PaymentStatusType = typeof PaymentStatus[keyof typeof PaymentStatus];
+
+// 납부 상태 한국어 라벨
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatusType, string> = {
+  pending: '미납',
+  partial: '부분납부',
+  completed: '완납',
+  exempt: '면제',
+  withdrawn: '철회',
+};
 
 // 수강 신청 인터페이스
 export interface Enrollment {
@@ -118,17 +138,26 @@ export interface PaymentRecord {
   createdAt: string;
 }
 
-// 라이선스 인터페이스
-export interface LicenseInfo {
-  licenseKey: string;
-  activatedAt: string;
-}
+// 조직 역할
+export const OrgRole = {
+  OWNER: 'owner',
+  ADMIN: 'admin',
+  MEMBER: 'member',
+} as const;
+
+export type OrgRoleType = typeof OrgRole[keyof typeof OrgRole];
+
+export const ORG_ROLE_LABELS: Record<OrgRoleType, string> = {
+  owner: '소유자',
+  admin: '관리자',
+  member: '멤버',
+};
 
 // 조직 인터페이스 (Supabase)
 export interface Organization {
   id: string;
   name: string;
-  licenseKey: string;
+  licenseKey?: string;
   plan: string;
   maxSeats: number;
   createdAt: string;

@@ -203,26 +203,12 @@ input[type="range"]::-webkit-slider-thumb:active {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Page enter stagger animation */
-.page-enter > * {
-  opacity: 0;
-  animation: pageReveal 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-.page-enter > *:nth-child(1) { animation-delay: 0s; }
-.page-enter > *:nth-child(2) { animation-delay: 0.04s; }
-.page-enter > *:nth-child(3) { animation-delay: 0.08s; }
-.page-enter > *:nth-child(4) { animation-delay: 0.12s; }
-.page-enter > *:nth-child(5) { animation-delay: 0.16s; }
-.page-enter > *:nth-child(6) { animation-delay: 0.2s; }
-.page-enter > *:nth-child(7) { animation-delay: 0.24s; }
-.page-enter > *:nth-child(8) { animation-delay: 0.28s; }
-.page-enter > *:nth-child(9) { animation-delay: 0.32s; }
-.page-enter > *:nth-child(10) { animation-delay: 0.36s; }
-.page-enter > *:nth-child(n+11) { animation-delay: 0.4s; }
+/* Page enter stagger — CSS animation 제거, PageEnter 컴포넌트가 JS transition으로 처리 */
 
-@keyframes pageReveal {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+/* 조직 전환 프로그레스 바 */
+@keyframes orgSwitchBar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
 }
 
 /* Skeleton pulse */

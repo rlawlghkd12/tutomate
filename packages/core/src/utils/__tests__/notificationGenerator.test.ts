@@ -312,4 +312,30 @@ describe("notificationGenerator", () => {
 			);
 		});
 	});
+
+	// ── generatePaymentReminderNotifications — student/course 못 찾는 경우 ──
+
+	describe("generatePaymentReminderNotifications — missing student/course", () => {
+		it("student 없으면 알림 생성 안 함", () => {
+			const enrollment = makeEnrollment({
+				paymentStatus: "pending",
+				enrolledAt: dayjs().subtract(7, "day").toISOString(),
+				studentId: "s-missing",
+			});
+
+			generatePaymentReminderNotifications([enrollment], [student], [course]);
+			expect(mockAddNotification).not.toHaveBeenCalled();
+		});
+
+		it("course 없으면 알림 생성 안 함", () => {
+			const enrollment = makeEnrollment({
+				paymentStatus: "pending",
+				enrolledAt: dayjs().subtract(14, "day").toISOString(),
+				courseId: "c-missing",
+			});
+
+			generatePaymentReminderNotifications([enrollment], [student], [course]);
+			expect(mockAddNotification).not.toHaveBeenCalled();
+		});
+	});
 });

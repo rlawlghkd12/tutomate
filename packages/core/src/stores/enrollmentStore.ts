@@ -9,6 +9,7 @@ import {
 	mapEnrollmentToDb,
 	mapEnrollmentUpdateToDb,
 } from "../utils/fieldMapper";
+import { handleError, showErrorMessage } from "../utils/errors";
 
 const helper = createDataHelper<Enrollment, EnrollmentRow>({
 	table: "enrollments",
@@ -21,13 +22,13 @@ interface EnrollmentStore {
 	enrollments: Enrollment[];
 	loadEnrollments: () => Promise<void>;
 	invalidate: () => void;
-	addEnrollment: (enrollmentData: EnrollmentFormData) => Promise<void>;
+	addEnrollment: (enrollmentData: EnrollmentFormData) => Promise<boolean>;
 	updateEnrollment: (
 		id: string,
 		enrollmentData: Partial<Enrollment>,
-	) => Promise<void>;
-	deleteEnrollment: (id: string) => Promise<void>;
-	withdrawEnrollment: (id: string) => Promise<void>;
+	) => Promise<boolean>;
+	deleteEnrollment: (id: string) => Promise<boolean>;
+	withdrawEnrollment: (id: string) => Promise<boolean>;
 	getEnrollmentById: (id: string) => Enrollment | undefined;
 	getEnrollmentsByCourseId: (courseId: string) => Enrollment[];
 	getEnrollmentsByStudentId: (studentId: string) => Enrollment[];
@@ -47,15 +48,19 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 	enrollments: [],
 
 	loadEnrollments: async () => {
-		try {
-			const raw = await helper.load();
-			const enrollments = raw.map((e) => ({
+		const result = await helper.load();
+		if (result.status === "ok" || result.status === "cached") {
+			const enrollments = result.data.map((e) => ({
 				...e,
 				discountAmount: e.discountAmount ?? 0,
 			}));
 			set({ enrollments });
-		} catch {
-			// 로드 실패 시 기존 데이터 유지
+		}
+		if (result.status === "cached") {
+			showErrorMessage("오프라인 상태입니다. 저장된 데이터를 표시합니다.");
+		}
+		if (result.status === "error") {
+			handleError(result.error);
 		}
 	},
 
@@ -74,33 +79,43 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 			discountAmount: enrollmentData.discountAmount ?? 0,
 		};
 
-		try {
-			await helper.add(newEnrollment);
-		} catch {
-			// 서버 저장 실패 — 로컬에만 추가
+		const error = await helper.add(newEnrollment);
+		if (error) {
+			handleError(error);
+			return false;
 		}
 		set({ enrollments: [...get().enrollments, newEnrollment] });
+		return true;
 	},
 
 	updateEnrollment: async (id: string, enrollmentData: Partial<Enrollment>) => {
-		try {
-			await helper.update(id, enrollmentData);
-		} catch {
-			// 서버 저장 실패 — 로컬에만 반영
+		const error = await helper.update(id, enrollmentData);
+		if (error) {
+			handleError(error);
+			return false;
 		}
-		const enrollments = get().enrollments.map((e) =>
-			e.id === id ? { ...e, ...enrollmentData } : e,
-		);
-		set({ enrollments });
+		set({
+			enrollments: get().enrollments.map((e) =>
+				e.id === id ? { ...e, ...enrollmentData } : e,
+			),
+		});
+		return true;
 	},
 
 	deleteEnrollment: async (id: string) => {
-		const enrollments = await helper.remove(id, get().enrollments);
-		set({ enrollments });
+		const error = await helper.remove(id);
+		if (error) {
+			handleError(error);
+			return false;
+		}
+		set({ enrollments: get().enrollments.filter((e) => e.id !== id) });
+		return true;
 	},
 
 	withdrawEnrollment: async (id: string) => {
-		await get().updateEnrollment(id, { paymentStatus: 'withdrawn' as Enrollment['paymentStatus'] });
+		return get().updateEnrollment(id, {
+			paymentStatus: "withdrawn" as Enrollment["paymentStatus"],
+		});
 	},
 
 	getEnrollmentById: (id: string) => {
@@ -121,7 +136,8 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 
 	getEnrollmentCountByCourseId: (courseId: string) => {
 		return get().enrollments.filter(
-			(enrollment) => enrollment.courseId === courseId && isActiveEnrollment(enrollment),
+			(enrollment) =>
+				enrollment.courseId === courseId && isActiveEnrollment(enrollment),
 		).length;
 	},
 

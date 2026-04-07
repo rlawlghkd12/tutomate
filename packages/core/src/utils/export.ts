@@ -1,7 +1,7 @@
 // Excel 및 CSV 내보내기 유틸리티
 import type * as XLSXType from 'xlsx';
 import type { Course, Student, Enrollment } from '../types';
-import { PAYMENT_METHOD_LABELS } from '../types';
+import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from '../types';
 import dayjs from 'dayjs';
 
 import { useSettingsStore } from '../stores/settingsStore';
@@ -127,13 +127,7 @@ export interface RevenueExportField {
   getValue: (enrollment: Enrollment, students: Student[], courses: Course[]) => string | number;
 }
 
-const revenuePaymentStatusMap: Record<string, string> = {
-  pending: '미납',
-  partial: '부분납부',
-  completed: '완납',
-  exempt: '면제',
-  withdrawn: '철회',
-};
+const revenuePaymentStatusMap = PAYMENT_STATUS_LABELS;
 
 export const REVENUE_EXPORT_FIELDS: RevenueExportField[] = [
   { key: 'courseName', label: '강좌명', wch: 20, getValue: (e, _, crs) => crs.find((c) => c.id === e.courseId)?.name || '' },
@@ -323,13 +317,7 @@ export interface CourseStudentExportField {
   getValue: (student: Student, enrollment: Enrollment) => string | number;
 }
 
-const paymentStatusMap: Record<string, string> = {
-  pending: '미납',
-  partial: '부분납부',
-  completed: '완납',
-  exempt: '면제',
-  withdrawn: '철회',
-};
+const paymentStatusMap = PAYMENT_STATUS_LABELS;
 
 export const COURSE_STUDENT_EXPORT_FIELDS: CourseStudentExportField[] = [
   { key: 'name', label: '이름', getValue: (s) => s.name },
