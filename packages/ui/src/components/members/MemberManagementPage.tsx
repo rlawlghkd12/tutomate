@@ -164,8 +164,14 @@ export function MemberManagementPage() {
       )}
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
-          <Loader2 style={{ width: 24, height: 24, animation: 'spin 1s linear infinite' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {[1, 2, 3].map((i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 16px', borderBottom: '1px solid hsl(var(--border))' }}>
+              <div style={{ width: '40%', height: 14, borderRadius: 6, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
+              <div style={{ width: 60, height: 22, borderRadius: 10, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite', animationDelay: '0.1s' }} />
+              <div style={{ width: 100, height: 14, borderRadius: 6, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite', animationDelay: '0.2s' }} />
+            </div>
+          ))}
         </div>
       ) : !data || data.members.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: 'hsl(var(--muted-foreground))' }}>
