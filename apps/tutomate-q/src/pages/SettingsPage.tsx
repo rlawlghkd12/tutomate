@@ -246,13 +246,13 @@ const SettingsPage: React.FC = () => {
           <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
             <div className="flex justify-between items-center" style={{ borderBottom: '1px solid hsl(var(--border))', padding: '16px 0' }}>
               <div>
-                <p className="font-semibold text-sm">로그인 계정</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-sm">로그인 계정</p>
+                  <Badge variant={providerBadgeVariant}>{getAuthProviderLabel()}</Badge>
+                </div>
                 <p className="text-muted-foreground text-[0.85em]">{session?.user?.email || '-'}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={providerBadgeVariant}>{getAuthProviderLabel()}</Badge>
-                <Button variant="destructive" size="sm" onClick={() => setLogoutDialogOpen(true)}>로그아웃</Button>
-              </div>
+              <Button variant="destructive" size="sm" onClick={() => setLogoutDialogOpen(true)}>로그아웃</Button>
             </div>
             <div className="flex justify-between items-center" style={{ borderBottom: '1px solid hsl(var(--border))', padding: '16px 0' }}>
               <div>
