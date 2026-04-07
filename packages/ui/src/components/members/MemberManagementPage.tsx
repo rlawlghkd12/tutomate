@@ -10,6 +10,7 @@ import { supabase, useAuthStore } from '@tutomate/core';
 import { Input } from '../ui/input';
 import { Users, Trash2, Loader2, RefreshCw, Plus, Copy } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageEnter } from '../common/PageEnter';
 
 interface Member {
   userId: string;
@@ -109,7 +110,7 @@ export function MemberManagementPage() {
   };
 
   return (
-    <div className="page-enter" style={{ padding: '2rem', maxWidth: 800 }}>
+    <PageEnter style={{ padding: '2rem', maxWidth: 800 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Users style={{ width: 24, height: 24 }} />
@@ -235,6 +236,6 @@ export function MemberManagementPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageEnter>
   );
 }

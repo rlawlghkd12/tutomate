@@ -7,6 +7,7 @@ import {
   Checkbox, StudentList, StudentForm, EnrollmentForm,
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
+  PageEnter,
 } from '@tutomate/ui';
 import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
@@ -73,7 +74,7 @@ const StudentsPage: React.FC = () => {
   const isAllSelected = selectedExportFields.length === allFieldKeys.length;
 
   return (
-    <div className="page-enter">
+    <PageEnter>
       <StudentList
         actions={
           <div className="flex gap-2">
@@ -190,7 +191,7 @@ const StudentsPage: React.FC = () => {
         onClose={() => setEnrollStudent(null)}
         student={enrollStudent}
       />
-    </div>
+    </PageEnter>
   );
 };
 

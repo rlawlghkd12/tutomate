@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
-import { StudentList, StudentForm, EnrollmentForm } from '@tutomate/ui';
+import { StudentList, StudentForm, EnrollmentForm, PageEnter } from '@tutomate/ui';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../components/ui/alert-dialog';
 import {
   useStudentStore,
@@ -77,7 +77,7 @@ const StudentsPage: React.FC = () => {
   const isAllSelected = selectedExportFields.length === allFieldKeys.length;
 
   return (
-    <div className="page-enter">
+    <PageEnter>
       <StudentList
         actions={
           <div className="flex gap-2">
@@ -193,7 +193,7 @@ const StudentsPage: React.FC = () => {
         onClose={() => setEnrollStudent(null)}
         student={enrollStudent}
       />
-    </div>
+    </PageEnter>
   );
 };
 

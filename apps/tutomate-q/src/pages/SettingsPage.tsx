@@ -10,6 +10,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
   Card, CardContent, Badge, Input, Switch, Progress,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  PageEnter,
 } from '@tutomate/ui';
 import {
   isElectron,
@@ -216,7 +217,7 @@ const SettingsPage: React.FC = () => {
     : 'success' as const;
 
   return (
-    <div className="page-enter">
+    <PageEnter>
       <div className="max-w-[1000px]">
 
           {/* ── 섹션 1: 계정 ── */}
@@ -467,7 +468,7 @@ const SettingsPage: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageEnter>
   );
 };
 
