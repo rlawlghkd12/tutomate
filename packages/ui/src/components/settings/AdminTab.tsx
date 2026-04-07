@@ -69,7 +69,8 @@ const AdminTab: React.FC = () => {
     try {
       const { data, error } = await supabase.functions.invoke('list-licenses');
       if (error || data?.error) {
-        toast.error(`키 목록 조회 실패: ${data?.error || error?.message}`);
+        // 라이선스 시스템 deprecated — 조용히 무시
+        setLicenses([]);
         return;
       }
       setLicenses(data.licenses || []);
@@ -116,6 +117,7 @@ const AdminTab: React.FC = () => {
         body: { plan: keyPlan, memo: keyMemo || null },
       });
       if (error || data?.error) {
+        // 라이선스 생성 deprecated
         toast.error(`키 생성 실패: ${data?.error || error?.message}`);
         return;
       }
