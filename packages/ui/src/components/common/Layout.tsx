@@ -9,10 +9,7 @@ import { GlobalSearch, useGlobalSearch } from '../search/GlobalSearch';
 import Navigation from './Navigation';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import {
-	AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
-	AlertDialogDescription, AlertDialogFooter, AlertDialogCancel,
-} from '../ui/alert-dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogCancel } from '../ui/alert-dialog';
 import { toast } from 'sonner';
 
 interface LayoutProps {
@@ -348,28 +345,77 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 		{/* 초대 코드 입력 다이얼로그 */}
 		<AlertDialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-			<AlertDialogContent>
-				<AlertDialogHeader>
-					<AlertDialogTitle>조직 추가하기</AlertDialogTitle>
-					<AlertDialogDescription>
-						관리자로부터 받은 초대 코드를 입력하세요.
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<Input
-					placeholder="초대 코드 (예: A3K9M2X7)"
-					value={inviteCode}
-					onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-					onKeyDown={(e) => { if (e.key === 'Enter') handleJoinOrg(); }}
-					maxLength={8}
-					style={{ fontFamily: 'monospace', fontSize: '1.1rem', letterSpacing: 2, textAlign: 'center' }}
-					disabled={joining}
-				/>
-				<AlertDialogFooter>
-					<AlertDialogCancel disabled={joining}>취소</AlertDialogCancel>
-					<Button onClick={handleJoinOrg} disabled={joining || inviteCode.trim().length < 4}>
+			<AlertDialogContent style={{ maxWidth: 400, padding: 0, overflow: 'hidden' }}>
+				{/* 상단 아이콘 + 제목 */}
+				<div style={{
+					padding: '28px 28px 0',
+					display: 'flex',
+					flexDirection: 'column',
+					alignItems: 'center',
+					textAlign: 'center',
+				}}>
+					<div style={{
+						width: 48, height: 48, borderRadius: 12,
+						background: 'hsl(var(--primary) / 0.1)',
+						display: 'flex', alignItems: 'center', justifyContent: 'center',
+						marginBottom: 16,
+					}}>
+						<Plus style={{ width: 24, height: 24, color: 'hsl(var(--primary))' }} />
+					</div>
+					<h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>
+						조직 추가하기
+					</h3>
+					<p style={{
+						fontSize: '0.85rem', color: 'hsl(var(--muted-foreground))',
+						marginTop: 6, lineHeight: 1.5,
+					}}>
+						관리자로부터 받은 8자리 초대 코드를 입력하세요
+					</p>
+				</div>
+
+				{/* 코드 입력 */}
+				<div style={{ padding: '20px 28px' }}>
+					<Input
+						placeholder="A3K9M2X7"
+						value={inviteCode}
+						onChange={(e) => setInviteCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+						onKeyDown={(e) => { if (e.key === 'Enter') handleJoinOrg(); }}
+						maxLength={8}
+						autoFocus
+						style={{
+							fontFamily: 'monospace',
+							fontSize: '1.4rem',
+							fontWeight: 600,
+							letterSpacing: 4,
+							textAlign: 'center',
+							height: 52,
+							borderRadius: 10,
+							background: 'hsl(var(--muted) / 0.5)',
+						}}
+						disabled={joining}
+					/>
+				</div>
+
+				{/* 하단 버튼 */}
+				<div style={{
+					padding: '0 28px 24px',
+					display: 'flex',
+					gap: 8,
+				}}>
+					<AlertDialogCancel
+						disabled={joining}
+						style={{ flex: 1, height: 42, borderRadius: 10 }}
+					>
+						취소
+					</AlertDialogCancel>
+					<Button
+						onClick={handleJoinOrg}
+						disabled={joining || inviteCode.trim().length < 4}
+						style={{ flex: 1, height: 42, borderRadius: 10 }}
+					>
 						{joining ? '참여 중...' : '참여하기'}
 					</Button>
-				</AlertDialogFooter>
+				</div>
 			</AlertDialogContent>
 		</AlertDialog>
 	</>
