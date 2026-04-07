@@ -15,7 +15,10 @@ import { toast, Toaster } from 'sonner';
 function App() {
   const { visible, close } = useGlobalSearch();
   const { theme, fontSize, loadSettings } = useSettingsStore();
-  const { initialize, loading: authLoading, session, signInWithOAuth } = useAuthStore();
+  const initialize = useAuthStore((s) => s.initialize);
+  const authLoading = useAuthStore((s) => s.loading);
+  const session = useAuthStore((s) => s.session);
+  const signInWithOAuth = useAuthStore((s) => s.signInWithOAuth);
   const { isEnabled: lockEnabled, isLocked } = useLockStore();
   useAutoLock();
 

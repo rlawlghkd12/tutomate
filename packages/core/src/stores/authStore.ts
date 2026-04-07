@@ -279,10 +279,6 @@ export const useAuthStore = create<AuthStore>((set) => ({
 // 세션 변경 리스너
 if (supabase) {
   supabase.auth.onAuthStateChange((event, session) => {
-    // 실제 유저 변경 시에만 state 업데이트 (TOKEN_REFRESHED, INITIAL_SESSION 등은 무시)
-    const currentUserId = useAuthStore.getState().session?.user?.id;
-    const newUserId = session?.user?.id;
-
     if (event === 'SIGNED_OUT') {
       useAuthStore.setState({ session: null });
       return;
@@ -294,8 +290,8 @@ if (supabase) {
       return;
     }
 
-    // 같은 유저면 session 업데이트 안 함 (리렌더링 방지)
-    if (currentUserId && currentUserId === newUserId) return;
+    // 이미 초기화 됐으면 session 업데이트 안 함 (리렌더링 방지)
+    if (_initialized) return;
 
     if (session) {
       useAuthStore.setState({ session });
