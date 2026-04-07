@@ -208,7 +208,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 									padding: 4,
 								}}
 							>
-								{orgs.map((org) => (
+								{/* API 실패해도 현재 조직은 항상 표시 */}
+								{(orgs.length > 0
+									? orgs
+									: currentOrgId
+										? [{ id: currentOrgId, name: organizationName || 'TutorMate' }]
+										: []
+								).map((org) => (
 									<div
 										key={org.id}
 										onClick={() => handleSwitchOrg(org.id)}
