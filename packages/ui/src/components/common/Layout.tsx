@@ -109,10 +109,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 				{/* 사이드바 상단: 트래픽 라이트 + 조직명 한 줄 */}
 				<div
 					style={{
-						height: 52,
+						minHeight: 52,
 						display: 'flex',
 						alignItems: 'flex-end',
-						padding: '0 16px 10px',
+						padding: '0 16px 8px',
 						WebkitAppRegion: 'drag',
 					} as React.CSSProperties}
 				>
@@ -120,40 +120,43 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 						<img
 							src="./app-icon.png"
 							alt=""
-							style={{ width: 24, height: 24, borderRadius: 6, flexShrink: 0 }}
+							style={{ width: 28, height: 28, borderRadius: 6, flexShrink: 0 }}
 						/>
-						<span
-							style={{
-								fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))',
-								cursor: orgs.length > 1 ? 'pointer' : 'default',
-								display: 'flex', alignItems: 'center', gap: 2,
-							}}
-							onClick={() => { if (orgs.length > 1) setOrgMenuOpen(!orgMenuOpen); }}
-							role={orgs.length > 1 ? 'button' : undefined}
-							tabIndex={orgs.length > 1 ? 0 : undefined}
-							onKeyDown={(e) => { if (orgs.length > 1 && e.key === 'Enter') setOrgMenuOpen(!orgMenuOpen); }}
-						>
-							{organizationName || 'TutorMate'}
-							{orgs.length > 1 && (
-								<ChevronDown style={{ width: 14, height: 14, opacity: 0.6 }} />
-							)}
-						</span>
-						{isTrial && (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
 							<span
-								onClick={() => navigate('/settings')}
 								style={{
-									fontSize: '0.71rem', fontWeight: 600,
-									color: 'hsl(var(--warning))', background: 'hsl(var(--warning) / 0.1)',
-									border: '1px solid hsl(var(--warning) / 0.3)', borderRadius: 10,
-									padding: '1px 7px', cursor: 'pointer', whiteSpace: 'nowrap',
+									fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))',
+									cursor: orgs.length > 1 ? 'pointer' : 'default',
+									display: 'flex', alignItems: 'center', gap: 2,
 								}}
-								role="button"
-								tabIndex={0}
-								onKeyDown={(e) => { if (e.key === 'Enter') navigate('/settings'); }}
+								onClick={() => { if (orgs.length > 1) setOrgMenuOpen(!orgMenuOpen); }}
+								role={orgs.length > 1 ? 'button' : undefined}
+								tabIndex={orgs.length > 1 ? 0 : undefined}
+								onKeyDown={(e) => { if (orgs.length > 1 && e.key === 'Enter') setOrgMenuOpen(!orgMenuOpen); }}
 							>
-								체험판
+								{organizationName || 'TutorMate'}
+								{orgs.length > 1 && (
+									<ChevronDown style={{ width: 14, height: 14, opacity: 0.6 }} />
+								)}
 							</span>
-						)}
+							{isTrial && (
+								<span
+									onClick={() => navigate('/settings')}
+									style={{
+										fontSize: '0.64rem', fontWeight: 600,
+										color: 'hsl(var(--warning))', background: 'hsl(var(--warning) / 0.1)',
+										border: '1px solid hsl(var(--warning) / 0.3)', borderRadius: 8,
+										padding: '0px 6px', cursor: 'pointer', whiteSpace: 'nowrap',
+										alignSelf: 'flex-start',
+									}}
+									role="button"
+									tabIndex={0}
+									onKeyDown={(e) => { if (e.key === 'Enter') navigate('/settings'); }}
+								>
+									체험판
+								</span>
+							)}
+						</div>
 
 						{/* Org switcher dropdown */}
 						{orgMenuOpen && orgs.length > 1 && (
