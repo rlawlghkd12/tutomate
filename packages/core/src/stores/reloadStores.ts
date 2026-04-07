@@ -4,6 +4,7 @@ import { useStudentStore } from './studentStore';
 import { useEnrollmentStore } from './enrollmentStore';
 import { useMonthlyPaymentStore } from './monthlyPaymentStore';
 import { usePaymentRecordStore } from './paymentRecordStore';
+import { useNotificationStore } from './notificationStore';
 
 function invalidateAllStores(): void {
   useCourseStore.getState().invalidate();
@@ -21,6 +22,10 @@ export async function reloadAllStores(): Promise<void> {
   useEnrollmentStore.setState({ enrollments: [] });
   useMonthlyPaymentStore.setState({ payments: [] });
   usePaymentRecordStore.setState({ records: [] });
+  // 알림도 해당 org 것으로 리로드
+  useNotificationStore.setState({ notifications: [] });
+  useNotificationStore.getState().loadNotifications();
+
   await Promise.all([
     useCourseStore.getState().loadCourses(),
     useStudentStore.getState().loadStudents(),
