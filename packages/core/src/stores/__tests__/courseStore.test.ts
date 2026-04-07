@@ -298,4 +298,57 @@ describe("courseStore", () => {
 		expect(courses).toHaveLength(1);
 		expect(courses[0].name).toBe("서버강좌");
 	});
+
+	it("loadCourses — 캐시 폴백 시 showErrorMessage 호출", async () => {
+		// 캐시 데이터 설정
+		localStorage.setItem(
+			"cache_courses",
+			JSON.stringify([
+				{
+					id: "c-cached",
+					organization_id: "org1",
+					name: "캐시강좌",
+					classroom: "B",
+					instructor_name: "캐시강사",
+					instructor_phone: "010",
+					fee: 200000,
+					max_students: 15,
+					current_students: 3,
+					schedule: null,
+					created_at: "2026-01-01T00:00:00Z",
+					updated_at: "2026-01-01T00:00:00Z",
+				},
+			]),
+		);
+
+		useCourseStore.getState().invalidate();
+
+		// select가 에러를 반환하여 supabaseLoadData에서 throw 발생
+		mockSelect.mockReturnValueOnce({
+			data: null,
+			error: { message: "network error" },
+		});
+
+		await useCourseStore.getState().loadCourses();
+
+		// cached 상태면 데이터 설정 + showErrorMessage 호출됨
+		const courses = useCourseStore.getState().courses;
+		expect(courses).toHaveLength(1);
+		expect(courses[0].name).toBe("캐시강좌");
+	});
+
+	it("deleteCourse — 서버 실패 시 false, state 변경 없음", async () => {
+		const c1 = makeCourse({ id: "c1", name: "수학" });
+		useCourseStore.setState({ courses: [c1] });
+
+		mockDelete.mockReturnValueOnce({
+			eq: vi.fn().mockResolvedValue({ error: { message: "delete failed" } }),
+		});
+
+		const result = await useCourseStore.getState().deleteCourse("c1");
+
+		expect(result).toBe(false);
+		expect(useCourseStore.getState().courses).toHaveLength(1);
+		expect(useCourseStore.getState().courses[0].name).toBe("수학");
+	});
 });

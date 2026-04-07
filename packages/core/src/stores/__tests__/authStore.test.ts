@@ -348,6 +348,17 @@ describe('authStore', () => {
       expect(useAuthStore.getState().loading).toBe(false);
     });
 
+    it('error/data.error 둘 다 없으면 기본 메시지로 throw', async () => {
+      mockFunctionsInvoke.mockResolvedValue({
+        data: null,
+        error: {},
+      });
+
+      await expect(
+        useAuthStore.getState().joinOrganization('BAD-CODE'),
+      ).rejects.toThrow('Failed to join organization');
+    });
+
     it('role 미반환 시 member 기본값', async () => {
       mockFunctionsInvoke.mockResolvedValue({
         data: { organization_id: 'joined-org', plan: 'basic' },
@@ -418,6 +429,17 @@ describe('authStore', () => {
       ).rejects.toThrow('not_a_member');
 
       expect(useAuthStore.getState().loading).toBe(false);
+    });
+
+    it('error/data.error 둘 다 없으면 기본 메시지로 throw', async () => {
+      mockFunctionsInvoke.mockResolvedValue({
+        data: null,
+        error: {},
+      });
+
+      await expect(
+        useAuthStore.getState().switchOrganization('bad-org'),
+      ).rejects.toThrow('Failed to switch organization');
     });
   });
 
@@ -721,6 +743,107 @@ describe('authStore', () => {
 
       const state = useAuthStore.getState();
       expect(state.session).toBe(fakeSession);
+    });
+  });
+
+  // ── signInWithOAuth — Electron branches ──
+
+  describe('signInWithOAuth — Electron branches', () => {
+    it('naver + isElectron → window.electronAPI.openOAuthUrl 호출', async () => {
+      // isElectron을 true로 오버라이드
+      const tauriModule = await import('../../utils/tauri');
+      vi.spyOn(tauriModule, 'isElectron').mockReturnValue(true);
+
+      // electronAPI mock 설정 (setup.ts에서 writable: true로 정의됨)
+      const mockOpenOAuth = vi.fn().mockResolvedValue(undefined);
+      (window as any).electronAPI = { openOAuthUrl: mockOpenOAuth };
+
+      import.meta.env.VITE_NAVER_CLIENT_ID = 'test-naver-client-id';
+      import.meta.env.VITE_SUPABASE_URL = 'http://127.0.0.1:54321';
+
+      await useAuthStore.getState().signInWithOAuth('naver');
+
+      expect(mockOpenOAuth).toHaveBeenCalledWith(
+        expect.stringContaining('nid.naver.com/oauth2.0/authorize'),
+      );
+
+      // cleanup
+      (window as any).electronAPI = undefined;
+      vi.spyOn(tauriModule, 'isElectron').mockReturnValue(false);
+    });
+
+    it('google + isElectron + data.url → window.electronAPI.openOAuthUrl 호출', async () => {
+      const tauriModule = await import('../../utils/tauri');
+      vi.spyOn(tauriModule, 'isElectron').mockReturnValue(true);
+
+      const mockOpenOAuth = vi.fn().mockResolvedValue(undefined);
+      (window as any).electronAPI = { openOAuthUrl: mockOpenOAuth };
+
+      const { supabase } = await import('../../config/supabase');
+      (supabase as any).auth.signInWithOAuth = vi.fn().mockResolvedValue({
+        data: { url: 'https://accounts.google.com/o/oauth2/auth?test=1' },
+        error: null,
+      });
+
+      await useAuthStore.getState().signInWithOAuth('google');
+
+      expect(mockOpenOAuth).toHaveBeenCalledWith(
+        'https://accounts.google.com/o/oauth2/auth?test=1',
+      );
+
+      // cleanup
+      (window as any).electronAPI = undefined;
+      vi.spyOn(tauriModule, 'isElectron').mockReturnValue(false);
+    });
+  });
+
+  // ── switchOrganization — role/plan fallback ──
+
+  describe('switchOrganization — fallback values', () => {
+    it('role 미반환 시 member 기본값', async () => {
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { organization_id: 'switch-org', plan: 'basic' },
+        error: null,
+      });
+
+      await useAuthStore.getState().switchOrganization('switch-org');
+
+      expect(useAuthStore.getState().role).toBe('member');
+    });
+
+    it('plan 미반환 시 trial 기본값', async () => {
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { organization_id: 'switch-org', role: 'owner' },
+        error: null,
+      });
+
+      await useAuthStore.getState().switchOrganization('switch-org');
+
+      expect(useAuthStore.getState().plan).toBe('trial');
+    });
+
+    it('예외 발생 시 throw + loading: false', async () => {
+      mockFunctionsInvoke.mockRejectedValue(new Error('unexpected'));
+
+      await expect(
+        useAuthStore.getState().switchOrganization('bad-org'),
+      ).rejects.toThrow('unexpected');
+
+      expect(useAuthStore.getState().loading).toBe(false);
+    });
+  });
+
+  // ── joinOrganization — exception in catch ──
+
+  describe('joinOrganization — exception path', () => {
+    it('functions.invoke 예외 → throw + loading: false', async () => {
+      mockFunctionsInvoke.mockRejectedValue(new Error('network crash'));
+
+      await expect(
+        useAuthStore.getState().joinOrganization('CODE'),
+      ).rejects.toThrow('network crash');
+
+      expect(useAuthStore.getState().loading).toBe(false);
     });
   });
 });
