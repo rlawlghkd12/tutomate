@@ -1,4 +1,4 @@
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, Copy, Ticket } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@tutomate/core';
@@ -75,6 +75,37 @@ const OrganizationsPage = () => {
     const data = await res.json();
     setDetail(data);
     setDetailLoading(false);
+  };
+
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [creatingInvite, setCreatingInvite] = useState(false);
+
+  const handleCreateInvite = async (orgId: string) => {
+    if (!supabase) return;
+    setCreatingInvite(true);
+    setInviteCode(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-users?action=create-org-invite`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ organizationId: orgId, expiresInDays: 30, maxUses: 0 }),
+        },
+      );
+      const data = await res.json();
+      if (data?.code) {
+        setInviteCode(data.code);
+        toast.success('초대 코드가 생성되었습니다.');
+      } else {
+        toast.error(`생성 실패: ${data?.error || 'unknown'}`);
+      }
+    } catch {
+      toast.error('초대 코드 생성 실패');
+    } finally {
+      setCreatingInvite(false);
+    }
   };
 
   const handleChangePlan = async (orgId: string, plan: string) => {
@@ -166,38 +197,63 @@ const OrganizationsPage = () => {
         </div>
       )}
 
-      <Dialog open={!!selectedOrg} onOpenChange={(open) => { if (!open) setSelectedOrg(null); }}>
+      <Dialog open={!!selectedOrg} onOpenChange={(open) => { if (!open) { setSelectedOrg(null); setInviteCode(null); } }}>
         <DialogContent className="max-w-[700px]">
           <DialogHeader>
             <DialogTitle>{selectedOrg?.name || '조직 상세'}</DialogTitle>
           </DialogHeader>
 
           {selectedOrg && (
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-sm">플랜:</span>
-              <Select
-                value={selectedOrg.plan}
-                onValueChange={(plan) => handleChangePlan(selectedOrg.id, plan)}
-              >
-                <SelectTrigger className="h-7 w-[100px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="trial">
-                    <Badge className={planColor.trial} variant="outline">trial</Badge>
-                  </SelectItem>
-                  <SelectItem value="basic">
-                    <Badge className={planColor.basic} variant="outline">basic</Badge>
-                  </SelectItem>
-                  <SelectItem value="admin">
-                    <Badge className={planColor.admin} variant="outline">admin</Badge>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <span className="text-xs text-muted-foreground">
-                라이선스: {selectedOrg.license_key ? <code>{selectedOrg.license_key}</code> : '없음'}
-              </span>
-            </div>
+            <>
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-sm">플랜:</span>
+                <Select
+                  value={selectedOrg.plan}
+                  onValueChange={(plan) => handleChangePlan(selectedOrg.id, plan)}
+                >
+                  <SelectTrigger className="h-7 w-[100px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="trial">
+                      <Badge className={planColor.trial} variant="outline">trial</Badge>
+                    </SelectItem>
+                    <SelectItem value="basic">
+                      <Badge className={planColor.basic} variant="outline">basic</Badge>
+                    </SelectItem>
+                    <SelectItem value="admin">
+                      <Badge className={planColor.admin} variant="outline">admin</Badge>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="text-xs text-muted-foreground">
+                  라이선스: {selectedOrg.license_key ? <code>{selectedOrg.license_key}</code> : '없음'}
+                </span>
+                <div style={{ marginLeft: 'auto' }}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCreateInvite(selectedOrg.id)}
+                    disabled={creatingInvite}
+                  >
+                    <Ticket className="h-3.5 w-3.5 mr-1" />
+                    {creatingInvite ? '생성 중...' : '초대 코드'}
+                  </Button>
+                </div>
+              </div>
+              {inviteCode && (
+                <div className="flex items-center gap-2 mb-4 p-3 rounded-lg" style={{ background: 'hsl(var(--muted))' }}>
+                  <code className="text-lg font-bold tracking-widest">{inviteCode}</code>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => { navigator.clipboard.writeText(inviteCode); toast.success('복사됨'); }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
 
           {detailLoading ? (
