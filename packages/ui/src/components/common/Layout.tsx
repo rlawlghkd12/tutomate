@@ -2,7 +2,7 @@ import { Wifi, X, Search, ChevronDown, Check, Plus } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuthStore, supabase, reloadAllStores } from '@tutomate/core';
+import { useAuthStore, supabase, reloadAllStores, getUnreadCountForOrg } from '@tutomate/core';
 import { useSettingsStore } from '@tutomate/core';
 import { NotificationCenter } from '../notification/NotificationCenter';
 import { GlobalSearch, useGlobalSearch } from '../search/GlobalSearch';
@@ -282,6 +282,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 										{org.role === 'owner' && (
 											<span style={{ fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))', flexShrink: 0 }}>내 조직</span>
 										)}
+										{org.id !== currentOrgId && (() => {
+											const count = getUnreadCountForOrg(org.id);
+											return count > 0 ? (
+												<span style={{
+													fontSize: '0.65rem', fontWeight: 700,
+													background: 'hsl(var(--destructive))', color: 'white',
+													borderRadius: 10, padding: '1px 5px', flexShrink: 0,
+													minWidth: 16, textAlign: 'center',
+												}}>{count}</span>
+											) : null;
+										})()}
 										{org.id === currentOrgId && (
 											<Check style={{ width: 14, height: 14, flexShrink: 0, opacity: 0.6 }} />
 										)}

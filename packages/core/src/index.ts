@@ -28,7 +28,7 @@ export { useMonthlyPaymentStore } from './stores/monthlyPaymentStore';
 export { usePaymentRecordStore } from './stores/paymentRecordStore';
 export { reloadAllStores } from './stores/reloadStores';
 export { useLockStore } from './stores/lockStore';
-export { useNotificationStore } from './stores/notificationStore';
+export { useNotificationStore, getUnreadCountForOrg } from './stores/notificationStore';
 
 // ─── Utils ───────────────────────────────────────────────────────
 export { createDataHelper, clearAllCache } from './utils/dataHelper';
