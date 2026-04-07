@@ -233,14 +233,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 										tabIndex={0}
 										onKeyDown={(e) => { if (e.key === 'Enter') handleSwitchOrg(org.id); }}
 									>
-										{org.id === currentOrgId ? (
-											<Check style={{ width: 14, height: 14, flexShrink: 0 }} />
-										) : (
-											<span style={{ width: 14, flexShrink: 0 }} />
-										)}
 										<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
 											{org.name || '이름 없음'}
 										</span>
+										{org.id === currentOrgId && (
+											<Check style={{ width: 14, height: 14, flexShrink: 0, marginLeft: 'auto', opacity: 0.6 }} />
+										)}
 									</div>
 								))}
 								<div style={{ borderTop: '1px solid hsl(var(--border))', margin: '4px 0' }} />
