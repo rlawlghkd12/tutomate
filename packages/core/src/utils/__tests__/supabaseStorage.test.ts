@@ -423,4 +423,37 @@ describe('toAppError 에러 코드 분류', () => {
       expect((e as AppError).code).toBe(ErrorCode.VALIDATION_ERROR);
     }
   });
+
+  it('Error 인스턴스로 에러 발생 시 그대로 reportError에 전달', async () => {
+    const errorInstance = new Error('actual error instance');
+    setupSelectResponse({ data: null, error: errorInstance });
+    try {
+      await supabaseLoadData('courses');
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError);
+      expect((e as AppError).code).toBe(ErrorCode.DB_READ_FAILED);
+    }
+  });
+
+  it('navigator.onLine === false → NETWORK_OFFLINE', async () => {
+    const originalOnLine = Object.getOwnPropertyDescriptor(navigator, 'onLine');
+    Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+
+    setupSelectResponse({ data: null, error: { message: 'network error' } });
+    try {
+      await supabaseLoadData('courses');
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError);
+      expect((e as AppError).code).toBe(ErrorCode.NETWORK_OFFLINE);
+    }
+
+    // cleanup
+    if (originalOnLine) {
+      Object.defineProperty(navigator, 'onLine', originalOnLine);
+    } else {
+      Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+    }
+  });
 });

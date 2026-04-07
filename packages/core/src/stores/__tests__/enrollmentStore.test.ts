@@ -561,6 +561,44 @@ describe("enrollmentStore — loadEnrollments discountAmount 기본값", () => {
 		expect(enrollments).toHaveLength(1);
 		expect(enrollments[0].id).toBe("e-loaded");
 	});
+
+	it("loadEnrollments — 캐시 폴백 시 showErrorMessage 호출", async () => {
+		localStorage.setItem(
+			"cache_enrollments",
+			JSON.stringify([
+				{
+					id: "e-cached",
+					organization_id: "org1",
+					course_id: "c1",
+					student_id: "s1",
+					enrolled_at: "2026-01-01T00:00:00Z",
+					payment_status: "pending",
+					paid_amount: 0,
+					remaining_amount: 300000,
+					paid_at: null,
+					payment_method: null,
+					discount_amount: null,
+					notes: null,
+					quarter: null,
+					enrolled_months: null,
+					created_at: "2026-01-01T00:00:00Z",
+				},
+			]),
+		);
+
+		useEnrollmentStore.getState().invalidate();
+
+		mockSelect.mockReturnValueOnce({
+			data: null,
+			error: { message: "network error" },
+		});
+
+		await useEnrollmentStore.getState().loadEnrollments();
+
+		const enrollments = useEnrollmentStore.getState().enrollments;
+		expect(enrollments).toHaveLength(1);
+		expect(enrollments[0].id).toBe("e-cached");
+	});
 });
 
 describe("enrollmentStore — updatePayment edge cases", () => {

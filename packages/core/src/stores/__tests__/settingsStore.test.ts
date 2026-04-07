@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useSettingsStore } from '../settingsStore';
 
 describe('settingsStore', () => {
@@ -109,5 +109,16 @@ describe('settingsStore', () => {
     useSettingsStore.getState().setTheme('dark');
     const stored = JSON.parse(localStorage.getItem('app-settings')!);
     expect(stored.theme).toBe('dark');
+  });
+
+  it('saveSettings — localStorage.setItem 예외 시 에러 무시', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+      throw new Error('QuotaExceededError');
+    });
+
+    // saveSettings 호출 시 예외 발생해도 에러 전파 안 됨
+    expect(() => useSettingsStore.getState().saveSettings()).not.toThrow();
+
+    vi.restoreAllMocks();
   });
 });

@@ -88,6 +88,23 @@ describe('mapCourseUpdateToDb', () => {
     const result = mapCourseUpdateToDb({ instructorName: '박강사' });
     expect(result).toEqual({ instructor_name: '박강사' });
   });
+
+  it('모든 필드 매핑 — classroom, instructorPhone, maxStudents, currentStudents, schedule', () => {
+    const result = mapCourseUpdateToDb({
+      classroom: 'B202',
+      instructorPhone: '010-9999-0000',
+      maxStudents: 25,
+      currentStudents: 10,
+      schedule: [{ day: 1, startTime: '09:00', endTime: '10:00' }] as any,
+    });
+    expect(result).toEqual({
+      classroom: 'B202',
+      instructor_phone: '010-9999-0000',
+      max_students: 25,
+      current_students: 10,
+      schedule: [{ day: 1, startTime: '09:00', endTime: '10:00' }],
+    });
+  });
 });
 
 // ─── Student ───────────────────────────────────────────────────

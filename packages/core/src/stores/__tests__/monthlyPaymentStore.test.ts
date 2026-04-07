@@ -363,4 +363,65 @@ describe("monthlyPaymentStore", () => {
 			() => useMonthlyPaymentStore.getState().invalidate(),
 		).not.toThrow();
 	});
+
+	// ── loadPayments — cached branch ──
+
+	it("loadPayments — 캐시 폴백 시 showErrorMessage 호출", async () => {
+		localStorage.setItem(
+			"cache_monthly_payments",
+			JSON.stringify([
+				{
+					id: "p-cached",
+					organization_id: "org1",
+					enrollment_id: "e1",
+					month: "2026-03",
+					amount: 100000,
+					status: "paid",
+					paid_at: "2026-03-01",
+					payment_method: "card",
+					notes: null,
+					created_at: "2026-03-01T00:00:00Z",
+				},
+			]),
+		);
+
+		useMonthlyPaymentStore.getState().invalidate();
+
+		mockSelect.mockReturnValueOnce({
+			data: null,
+			error: { message: "network error" },
+		});
+
+		await useMonthlyPaymentStore.getState().loadPayments();
+
+		const payments = useMonthlyPaymentStore.getState().payments;
+		expect(payments).toHaveLength(1);
+		expect(payments[0].id).toBe("p-cached");
+	});
+
+	// ── deletePaymentsByEnrollmentId — 부분 실패 ──
+
+	it("deletePaymentsByEnrollmentId — 일부 삭제 실패 시 성공한 것만 state에서 제거", async () => {
+		const p1 = makePayment({ id: "p1", enrollmentId: "e1", month: "2026-01" });
+		const p2 = makePayment({ id: "p2", enrollmentId: "e1", month: "2026-02" });
+		useMonthlyPaymentStore.setState({ payments: [p1, p2] });
+
+		// 첫 번째 삭제 성공, 두 번째 삭제 실패
+		mockDelete
+			.mockReturnValueOnce({
+				eq: vi.fn().mockResolvedValue({ error: null }),
+			})
+			.mockReturnValueOnce({
+				eq: vi.fn().mockResolvedValue({ error: { message: "delete failed" } }),
+			});
+
+		await useMonthlyPaymentStore
+			.getState()
+			.deletePaymentsByEnrollmentId("e1");
+
+		const remaining = useMonthlyPaymentStore.getState().payments;
+		// p1은 삭제 성공, p2는 실패하여 남음
+		expect(remaining).toHaveLength(1);
+		expect(remaining[0].id).toBe("p2");
+	});
 });

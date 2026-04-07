@@ -225,4 +225,53 @@ describe("studentStore", () => {
 		expect(students).toHaveLength(1);
 		expect(students[0].name).toBe("서버학생");
 	});
+
+	it("loadStudents — 캐시 폴백 시 showErrorMessage 호출", async () => {
+		localStorage.setItem(
+			"cache_students",
+			JSON.stringify([
+				{
+					id: "s-cached",
+					organization_id: "org1",
+					name: "캐시학생",
+					phone: "010-1111-1111",
+					email: null,
+					address: null,
+					birth_date: null,
+					notes: null,
+					is_member: null,
+					created_at: "2026-01-01T00:00:00Z",
+					updated_at: "2026-01-01T00:00:00Z",
+				},
+			]),
+		);
+
+		useStudentStore.getState().invalidate();
+
+		mockSelect.mockReturnValueOnce({
+			data: null,
+			error: { message: "network error" },
+		});
+
+		await useStudentStore.getState().loadStudents();
+
+		const students = useStudentStore.getState().students;
+		expect(students).toHaveLength(1);
+		expect(students[0].name).toBe("캐시학생");
+	});
+
+	it("deleteStudent — 서버 실패 시 false, state 변경 없음", async () => {
+		const s1 = makeStudent({ id: "s1", name: "홍길동" });
+		useStudentStore.setState({ students: [s1] });
+
+		mockDelete.mockReturnValueOnce({
+			eq: vi.fn().mockResolvedValue({ error: { message: "delete failed" } }),
+		});
+
+		const result = await useStudentStore.getState().deleteStudent("s1");
+
+		expect(result).toBe(false);
+		expect(useStudentStore.getState().students).toHaveLength(1);
+		expect(useStudentStore.getState().students[0].name).toBe("홍길동");
+	});
 });

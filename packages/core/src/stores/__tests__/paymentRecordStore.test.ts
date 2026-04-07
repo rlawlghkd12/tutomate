@@ -559,6 +559,65 @@ describe("paymentRecordStore", () => {
 		expect(enrollment?.paidAmount).toBe(150000);
 	});
 
+	// ── loadRecords — cached branch ──
+
+	it("loadRecords — 캐시 폴백 시 showErrorMessage 호출", async () => {
+		localStorage.setItem(
+			"cache_payment_records",
+			JSON.stringify([
+				{
+					id: "pr-cached",
+					organization_id: "org1",
+					enrollment_id: "e1",
+					amount: 80000,
+					paid_at: "2026-04-01",
+					payment_method: null,
+					notes: null,
+					created_at: "2026-04-01T00:00:00Z",
+				},
+			]),
+		);
+
+		usePaymentRecordStore.getState().invalidate();
+
+		mockSelect.mockReturnValueOnce({
+			data: null,
+			error: { message: "network error" },
+		});
+
+		await usePaymentRecordStore.getState().loadRecords();
+
+		const records = usePaymentRecordStore.getState().records;
+		expect(records).toHaveLength(1);
+		expect(records[0].id).toBe("pr-cached");
+	});
+
+	// ── deletePaymentsByEnrollmentId — 부분 실패 ──
+
+	it("deletePaymentsByEnrollmentId — 일부 삭제 실패 시 성공한 것만 state에서 제거", async () => {
+		const r1 = makeRecord({ id: "pr1", enrollmentId: "e1" });
+		const r2 = makeRecord({ id: "pr2", enrollmentId: "e1" });
+		usePaymentRecordStore.setState({ records: [r1, r2] });
+
+		// 첫 번째 삭제 성공, 두 번째 삭제 실패
+		mockDelete
+			.mockReturnValueOnce({
+				eq: vi.fn().mockResolvedValue({ error: null }),
+			})
+			.mockReturnValueOnce({
+				eq: vi.fn().mockResolvedValue({ error: { message: "delete failed" } }),
+			});
+
+		await usePaymentRecordStore
+			.getState()
+			.deletePaymentsByEnrollmentId("e1");
+
+		const remaining = usePaymentRecordStore.getState().records;
+		// pr1은 삭제 성공, pr2는 실패하여 남음
+		expect(remaining).toHaveLength(1);
+		expect(remaining[0].id).toBe("pr2");
+	});
+
 	// ── syncEnrollmentTotal — latestRecord paidAt 기준 정렬 ──
 
 	it("syncEnrollmentTotal — 최신 paidAt 레코드의 paymentMethod가 enrollment에 반영", async () => {
@@ -579,5 +638,21 @@ describe("paymentRecordStore", () => {
 		const enrollment = useEnrollmentStore.getState().getEnrollmentById("e1");
 		expect(enrollment?.paymentMethod).toBe("card");
 		expect(enrollment?.paidAmount).toBe(150000);
+	});
+
+	// ── syncEnrollmentTotal — withdrawn enrollment 무시 ──
+
+	it("syncEnrollmentTotal — withdrawn enrollment → 갱신 안 함", async () => {
+		useEnrollmentStore.setState({
+			enrollments: [makeEnrollment({ paymentStatus: "withdrawn" })],
+		});
+
+		await usePaymentRecordStore
+			.getState()
+			.addPayment("e1", 100000, 300000, "card");
+
+		// withdrawn enrollment은 paymentStatus가 변경되지 않음
+		const enrollment = useEnrollmentStore.getState().getEnrollmentById("e1");
+		expect(enrollment?.paymentStatus).toBe("withdrawn");
 	});
 });
