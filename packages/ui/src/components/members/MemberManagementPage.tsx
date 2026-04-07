@@ -6,7 +6,8 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
 } from '../ui/alert-dialog';
-import { supabase, useAuthStore } from '@tutomate/core';
+import { supabase, useAuthStore, ORG_ROLE_LABELS } from '@tutomate/core';
+import type { OrgRoleType } from '@tutomate/core';
 import { Input } from '../ui/input';
 import { Users, Trash2, Loader2, RefreshCw, Plus, Copy } from 'lucide-react';
 import { toast } from 'sonner';
@@ -193,7 +194,7 @@ export function MemberManagementPage() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={member.role === 'owner' ? 'default' : 'secondary'}>
-                      {member.role === 'owner' ? '관리자' : '멤버'}
+                      {ORG_ROLE_LABELS[member.role as OrgRoleType] || member.role}
                     </Badge>
                   </TableCell>
                   <TableCell>{formatDate(member.createdAt)}</TableCell>
