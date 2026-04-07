@@ -27,6 +27,7 @@ const PAGE_TITLES: Record<string, string> = {
 	'/students': '수강생 관리',
 	'/calendar': '캘린더',
 	'/revenue': '수익 관리',
+	'/members': '멤버 관리',
 	'/settings': '설정',
 };
 
