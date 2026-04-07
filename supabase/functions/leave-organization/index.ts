@@ -34,37 +34,47 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: links } = await adminClient
-      .from('user_organizations')
-      .select('organization_id, role')
-      .eq('user_id', user.id);
-
-    if (!links || links.length === 0) {
-      return new Response(JSON.stringify({ organizations: [] }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    const { organization_id } = await req.json();
+    if (!organization_id) {
+      return new Response(JSON.stringify({ error: 'missing_organization_id' }), {
+        status: 400, headers: corsHeaders,
       });
     }
 
-    const orgIds = links.map((l: any) => l.organization_id);
-    const { data: orgs } = await adminClient
-      .from('organizations')
-      .select('id, name, plan')
-      .in('id', orgIds);
+    // owner는 나갈 수 없음
+    const { data: link } = await adminClient
+      .from('user_organizations')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('organization_id', organization_id)
+      .single();
 
-    const orgMap = new Map((orgs || []).map((o: any) => [o.id, o]));
+    if (!link) {
+      return new Response(JSON.stringify({ error: 'not_member' }), {
+        status: 404, headers: corsHeaders,
+      });
+    }
 
-    const organizations = links.map((link: any) => {
-      const org = orgMap.get(link.organization_id);
-      return {
-        id: link.organization_id,
-        name: org?.name || '알 수 없는 조직',
-        plan: org?.plan || 'trial',
-        role: link.role,
-        isActive: true, // 마이그레이션 전: 유저당 1개 org만 존재
-      };
-    });
+    if (link.role === 'owner') {
+      return new Response(JSON.stringify({ error: 'owner_cannot_leave' }), {
+        status: 400, headers: corsHeaders,
+      });
+    }
 
-    return new Response(JSON.stringify({ organizations }), {
+    // 삭제 (service role — RLS 우회)
+    const { error: delError } = await adminClient
+      .from('user_organizations')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('organization_id', organization_id);
+
+    if (delError) {
+      return new Response(JSON.stringify({ error: 'delete_failed' }), {
+        status: 500, headers: corsHeaders,
+      });
+    }
+
+    return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (_e) {

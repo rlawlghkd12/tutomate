@@ -27,6 +27,7 @@ export { default as LockScreen } from './components/common/LockScreen';
 export { default as Navigation } from './components/common/Navigation';
 export { UpdateChecker, useUpdateChecker } from './components/common/UpdateChecker';
 export { PageEnter } from './components/common/PageEnter';
+export { showSwitchOverlay, hideSwitchOverlay } from './components/common/switchOverlay';
 
 // Chart components
 export { CourseRevenueChart } from './components/charts/CourseRevenueChart';

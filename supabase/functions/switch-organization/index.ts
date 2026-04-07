@@ -54,6 +54,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // is_active 토글: 전체 비활성화 → 대상만 활성화
+    await adminClient
+      .from('user_organizations')
+      .update({ is_active: false })
+      .eq('user_id', user.id);
+
+    await adminClient
+      .from('user_organizations')
+      .update({ is_active: true })
+      .eq('user_id', user.id)
+      .eq('organization_id', organization_id);
+
     const { data: org } = await adminClient
       .from('organizations')
       .select('plan')
@@ -67,7 +79,7 @@ Deno.serve(async (req) => {
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch {
+  } catch (_e) {
     return new Response(JSON.stringify({ error: 'internal_error' }), {
       status: 500, headers: corsHeaders,
     });
