@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useNotificationStore } from '../notificationStore';
 
 describe('notificationStore', () => {
@@ -134,5 +134,16 @@ describe('notificationStore', () => {
     // should not throw
     useNotificationStore.getState().loadNotifications();
     expect(useNotificationStore.getState().notifications).toHaveLength(0);
+  });
+
+  it('saveNotifications — localStorage.setItem 예외 시 에러 무시', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+      throw new Error('QuotaExceededError');
+    });
+
+    // saveNotifications 호출 시 예외 발생해도 에러 전파 안 됨
+    expect(() => useNotificationStore.getState().saveNotifications()).not.toThrow();
+
+    vi.restoreAllMocks();
   });
 });

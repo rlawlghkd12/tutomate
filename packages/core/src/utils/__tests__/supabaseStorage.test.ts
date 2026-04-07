@@ -40,6 +40,10 @@ vi.mock('../logger', () => ({
   logWarn: vi.fn(),
 }));
 
+vi.mock('../errorReporter', () => ({
+  reportError: vi.fn(),
+}));
+
 import {
   supabaseLoadData,
   supabaseInsert,
@@ -47,7 +51,7 @@ import {
   supabaseDelete,
   supabaseBulkInsert,
 } from '../supabaseStorage';
-import { AppError } from '../errors';
+import { AppError, ErrorCode } from '../errors';
 
 // supabase 모듈을 가져와서 내부 from mock에 접근
 import { supabase } from '../../config/supabase';
@@ -295,5 +299,161 @@ describe('supabaseStorage — supabase null guard', () => {
     setupEqResponse('delete', { error: null });
     await expect(supabaseDelete('payment_records', 'pr1')).resolves.toBeUndefined();
     expect(supabase!.from).toHaveBeenCalledWith('payment_records');
+  });
+});
+
+// ─── toAppError 에러 코드 분류 테스트 ──────────────────────────────────────
+
+describe('toAppError 에러 코드 분류', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('load 실패 시 DB_READ_FAILED 코드', async () => {
+    setupSelectResponse({ data: null, error: { message: 'DB error' } });
+    try {
+      await supabaseLoadData('courses');
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError);
+      expect((e as AppError).code).toBe(ErrorCode.DB_READ_FAILED);
+    }
+  });
+
+  it('insert 실패 시 DB_WRITE_FAILED 코드', async () => {
+    setupInsertResponse({ error: { message: 'Insert failed' } });
+    try {
+      await supabaseInsert('courses', { id: '1' });
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError);
+      expect((e as AppError).code).toBe(ErrorCode.DB_WRITE_FAILED);
+    }
+  });
+
+  it('update 실패 시 DB_WRITE_FAILED 코드', async () => {
+    setupEqResponse('update', { error: { message: 'Update failed' } });
+    try {
+      await supabaseUpdate('courses', 'c1', { name: 'x' });
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError);
+      expect((e as AppError).code).toBe(ErrorCode.DB_WRITE_FAILED);
+    }
+  });
+
+  it('delete 실패 시 DB_WRITE_FAILED 코드', async () => {
+    setupEqResponse('delete', { error: { message: 'Delete failed' } });
+    try {
+      await supabaseDelete('courses', 'c1');
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError);
+      expect((e as AppError).code).toBe(ErrorCode.DB_WRITE_FAILED);
+    }
+  });
+
+  it('bulkInsert 실패 시 DB_WRITE_FAILED 코드', async () => {
+    setupInsertResponse({ error: { message: 'Bulk insert failed' } });
+    try {
+      await supabaseBulkInsert('courses', [{ id: '1' }]);
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError);
+      expect((e as AppError).code).toBe(ErrorCode.DB_WRITE_FAILED);
+    }
+  });
+
+  it('PG 23505 에러 → DB_DUPLICATE', async () => {
+    setupInsertResponse({ error: { message: 'duplicate key', code: '23505' } });
+    try {
+      await supabaseInsert('courses', { id: '1' });
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError);
+      expect((e as AppError).code).toBe(ErrorCode.DB_DUPLICATE);
+    }
+  });
+
+  it('PG 42501 에러 → DB_PERMISSION', async () => {
+    setupSelectResponse({ data: null, error: { message: 'permission denied', code: '42501' } });
+    try {
+      await supabaseLoadData('courses');
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError);
+      expect((e as AppError).code).toBe(ErrorCode.DB_PERMISSION);
+    }
+  });
+
+  it('PG 42503 에러 → DB_PERMISSION', async () => {
+    setupEqResponse('update', { error: { message: 'permission denied', code: '42503' } });
+    try {
+      await supabaseUpdate('courses', 'c1', {});
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError);
+      expect((e as AppError).code).toBe(ErrorCode.DB_PERMISSION);
+    }
+  });
+
+  it('PGRST116 에러 → DB_NOT_FOUND', async () => {
+    setupSelectResponse({ data: null, error: { message: 'not found', code: 'PGRST116' } });
+    try {
+      await supabaseLoadData('courses');
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError);
+      expect((e as AppError).code).toBe(ErrorCode.DB_NOT_FOUND);
+    }
+  });
+
+  it('이미 AppError인 경우 그대로 반환', async () => {
+    const existingAppError = new AppError({
+      type: 'VALIDATION_ERROR' as any,
+      message: 'already an AppError',
+      code: ErrorCode.VALIDATION_ERROR,
+    });
+    setupInsertResponse({ error: existingAppError });
+    try {
+      await supabaseInsert('courses', { id: '1' });
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBe(existingAppError);
+      expect((e as AppError).code).toBe(ErrorCode.VALIDATION_ERROR);
+    }
+  });
+
+  it('Error 인스턴스로 에러 발생 시 그대로 reportError에 전달', async () => {
+    const errorInstance = new Error('actual error instance');
+    setupSelectResponse({ data: null, error: errorInstance });
+    try {
+      await supabaseLoadData('courses');
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError);
+      expect((e as AppError).code).toBe(ErrorCode.DB_READ_FAILED);
+    }
+  });
+
+  it('navigator.onLine === false → NETWORK_OFFLINE', async () => {
+    const originalOnLine = Object.getOwnPropertyDescriptor(navigator, 'onLine');
+    Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+
+    setupSelectResponse({ data: null, error: { message: 'network error' } });
+    try {
+      await supabaseLoadData('courses');
+      expect.fail('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(AppError);
+      expect((e as AppError).code).toBe(ErrorCode.NETWORK_OFFLINE);
+    }
+
+    // cleanup
+    if (originalOnLine) {
+      Object.defineProperty(navigator, 'onLine', originalOnLine);
+    } else {
+      Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+    }
   });
 });

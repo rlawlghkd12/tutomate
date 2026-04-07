@@ -2,6 +2,7 @@
 
 import { logError } from './logger';
 
+/** @deprecated ErrorCode를 사용하세요 */
 export const ErrorType = {
   // 파일 시스템 에러
   FILE_READ_ERROR: 'FILE_READ_ERROR',
@@ -24,6 +25,38 @@ export const ErrorType = {
 
 export type ErrorType = typeof ErrorType[keyof typeof ErrorType];
 
+export const ErrorCode = {
+  NETWORK_OFFLINE: 'NETWORK_OFFLINE',
+  NETWORK_TIMEOUT: 'NETWORK_TIMEOUT',
+  DB_READ_FAILED: 'DB_READ_FAILED',
+  DB_WRITE_FAILED: 'DB_WRITE_FAILED',
+  DB_DUPLICATE: 'DB_DUPLICATE',
+  DB_NOT_FOUND: 'DB_NOT_FOUND',
+  DB_PERMISSION: 'DB_PERMISSION',
+  ENROLLMENT_FULL: 'ENROLLMENT_FULL',
+  ENROLLMENT_DUPLICATE: 'ENROLLMENT_DUPLICATE',
+  PAYMENT_INVALID: 'PAYMENT_INVALID',
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+
+export type ErrorCodeType = typeof ErrorCode[keyof typeof ErrorCode];
+
+export const USER_ERROR_MESSAGES: Record<ErrorCodeType, string> = {
+  NETWORK_OFFLINE: '인터넷 연결을 확인해주세요.',
+  NETWORK_TIMEOUT: '서버 응답이 느립니다. 잠시 후 다시 시도해주세요.',
+  DB_READ_FAILED: '데이터를 불러오지 못했습니다.',
+  DB_WRITE_FAILED: '저장에 실패했습니다. 다시 시도해주세요.',
+  DB_DUPLICATE: '이미 존재하는 데이터입니다.',
+  DB_NOT_FOUND: '요청한 데이터를 찾을 수 없습니다.',
+  DB_PERMISSION: '접근 권한이 없습니다.',
+  ENROLLMENT_FULL: '강좌 정원이 마감되었습니다.',
+  ENROLLMENT_DUPLICATE: '이미 등록된 강좌입니다.',
+  PAYMENT_INVALID: '결제 정보를 확인해주세요.',
+  VALIDATION_ERROR: '입력 정보를 확인해주세요.',
+  UNKNOWN: '문제가 발생했습니다. 다시 시도해주세요.',
+};
+
 export interface AppErrorOptions {
   type: ErrorType;
   message: string;
@@ -36,55 +69,47 @@ export interface AppErrorOptions {
 
 export class AppError extends Error {
   type: ErrorType;
+  code: ErrorCodeType;
   originalError?: Error | unknown;
   component?: string;
   action?: string;
   recoverable: boolean;
   userMessage: string;
 
-  constructor(options: AppErrorOptions) {
+  constructor(options: AppErrorOptions & { code?: ErrorCodeType }) {
     super(options.message);
     this.name = 'AppError';
     this.type = options.type;
+    this.code = options.code || this.typeToCode(options.type);
     this.originalError = options.originalError;
     this.component = options.component;
     this.action = options.action;
     this.recoverable = options.recoverable ?? true;
-    this.userMessage = options.userMessage || this.getDefaultUserMessage();
+    this.userMessage = options.userMessage || USER_ERROR_MESSAGES[this.code];
 
-    // Stack trace 유지
     if (typeof (Error as any).captureStackTrace === 'function') {
       (Error as any).captureStackTrace(this, AppError);
     }
   }
 
-  private getDefaultUserMessage(): string {
-    switch (this.type) {
-      case ErrorType.FILE_READ_ERROR:
-        return '데이터를 불러오는 중 오류가 발생했습니다.';
-      case ErrorType.FILE_WRITE_ERROR:
-        return '데이터를 저장하는 중 오류가 발생했습니다.';
-      case ErrorType.FILE_NOT_FOUND:
-        return '파일을 찾을 수 없습니다.';
-      case ErrorType.VALIDATION_ERROR:
-        return '입력한 정보를 확인해주세요.';
-      case ErrorType.DUPLICATE_ERROR:
-        return '이미 존재하는 데이터입니다.';
-      case ErrorType.INVALID_DATA:
-        return '유효하지 않은 데이터입니다.';
-      case ErrorType.ENROLLMENT_ERROR:
-        return '수강 신청 중 오류가 발생했습니다.';
-      case ErrorType.PAYMENT_ERROR:
-        return '결제 처리 중 오류가 발생했습니다.';
-      case ErrorType.NETWORK_ERROR:
-        return '네트워크 연결을 확인해주세요.';
-      default:
-        return '예상치 못한 오류가 발생했습니다.';
-    }
+  private typeToCode(type: ErrorType): ErrorCodeType {
+    const map: Record<string, ErrorCodeType> = {
+      FILE_READ_ERROR: ErrorCode.DB_READ_FAILED,
+      FILE_WRITE_ERROR: ErrorCode.DB_WRITE_FAILED,
+      FILE_NOT_FOUND: ErrorCode.DB_NOT_FOUND,
+      VALIDATION_ERROR: ErrorCode.VALIDATION_ERROR,
+      DUPLICATE_ERROR: ErrorCode.DB_DUPLICATE,
+      INVALID_DATA: ErrorCode.VALIDATION_ERROR,
+      ENROLLMENT_ERROR: ErrorCode.ENROLLMENT_FULL,
+      PAYMENT_ERROR: ErrorCode.PAYMENT_INVALID,
+      NETWORK_ERROR: ErrorCode.NETWORK_OFFLINE,
+      UNKNOWN_ERROR: ErrorCode.UNKNOWN,
+    };
+    return map[type] || ErrorCode.UNKNOWN;
   }
 
   toString(): string {
-    return `[${this.type}] ${this.message}${this.component ? ` (${this.component})` : ''}`;
+    return `[${this.code}] ${this.message}${this.component ? ` (${this.component})` : ''}`;
   }
 }
 
@@ -172,3 +197,8 @@ export const handleError = (error: unknown, showNotification = true) =>
   errorHandler.handle(error, showNotification);
 
 export const createError = (options: AppErrorOptions) => new AppError(options);
+
+/** AppError 없이 에러 메시지만 표시할 때 사용 (예: cached 알림) */
+export function showErrorMessage(msg: string, recoverable = true): void {
+  if (_showError) _showError(msg, recoverable);
+}

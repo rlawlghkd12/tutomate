@@ -2,7 +2,7 @@
 export { appConfig } from './config/appConfig';
 export { APP_NAME, useAppVersion } from './config/version';
 export { supabase, isSupabaseConfigured } from './config/supabase';
-export { PLAN_LIMITS } from './config/planLimits';
+export { PLAN_LIMITS, PlanTypeEnum } from './config/planLimits';
 export type { PlanType, PlanLimitKey } from './config/planLimits';
 export {
   FLEX_CENTER,
@@ -20,33 +20,35 @@ export type { OAuthProvider, OAuthProviderConfig, OAuthCallbackResult, OAuthCall
 // ─── Stores ──────────────────────────────────────────────────────
 export { useSettingsStore } from './stores/settingsStore';
 export type { FontSize, Theme } from './stores/settingsStore';
-export { useAuthStore, isCloud, getOrgId, getPlan, migrateOrgData, getAuthProvider, getAuthProviderLabel, getAuthProviderColor } from './stores/authStore';
+export { useAuthStore, isCloud, getOrgId, getPlan, isOwner, canManageMembers, getAuthProvider, getAuthProviderLabel, getAuthProviderColor } from './stores/authStore';
 export { useCourseStore } from './stores/courseStore';
 export { useStudentStore } from './stores/studentStore';
 export { useEnrollmentStore } from './stores/enrollmentStore';
 export { useMonthlyPaymentStore } from './stores/monthlyPaymentStore';
 export { usePaymentRecordStore } from './stores/paymentRecordStore';
-export { useLicenseStore, reloadAllStores } from './stores/licenseStore';
-export type { ActivateResult } from './stores/licenseStore';
+export { reloadAllStores } from './stores/reloadStores';
 export { useLockStore } from './stores/lockStore';
-export { useNotificationStore } from './stores/notificationStore';
+export { useNotificationStore, getUnreadCountForOrg } from './stores/notificationStore';
 
 // ─── Utils ───────────────────────────────────────────────────────
 export { createDataHelper, clearAllCache } from './utils/dataHelper';
-export type { DataHelper } from './utils/dataHelper';
+export type { DataHelper, LoadResult } from './utils/dataHelper';
 
 export { default as dayjs } from './utils/dayjs';
 
 export {
   ErrorType,
+  ErrorCode,
   AppError,
   ErrorHandler,
   errorHandler,
   handleError,
   createError,
   setErrorDisplay,
+  showErrorMessage,
+  USER_ERROR_MESSAGES,
 } from './utils/errors';
-export type { AppErrorOptions } from './utils/errors';
+export type { AppErrorOptions, ErrorCodeType } from './utils/errors';
 
 export {
   exportStudentsToExcel,

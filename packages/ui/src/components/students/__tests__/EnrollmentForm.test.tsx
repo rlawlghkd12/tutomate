@@ -48,10 +48,14 @@ vi.mock('@tutomate/core', () => ({
   usePaymentRecordStore: () => ({
     addPayment: mockAddPayment,
   }),
-  useLicenseStore: () => ({
-    getPlan: () => 'pro',
-    getLimit: () => 999,
+  useAuthStore: () => ({
+    plan: 'basic',
   }),
+  PLAN_LIMITS: {
+    trial: { maxCourses: 5, maxStudentsPerCourse: 10 },
+    basic: { maxCourses: Infinity, maxStudentsPerCourse: Infinity },
+    admin: { maxCourses: Infinity, maxStudentsPerCourse: Infinity },
+  },
   appConfig: {
     enableMemberFeature: false,
     hideAddressField: false,

@@ -45,7 +45,7 @@ interface PaymentManagementTableProps {
   courseFee: number;
   enrollments: Enrollment[];
   onStudentClick?: (studentId: string) => void;
-  onRemoveEnrollments?: (enrollmentIds: string[]) => void;
+  onRemoveEnrollments?: (enrollmentIds: string[], refundAmount?: number) => void;
   showMemberColumn?: boolean;
   quarterSelector?: React.ReactNode;
   rowSelection?: {
@@ -78,6 +78,8 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   const { getStudentById } = useStudentStore();
   const { records, addPayment, deletePayment, updateRecord } = usePaymentRecordStore();
   const { updatePayment: updateEnrollmentPayment } = useEnrollmentStore();
+  const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false);
+  const [refundAmount, setRefundAmount] = useState(0);
 
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
@@ -348,21 +350,36 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
     },
     {
       id: 'paid',
-      header: '납부액/수강료',
-      size: 140,
+      header: '납부액',
+      size: 100,
       cell: ({ row }) => {
         const record = row.original;
         if (record.enrollment.paymentStatus === 'exempt') return '-';
-        const discount = record.enrollment.discountAmount ?? 0;
         return (
-          <div className="whitespace-nowrap leading-tight">
-            <div>{'\u20A9'}{record.totalPaid.toLocaleString()} / {'\u20A9'}{record.effectiveFee.toLocaleString()}</div>
-            {discount > 0 && (
-              <div className="text-[11px] text-muted-foreground">
-                할인 {'\u20A9'}{discount.toLocaleString()}
-              </div>
-            )}
-          </div>
+          <span className="whitespace-nowrap">
+            {'\u20A9'}{record.totalPaid.toLocaleString()}
+          </span>
+        );
+      },
+    },
+    {
+      id: 'lastPaidAt',
+      header: '최근 납부일',
+      size: 100,
+      cell: ({ row }) => {
+        const record = row.original;
+        const lastRecord = record.records[0];
+        if (!lastRecord?.paidAt) return <span className="text-muted-foreground">-</span>;
+        return (
+          <span
+            className="whitespace-nowrap cursor-pointer hover:underline text-primary"
+            onClick={() => {
+              setSelectedEnrollmentId(record.enrollment.id);
+              setIsHistoryModalVisible(true);
+            }}
+          >
+            {dayjs(lastRecord.paidAt).format('YY.MM.DD')}
+          </span>
         );
       },
     },
@@ -389,15 +406,9 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       size: 200,
       cell: ({ row }) => {
         const record = row.original;
-        const openHistory = () => {
-          setSelectedEnrollmentId(record.enrollment.id);
-          setIsHistoryModalVisible(true);
-        };
-
         if (record.enrollment.paymentStatus === 'exempt') {
           return (
             <div className="flex items-center gap-1">
-              <Button variant="outline" size="sm" onClick={openHistory}>이력보기</Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="outline" size="sm">면제 취소</Button>
@@ -420,7 +431,6 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         }
         return (
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" onClick={openHistory}>이력보기</Button>
             <Button
               variant="outline"
               size="sm"
@@ -530,7 +540,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             <>
               <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>{rowSelection.selectedRowKeys.length}명 선택</span>
               {onRemoveEnrollments && (
-                <Button size="sm" variant="destructive" onClick={() => onRemoveEnrollments(rowSelection.selectedRowKeys as string[])}>
+                <Button size="sm" variant="destructive" onClick={() => { setRefundAmount(0); setWithdrawDialogOpen(true); }}>
                   수강 철회
                 </Button>
               )}
@@ -820,6 +830,60 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           )}
         </DialogContent>
       </Dialog>
+      {/* 수강 철회 확인 다이얼로그 */}
+      <AlertDialog open={withdrawDialogOpen} onOpenChange={setWithdrawDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>수강 철회</AlertDialogTitle>
+            <AlertDialogDescription>
+              {rowSelection?.selectedRowKeys.length || 0}명의 수강을 철회합니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div style={{ padding: '0 24px 16px' }}>
+            {(() => {
+              const selectedIds = (rowSelection?.selectedRowKeys || []) as string[];
+              const selectedRows = filteredData.filter((d) => selectedIds.includes(d.key));
+              const totalPaid = selectedRows.reduce((sum, d) => sum + d.totalPaid, 0);
+              return (
+                <>
+                  <div style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginBottom: 8, padding: '8px 12px', background: 'hsl(var(--muted) / 0.5)', borderRadius: 6 }}>
+                    기납부 합계: <span style={{ fontWeight: 600, color: 'hsl(var(--foreground))' }}>₩{totalPaid.toLocaleString()}</span>
+                  </div>
+                  <Label style={{ marginBottom: 6, display: 'block' }}>환불 금액 (원)</Label>
+                  <Input
+                    type="number"
+                    value={refundAmount || ''}
+                    onChange={(e) => {
+                      const val = Number(e.target.value) || 0;
+                      setRefundAmount(Math.min(val, totalPaid));
+                    }}
+                    placeholder="0 (환불 없음)"
+                    min={0}
+                    max={totalPaid}
+                  />
+                  <p style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+                    최대 ₩{totalPaid.toLocaleString()} 환불 가능
+                  </p>
+                </>
+              );
+            })()}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (onRemoveEnrollments && rowSelection) {
+                  onRemoveEnrollments(rowSelection.selectedRowKeys as string[], refundAmount || 0);
+                }
+                setWithdrawDialogOpen(false);
+              }}
+            >
+              철회
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

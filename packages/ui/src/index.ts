@@ -23,10 +23,11 @@ export { Skeleton } from './components/ui/skeleton';
 // Common components
 export { ErrorBoundary, withErrorBoundary } from './components/common/ErrorBoundary';
 export { default as Layout } from './components/common/Layout';
-export { default as LicenseKeyInput } from './components/common/LicenseKeyInput';
 export { default as LockScreen } from './components/common/LockScreen';
 export { default as Navigation } from './components/common/Navigation';
 export { UpdateChecker, useUpdateChecker } from './components/common/UpdateChecker';
+export { PageEnter } from './components/common/PageEnter';
+export { showSwitchOverlay, hideSwitchOverlay } from './components/common/switchOverlay';
 
 // Chart components
 export { CourseRevenueChart } from './components/charts/CourseRevenueChart';
@@ -51,6 +52,9 @@ export { GlobalSearch, useGlobalSearch } from './components/search/GlobalSearch'
 
 // Settings components
 export { default as AdminTab } from './components/settings/AdminTab';
+
+// Member components
+export { MemberManagementPage } from './components/members/MemberManagementPage';
 
 // Student components
 export { default as EnrollmentForm } from './components/students/EnrollmentForm';

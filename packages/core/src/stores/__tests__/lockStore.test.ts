@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useLockStore } from '../lockStore';
 
 describe('lockStore', () => {
@@ -188,5 +188,16 @@ describe('lockStore', () => {
 
     const wrong = await useLockStore.getState().verifyPin('1234');
     expect(wrong).toBe(false);
+  });
+
+  it('saveLockSettings — localStorage.setItem 예외 시 에러 무시', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+      throw new Error('QuotaExceededError');
+    });
+
+    // saveLockSettings 호출 시 예외 발생해도 에러 전파 안 됨
+    expect(() => useLockStore.getState().saveLockSettings()).not.toThrow();
+
+    vi.restoreAllMocks();
   });
 });

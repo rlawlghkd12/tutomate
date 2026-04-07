@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@tutomate/ui';
-import { CourseList, CourseForm } from '@tutomate/ui';
+import { CourseList, CourseForm, PageEnter } from '@tutomate/ui';
 import { useCourseStore } from '@tutomate/core';
 
 const CoursesPage: React.FC = () => {
@@ -13,7 +13,7 @@ const CoursesPage: React.FC = () => {
   }, [loadCourses]);
 
   return (
-    <div className="page-enter">
+    <PageEnter>
       <CourseList
         actions={
           <Button
@@ -29,7 +29,7 @@ const CoursesPage: React.FC = () => {
         onClose={() => setIsModalVisible(false)}
         course={null}
       />
-    </div>
+    </PageEnter>
   );
 };
 

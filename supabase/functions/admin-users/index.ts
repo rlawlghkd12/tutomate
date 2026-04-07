@@ -333,6 +333,42 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 조직 초대 코드 생성 (admin)
+    if (action === 'create-org-invite') {
+      const body = await req.json();
+      const { organizationId, expiresInDays, maxUses } = body;
+      if (!organizationId) {
+        return new Response(JSON.stringify({ error: 'missing_organization_id' }), { status: 400, headers: corsHeaders });
+      }
+
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 8; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+      }
+
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + (expiresInDays || 30));
+
+      const { error: insertError } = await adminClient
+        .from('org_invites')
+        .insert({
+          organization_id: organizationId,
+          code,
+          created_by: user.id,
+          expires_at: expiresAt.toISOString(),
+          max_uses: maxUses || 0,
+        });
+
+      if (insertError) {
+        return new Response(JSON.stringify({ error: 'create_failed', details: insertError.message }), { status: 500, headers: corsHeaders });
+      }
+
+      return new Response(JSON.stringify({ code, expires_at: expiresAt.toISOString(), max_uses: maxUses || 0 }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // 디버그: 모든 강좌의 schedule 데이터 확인
     if (action === 'debug-courses') {
       const { data: allCourses } = await adminClient.from('courses').select('id, name, organization_id, schedule');

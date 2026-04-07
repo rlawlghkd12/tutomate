@@ -6,9 +6,9 @@ import * as z from "zod";
 import dayjs from "dayjs";
 import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
-import { useLicenseStore } from "@tutomate/core";
+import { useAuthStore, PLAN_LIMITS } from "@tutomate/core";
 import { usePaymentRecordStore } from "@tutomate/core";
-import { appConfig, isActiveEnrollment, isCourseEnded, PaymentStatus } from "@tutomate/core";
+import { appConfig, isActiveEnrollment, isCourseEnded, PaymentStatus, DAY_LABELS } from "@tutomate/core";
 import type { EnrollmentFormData, Student } from "@tutomate/core";
 import { getCurrentQuarter } from "@tutomate/core";
 import {
@@ -48,7 +48,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 	const { addEnrollment, updateEnrollment, enrollments } = useEnrollmentStore();
 	const { addPayment } = usePaymentRecordStore();
 	const { courses, getCourseById } = useCourseStore();
-	const { getPlan, getLimit } = useLicenseStore();
+	const plan = useAuthStore((s) => s.plan) || 'trial';
 	const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 	const [step, setStep] = useState(1);
@@ -122,11 +122,11 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 			return;
 		}
 
-		if (getPlan() === "trial") {
-			const maxStudentsPerCourse = getLimit("maxStudentsPerCourse");
+		if (plan === "trial") {
+			const maxStudentsPerCourse = PLAN_LIMITS.trial.maxStudentsPerCourse;
 			if (activeEnrollmentCount >= maxStudentsPerCourse) {
 				toast.warning(
-					`체험판은 강좌당 최대 ${maxStudentsPerCourse}명까지 등록 가능합니다. 설정에서 라이선스를 활성화하세요.`,
+					`체험판은 강좌당 최대 ${maxStudentsPerCourse}명까지 등록 가능합니다.`,
 				);
 				return;
 			}
@@ -297,8 +297,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 												(e) => e.courseId === course.id,
 											).length;
 											const trialLimit =
-												getPlan() === "trial"
-													? getLimit("maxStudentsPerCourse")
+												plan === "trial"
+													? PLAN_LIMITS.trial.maxStudentsPerCourse
 													: Infinity;
 											const effectiveMax = Math.min(course.maxStudents, trialLimit);
 											const isFull = currentCount >= effectiveMax;
@@ -311,9 +311,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 											const isDisabled = isFull || isEnrolled;
 											const isSelected = field.value === course.id;
 											const schedule = course.schedule;
-											const dl = ['일','월','화','수','목','금','토'];
 											const daysText = Array.isArray(schedule?.daysOfWeek) && schedule.daysOfWeek.length
-												? schedule.daysOfWeek.sort((a: number, b: number) => a - b).map((d: number) => dl[d]).join(', ')
+												? schedule.daysOfWeek.sort((a: number, b: number) => a - b).map((d: number) => DAY_LABELS[d]).join(', ')
 												: '';
 											const timeText = schedule?.startTime && schedule?.endTime
 												? `${schedule.startTime}~${schedule.endTime}` : '';

@@ -1,8 +1,43 @@
 import { supabase } from "../config/supabase";
-import { AppError, ErrorType } from "./errors";
+import { AppError, ErrorType, ErrorCode } from "./errors";
+import type { ErrorCodeType } from "./errors";
 import { logError, logInfo } from "./logger";
+import { reportError } from "./errorReporter";
 
 type TableName = "courses" | "students" | "enrollments" | "monthly_payments" | "payment_records";
+
+function toAppError(error: unknown, operation: string, table: string): AppError {
+	if (error instanceof AppError) return error;
+
+	const pgCode = (error as any)?.code;
+	let code: ErrorCodeType;
+
+	if (typeof navigator !== 'undefined' && !navigator.onLine) {
+		code = ErrorCode.NETWORK_OFFLINE;
+	} else if (pgCode === '23505') {
+		code = ErrorCode.DB_DUPLICATE;
+	} else if (pgCode === '42501' || pgCode === '42503') {
+		code = ErrorCode.DB_PERMISSION;
+	} else if (pgCode === 'PGRST116') {
+		code = ErrorCode.DB_NOT_FOUND;
+	} else if (operation === 'load') {
+		code = ErrorCode.DB_READ_FAILED;
+	} else {
+		code = ErrorCode.DB_WRITE_FAILED;
+	}
+
+	logError(`${operation} failed: ${table}`, { error, data: { code } });
+	reportError(error instanceof Error ? error : new Error(String(error)));
+
+	return new AppError({
+		type: ErrorType.NETWORK_ERROR,
+		message: `${operation} failed: ${table}`,
+		code,
+		originalError: error,
+		component: 'supabaseStorage',
+		action: operation,
+	});
+}
 
 /**
  * Supabase에서 데이터 전체 로드
@@ -13,14 +48,7 @@ export async function supabaseLoadData<T>(table: TableName): Promise<T[]> {
 	const { data, error } = await supabase.from(table).select("*");
 
 	if (error) {
-		logError(`Supabase load error: ${table}`, { error });
-		throw new AppError({
-			type: ErrorType.NETWORK_ERROR,
-			message: `Failed to load from Supabase: ${table}`,
-			originalError: error,
-			component: "supabaseStorage",
-			action: "supabaseLoadData",
-		});
+		throw toAppError(error, 'load', table);
 	}
 
 	logInfo(`Loaded ${data.length} items from Supabase: ${table}`);
@@ -41,14 +69,7 @@ export async function supabaseInsert<T extends object>(
 		.insert(item as Record<string, unknown>);
 
 	if (error) {
-		logError(`Supabase insert error: ${table}`, { error });
-		throw new AppError({
-			type: ErrorType.NETWORK_ERROR,
-			message: `Failed to insert into Supabase: ${table}`,
-			originalError: error,
-			component: "supabaseStorage",
-			action: "supabaseInsert",
-		});
+		throw toAppError(error, 'insert', table);
 	}
 
 	logInfo(`Inserted item into Supabase: ${table}`);
@@ -67,14 +88,7 @@ export async function supabaseUpdate(
 	const { error } = await supabase.from(table).update(updates).eq("id", id);
 
 	if (error) {
-		logError(`Supabase update error: ${table}`, { error, data: { id } });
-		throw new AppError({
-			type: ErrorType.NETWORK_ERROR,
-			message: `Failed to update in Supabase: ${table}`,
-			originalError: error,
-			component: "supabaseStorage",
-			action: "supabaseUpdate",
-		});
+		throw toAppError(error, 'update', table);
 	}
 
 	logInfo(`Updated item in Supabase: ${table}`, { data: { id } });
@@ -92,14 +106,7 @@ export async function supabaseDelete(
 	const { error } = await supabase.from(table).delete().eq("id", id);
 
 	if (error) {
-		logError(`Supabase delete error: ${table}`, { error, data: { id } });
-		throw new AppError({
-			type: ErrorType.NETWORK_ERROR,
-			message: `Failed to delete from Supabase: ${table}`,
-			originalError: error,
-			component: "supabaseStorage",
-			action: "supabaseDelete",
-		});
+		throw toAppError(error, 'delete', table);
 	}
 
 	logInfo(`Deleted item from Supabase: ${table}`, { data: { id } });
@@ -120,14 +127,7 @@ export async function supabaseBulkInsert<T extends object>(
 		.insert(items as Record<string, unknown>[]);
 
 	if (error) {
-		logError(`Supabase bulk insert error: ${table}`, { error });
-		throw new AppError({
-			type: ErrorType.NETWORK_ERROR,
-			message: `Failed to bulk insert into Supabase: ${table}`,
-			originalError: error,
-			component: "supabaseStorage",
-			action: "supabaseBulkInsert",
-		});
+		throw toAppError(error, 'bulkInsert', table);
 	}
 
 	logInfo(`Bulk inserted ${items.length} items into Supabase: ${table}`);

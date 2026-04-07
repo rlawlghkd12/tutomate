@@ -8,6 +8,8 @@ import {
 	mapMonthlyPaymentToDb,
 	mapMonthlyPaymentUpdateToDb,
 } from "../utils/fieldMapper";
+import { handleError, showErrorMessage } from "../utils/errors";
+import { logError } from "../utils/logger";
 
 const helper = createDataHelper<MonthlyPayment, MonthlyPaymentRow>({
 	table: "monthly_payments",
@@ -29,12 +31,12 @@ interface MonthlyPaymentStore {
 		paymentMethod?: PaymentMethod,
 		paidAt?: string,
 		notes?: string,
-	) => Promise<MonthlyPayment>;
+	) => Promise<MonthlyPayment | null>;
 	updatePayment: (
 		id: string,
 		updates: Partial<MonthlyPayment>,
-	) => Promise<void>;
-	deletePayment: (id: string) => Promise<void>;
+	) => Promise<boolean>;
+	deletePayment: (id: string) => Promise<boolean>;
 	deletePaymentsByEnrollmentId: (enrollmentId: string) => Promise<void>;
 }
 
@@ -43,25 +45,27 @@ export const useMonthlyPaymentStore = create<MonthlyPaymentStore>(
 		payments: [],
 
 		loadPayments: async () => {
-			try {
-				const payments = await helper.load();
-				set({ payments });
-			} catch {
-				// 로드 실패 시 기존 데이터 유지
+			const result = await helper.load();
+			if (result.status === "ok" || result.status === "cached") {
+				set({ payments: result.data });
+			}
+			if (result.status === "cached") {
+				showErrorMessage("오프라인 상태입니다. 저장된 데이터를 표시합니다.");
+			}
+			if (result.status === "error") {
+				handleError(result.error);
 			}
 		},
 
 		invalidate: () => helper.invalidate(),
 
-		getPaymentsByEnrollmentId: (enrollmentId: string) => {
-			return get()
+		getPaymentsByEnrollmentId: (enrollmentId: string) =>
+			get()
 				.payments.filter((p) => p.enrollmentId === enrollmentId)
-				.sort((a, b) => a.month.localeCompare(b.month));
-		},
+				.sort((a, b) => a.month.localeCompare(b.month)),
 
-		getPaymentsByMonth: (month: string) => {
-			return get().payments.filter((p) => p.month === month);
-		},
+		getPaymentsByMonth: (month: string) =>
+			get().payments.filter((p) => p.month === month),
 
 		addPayment: async (
 			enrollmentId,
@@ -83,40 +87,60 @@ export const useMonthlyPaymentStore = create<MonthlyPaymentStore>(
 				notes,
 				createdAt: dayjs().toISOString(),
 			};
-
-			try {
-				await helper.add(newPayment);
-			} catch {
-				// 서버 저장 실패 — 로컬에만 추가
+			const error = await helper.add(newPayment);
+			if (error) {
+				handleError(error);
+				return null;
 			}
 			set({ payments: [...get().payments, newPayment] });
-
 			return newPayment;
 		},
 
 		updatePayment: async (id, updates) => {
-			try {
-				await helper.update(id, updates);
-			} catch {
-				// 서버 저장 실패해도 로컬 state는 유지
+			const error = await helper.update(id, updates);
+			if (error) {
+				handleError(error);
+				return false;
 			}
-			const payments = get().payments.map((p) =>
-				p.id === id ? { ...p, ...updates } : p,
-			);
-			set({ payments });
+			set({
+				payments: get().payments.map((p) =>
+					p.id === id ? { ...p, ...updates } : p,
+				),
+			});
+			return true;
 		},
 
 		deletePayment: async (id) => {
-			const payments = await helper.remove(id, get().payments);
-			set({ payments });
+			const error = await helper.remove(id);
+			if (error) {
+				handleError(error);
+				return false;
+			}
+			set({ payments: get().payments.filter((p) => p.id !== id) });
+			return true;
 		},
 
 		deletePaymentsByEnrollmentId: async (enrollmentId) => {
 			const toDelete = get().payments.filter(
 				(p) => p.enrollmentId === enrollmentId,
 			);
+			const deletedIds: string[] = [];
 			for (const payment of toDelete) {
-				await get().deletePayment(payment.id);
+				const error = await helper.remove(payment.id);
+				if (error) {
+					logError(`Failed to delete monthly payment ${payment.id}`, {
+						error,
+					});
+				} else {
+					deletedIds.push(payment.id);
+				}
+			}
+			if (deletedIds.length > 0) {
+				set({
+					payments: get().payments.filter(
+						(p) => !deletedIds.includes(p.id),
+					),
+				});
 			}
 		},
 	}),

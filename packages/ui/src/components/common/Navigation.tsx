@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, Users, Calendar, DollarSign, Settings } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Users, Calendar, DollarSign, Settings, UserCog } from 'lucide-react';
+import { canManageMembers } from '@tutomate/core';
 
 const mainItems = [
   { key: '/', icon: LayoutDashboard, label: '대시보드' },
@@ -40,6 +41,10 @@ const navItemActive: React.CSSProperties = {
 const Navigation: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const ownerItems = canManageMembers()
+    ? [{ key: '/members', icon: UserCog, label: '멤버 관리' }]
+    : [];
 
   const getSelectedKey = () => {
     const path = location.pathname;
@@ -82,6 +87,7 @@ const Navigation: React.FC = () => {
         {mainItems.map(renderItem)}
       </div>
       <div style={{ marginTop: 'auto', borderTop: '1px solid hsl(var(--border))', paddingTop: 8, paddingBottom: 12 }}>
+        {ownerItems.map(renderItem)}
         {bottomItems.map(renderItem)}
       </div>
     </nav>

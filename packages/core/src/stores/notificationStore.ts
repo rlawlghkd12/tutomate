@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import type { Notification } from '../types';
 import { nanoid } from 'nanoid';
+import { logError } from '../utils/logger';
+import { getOrgId } from './authStore';
 
 interface NotificationStore {
   notifications: Notification[];
@@ -14,29 +16,53 @@ interface NotificationStore {
   getUnreadCount: () => number;
 }
 
-const STORAGE_KEY = 'notifications';
+function getStorageKey(): string {
+  const orgId = getOrgId();
+  return orgId ? `notifications_${orgId}` : 'notifications';
+}
+
+/** 특정 org의 미읽은 알림 수 (사이드바 표시용) */
+export function getUnreadCountForOrg(orgId: string): number {
+  try {
+    const stored = localStorage.getItem(`notifications_${orgId}`);
+    if (!stored) return 0;
+    const notifications = JSON.parse(stored) as Notification[];
+    return notifications.filter((n) => !n.isRead).length;
+  } catch {
+    return 0;
+  }
+}
 
 export const useNotificationStore = create<NotificationStore>((set, get) => ({
   notifications: [],
 
   loadNotifications: () => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const key = getStorageKey();
+      const stored = localStorage.getItem(key);
       if (stored) {
         const notifications = JSON.parse(stored) as Notification[];
         set({ notifications });
+      } else {
+        // 마이그레이션: 기존 'notifications' 키에서 가져오기
+        const legacy = localStorage.getItem('notifications');
+        if (legacy) {
+          const notifications = JSON.parse(legacy) as Notification[];
+          set({ notifications });
+          localStorage.setItem(key, legacy);
+        }
       }
     } catch (error) {
-      console.error('Failed to load notifications:', error);
+      logError('Failed to load notifications', { error });
     }
   },
 
   saveNotifications: () => {
     try {
       const { notifications } = get();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications));
+      localStorage.setItem(getStorageKey(), JSON.stringify(notifications));
     } catch (error) {
-      console.error('Failed to save notifications:', error);
+      logError('Failed to save notifications', { error });
     }
   },
 

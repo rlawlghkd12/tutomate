@@ -1,4 +1,10 @@
-export type PlanType = 'trial' | 'basic' | 'admin';
+export const PlanTypeEnum = {
+  TRIAL: 'trial',
+  BASIC: 'basic',
+  ADMIN: 'admin',
+} as const;
+
+export type PlanType = typeof PlanTypeEnum[keyof typeof PlanTypeEnum];
 
 export const PLAN_LIMITS = {
   trial: {

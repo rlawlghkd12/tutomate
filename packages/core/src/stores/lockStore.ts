@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { logError } from '../utils/logger';
 
 interface LockSettings {
   isEnabled: boolean;
@@ -86,7 +87,7 @@ export const useLockStore = create<LockStore>((set, get) => ({
         set(settings);
       }
     } catch (error) {
-      console.error('Failed to load lock settings:', error);
+      logError('Failed to load lock settings', { error });
     }
   },
 
@@ -96,7 +97,7 @@ export const useLockStore = create<LockStore>((set, get) => ({
       const settings: LockSettings = { isEnabled, pin, autoLockMinutes };
       localStorage.setItem(LOCK_SETTINGS_KEY, JSON.stringify(settings));
     } catch (error) {
-      console.error('Failed to save lock settings:', error);
+      logError('Failed to save lock settings', { error });
     }
   },
 }));
