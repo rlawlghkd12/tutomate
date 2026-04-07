@@ -46,7 +46,6 @@ Deno.serve(async (req) => {
       .from('user_organizations')
       .select('organization_id, role')
       .eq('user_id', user.id)
-      .eq('is_active', true)
       .single();
 
     if (!callerLink || callerLink.role !== 'owner') {

@@ -54,17 +54,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    await adminClient
-      .from('user_organizations')
-      .update({ is_active: false })
-      .eq('user_id', user.id);
-
-    await adminClient
-      .from('user_organizations')
-      .update({ is_active: true })
-      .eq('user_id', user.id)
-      .eq('organization_id', organization_id);
-
     const { data: org } = await adminClient
       .from('organizations')
       .select('plan')

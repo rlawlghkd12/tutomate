@@ -36,11 +36,11 @@ Deno.serve(async (req) => {
 
     const { data: existingLinks } = await adminClient
       .from('user_organizations')
-      .select('organization_id, role, is_active')
+      .select('organization_id, role')
       .eq('user_id', user.id);
 
     if (existingLinks && existingLinks.length > 0) {
-      const activeLink = existingLinks.find((l: any) => l.is_active) || existingLinks[0];
+      const activeLink = existingLinks[0];
       const { data: orgData } = await adminClient
         .from('organizations')
         .select('plan')
@@ -75,7 +75,6 @@ Deno.serve(async (req) => {
         user_id: user.id,
         organization_id: newOrg.id,
         role: 'owner',
-        is_active: true,
       });
 
     if (linkError) {
