@@ -279,6 +279,8 @@ export const useAuthStore = create<AuthStore>((set) => ({
 // 세션 변경 리스너
 if (supabase) {
   supabase.auth.onAuthStateChange((event, session) => {
+    // TOKEN_REFRESHED는 세션 갱신일 뿐 — 불필요한 리렌더링 방지
+    if (event === 'TOKEN_REFRESHED') return;
     useAuthStore.setState({ session });
     if (event === 'SIGNED_IN' && session && !_initialized) {
       useAuthStore.getState().initialize();
