@@ -112,11 +112,9 @@ export function MemberManagementPage() {
   };
 
   return (
-    <PageEnter style={{ padding: '2rem', maxWidth: 800 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Users style={{ width: 24, height: 24 }} />
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>멤버 관리</h1>
+    <PageEnter style={{ maxWidth: 800 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {data && (
             <Badge variant="secondary">
               {data.currentCount}/{data.maxSeats}명 사용 중
