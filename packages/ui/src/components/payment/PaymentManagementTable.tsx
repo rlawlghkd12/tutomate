@@ -350,21 +350,36 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
     },
     {
       id: 'paid',
-      header: '납부액/수강료',
-      size: 140,
+      header: '납부액',
+      size: 100,
       cell: ({ row }) => {
         const record = row.original;
         if (record.enrollment.paymentStatus === 'exempt') return '-';
-        const discount = record.enrollment.discountAmount ?? 0;
         return (
-          <div className="whitespace-nowrap leading-tight">
-            <div>{'\u20A9'}{record.totalPaid.toLocaleString()} / {'\u20A9'}{record.effectiveFee.toLocaleString()}</div>
-            {discount > 0 && (
-              <div className="text-[11px] text-muted-foreground">
-                할인 {'\u20A9'}{discount.toLocaleString()}
-              </div>
-            )}
-          </div>
+          <span className="whitespace-nowrap">
+            {'\u20A9'}{record.totalPaid.toLocaleString()}
+          </span>
+        );
+      },
+    },
+    {
+      id: 'lastPaidAt',
+      header: '최근 납부일',
+      size: 100,
+      cell: ({ row }) => {
+        const record = row.original;
+        const lastRecord = record.records[0];
+        if (!lastRecord?.paidAt) return <span className="text-muted-foreground">-</span>;
+        return (
+          <span
+            className="whitespace-nowrap cursor-pointer hover:underline text-primary"
+            onClick={() => {
+              setSelectedEnrollmentId(record.enrollment.id);
+              setIsHistoryModalVisible(true);
+            }}
+          >
+            {dayjs(lastRecord.paidAt).format('YY.MM.DD')}
+          </span>
         );
       },
     },
@@ -391,15 +406,9 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       size: 200,
       cell: ({ row }) => {
         const record = row.original;
-        const openHistory = () => {
-          setSelectedEnrollmentId(record.enrollment.id);
-          setIsHistoryModalVisible(true);
-        };
-
         if (record.enrollment.paymentStatus === 'exempt') {
           return (
             <div className="flex items-center gap-1">
-              <Button variant="outline" size="sm" onClick={openHistory}>이력보기</Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="outline" size="sm">면제 취소</Button>
@@ -422,7 +431,6 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         }
         return (
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" onClick={openHistory}>이력보기</Button>
             <Button
               variant="outline"
               size="sm"
