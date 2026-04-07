@@ -35,7 +35,7 @@ const SIDEBAR_WIDTH = 220;
 const Layout: React.FC<LayoutProps> = ({ children }) => {
 	const [offline, setOffline] = useState(!navigator.onLine);
 	const [offlineDismissed, setOfflineDismissed] = useState(false);
-	const organizationName = useSettingsStore((s) => s.organizationName);
+	const settingsOrgName = useSettingsStore((s) => s.organizationName);
 	const plan = useAuthStore((s) => s.plan) || 'trial';
 	const isTrial = plan === 'trial';
 	const location = useLocation();
@@ -46,6 +46,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 	const [orgMenuOpen, setOrgMenuOpen] = useState(false);
 	const orgMenuRef = useRef<HTMLDivElement>(null);
 	const currentOrgId = useAuthStore((s) => s.organizationId);
+
+	// 현재 활성 조직 이름: orgs에서 가져오고, 없으면 settings fallback
+	const activeOrg = orgs.find((o) => o.id === currentOrgId);
+	const organizationName = activeOrg?.name || settingsOrgName;
 	const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 	const [inviteCode, setInviteCode] = useState('');
 	const [joining, setJoining] = useState(false);
@@ -86,6 +90,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 		try {
 			await useAuthStore.getState().switchOrganization(orgId);
 			await reloadAllStores();
+			loadOrgs();
 			setOrgMenuOpen(false);
 		} catch {
 			// error handled in store
