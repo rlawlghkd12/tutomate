@@ -208,11 +208,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 									padding: 4,
 								}}
 							>
-								{/* 내 계정 */}
-								<div style={{ padding: '8px 12px', fontSize: '0.8rem', color: 'hsl(var(--muted-foreground))' }}>
-									{useAuthStore.getState().session?.user?.email || ''}
-								</div>
-								<div style={{ borderTop: '1px solid hsl(var(--border))', margin: '2px 0' }} />
 								{orgs.map((org) => (
 									<div
 										key={org.id}
