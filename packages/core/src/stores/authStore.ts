@@ -71,7 +71,6 @@ export const useAuthStore = create<AuthStore>((set) => ({
         .from('user_organizations')
         .select('organization_id, role')
         .eq('user_id', session.user.id)
-        .eq('is_active', true)
         .single();
 
       if (orgLinkError && orgLinkError.code !== 'PGRST116') {
@@ -276,26 +275,19 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
 }));
 
-// 세션 변경 리스너
+// 세션 변경 리스너 — SIGNED_IN (최초) / SIGNED_OUT만 처리, 나머지 무시
 if (supabase) {
   supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
-      useAuthStore.setState({ session: null });
+      _initialized = false;
+      useAuthStore.setState({ session: null, organizationId: null, plan: null, role: null, isCloud: false });
       return;
     }
-
     if (event === 'SIGNED_IN' && session && !_initialized) {
       useAuthStore.setState({ session });
       useAuthStore.getState().initialize();
-      return;
     }
-
-    // 이미 초기화 됐으면 session 업데이트 안 함 (리렌더링 방지)
-    if (_initialized) return;
-
-    if (session) {
-      useAuthStore.setState({ session });
-    }
+    // TOKEN_REFRESHED, INITIAL_SESSION 등 — setState 안 함 (리렌더링 방지)
   });
 }
 
