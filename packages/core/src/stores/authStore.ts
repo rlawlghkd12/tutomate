@@ -68,10 +68,10 @@ export const useAuthStore = create<AuthStore>((set) => ({
         return;
       }
 
-      // 기존 조직 연결 확인 — owner 우선
+      // 기존 조직 연결 확인 — owner 조직으로 강제 시작
       const { data: orgLinks, error: orgLinkError } = await supabase
         .from('user_organizations')
-        .select('organization_id, role')
+        .select('organization_id, role, is_active')
         .eq('user_id', session.user.id);
 
       if (orgLinkError) {
@@ -80,7 +80,20 @@ export const useAuthStore = create<AuthStore>((set) => ({
         return;
       }
 
-      const orgLink = orgLinks?.find((l: any) => l.role === 'owner') || orgLinks?.[0] || null;
+      // owner 조직 우선 선택
+      const ownerLink = orgLinks?.find((l: any) => l.role === 'owner');
+      const orgLink = ownerLink || orgLinks?.[0] || null;
+
+      // owner 조직이 활성 상태가 아니면 is_active 토글 (DB + RLS 동기화)
+      if (ownerLink && !ownerLink.is_active) {
+        try {
+          await supabase.functions.invoke('switch-organization', {
+            body: { organization_id: ownerLink.organization_id },
+          });
+        } catch (e) {
+          logWarn('Failed to switch to owner org on init', { error: e });
+        }
+      }
 
       if (orgLink) {
         const { data: orgData } = await supabase
