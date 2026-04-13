@@ -154,6 +154,7 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
                   <Input
                     id="fixedAmount"
                     type="number"
+                    step={5000}
                     value={field.value ?? ''}
                     onChange={(e) => field.onChange(Number(e.target.value))}
                     min={0}

@@ -30,7 +30,6 @@ import { PaymentForm, PageEnter } from '@tutomate/ui';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { Checkbox } from '../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
@@ -595,51 +594,56 @@ const RevenueManagementPage: React.FC = () => {
       )}
 
       <Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
-        <DialogContent className="max-w-[320px]">
+        <DialogContent className="max-w-[360px]">
           <DialogHeader>
             <DialogTitle>수익 현황 내보내기</DialogTitle>
             <DialogDescription className="sr-only">내보낼 필드를 선택하세요</DialogDescription>
           </DialogHeader>
 
-          <div className="flex justify-between items-center py-1 pb-2 border-b border-border mb-3">
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <Checkbox
-                checked={isAllRevenueSelected ? true : selectedExportFields.length > 0 ? "indeterminate" : false}
-                onCheckedChange={(checked) => setSelectedExportFields(checked ? allRevenueFieldKeys : [])}
-              />
-              전체 선택
-            </label>
-            <span className="text-xs text-muted-foreground">
-              {selectedExportFields.length}/{allRevenueFieldKeys.length}
-            </span>
-          </div>
+          <div style={{ marginTop: 8 }}>
+            <div className="flex justify-between items-center mb-3">
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                onClick={() => setSelectedExportFields(isAllRevenueSelected ? [] : allRevenueFieldKeys)}
+              >
+                {isAllRevenueSelected ? '선택 해제' : '전체 선택'}
+              </button>
+              <span className="text-xs text-muted-foreground">
+                {selectedExportFields.length}개 선택
+              </span>
+            </div>
 
-          <div className="flex flex-col gap-0.5 mb-4">
-            {REVENUE_EXPORT_FIELDS.map((field) => {
-              const isChecked = selectedExportFields.includes(field.key);
-              return (
-                <div
-                  key={field.key}
-                  onClick={() => {
-                    setSelectedExportFields((prev) =>
-                      isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
-                    );
-                  }}
-                  className={`flex items-center gap-2 py-1.5 px-2 rounded cursor-pointer ${
-                    isChecked ? 'bg-primary/10' : 'hover:bg-muted'
-                  }`}
-                >
-                  <Checkbox checked={isChecked} />
-                  <span className="text-[13px]">{field.label}</span>
-                </div>
-              );
-            })}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {REVENUE_EXPORT_FIELDS.map((field) => {
+                const isChecked = selectedExportFields.includes(field.key);
+                return (
+                  <button
+                    key={field.key}
+                    type="button"
+                    onClick={() => {
+                      setSelectedExportFields((prev) =>
+                        isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
+                      );
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-[13px] font-medium border transition-colors cursor-pointer ${
+                      isChecked
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-transparent text-muted-foreground border-border hover:border-foreground/30'
+                    }`}
+                  >
+                    {field.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="flex gap-2">
             <Button
               className="flex-1"
               onClick={() => handleExport('excel')}
+              disabled={selectedExportFields.length === 0}
             >
               <FileSpreadsheet className="h-4 w-4" />
               Excel
@@ -648,6 +652,7 @@ const RevenueManagementPage: React.FC = () => {
               variant="outline"
               className="flex-1"
               onClick={() => handleExport('csv')}
+              disabled={selectedExportFields.length === 0}
             >
               <FileText className="h-4 w-4" />
               CSV

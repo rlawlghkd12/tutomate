@@ -8,7 +8,7 @@ import dayjs from 'dayjs';
 import {
   Button, Dialog, DialogContent, DialogHeader, DialogTitle,
   Card, CardContent, Badge,
-  Tabs, TabsContent, TabsList, TabsTrigger, Checkbox,
+  Tabs, TabsContent, TabsList, TabsTrigger,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
   Input, PageEnter,
@@ -46,9 +46,10 @@ const RevenueManagementPage: React.FC = () => {
     loadRecords();
   }, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
-  // Filter enrollments
+  // Filter enrollments — 현재 분기만
+  const currentQuarter = getCurrentQuarter();
   const filteredEnrollments = useMemo(() => {
-    let filtered = enrollments.filter((e) => isActiveEnrollment(e));
+    let filtered = enrollments.filter((e) => isActiveEnrollment(e) && (e.quarter === currentQuarter || !e.quarter));
 
     if (dateRange[0] && dateRange[1]) {
       const startDate = dayjs(dateRange[0]).startOf('day');
@@ -560,52 +561,56 @@ const RevenueManagementPage: React.FC = () => {
 
       {/* 내보내기 모달 */}
       <Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
-        <DialogContent className="max-w-[320px]">
+        <DialogContent className="max-w-[360px]">
           <DialogHeader>
             <DialogTitle>수익 현황 내보내기</DialogTitle>
           </DialogHeader>
 
-          <div className="flex justify-between items-center py-1 pb-2 border-b mb-3">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={isAllRevenueSelected}
-                onCheckedChange={(checked) => setSelectedExportFields(checked ? allRevenueFieldKeys : [])}
-              />
-              <span className="text-sm">전체 선택</span>
+          <div style={{ marginTop: 8 }}>
+            <div className="flex justify-between items-center mb-3">
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                onClick={() => setSelectedExportFields(isAllRevenueSelected ? [] : allRevenueFieldKeys)}
+              >
+                {isAllRevenueSelected ? '선택 해제' : '전체 선택'}
+              </button>
+              <span className="text-xs text-muted-foreground">
+                {selectedExportFields.length}개 선택
+              </span>
             </div>
-            <span className="text-xs text-muted-foreground">
-              {selectedExportFields.length}/{allRevenueFieldKeys.length}
-            </span>
-          </div>
 
-          <div className="flex flex-col gap-0.5 mb-4">
-            {REVENUE_EXPORT_FIELDS.map((field) => {
-              const isChecked = selectedExportFields.includes(field.key);
-              return (
-                <div
-                  key={field.key}
-                  onClick={() => {
-                    setSelectedExportFields((prev) =>
-                      isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
-                    );
-                  }}
-                  className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer ${
-                    isChecked ? 'bg-primary/10' : 'hover:bg-accent'
-                  }`}
-                >
-                  <Checkbox checked={isChecked} />
-                  <span className="text-[13px]">{field.label}</span>
-                </div>
-              );
-            })}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {REVENUE_EXPORT_FIELDS.map((field) => {
+                const isChecked = selectedExportFields.includes(field.key);
+                return (
+                  <button
+                    key={field.key}
+                    type="button"
+                    onClick={() => {
+                      setSelectedExportFields((prev) =>
+                        isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
+                      );
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-[13px] font-medium border transition-colors cursor-pointer ${
+                      isChecked
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-transparent text-muted-foreground border-border hover:border-foreground/30'
+                    }`}
+                  >
+                    {field.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="flex gap-2">
-            <Button className="flex-1" onClick={() => handleExport('excel')}>
+            <Button className="flex-1" onClick={() => handleExport('excel')} disabled={selectedExportFields.length === 0}>
               <FileSpreadsheet className="h-4 w-4" />
               Excel
             </Button>
-            <Button variant="outline" className="flex-1" onClick={() => handleExport('csv')}>
+            <Button variant="outline" className="flex-1" onClick={() => handleExport('csv')} disabled={selectedExportFields.length === 0}>
               <FileText className="h-4 w-4" />
               CSV
             </Button>

@@ -207,6 +207,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                 <Input
                   id="discountAmount"
                   type="number"
+                  step={5000}
                   min={0}
                   max={courseFee}
                   placeholder="0원이면 할인 없음"
@@ -240,6 +241,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                   <Input
                     id="paidAmount"
                     type="number"
+                    step={5000}
                     min={0}
                     max={effectiveFee}
                     placeholder="납부 금액 입력"

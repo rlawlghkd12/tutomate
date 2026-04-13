@@ -468,7 +468,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 
 					{editingStudent && <EnrollmentHistory studentId={editingStudent.id} />}
 
-					<DialogFooter style={{ marginTop: 20 }} className={cn(editingStudent ? "justify-between" : "justify-end", "sm:justify-between")}>
+					<DialogFooter className={cn(editingStudent ? "justify-between" : "justify-end", "sm:justify-between")}>
 						{editingStudent && !hideDelete && (
 							<Button
 								type="button"

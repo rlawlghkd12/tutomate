@@ -21,13 +21,16 @@ const {
     mockRpc: vi.fn(),
     mockFromHandlers: {} as Record<string, any>,
     createQueryBuilder: (resolvedData: unknown = null, resolvedError: unknown = null) => {
+      const result = { data: resolvedData, error: resolvedError };
       const builder: Record<string, any> = {};
       builder.select = vi.fn().mockReturnValue(builder);
       builder.insert = vi.fn().mockReturnValue(builder);
       builder.update = vi.fn().mockReturnValue(builder);
       builder.delete = vi.fn().mockReturnValue(builder);
       builder.eq = vi.fn().mockReturnValue(builder);
-      builder.single = vi.fn().mockResolvedValue({ data: resolvedData, error: resolvedError });
+      builder.single = vi.fn().mockResolvedValue(result);
+      // thenable: `await builder` → result (for queries without .single())
+      builder.then = (resolve: any) => resolve(result);
       return builder;
     },
   };
@@ -64,7 +67,7 @@ vi.mock('../../utils/tauri', () => ({
   isElectron: () => false,
 }));
 
-import { useAuthStore, isCloud, getOrgId, getPlan, isOwner, _resetAuthFlags, getAuthProvider, getAuthProviderLabel, getAuthProviderColor } from '../authStore';
+import { useAuthStore, isCloud, getOrgId, getOrgName, getPlan, isOwner, _resetAuthFlags, getAuthProvider, getAuthProviderLabel, getAuthProviderColor } from '../authStore';
 
 // onAuthStateChange는 모듈 로드 시 1회 호출됨 — clearAllMocks 전에 캡처
 const authStateCallback = mockOnAuthStateChange.mock.calls[0]?.[0] as
@@ -83,6 +86,7 @@ describe('authStore', () => {
     useAuthStore.setState({
       session: null,
       organizationId: null,
+      organizationName: null,
       role: null,
       plan: null,
       isCloud: false,
@@ -97,8 +101,10 @@ describe('authStore', () => {
     it('기존 세션 + 기존 active org → session restored', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
 
-      const orgLinkBuilder = createQueryBuilder({ organization_id: 'org-abc', role: 'owner' });
-      const orgBuilder = createQueryBuilder({ plan: 'basic' });
+      const orgLinkBuilder = createQueryBuilder([
+        { organization_id: 'org-abc', role: 'owner', is_active: true },
+      ]);
+      const orgBuilder = createQueryBuilder({ plan: 'basic', name: '테스트 조직' });
       mockFromHandlers['user_organizations'] = orgLinkBuilder;
       mockFromHandlers['organizations'] = orgBuilder;
 
@@ -108,15 +114,15 @@ describe('authStore', () => {
       expect(state.loading).toBe(false);
       expect(state.isCloud).toBe(true);
       expect(state.organizationId).toBe('org-abc');
+      expect(state.organizationName).toBe('테스트 조직');
       expect(state.role).toBe('owner');
       expect(state.plan).toBe('basic');
       expect(state.session).toBe(fakeSession);
 
-      // 올바른 쿼리 파라미터로 호출됐는지 검증 (is_active 포함)
-      expect(orgLinkBuilder.select).toHaveBeenCalledWith('organization_id, role');
+      // 올바른 쿼리 파라미터로 호출됐는지 검증 (multi-org: .single() 없이 array 반환)
+      expect(orgLinkBuilder.select).toHaveBeenCalledWith('organization_id, role, is_active');
       expect(orgLinkBuilder.eq).toHaveBeenCalledWith('user_id', 'user-123');
-      expect(orgLinkBuilder.eq).toHaveBeenCalledWith('is_active', true);
-      expect(orgBuilder.select).toHaveBeenCalledWith('plan');
+      expect(orgBuilder.select).toHaveBeenCalledWith('plan, name');
       expect(orgBuilder.eq).toHaveBeenCalledWith('id', 'org-abc');
     });
 
@@ -146,10 +152,10 @@ describe('authStore', () => {
 
     it('세션 있지만 org 없으면 auto-create-org 호출', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder(null);
+      mockFromHandlers['user_organizations'] = createQueryBuilder([]);
 
       mockFunctionsInvoke.mockResolvedValue({
-        data: { organization_id: 'auto-org', plan: 'trial' },
+        data: { organization_id: 'auto-org', plan: 'trial', name: '내 학원' },
         error: null,
       });
 
@@ -165,7 +171,7 @@ describe('authStore', () => {
 
     it('auto-create-org 실패 → loading: false, org 없음', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder(null);
+      mockFromHandlers['user_organizations'] = createQueryBuilder([]);
 
       mockFunctionsInvoke.mockResolvedValue({
         data: null,
@@ -182,7 +188,7 @@ describe('authStore', () => {
 
     it('auto-create-org data.error → loading: false, org 없음', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder(null);
+      mockFromHandlers['user_organizations'] = createQueryBuilder([]);
 
       mockFunctionsInvoke.mockResolvedValue({
         data: { error: 'some_error' },
@@ -198,7 +204,7 @@ describe('authStore', () => {
 
     it('auto-create-org 예외 → loading: false', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder(null);
+      mockFromHandlers['user_organizations'] = createQueryBuilder([]);
 
       mockFunctionsInvoke.mockRejectedValue(new Error('unexpected'));
 
@@ -211,8 +217,10 @@ describe('authStore', () => {
 
     it('두 번 호출 시 중복 실행 방지', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'org-abc' });
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'basic' });
+      mockFromHandlers['user_organizations'] = createQueryBuilder([
+        { organization_id: 'org-abc', role: 'owner', is_active: true },
+      ]);
+      mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'basic', name: 'Org' });
 
       await useAuthStore.getState().initialize();
       // 두 번째 호출 — _initialized가 true이므로 즉시 리턴
@@ -221,7 +229,7 @@ describe('authStore', () => {
       expect(mockGetSession).not.toHaveBeenCalled();
     });
 
-    it('user_organizations 쿼리 에러 (PGRST116 아닌) → loading: false', async () => {
+    it('user_organizations 쿼리 에러 → loading: false', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
       mockFromHandlers['user_organizations'] = createQueryBuilder(null, { code: 'OTHER_ERROR', message: 'db error' });
 
@@ -243,8 +251,10 @@ describe('authStore', () => {
     it('role이 member이면 state에 member 저장', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
 
-      const orgLinkBuilder = createQueryBuilder({ organization_id: 'org-123', role: 'member' });
-      const orgBuilder = createQueryBuilder({ plan: 'basic' });
+      const orgLinkBuilder = createQueryBuilder([
+        { organization_id: 'org-123', role: 'member', is_active: true },
+      ]);
+      const orgBuilder = createQueryBuilder({ plan: 'basic', name: 'Member Org' });
       mockFromHandlers['user_organizations'] = orgLinkBuilder;
       mockFromHandlers['organizations'] = orgBuilder;
 
@@ -255,20 +265,23 @@ describe('authStore', () => {
 
     it('orgData null → plan fallback to trial', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder({ organization_id: 'org-abc' });
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: null });
+      mockFromHandlers['user_organizations'] = createQueryBuilder([
+        { organization_id: 'org-abc', role: 'owner', is_active: true },
+      ]);
+      mockFromHandlers['organizations'] = createQueryBuilder({ plan: null, name: null });
 
       await useAuthStore.getState().initialize();
 
       const state = useAuthStore.getState();
       expect(state.plan).toBe('trial');
       expect(state.organizationId).toBe('org-abc');
+      expect(state.organizationName).toBeNull();
       expect(state.isCloud).toBe(true);
     });
 
     it('auto-create-org plan 미반환 시 trial 기본값', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
-      mockFromHandlers['user_organizations'] = createQueryBuilder(null);
+      mockFromHandlers['user_organizations'] = createQueryBuilder([]);
 
       mockFunctionsInvoke.mockResolvedValue({
         data: { organization_id: 'auto-org', plan: null },
@@ -348,15 +361,16 @@ describe('authStore', () => {
       expect(useAuthStore.getState().loading).toBe(false);
     });
 
-    it('error/data.error 둘 다 없으면 기본 메시지로 throw', async () => {
+    it('error/data.error 둘 다 없으면 fallback 메시지로 throw', async () => {
       mockFunctionsInvoke.mockResolvedValue({
         data: null,
         error: {},
       });
 
+      // 새 에러 처리: error.message 없으면 'unknown'으로 throw
       await expect(
         useAuthStore.getState().joinOrganization('BAD-CODE'),
-      ).rejects.toThrow('Failed to join organization');
+      ).rejects.toThrow('unknown');
     });
 
     it('role 미반환 시 member 기본값', async () => {
@@ -489,11 +503,12 @@ describe('authStore', () => {
       expect(authStateCallback).toBeTypeOf('function');
     });
 
-    it('session null → session만 초기화 (organizationId/plan/isCloud 유지)', () => {
+    it('SIGNED_OUT → session/org/plan/role/isCloud 모두 초기화', () => {
       useAuthStore.setState({
         session: fakeSession,
         organizationId: 'org-abc',
         plan: 'basic',
+        role: 'owner',
         isCloud: true,
       });
 
@@ -501,14 +516,15 @@ describe('authStore', () => {
 
       const state = useAuthStore.getState();
       expect(state.session).toBeNull();
-      // organizationId/plan/isCloud는 signOut()에서만 초기화
-      expect(state.organizationId).toBe('org-abc');
-      expect(state.plan).toBe('basic');
-      expect(state.isCloud).toBe(true);
+      expect(state.organizationId).toBeNull();
+      expect(state.plan).toBeNull();
+      expect(state.role).toBeNull();
+      expect(state.isCloud).toBe(false);
     });
 
-    it('session 있음 → session만 업데이트', () => {
+    it('TOKEN_REFRESHED → 무시 (리렌더링 방지)', () => {
       useAuthStore.setState({
+        session: fakeSession,
         organizationId: 'org-abc',
         plan: 'basic',
         isCloud: true,
@@ -517,8 +533,9 @@ describe('authStore', () => {
       const newSession = { user: { id: 'user-456' }, access_token: 'new-token' } as any;
       authStateCallback!('TOKEN_REFRESHED', newSession);
 
+      // TOKEN_REFRESHED는 state를 변경하지 않음
       const state = useAuthStore.getState();
-      expect(state.session).toBe(newSession);
+      expect(state.session).toBe(fakeSession);
       expect(state.organizationId).toBe('org-abc');
       expect(state.plan).toBe('basic');
       expect(state.isCloud).toBe(true);
@@ -623,6 +640,13 @@ describe('authStore', () => {
     it('getOrgId() → store organizationId 반환', () => {
       useAuthStore.setState({ organizationId: 'org-xyz' });
       expect(getOrgId()).toBe('org-xyz');
+    });
+
+    it('getOrgName() → store organizationName 반환', () => {
+      useAuthStore.setState({ organizationName: '우리 학원' });
+      expect(getOrgName()).toBe('우리 학원');
+      useAuthStore.setState({ organizationName: null });
+      expect(getOrgName()).toBeNull();
     });
 
     it('getPlan() → store plan 반환', () => {

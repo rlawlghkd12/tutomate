@@ -16,6 +16,7 @@ import {
 	useStudentStore,
 	generateAllNotifications,
 	isActiveEnrollment,
+	getCurrentQuarter,
 } from "@tutomate/core";
 
 const DashboardPage: React.FC = () => {
@@ -64,24 +65,29 @@ const DashboardPage: React.FC = () => {
 		});
 	}, [loadCourses, loadStudents, loadEnrollments]);
 
+	const currentQuarter = getCurrentQuarter();
+	const quarterEnrollments = enrollments.filter(
+		(e) => isActiveEnrollment(e) && (e.quarter === currentQuarter || !e.quarter),
+	);
+
 	const totalCourses = courses.length;
 	const totalStudents = students.length;
 
-	const completedPayments = enrollments.filter(
-		(e) => isActiveEnrollment(e) && e.paymentStatus === "completed",
+	const completedPayments = quarterEnrollments.filter(
+		(e) => e.paymentStatus === "completed",
 	).length;
-	const pendingPayments = enrollments.filter(
-		(e) => isActiveEnrollment(e) && e.paymentStatus === "pending",
+	const pendingPayments = quarterEnrollments.filter(
+		(e) => e.paymentStatus === "pending",
 	).length;
 
-	const totalRevenue = enrollments
-		.filter((e) => isActiveEnrollment(e) && e.paymentStatus !== "exempt")
+	const totalRevenue = quarterEnrollments
+		.filter((e) => e.paymentStatus !== "exempt")
 		.reduce((sum, enrollment) => {
 			return sum + enrollment.paidAmount;
 		}, 0);
 
-	const expectedRevenue = enrollments
-		.filter((e) => isActiveEnrollment(e) && e.paymentStatus !== "exempt")
+	const expectedRevenue = quarterEnrollments
+		.filter((e) => e.paymentStatus !== "exempt")
 		.reduce((sum, enrollment) => {
 			const course = courses.find((c) => c.id === enrollment.courseId);
 			return sum + (course?.fee || 0);
@@ -171,8 +177,8 @@ const DashboardPage: React.FC = () => {
 					) : (
 						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
 							{courses.map((course) => {
-								const currentStudents = enrollments.filter(
-									(e) => e.courseId === course.id && isActiveEnrollment(e),
+								const currentStudents = quarterEnrollments.filter(
+									(e) => e.courseId === course.id,
 								).length;
 								const percentage = (currentStudents / course.maxStudents) * 100;
 								return (
@@ -213,7 +219,7 @@ const DashboardPage: React.FC = () => {
 						<CardTitle className="text-sm font-semibold">강좌별 수익</CardTitle>
 					</CardHeader>
 					<CardContent className="p-4 pt-2">
-						<CourseRevenueChart enrollments={enrollments} courses={courses} />
+						<CourseRevenueChart enrollments={quarterEnrollments} courses={courses} />
 					</CardContent>
 				</Card>
 				<Card>
@@ -221,7 +227,7 @@ const DashboardPage: React.FC = () => {
 						<CardTitle className="text-sm font-semibold">납부 상태</CardTitle>
 					</CardHeader>
 					<CardContent className="p-4 pt-2">
-						<PaymentStatusChart enrollments={enrollments} />
+						<PaymentStatusChart enrollments={quarterEnrollments} />
 					</CardContent>
 				</Card>
 			</div>

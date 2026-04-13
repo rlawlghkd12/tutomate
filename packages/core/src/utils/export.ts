@@ -4,9 +4,9 @@ import type { Course, Student, Enrollment } from '../types';
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from '../types';
 import dayjs from 'dayjs';
 
-import { useSettingsStore } from '../stores/settingsStore';
+import { useAuthStore } from '../stores/authStore';
 
-const getOrgName = () => useSettingsStore.getState().organizationName;
+const getOrgName = () => useAuthStore.getState().organizationName || '';
 
 // Excel 파일 다운로드 헬퍼
 const downloadExcel = (XLSX: typeof XLSXType, workbook: XLSXType.WorkBook, filename: string) => {
