@@ -155,7 +155,7 @@ describe('authStore', () => {
       mockFromHandlers['user_organizations'] = createQueryBuilder([]);
 
       mockFunctionsInvoke.mockResolvedValue({
-        data: { organization_id: 'auto-org', plan: 'trial', name: '내 학원' },
+        data: { organization_id: 'auto-org', plan: 'trial', name: 'TutorMate' },
         error: null,
       });
 

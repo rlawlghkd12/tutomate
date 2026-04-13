@@ -115,6 +115,11 @@ function App() {
             <p className="mt-6 text-xs text-muted-foreground">
               문의: {appConfig.contactInfo}
             </p>
+            <div className="mt-3 flex justify-center gap-3 text-[11px] text-muted-foreground/60">
+              <a href="https://taktonlabs.com/terms" target="_blank" rel="noopener noreferrer" className="hover:underline">이용약관</a>
+              <span>·</span>
+              <a href="https://taktonlabs.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline">개인정보 처리방침</a>
+            </div>
           </div>
         </div>
         <Toaster position="top-center" richColors />
