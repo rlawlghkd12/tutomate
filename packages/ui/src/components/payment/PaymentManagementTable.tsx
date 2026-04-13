@@ -779,7 +779,19 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               <TableBody>
                 {(selectedData?.records ?? []).map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell>{r.paidAt}</TableCell>
+                    <TableCell>
+                      <Input
+                        type="date"
+                        className="h-7 text-sm w-[130px]"
+                        defaultValue={r.paidAt || ''}
+                        onBlur={(e) => {
+                          const val = e.target.value;
+                          if (val && val !== (r.paidAt || '')) {
+                            updateRecord(r.id, { paidAt: val });
+                          }
+                        }}
+                      />
+                    </TableCell>
                     <TableCell>{'\u20A9'}{r.amount.toLocaleString()}</TableCell>
                     <TableCell>
                       {r.paymentMethod
