@@ -5,6 +5,7 @@ import {
   getQuarterMonths,
   getQuarterOptions,
   quarterMonthToYYYYMM,
+  getPreviousQuarter,
 } from '../quarterUtils';
 
 afterEach(() => {
@@ -186,5 +187,25 @@ describe('quarterMonthToYYYYMM', () => {
 
   it('다른 연도 처리', () => {
     expect(quarterMonthToYYYYMM('2025-Q4', 11)).toBe('2025-11');
+  });
+});
+
+// ─── getPreviousQuarter ─────────────────────────────────────────────────────
+
+describe('getPreviousQuarter', () => {
+  it('Q2 → Q1 (같은 해)', () => {
+    expect(getPreviousQuarter('2026-Q2')).toBe('2026-Q1');
+  });
+
+  it('Q1 → Q4 (이전 해)', () => {
+    expect(getPreviousQuarter('2026-Q1')).toBe('2025-Q4');
+  });
+
+  it('Q4 → Q3', () => {
+    expect(getPreviousQuarter('2026-Q4')).toBe('2026-Q3');
+  });
+
+  it('Q3 → Q2', () => {
+    expect(getPreviousQuarter('2026-Q3')).toBe('2026-Q2');
   });
 });

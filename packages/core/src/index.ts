@@ -20,7 +20,7 @@ export type { OAuthProvider, OAuthProviderConfig, OAuthCallbackResult, OAuthCall
 // ─── Stores ──────────────────────────────────────────────────────
 export { useSettingsStore } from './stores/settingsStore';
 export type { FontSize, Theme } from './stores/settingsStore';
-export { useAuthStore, isCloud, getOrgId, getPlan, isOwner, canManageMembers, getAuthProvider, getAuthProviderLabel, getAuthProviderColor } from './stores/authStore';
+export { useAuthStore, isCloud, getOrgId, getOrgName, getPlan, isOwner, canManageMembers, getAuthProvider, getAuthProviderLabel, getAuthProviderColor } from './stores/authStore';
 export { useCourseStore } from './stores/courseStore';
 export { useStudentStore } from './stores/studentStore';
 export { useEnrollmentStore } from './stores/enrollmentStore';
@@ -149,6 +149,7 @@ export {
   getQuarterOptions,
   getQuarterMonths,
   quarterMonthToYYYYMM,
+  getPreviousQuarter,
 } from './utils/quarterUtils';
 
 // ─── Hooks ───────────────────────────────────────────────────────

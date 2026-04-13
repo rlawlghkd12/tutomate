@@ -46,3 +46,12 @@ export function quarterMonthToYYYYMM(quarter: string, month: number): string {
   const year = quarter.split('-Q')[0];
   return `${year}-${String(month).padStart(2, '0')}`;
 }
+
+/** 이전 분기 반환 — "2026-Q2" → "2026-Q1", "2026-Q1" → "2025-Q4" */
+export function getPreviousQuarter(quarter: string): string {
+  const [yearStr, qStr] = quarter.split('-Q');
+  let y = Number(yearStr);
+  let q = Number(qStr) - 1;
+  if (q < 1) { q = 4; y -= 1; }
+  return `${y}-Q${q}`;
+}
