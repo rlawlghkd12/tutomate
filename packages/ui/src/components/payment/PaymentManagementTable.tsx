@@ -16,6 +16,7 @@ import { usePaymentRecordStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
 import { PAYMENT_METHOD_LABELS } from '@tutomate/core';
+import { getPreviousQuarter, getQuarterLabel, isActiveEnrollment } from '@tutomate/core';
 import type { Student, PaymentRecord } from '@tutomate/core';
 import dayjs from 'dayjs';
 
@@ -52,6 +53,9 @@ interface PaymentManagementTableProps {
     selectedRowKeys: React.Key[];
     onChange: (keys: React.Key[]) => void;
   };
+  selectedQuarter?: string;
+  allEnrollments?: Enrollment[];
+  onImportFromQuarter?: (studentIds: string[], quarter: string) => Promise<void>;
 }
 
 interface TableDataRow {
@@ -74,12 +78,17 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   showMemberColumn,
   quarterSelector,
   rowSelection,
+  selectedQuarter,
+  allEnrollments,
+  onImportFromQuarter,
 }) => {
   const { getStudentById } = useStudentStore();
   const { records, addPayment, deletePayment, updateRecord } = usePaymentRecordStore();
   const { updatePayment: updateEnrollmentPayment } = useEnrollmentStore();
   const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false);
   const [refundAmount, setRefundAmount] = useState(0);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importChecked, setImportChecked] = useState<Record<string, boolean>>({});
 
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
@@ -98,6 +107,19 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const prevQuarterData = useMemo(() => {
+    if (!selectedQuarter || !allEnrollments || !onImportFromQuarter) return null;
+    const prevQ = getPreviousQuarter(selectedQuarter);
+    const prevEnrollments = allEnrollments.filter(
+      (e) => e.courseId === _courseId && e.quarter === prevQ && isActiveEnrollment(e)
+    );
+    return { quarter: prevQ, enrollments: prevEnrollments };
+  }, [selectedQuarter, allEnrollments, _courseId, onImportFromQuarter]);
+
+  const showImportCTA = enrollments.length === 0
+    && prevQuarterData !== null
+    && prevQuarterData.enrollments.length > 0;
 
   // 수강생별 납부 현황
   const tableData = useMemo(() => {
@@ -603,8 +625,27 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         <TableBody>
           {table.getRowModel().rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                수강생이 없습니다
+              <TableCell colSpan={columns.length} className="h-24 text-center">
+                {showImportCTA ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                    <p className="text-muted-foreground">이 분기에 등록된 수강생이 없습니다</p>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const checked: Record<string, boolean> = {};
+                        prevQuarterData!.enrollments.forEach((e) => {
+                          checked[e.studentId] = e.paymentStatus !== 'withdrawn';
+                        });
+                        setImportChecked(checked);
+                        setImportDialogOpen(true);
+                      }}
+                    >
+                      {getQuarterLabel(prevQuarterData!.quarter)} 수강생 {prevQuarterData!.enrollments.length}명 가져오기
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">수강생이 없습니다</span>
+                )}
               </TableCell>
             </TableRow>
           ) : (
@@ -925,6 +966,58 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* 이전 분기 가져오기 다이얼로그 */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{prevQuarterData ? getQuarterLabel(prevQuarterData.quarter) : ''} 수강생 가져오기</DialogTitle>
+            <DialogDescription className="sr-only">이전 분기 수강생을 가져옵니다</DialogDescription>
+          </DialogHeader>
+          <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+            {prevQuarterData?.enrollments.map((e) => {
+              const student = getStudentById(e.studentId);
+              return (
+                <label
+                  key={e.studentId}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 4px', borderBottom: '1px solid hsl(var(--border))',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Checkbox
+                    checked={importChecked[e.studentId] ?? false}
+                    onCheckedChange={(v) => setImportChecked((prev) => ({ ...prev, [e.studentId]: !!v }))}
+                  />
+                  <span style={{ flex: 1 }}>{student?.name || '-'}</span>
+                  <span style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))' }}>
+                    {student?.phone || ''}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+              취소
+            </Button>
+            <Button
+              onClick={async () => {
+                const studentIds = Object.entries(importChecked)
+                  .filter(([, v]) => v)
+                  .map(([id]) => id);
+                if (studentIds.length > 0 && onImportFromQuarter && selectedQuarter) {
+                  await onImportFromQuarter(studentIds, selectedQuarter);
+                }
+                setImportDialogOpen(false);
+              }}
+              disabled={Object.values(importChecked).filter(Boolean).length === 0}
+            >
+              {Object.values(importChecked).filter(Boolean).length}명 가져오기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
