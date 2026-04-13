@@ -92,6 +92,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   const [formPaidAt, setFormPaidAt] = useState<string>(dayjs().format('YYYY-MM-DD'));
   const [formNotes, setFormNotes] = useState('');
   const [formDiscountAmount, setFormDiscountAmount] = useState(0);
+  const [showDiscountToggle, setShowDiscountToggle] = useState(false);
 
   // TanStack Table state
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -444,6 +445,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                 setFormDiscountAmount(discount);
                 setFormPaymentMethod(undefined);
                 setFormNotes('');
+                setShowDiscountToggle(discount > 0);
                 setIsPaymentModalVisible(true);
               }}
             >
@@ -670,24 +672,51 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           })()}
 
           <div className="space-y-4">
+            {/* 할인 토글 */}
             <div className="space-y-2">
-              <Label>할인 금액</Label>
-              <Input
-                type="number"
-                min={0}
-                max={courseFee}
-                value={formDiscountAmount}
-                onChange={(e) => {
-                  const newDiscount = Number(e.target.value) || 0;
-                  setFormDiscountAmount(newDiscount);
-                  setModalDiscount(newDiscount);
-                  // 납부 금액도 새 잔액으로 자동 조정
-                  if (selectedData) {
-                    const newRemaining = Math.max(0, courseFee - newDiscount - selectedData.totalPaid);
-                    setFormAmount(newRemaining);
+              <Button
+                type="button"
+                variant={showDiscountToggle ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  const next = !showDiscountToggle;
+                  setShowDiscountToggle(next);
+                  if (!next) {
+                    setFormDiscountAmount(0);
+                    setModalDiscount(0);
+                    if (selectedData) {
+                      setFormAmount(Math.max(0, courseFee - selectedData.totalPaid));
+                    }
                   }
                 }}
-              />
+              >
+                할인 적용
+              </Button>
+              {showDiscountToggle && (
+                <div className="slide-enter">
+                  <Label>할인 금액 (원)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={courseFee}
+                    value={formDiscountAmount}
+                    onChange={(e) => {
+                      const newDiscount = Number(e.target.value) || 0;
+                      setFormDiscountAmount(newDiscount);
+                      setModalDiscount(newDiscount);
+                      if (selectedData) {
+                        const newRemaining = Math.max(0, courseFee - newDiscount - selectedData.totalPaid);
+                        setFormAmount(newRemaining);
+                      }
+                    }}
+                  />
+                  {formDiscountAmount > 0 && (
+                    <p style={{ fontSize: '0.93rem', color: 'hsl(var(--success))', margin: 0 }}>
+                      할인 적용 수강료: {'\u20A9'}{(courseFee - formDiscountAmount).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>납부 금액 <span className="text-destructive">*</span></Label>
