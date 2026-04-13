@@ -55,6 +55,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 	const [courseSearch, setCourseSearch] = useState("");
 	const [discountAmount, setDiscountAmount] = useState(0);
 	const [isExempt, setIsExempt] = useState(false);
+	const [formPaidAt, setFormPaidAt] = useState(dayjs().format('YYYY-MM-DD'));
 
 	const currentQuarter = getCurrentQuarter();
 
@@ -158,7 +159,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 				paymentStatus,
 				paidAmount,
 				remainingAmount: effFee - paidAmount,
-				paidAt: paidAmount > 0 || isExempt ? dayjs().format("YYYY-MM-DD") : undefined,
+				paidAt: paidAmount > 0 || isExempt ? formPaidAt : undefined,
 				paymentMethod: values.paymentMethod,
 				discountAmount: discount,
 				notes: values.notes,
@@ -180,7 +181,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 				studentId: student.id,
 				paymentStatus,
 				paidAmount,
-				paidAt: paidAmount > 0 || isExempt ? dayjs().format("YYYY-MM-DD") : undefined,
+				paidAt: paidAmount > 0 || isExempt ? formPaidAt : undefined,
 				paymentMethod: values.paymentMethod,
 				discountAmount: discount,
 				notes: values.notes,
@@ -480,6 +481,20 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 										</div>
 									)} />
 							</div>
+
+					{/* 납부일 */}
+					{!isExempt && (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+							<Label htmlFor="paidAt">납부일</Label>
+							<Input
+								id="paidAt"
+								type="date"
+								value={formPaidAt}
+								onChange={(e) => setFormPaidAt(e.target.value)}
+								style={{ fontSize: '1.07rem' }}
+							/>
+						</div>
+					)}
 
 					<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
 						<Label htmlFor="notes">메모</Label>
