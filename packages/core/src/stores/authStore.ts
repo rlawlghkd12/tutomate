@@ -247,6 +247,23 @@ export const useAuthStore = create<AuthStore>((set) => ({
       logError('Sign out error', { error });
     }
 
+    // 데이터 스토어 초기화 — 이전 사용자 데이터 제거
+    const { clearAllCache } = await import('../utils/dataHelper');
+    const { useCourseStore } = await import('./courseStore');
+    const { useStudentStore } = await import('./studentStore');
+    const { useEnrollmentStore } = await import('./enrollmentStore');
+    const { useMonthlyPaymentStore } = await import('./monthlyPaymentStore');
+    const { usePaymentRecordStore } = await import('./paymentRecordStore');
+    const { useNotificationStore } = await import('./notificationStore');
+
+    await clearAllCache();
+    useCourseStore.setState({ courses: [] });
+    useStudentStore.setState({ students: [] });
+    useEnrollmentStore.setState({ enrollments: [] });
+    useMonthlyPaymentStore.setState({ payments: [] });
+    usePaymentRecordStore.setState({ records: [] });
+    useNotificationStore.setState({ notifications: [] });
+
     set({
       session: null,
       organizationId: null,
@@ -323,7 +340,10 @@ if (supabase) {
     }
     if (event === 'SIGNED_IN' && session && !_initialized) {
       useAuthStore.setState({ session });
-      useAuthStore.getState().initialize();
+      // 이전 세션 데이터 초기화 후 새 데이터 로드
+      import('./reloadStores').then(({ reloadAllStores }) => {
+        useAuthStore.getState().initialize().then(() => reloadAllStores());
+      });
     }
     // TOKEN_REFRESHED, INITIAL_SESSION 등 — setState 안 함 (리렌더링 방지)
   });
