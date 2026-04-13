@@ -11,7 +11,7 @@ import {
 import { Search } from 'lucide-react';
 import type { Course } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
-import { useEnrollmentStore, isCourseEnded, DAY_LABELS } from '@tutomate/core';
+import { useEnrollmentStore, isCourseEnded, DAY_LABELS, isActiveEnrollment } from '@tutomate/core';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import {
@@ -36,12 +36,14 @@ import { Progress } from '../ui/progress';
 
 interface CourseListProps {
   actions?: React.ReactNode;
+  quarterSelector?: React.ReactNode;
+  selectedQuarter?: string;
 }
 
-const CourseList: React.FC<CourseListProps> = ({ actions }) => {
+const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selectedQuarter }) => {
   const navigate = useNavigate();
   const { courses } = useCourseStore();
-  const { getEnrollmentCountByCourseId } = useEnrollmentStore();
+  const { getEnrollmentCountByCourseId, enrollments } = useEnrollmentStore();
   const [searchText, setSearchText] = useState('');
   const [searchField, setSearchField] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<string>('active');
@@ -61,6 +63,13 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
       return 'open';
     }
   }, [getEnrollmentCountByCourseId]);
+
+  const getQuarterEnrollmentCount = useCallback((courseId: string) => {
+    if (!selectedQuarter) return undefined;
+    return enrollments.filter(
+      (e) => e.courseId === courseId && isActiveEnrollment(e) && e.quarter === selectedQuarter
+    ).length;
+  }, [enrollments, selectedQuarter]);
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
@@ -88,7 +97,9 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
 
   const activeCourses = useMemo(() => filteredCourses.filter(c => !isCourseEnded(c)), [filteredCourses]);
   const endedCourses = useMemo(() => filteredCourses.filter(c => isCourseEnded(c)), [filteredCourses, isCourseEnded]);
-  const displayedCourses = activeTab === 'active' ? activeCourses : endedCourses;
+  const displayedCourses = quarterSelector
+    ? filteredCourses
+    : (activeTab === 'active' ? activeCourses : endedCourses);
 
   const columns: ColumnDef<Course>[] = useMemo(() => [
     {
@@ -165,10 +176,10 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
       id: 'students',
       header: '수강 인원',
       size: 90,
-      accessorFn: (row) => getEnrollmentCountByCourseId(row.id),
+      accessorFn: (row) => getQuarterEnrollmentCount(row.id) ?? getEnrollmentCountByCourseId(row.id),
       cell: ({ row }) => {
         const course = row.original;
-        const currentStudents = getEnrollmentCountByCourseId(course.id);
+        const currentStudents = getQuarterEnrollmentCount(course.id) ?? getEnrollmentCountByCourseId(course.id);
         const percentage = (currentStudents / course.maxStudents) * 100;
         return (
           <div className="leading-tight">
@@ -197,7 +208,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
         }
       },
     },
-  ], [handleView, getEnrollmentCountByCourseId, getStatus, isCourseEnded]);
+  ], [handleView, getEnrollmentCountByCourseId, getQuarterEnrollmentCount, getStatus, isCourseEnded]);
 
   const table = useReactTable({
     data: displayedCourses,
@@ -213,22 +224,33 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
 
   const emptyMessage = courses.length === 0
     ? "등록된 강좌가 없습니다"
-    : activeTab === 'ended'
-      ? "종료된 강좌가 없습니다"
-      : "검색 결과가 없습니다";
+    : quarterSelector
+      ? "검색 결과가 없습니다"
+      : activeTab === 'ended'
+        ? "종료된 강좌가 없습니다"
+        : "검색 결과가 없습니다";
 
   return (
     <>
-      <Tabs value={activeTab} onValueChange={setActiveTab} style={{ marginBottom: 16 }}>
-        <TabsList>
-          <TabsTrigger value="active">
-            현재 강좌 <span style={{ marginLeft: 6, fontSize: '0.86rem', opacity: 0.7 }}>{activeCourses.length}</span>
-          </TabsTrigger>
-          <TabsTrigger value="ended">
-            종료된 강좌 <span style={{ marginLeft: 6, fontSize: '0.86rem', opacity: 0.7 }}>{endedCourses.length}</span>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {quarterSelector ? (
+        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+          {quarterSelector}
+          <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>
+            {displayedCourses.length}개 강좌
+          </span>
+        </div>
+      ) : (
+        <Tabs value={activeTab} onValueChange={setActiveTab} style={{ marginBottom: 16 }}>
+          <TabsList>
+            <TabsTrigger value="active">
+              현재 강좌 <span style={{ marginLeft: 6, fontSize: '0.86rem', opacity: 0.7 }}>{activeCourses.length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="ended">
+              종료된 강좌 <span style={{ marginLeft: 6, fontSize: '0.86rem', opacity: 0.7 }}>{endedCourses.length}</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <Select value={searchField} onValueChange={setSearchField}>
