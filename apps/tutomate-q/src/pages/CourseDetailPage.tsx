@@ -17,7 +17,7 @@ import { useEnrollmentStore } from "@tutomate/core";
 import { usePaymentRecordStore } from "@tutomate/core";
 import { useStudentStore } from "@tutomate/core";
 import { appConfig, isActiveEnrollment } from "@tutomate/core";
-import type { Enrollment, Student } from "@tutomate/core";
+import type { Enrollment, Student, EnrollmentFormData } from "@tutomate/core";
 import {
 	COURSE_STUDENT_EXPORT_FIELDS,
 	exportCourseStudentsToCSV,
@@ -40,7 +40,7 @@ const CourseDetailPage: React.FC = () => {
 	const { getCourseById, loadCourses, deleteCourse } = useCourseStore();
 	const { getEnrollmentCountByCourseId } = useEnrollmentStore();
 	const { loadStudents, getStudentById } = useStudentStore();
-	const { enrollments, loadEnrollments, withdrawEnrollment } =
+	const { enrollments, loadEnrollments, withdrawEnrollment, addEnrollment } =
 		useEnrollmentStore();
 	const { loadRecords, addPayment } = usePaymentRecordStore();
 
@@ -70,6 +70,22 @@ const CourseDetailPage: React.FC = () => {
 	const courseEnrollments = appConfig.enableQuarterSystem
 		? enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e) && (e.quarter === selectedQuarter || !e.quarter))
 		: enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e));
+
+	const allCourseEnrollments = enrollments.filter((e) => e.courseId === id);
+
+	const handleImportFromQuarter = async (studentIds: string[], quarter: string) => {
+		for (const studentId of studentIds) {
+			await addEnrollment({
+				courseId: id!,
+				studentId,
+				paymentStatus: 'pending',
+				paidAmount: 0,
+				discountAmount: 0,
+				quarter,
+			} as EnrollmentFormData);
+		}
+		toast.success(`${studentIds.length}명의 수강생을 가져왔습니다.`);
+	};
 
 	const nonExemptEnrollments = courseEnrollments.filter(
 		(e) => e.paymentStatus !== "exempt",
@@ -267,6 +283,9 @@ const CourseDetailPage: React.FC = () => {
 				courseFee={course.fee}
 				enrollments={courseEnrollments}
 				showMemberColumn
+				selectedQuarter={selectedQuarter}
+				allEnrollments={allCourseEnrollments}
+				onImportFromQuarter={handleImportFromQuarter}
 				quarterSelector={appConfig.enableQuarterSystem ? (
 					<Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
 						<SelectTrigger className="w-[180px]">
