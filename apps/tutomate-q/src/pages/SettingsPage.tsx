@@ -306,17 +306,14 @@ const SettingsPage: React.FC = () => {
                 <Switch checked={appTheme === 'dark'} onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')} />
               </div>
             </div>
-            <div style={{ padding: '16px 0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <div>
-                  <p className="font-semibold text-sm">텍스트 크기</p>
-                  <p className="text-muted-foreground text-[0.85em]">앱 전체의 텍스트 크기를 조절합니다</p>
-                </div>
-                <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>
+            <div className="flex items-center" style={{ padding: '16px 0' }}>
+              <div style={{ flexShrink: 0, marginRight: 16 }}>
+                <p className="font-semibold text-sm">텍스트 크기</p>
+                <p className="text-muted-foreground text-[0.85em]">
                   {fontSizeOptions.find(o => o.value === fontSize)?.label} ({fontSizeOptions.find(o => o.value === fontSize)?.px}px)
-                </span>
+                </p>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, marginLeft: 'auto', maxWidth: 280 }}>
                 <span style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))' }}>가</span>
                 <input type="range" min={0} max={6} step="any" value={sliderValue} onChange={(e) => { const val = Number(e.target.value); setSliderValue(val); const idx = Math.round(val); if (fontSizeOptions[idx]) setFontSize(fontSizeOptions[idx].value); }} onPointerUp={() => setSliderValue(Math.round(sliderValue))} onTouchEnd={() => setSliderValue(Math.round(sliderValue))} style={{ flex: 1 }} />
                 <span style={{ fontSize: '1.29rem', fontWeight: 700, color: 'hsl(var(--muted-foreground))' }}>가</span>
@@ -443,6 +440,12 @@ const SettingsPage: React.FC = () => {
                 </div>
               </div>
             )}
+            {/* 이용약관 / 개인정보 처리방침 */}
+            <div className="flex items-center gap-3 text-xs text-muted-foreground" style={{ borderTop: '1px solid hsl(var(--border))', padding: '16px 0' }}>
+              <a href="https://taktonlabs.com/terms" target="_blank" rel="noopener noreferrer" className="hover:underline">이용약관</a>
+              <span>·</span>
+              <a href="https://taktonlabs.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline">개인정보 처리방침</a>
+            </div>
           </div>
       </div>
 

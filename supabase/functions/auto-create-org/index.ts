@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
 
     const { data: newOrg, error: orgError } = await adminClient
       .from('organizations')
-      .insert({ name: '내 학원', plan: 'trial', max_seats: 5 })
+      .insert({ name: 'TutorMate', plan: 'trial', max_seats: 5 })
       .select('id')
       .single();
 
@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       organization_id: newOrg.id,
-      name: '내 학원',
+      name: 'TutorMate',
       plan: 'trial',
       role: 'owner',
       is_new_org: true,

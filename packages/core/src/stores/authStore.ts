@@ -133,7 +133,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
           set({
             session,
             organizationId,
-            organizationName: autoData.name || '내 학원',
+            organizationName: autoData.name || 'TutorMate',
             role: 'owner',
             plan,
             isCloud: true,
