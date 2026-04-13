@@ -1,7 +1,7 @@
 import { Download, Pencil, Trash2, FileSpreadsheet, FileText } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import dayjs from "dayjs";
 import {
@@ -9,7 +9,7 @@ import {
 	Dialog, DialogContent, DialogHeader, DialogTitle,
 	AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
 	AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
-	Checkbox, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+	Checkbox,
 	CourseForm, PaymentManagementTable, StudentForm, PageEnter,
 } from "@tutomate/ui";
 import { useCourseStore } from "@tutomate/core";
@@ -23,7 +23,6 @@ import {
 	exportCourseStudentsToCSV,
 	exportCourseStudentsToExcel,
 	getCurrentQuarter,
-	getQuarterOptions,
 } from "@tutomate/core";
 
 const DEFAULT_EXPORT_FIELDS = [
@@ -37,6 +36,7 @@ const DEFAULT_EXPORT_FIELDS = [
 const CourseDetailPage: React.FC = () => {
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
+	const [searchParams] = useSearchParams();
 	const { getCourseById, loadCourses, deleteCourse } = useCourseStore();
 	const { getEnrollmentCountByCourseId } = useEnrollmentStore();
 	const { loadStudents, getStudentById } = useStudentStore();
@@ -50,7 +50,7 @@ const CourseDetailPage: React.FC = () => {
 		DEFAULT_EXPORT_FIELDS,
 	);
 
-	const [selectedQuarter, setSelectedQuarter] = useState<string>(getCurrentQuarter());
+	const selectedQuarter = searchParams.get('q') || getCurrentQuarter();
 	const [isCourseEditVisible, setIsCourseEditVisible] = useState(false);
 	const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 	const [isStudentEditVisible, setIsStudentEditVisible] = useState(false);
@@ -71,9 +71,12 @@ const CourseDetailPage: React.FC = () => {
 		? enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e) && (e.quarter === selectedQuarter || !e.quarter))
 		: enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e));
 
-	const allCourseEnrollments = enrollments.filter((e) => e.courseId === id);
+	const allCourseEnrollments = useMemo(
+		() => enrollments.filter((e) => e.courseId === id),
+		[enrollments, id],
+	);
 
-	const handleImportFromQuarter = async (studentIds: string[], quarter: string) => {
+	const handleImportFromQuarter = useCallback(async (studentIds: string[], quarter: string) => {
 		for (const studentId of studentIds) {
 			await addEnrollment({
 				courseId: id!,
@@ -85,7 +88,7 @@ const CourseDetailPage: React.FC = () => {
 			} as EnrollmentFormData);
 		}
 		toast.success(`${studentIds.length}명의 수강생을 가져왔습니다.`);
-	};
+	}, [id, addEnrollment]);
 
 	const nonExemptEnrollments = courseEnrollments.filter(
 		(e) => e.paymentStatus !== "exempt",
@@ -286,18 +289,6 @@ const CourseDetailPage: React.FC = () => {
 				selectedQuarter={selectedQuarter}
 				allEnrollments={allCourseEnrollments}
 				onImportFromQuarter={handleImportFromQuarter}
-				quarterSelector={appConfig.enableQuarterSystem ? (
-					<Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-						<SelectTrigger className="w-[180px]">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{getQuarterOptions().map((opt) => (
-								<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				) : undefined}
 				onStudentClick={(studentId) => {
 					const student = getStudentById(studentId);
 					if (student) {

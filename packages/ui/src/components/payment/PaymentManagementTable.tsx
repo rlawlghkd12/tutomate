@@ -9,7 +9,7 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
-import { Trash2 } from 'lucide-react';
+import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
 import { usePaymentRecordStore } from '@tutomate/core';
@@ -101,7 +101,6 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   const [formPaidAt, setFormPaidAt] = useState<string>(dayjs().format('YYYY-MM-DD'));
   const [formNotes, setFormNotes] = useState('');
   const [formDiscountAmount, setFormDiscountAmount] = useState(0);
-  const [showDiscountToggle, setShowDiscountToggle] = useState(false);
 
   // TanStack Table state
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -467,7 +466,6 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                 setFormDiscountAmount(discount);
                 setFormPaymentMethod(undefined);
                 setFormNotes('');
-                setShowDiscountToggle(discount > 0);
                 setIsPaymentModalVisible(true);
               }}
             >
@@ -682,23 +680,36 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             <DialogDescription className="sr-only">납부 정보를 입력합니다</DialogDescription>
           </DialogHeader>
 
-          {/* 수강료 요약 */}
+          {/* 수강료 요약 + 할인 인라인 */}
           {selectedData && (() => {
             const modalEffectiveFee = courseFee - modalDiscount;
             const modalRemaining = Math.max(0, modalEffectiveFee - selectedData.totalPaid);
             return (
               <div className="p-3 bg-muted/50 rounded-md space-y-1.5">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">수강료</span>
                   <span className="font-semibold">{'\u20A9'}{courseFee.toLocaleString()}</span>
                 </div>
-                {modalDiscount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">할인</span>
-                    <span className="text-green-600">-{'\u20A9'}{modalDiscount.toLocaleString()}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">할인</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={courseFee}
+                    step={5000}
+                    value={formDiscountAmount || ''}
+                    onChange={(e) => {
+                      const newDiscount = Number(e.target.value) || 0;
+                      setFormDiscountAmount(newDiscount);
+                      setModalDiscount(newDiscount);
+                      const newRemaining = Math.max(0, courseFee - newDiscount - selectedData.totalPaid);
+                      setFormAmount(newRemaining);
+                    }}
+                    placeholder="0"
+                    className="h-7 w-[120px] text-right text-sm [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
+                </div>
+                <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">기납부액</span>
                   <span>{'\u20A9'}{selectedData.totalPaid.toLocaleString()}</span>
                 </div>
@@ -713,57 +724,12 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           })()}
 
           <div className="space-y-4">
-            {/* 할인 토글 */}
-            <div className="space-y-2">
-              <Button
-                type="button"
-                variant={showDiscountToggle ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  const next = !showDiscountToggle;
-                  setShowDiscountToggle(next);
-                  if (!next) {
-                    setFormDiscountAmount(0);
-                    setModalDiscount(0);
-                    if (selectedData) {
-                      setFormAmount(Math.max(0, courseFee - selectedData.totalPaid));
-                    }
-                  }
-                }}
-              >
-                할인 적용
-              </Button>
-              {showDiscountToggle && (
-                <div className="slide-enter">
-                  <Label>할인 금액 (원)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={courseFee}
-                    value={formDiscountAmount}
-                    onChange={(e) => {
-                      const newDiscount = Number(e.target.value) || 0;
-                      setFormDiscountAmount(newDiscount);
-                      setModalDiscount(newDiscount);
-                      if (selectedData) {
-                        const newRemaining = Math.max(0, courseFee - newDiscount - selectedData.totalPaid);
-                        setFormAmount(newRemaining);
-                      }
-                    }}
-                  />
-                  {formDiscountAmount > 0 && (
-                    <p style={{ fontSize: '0.93rem', color: 'hsl(var(--success))', margin: 0 }}>
-                      할인 적용 수강료: {'\u20A9'}{(courseFee - formDiscountAmount).toLocaleString()}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
             <div className="space-y-2">
               <Label>납부 금액 <span className="text-destructive">*</span></Label>
               <Input
                 type="number"
                 min={0}
+                step={5000}
                 value={formAmount ?? ''}
                 onChange={(e) => setFormAmount(e.target.value ? Number(e.target.value) : undefined)}
               />
@@ -836,56 +802,28 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               납부 이력이 없습니다
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead style={{ width: 100 }}>납부일</TableHead>
-                  <TableHead style={{ width: 110 }}>금액</TableHead>
-                  <TableHead style={{ width: 70 }}>방법</TableHead>
-                  <TableHead>메모</TableHead>
-                  <TableHead style={{ width: 40 }} />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(selectedData?.records ?? []).map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell>
-                      <Input
-                        type="date"
-                        className="h-7 text-sm w-[130px]"
-                        defaultValue={r.paidAt || ''}
-                        onBlur={(e) => {
-                          const val = e.target.value;
-                          if (val && val !== (r.paidAt || '')) {
-                            updateRecord(r.id, { paidAt: val });
-                          }
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>{'\u20A9'}{r.amount.toLocaleString()}</TableCell>
-                    <TableCell>
-                      {r.paymentMethod
-                        ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] || '-'
-                        : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        className="h-7 text-sm"
-                        defaultValue={r.notes ?? ''}
-                        placeholder="메모"
-                        onBlur={(e) => {
-                          const val = e.target.value;
-                          if (val !== (r.notes ?? '')) {
-                            updateRecord(r.id, { notes: val || undefined });
-                          }
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 400, overflowY: 'auto' }}>
+              {(selectedData?.records ?? []).map((r) => (
+                <div
+                  key={r.id}
+                  className="rounded-lg border bg-card"
+                  style={{ padding: '12px 16px' }}
+                >
+                  {/* 상단: 금액 + 방법 + 삭제 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span className={cn('text-[1.07rem] font-semibold', r.amount < 0 ? 'text-destructive' : '')}>
+                      {r.amount < 0 ? '-' : ''}{'\u20A9'}{Math.abs(r.amount).toLocaleString()}
+                    </span>
+                    {r.paymentMethod && (
+                      <Badge variant="secondary" className="text-xs">
+                        {PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS]}
+                      </Badge>
+                    )}
+                    <div style={{ marginLeft: 'auto' }}>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive">
-                            <Trash2 className="h-4 w-4" />
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10">
+                            <X className="h-3 w-3" />
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
@@ -904,11 +842,36 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    </div>
+                  </div>
+                  {/* 하단: 날짜 + 메모 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Input
+                      type="date"
+                      className="h-7 text-xs w-[130px] text-muted-foreground"
+                      defaultValue={r.paidAt || ''}
+                      onBlur={(e) => {
+                        const val = e.target.value;
+                        if (val && val !== (r.paidAt || '')) {
+                          updateRecord(r.id, { paidAt: val });
+                        }
+                      }}
+                    />
+                    <Input
+                      className="h-7 text-xs flex-1"
+                      defaultValue={r.notes ?? ''}
+                      placeholder="메모 입력"
+                      onBlur={(e) => {
+                        const val = e.target.value;
+                        if (val !== (r.notes ?? '')) {
+                          updateRecord(r.id, { notes: val || undefined });
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -934,6 +897,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                   <Label style={{ marginBottom: 6, display: 'block' }}>환불 금액 (원)</Label>
                   <Input
                     type="number"
+                    step={5000}
                     value={refundAmount || ''}
                     onChange={(e) => {
                       const val = Number(e.target.value) || 0;

@@ -3,7 +3,6 @@ import type React from 'react';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore, supabase, reloadAllStores, getUnreadCountForOrg } from '@tutomate/core';
-import { useSettingsStore } from '@tutomate/core';
 import { NotificationCenter } from '../notification/NotificationCenter';
 import { GlobalSearch, useGlobalSearch } from '../search/GlobalSearch';
 import Navigation from './Navigation';
@@ -38,7 +37,7 @@ const SIDEBAR_WIDTH = 220;
 const Layout: React.FC<LayoutProps> = ({ children }) => {
 	const [offline, setOffline] = useState(!navigator.onLine);
 	const [offlineDismissed, setOfflineDismissed] = useState(false);
-	const settingsOrgName = useSettingsStore((s) => s.organizationName);
+	const organizationName = useAuthStore((s) => s.organizationName);
 	const plan = useAuthStore((s) => s.plan) || 'trial';
 	const isTrial = plan === 'trial';
 	const location = useLocation();
@@ -49,10 +48,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 	const [orgMenuOpen, setOrgMenuOpen] = useState(false);
 	const orgMenuRef = useRef<HTMLDivElement>(null);
 	const currentOrgId = useAuthStore((s) => s.organizationId);
-
-	// 현재 활성 조직 이름: orgs에서 가져오고, 없으면 settings fallback
-	const activeOrg = orgs.find((o) => o.id === currentOrgId);
-	const organizationName = settingsOrgName || activeOrg?.name;
 	const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 	const [inviteCode, setInviteCode] = useState('');
 	const [joining, setJoining] = useState(false);
@@ -99,10 +94,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 		try {
 			await useAuthStore.getState().switchOrganization(orgId);
-			// 전환된 조직 이름으로 설정 업데이트
-			if (targetName) {
-				useSettingsStore.getState().setOrganizationName(targetName);
-			}
 			await reloadAllStores();
 			loadOrgs();
 		} catch {
@@ -133,9 +124,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 			const result = await useAuthStore.getState().joinOrganization(inviteCode.trim());
 			if (!orgName && result?.name) {
 				updateSwitchOverlayName(result.name);
-				orgName = result.name;
 			}
-			if (orgName) useSettingsStore.getState().setOrganizationName(orgName);
 			// 4. 데이터 로드
 			await reloadAllStores();
 			loadOrgs();

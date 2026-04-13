@@ -38,13 +38,12 @@ const SettingsPage: React.FC = () => {
     theme: appTheme,
     fontSize,
     notificationsEnabled,
-    organizationName,
     setTheme,
     setFontSize,
     setNotificationsEnabled,
-    setOrganizationName,
     loadSettings,
   } = useSettingsStore();
+  const organizationName = useAuthStore((s) => s.organizationName) || '';
 
   const {
     isEnabled: lockEnabled,
@@ -332,17 +331,14 @@ const SettingsPage: React.FC = () => {
                   size="sm"
                   disabled={orgNameInput === organizationName}
                   onClick={async () => {
-                    const prevName = organizationName;
-                    setOrganizationName(orgNameInput);
                     const orgId = useAuthStore.getState().organizationId;
-                    if (supabase && orgId) {
-                      const { error } = await supabase.from('organizations').update({ name: orgNameInput }).eq('id', orgId);
-                      if (error) {
-                        setOrganizationName(prevName);
-                        toast.error('이름 저장에 실패했습니다.');
-                        return;
-                      }
+                    if (!supabase || !orgId) return;
+                    const { error } = await supabase.from('organizations').update({ name: orgNameInput }).eq('id', orgId);
+                    if (error) {
+                      toast.error('이름 저장에 실패했습니다.');
+                      return;
                     }
+                    useAuthStore.setState({ organizationName: orgNameInput });
                     toast.success('이름이 저장되었습니다.');
                   }}
                 >
@@ -622,7 +618,6 @@ const SettingsPage: React.FC = () => {
                 if (ownerOrg) {
                   showSwitchOverlay(ownerOrg.name);
                   await useAuthStore.getState().switchOrganization(ownerOrg.id);
-                  if (ownerOrg.name) useSettingsStore.getState().setOrganizationName(ownerOrg.name);
                   const { reloadAllStores } = await import('@tutomate/core');
                   await reloadAllStores();
                 }

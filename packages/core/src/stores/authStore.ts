@@ -23,6 +23,7 @@ export function _resetAuthFlags() {
 interface AuthStore {
   session: Session | null;
   organizationId: string | null;
+  organizationName: string | null;
   role: OrgRoleType | null;
   plan: PlanType | null;
   isCloud: boolean;
@@ -38,6 +39,7 @@ interface AuthStore {
 export const useAuthStore = create<AuthStore>((set) => ({
   session: null,
   organizationId: null,
+  organizationName: null,
   role: null,
   plan: null,
   isCloud: false,
@@ -98,13 +100,14 @@ export const useAuthStore = create<AuthStore>((set) => ({
       if (orgLink) {
         const { data: orgData } = await supabase
           .from('organizations')
-          .select('plan')
+          .select('plan, name')
           .eq('id', orgLink.organization_id)
           .single();
 
         set({
           session,
           organizationId: orgLink.organization_id,
+          organizationName: orgData?.name || null,
           role: (orgLink.role as OrgRoleType) || 'member',
           plan: (orgData?.plan as PlanType) || PlanTypeEnum.TRIAL,
           isCloud: true,
@@ -130,6 +133,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
           set({
             session,
             organizationId,
+            organizationName: autoData.name || '내 학원',
             role: 'owner',
             plan,
             isCloud: true,
@@ -180,16 +184,17 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const organizationId = data.organization_id as string;
       const role = (data.role as OrgRoleType) || 'member';
       const plan = (data.plan as PlanType) || PlanTypeEnum.TRIAL;
+      const name = (data.name as string) || '';
 
       set({
         organizationId,
+        organizationName: name || null,
         role,
         plan,
         isCloud: true,
         loading: false,
       });
       _initialized = true;
-      const name = (data.name as string) || '';
       logInfo('Joined organization', { data: { orgId: organizationId, name, role, plan } });
       return { name };
     } catch (error) {
@@ -216,9 +221,11 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const organizationId = data.organization_id as string;
       const role = (data.role as OrgRoleType) || 'member';
       const plan = (data.plan as PlanType) || PlanTypeEnum.TRIAL;
+      const name = (data.name as string) || '';
 
       set({
         organizationId,
+        organizationName: name || null,
         role,
         plan,
         isCloud: true,
@@ -243,6 +250,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
     set({
       session: null,
       organizationId: null,
+      organizationName: null,
       role: null,
       plan: null,
       isCloud: false,
@@ -265,7 +273,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       if (!naverClientId) { set({ loading: false }); throw new Error('VITE_NAVER_CLIENT_ID not configured'); }
       const state = crypto.randomUUID();
       const callbackUrl = `${supabaseUrl}/functions/v1/naver-auth`;
-      const naverUrl = `https://nid.naver.com/oauth2.0/authorize?client_id=${naverClientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&state=${state}`;
+      const naverUrl = `https://nid.naver.com/oauth2.0/authorize?client_id=${naverClientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&state=${state}&auth_type=reprompt`;
       logInfo('Naver OAuth URL generated', { data: { url: naverUrl } });
       if (isElectron()) {
         await window.electronAPI.openOAuthUrl(naverUrl);
@@ -273,7 +281,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
     } else {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo, skipBrowserRedirect: true },
+        options: { redirectTo, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
       });
       if (error) { set({ loading: false }); throw error; }
       logInfo('OAuth URL generated', { data: { url: data.url, redirectTo } });
@@ -324,6 +332,7 @@ if (supabase) {
 // 스토어 외부에서 사용하는 헬퍼
 export const isCloud = (): boolean => useAuthStore.getState().isCloud;
 export const getOrgId = (): string | null => useAuthStore.getState().organizationId;
+export const getOrgName = (): string | null => useAuthStore.getState().organizationName;
 export const getPlan = (): PlanType | null => useAuthStore.getState().plan;
 export const isOwner = (): boolean => useAuthStore.getState().role === OrgRole.OWNER;
 export const canManageMembers = (): boolean => {

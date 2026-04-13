@@ -68,12 +68,13 @@ Deno.serve(async (req) => {
 
     const { data: org } = await adminClient
       .from('organizations')
-      .select('plan')
+      .select('plan, name')
       .eq('id', organization_id)
       .single();
 
     return new Response(JSON.stringify({
       organization_id,
+      name: org?.name || '',
       plan: org?.plan || 'trial',
       role: targetLink.role,
     }), {

@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Button, Dialog, DialogContent, DialogHeader, DialogTitle,
-  Checkbox, StudentList, StudentForm, EnrollmentForm,
+  StudentList, StudentForm, EnrollmentForm,
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
   PageEnter,
@@ -12,7 +12,7 @@ import {
 import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
-import { exportStudentsToExcel, exportStudentsToCSV, STUDENT_EXPORT_FIELDS } from '@tutomate/core';
+import { exportStudentsToExcel, exportStudentsToCSV, STUDENT_EXPORT_FIELDS, getCurrentQuarter, isActiveEnrollment } from '@tutomate/core';
 
 const DEFAULT_EXPORT_FIELDS = ['name', 'phone', 'enrolledCourses', 'totalPaid', 'totalRemaining'];
 
@@ -27,6 +27,11 @@ const StudentsPage: React.FC = () => {
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
   const { courses, loadCourses } = useCourseStore();
+  const currentQuarter = getCurrentQuarter();
+  const quarterEnrollments = useMemo(
+    () => enrollments.filter((e) => isActiveEnrollment(e) && (e.quarter === currentQuarter || !e.quarter)),
+    [enrollments, currentQuarter],
+  );
 
   useEffect(() => {
     loadStudents();
@@ -58,10 +63,10 @@ const StudentsPage: React.FC = () => {
 
     try {
       if (type === 'excel') {
-        exportStudentsToExcel(students, enrollments, courses, selectedExportFields);
+        exportStudentsToExcel(students, quarterEnrollments, courses, selectedExportFields);
         toast.success('Excel 파일이 다운로드되었습니다');
       } else {
-        exportStudentsToCSV(students, enrollments, courses, 'utf-8', selectedExportFields);
+        exportStudentsToCSV(students, quarterEnrollments, courses, 'utf-8', selectedExportFields);
         toast.success('CSV 파일이 다운로드되었습니다');
       }
       setIsExportModalVisible(false);
@@ -107,52 +112,55 @@ const StudentsPage: React.FC = () => {
       />
 
       <Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
-        <DialogContent className="max-w-[320px]">
+        <DialogContent className="max-w-[360px]">
           <DialogHeader>
             <DialogTitle>수강생 내보내기</DialogTitle>
           </DialogHeader>
 
-          <div className="flex justify-between items-center py-1 pb-2 border-b mb-3">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={isAllSelected}
-                onCheckedChange={(checked) =>
-                  setSelectedExportFields(checked ? allFieldKeys : [])
-                }
-              />
-              <span className="text-sm">전체 선택</span>
+          <div style={{ marginTop: 8 }}>
+            <div className="flex justify-between items-center mb-3">
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                onClick={() => setSelectedExportFields(isAllSelected ? [] : allFieldKeys)}
+              >
+                {isAllSelected ? '선택 해제' : '전체 선택'}
+              </button>
+              <span className="text-xs text-muted-foreground">
+                {selectedExportFields.length}개 선택
+              </span>
             </div>
-            <span className="text-xs text-muted-foreground">
-              {selectedExportFields.length}/{allFieldKeys.length}
-            </span>
-          </div>
 
-          <div className="flex flex-col gap-0.5 mb-4">
-            {STUDENT_EXPORT_FIELDS.map((field) => {
-              const isChecked = selectedExportFields.includes(field.key);
-              return (
-                <div
-                  key={field.key}
-                  onClick={() => {
-                    setSelectedExportFields((prev) =>
-                      isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
-                    );
-                  }}
-                  className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer ${
-                    isChecked ? 'bg-primary/10' : 'hover:bg-accent'
-                  }`}
-                >
-                  <Checkbox checked={isChecked} />
-                  <span className="text-[13px]">{field.label}</span>
-                </div>
-              );
-            })}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {STUDENT_EXPORT_FIELDS.map((field) => {
+                const isChecked = selectedExportFields.includes(field.key);
+                return (
+                  <button
+                    key={field.key}
+                    type="button"
+                    onClick={() => {
+                      setSelectedExportFields((prev) =>
+                        isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
+                      );
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-[13px] font-medium border transition-colors cursor-pointer ${
+                      isChecked
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-transparent text-muted-foreground border-border hover:border-foreground/30'
+                    }`}
+                  >
+                    {field.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="flex gap-2">
             <Button
               className="flex-1"
               onClick={() => handleExport('excel')}
+              disabled={selectedExportFields.length === 0}
             >
               <FileSpreadsheet className="h-4 w-4" />
               Excel
@@ -161,6 +169,7 @@ const StudentsPage: React.FC = () => {
               variant="outline"
               className="flex-1"
               onClick={() => handleExport('csv')}
+              disabled={selectedExportFields.length === 0}
             >
               <FileText className="h-4 w-4" />
               CSV

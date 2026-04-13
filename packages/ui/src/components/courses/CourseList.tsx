@@ -50,8 +50,9 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const handleView = useCallback((id: string) => {
-    navigate(`/courses/${id}`);
-  }, [navigate]);
+    const params = selectedQuarter ? `?q=${selectedQuarter}` : '';
+    navigate(`/courses/${id}${params}`);
+  }, [navigate, selectedQuarter]);
 
   const getStatus = useCallback((course: Course) => {
     const currentStudents = getEnrollmentCountByCourseId(course.id);
@@ -97,9 +98,27 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
 
   const activeCourses = useMemo(() => filteredCourses.filter(c => !isCourseEnded(c)), [filteredCourses]);
   const endedCourses = useMemo(() => filteredCourses.filter(c => isCourseEnded(c)), [filteredCourses, isCourseEnded]);
-  const displayedCourses = quarterSelector
-    ? filteredCourses
-    : (activeTab === 'active' ? activeCourses : endedCourses);
+  const displayedCourses = useMemo(() => {
+    if (quarterSelector && selectedQuarter) {
+      const [year, qStr] = selectedQuarter.split('-Q');
+      const q = Number(qStr);
+      const startMonth = (q - 1) * 3 + 1;
+      const endMonth = q * 3;
+      const quarterStart = `${year}-${String(startMonth).padStart(2, '0')}-01`;
+      // 분기 마지막 날 (Q1→03-31, Q2→06-30, Q3→09-30, Q4→12-31)
+      const lastDay = new Date(Number(year), endMonth, 0).getDate();
+      const quarterEnd = `${year}-${String(endMonth).padStart(2, '0')}-${lastDay}`;
+
+      return filteredCourses.filter((c) => {
+        // 선택된 분기 이후에 생성된 강좌 제외
+        if (c.createdAt && c.createdAt.slice(0, 10) > quarterEnd) return false;
+        // 선택된 분기 시작 전에 종료된 강좌 제외
+        if (c.schedule?.endDate && c.schedule.endDate < quarterStart) return false;
+        return true;
+      });
+    }
+    return activeTab === 'active' ? activeCourses : endedCourses;
+  }, [quarterSelector, selectedQuarter, filteredCourses, activeTab, activeCourses, endedCourses]);
 
   const columns: ColumnDef<Course>[] = useMemo(() => [
     {

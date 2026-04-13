@@ -264,6 +264,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                     <Input
                       id="fee"
                       type="number"
+                      step={5000}
                       value={field.value}
                       onChange={(e) => field.onChange(Number(e.target.value))}
                       placeholder="30000"
@@ -450,7 +451,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
             </div>
           </>)}
 
-          <DialogFooter style={{ marginTop: 8 }}>
+          <DialogFooter>
             {step === 1 ? (
               <>
                 <Button type="button" variant="outline" onClick={onClose} style={{ fontSize: '1rem', padding: '10px 24px' }}>

@@ -398,7 +398,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 										render={({ field }) => (
 											<Input id="discountAmount" type="number" value={field.value}
 												onChange={(e) => { const val = Number(e.target.value) || 0; field.onChange(val); handleDiscountChange(val); }}
-												min={0} max={courseFee} placeholder="0" style={{ fontSize: '1.07rem' }} />
+												min={0} max={courseFee} step={5000} placeholder="0" style={{ fontSize: '1.07rem' }} />
 										)} />
 									{discountAmount > 0 && (
 										<p style={{ fontSize: '0.93rem', color: 'hsl(var(--success))', margin: 0 }}>할인 적용 수강료: ₩{effectiveFee.toLocaleString()}</p>
@@ -420,7 +420,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 								render={({ field }) => (
 									<Input id="paidAmount" type="number" value={field.value}
 										onChange={(e) => field.onChange(Number(e.target.value) || 0)}
-										min={0} max={effectiveFee} placeholder="30000"
+										min={0} max={effectiveFee} step={5000} placeholder="30000"
 										disabled={isExempt} style={{ fontSize: '1.07rem' }} />
 								)} />
 							{form.formState.errors.paidAmount && (
