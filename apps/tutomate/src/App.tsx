@@ -89,7 +89,7 @@ function App() {
               className="mx-auto mb-4 h-16 w-16 rounded-xl"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
-            <h3 className="mb-1 text-xl font-semibold">{appConfig.welcomeTitle}</h3>
+            <h3 className="mb-1 text-xl font-semibold text-gray-900 whitespace-pre-line">{appConfig.welcomeTitle}</h3>
             <p className="mb-7 text-sm text-muted-foreground">
               소셜 계정으로 로그인하세요
             </p>
