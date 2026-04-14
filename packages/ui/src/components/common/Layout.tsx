@@ -388,7 +388,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 				)}
 
 				{/* 콘텐츠 (padding 20px) */}
-				<main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: 20 }}>
+				<main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: 20, background: 'hsl(var(--layout-bg))' }}>
 					{children}
 				</main>
 			</div>
