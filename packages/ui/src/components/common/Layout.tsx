@@ -319,7 +319,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 			</aside>
 
 			{/* ── Main area ── */}
-			<div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
+			<div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative', background: 'hsl(var(--layout-bg))' }}>
 				{/* 헤더 (52px) */}
 				<header
 					style={{
