@@ -222,9 +222,9 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
         if (status === 'full') {
           return <Badge variant="destructive">정원 마감</Badge>;
         } else if (status === 'almost') {
-          return <Badge className="bg-orange-500 hover:bg-orange-500/80 text-white border-transparent">마감 임박</Badge>;
+          return <Badge variant="warning">마감 임박</Badge>;
         } else {
-          return <Badge className="bg-green-500 hover:bg-green-500/80 text-white border-transparent">모집 중</Badge>;
+          return <Badge variant="success">모집 중</Badge>;
         }
       },
     },
