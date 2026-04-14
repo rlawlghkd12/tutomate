@@ -29,7 +29,6 @@ import {
 import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 import { toast } from "sonner";
@@ -245,8 +244,8 @@ const StudentForm: React.FC<StudentFormProps> = ({
 	return (
 		<>
 			<Dialog open={visible} onOpenChange={(open) => !open && onClose()}>
-				<DialogContent className="max-h-[90vh] overflow-y-auto" style={{ width: '70vw', maxWidth: 900 }}>
-					<DialogHeader style={{ marginBottom: 12 }}>
+				<DialogContent className="max-w-[580px]">
+					<DialogHeader>
 						<DialogTitle>
 							{editingStudent ? "수강생 정보 수정" : "수강생 등록"}
 						</DialogTitle>
@@ -272,9 +271,10 @@ const StudentForm: React.FC<StudentFormProps> = ({
 						</Alert>
 					)}
 
-					<div className="space-y-3">
-						{/* 기본 정보 */}
-						<div className={cn("grid gap-3", appConfig.enableMemberFeature ? "grid-cols-[1fr_1fr_140px_auto]" : "grid-cols-[1fr_1fr_140px]", "items-end")}>
+					{/* 기본 정보 섹션 */}
+					<div className="rounded-xl border p-4 space-y-3">
+						<div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">기본 정보</div>
+						<div className="grid grid-cols-2 gap-3">
 							<div className="space-y-1.5">
 								<Label htmlFor="name">이름</Label>
 								{student ? (
@@ -284,15 +284,10 @@ const StudentForm: React.FC<StudentFormProps> = ({
 										ref={(el: HTMLInputElement | null) => { nameRegister.ref(el); nameInputRef.current = el; }}
 										placeholder="이름"
 										className="text-base"
-										onKeyDown={(e) => {
-											if (e.key === "Enter") {
-												e.preventDefault();
-												phoneInputRef.current?.focus();
-											}
-										}}
+										onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); phoneInputRef.current?.focus(); } }}
 									/>
 								) : (
-									<div style={{ position: 'relative' }}>
+									<div className="relative">
 										<Input
 											id="name"
 											placeholder="이름"
@@ -306,55 +301,24 @@ const StudentForm: React.FC<StudentFormProps> = ({
 											}}
 											onFocus={() => { if (nameSearch.length > 0) setNameComboboxOpen(true); }}
 											onKeyDown={(e) => {
-												if (e.key === "ArrowDown") {
-													e.preventDefault();
-													setHighlightedIndex((prev) => Math.min(prev + 1, nameOptions.length - 1));
-												} else if (e.key === "ArrowUp") {
-													e.preventDefault();
-													setHighlightedIndex((prev) => Math.max(prev - 1, 0));
-												} else if (e.key === "Enter") {
-													e.preventDefault();
-													if (highlightedIndex >= 0 && nameOptions[highlightedIndex]) {
-														handleNameSelect(nameOptions[highlightedIndex].key);
-														setNameComboboxOpen(false);
-													} else {
-														setNameComboboxOpen(false);
-														phoneInputRef.current?.focus();
-													}
-													setHighlightedIndex(-1);
-												} else if (e.key === "Tab") {
-													setNameComboboxOpen(false);
-													setHighlightedIndex(-1);
-												} else if (e.key === "Escape") {
-													setNameComboboxOpen(false);
-													setHighlightedIndex(-1);
-												}
+												if (e.key === "ArrowDown") { e.preventDefault(); setHighlightedIndex((prev) => Math.min(prev + 1, nameOptions.length - 1)); }
+												else if (e.key === "ArrowUp") { e.preventDefault(); setHighlightedIndex((prev) => Math.max(prev - 1, 0)); }
+												else if (e.key === "Enter") { e.preventDefault(); if (highlightedIndex >= 0 && nameOptions[highlightedIndex]) { handleNameSelect(nameOptions[highlightedIndex].key); setNameComboboxOpen(false); } else { setNameComboboxOpen(false); phoneInputRef.current?.focus(); } setHighlightedIndex(-1); }
+												else if (e.key === "Tab" || e.key === "Escape") { setNameComboboxOpen(false); setHighlightedIndex(-1); }
 											}}
 											autoComplete="off"
 										/>
 										{nameComboboxOpen && nameOptions.length > 0 && (
-											<div style={{
-												position: 'absolute', top: '100%', left: 0, zIndex: 50, width: 'auto', minWidth: '100%',
-												marginTop: 4, borderRadius: 8, border: '1px solid hsl(var(--border))',
-												background: 'hsl(var(--popover))', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-												maxHeight: 200, overflowY: 'auto',
-											}}>
+											<div className="absolute top-full left-0 z-50 min-w-full mt-1 rounded-lg border bg-popover shadow-lg max-h-[200px] overflow-y-auto">
 												{nameOptions.map((opt, idx) => (
-													<button
-														key={opt.key}
-														type="button"
-														style={{
-															width: '100%', padding: '8px 12px', border: 'none',
-															background: idx === highlightedIndex ? 'hsl(var(--accent))' : 'transparent',
-															cursor: 'pointer', textAlign: 'left',
-															fontSize: '0.93rem', display: 'flex', gap: 16, whiteSpace: 'nowrap',
-														}}
+													<button key={opt.key} type="button"
+														className={cn("w-full px-3 py-2 text-left text-sm flex gap-4 whitespace-nowrap", idx === highlightedIndex && "bg-accent")}
 														onMouseDown={(e) => e.preventDefault()}
 														onClick={() => { handleNameSelect(opt.key); setNameComboboxOpen(false); setHighlightedIndex(-1); }}
 														onMouseEnter={() => setHighlightedIndex(idx)}
 													>
 														<span>{opt.value}</span>
-														<span style={{ color: 'hsl(var(--muted-foreground))' }}>{opt.phone}</span>
+														<span className="text-muted-foreground">{opt.phone}</span>
 													</button>
 												))}
 											</div>
@@ -362,113 +326,76 @@ const StudentForm: React.FC<StudentFormProps> = ({
 									</div>
 								)}
 								{form.formState.errors.name && (
-									<p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.name.message}</p>
+									<p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
 								)}
 							</div>
 
 							<div className="space-y-1.5">
 								<Label htmlFor="phone">전화번호</Label>
-								<Input
-									id="phone"
-									ref={phoneInputRef}
-									value={form.watch("phone")}
-									onChange={handlePhoneChange}
-									placeholder="01000000000"
-									maxLength={13}
-									className="text-base"
-									onKeyDown={(e) => {
-										if (e.key === "Enter") {
-											e.preventDefault();
-											birthDateInputRef.current?.focus();
-										}
-									}}
+								<Input id="phone" ref={phoneInputRef} value={form.watch("phone")} onChange={handlePhoneChange}
+									placeholder="01000000000" maxLength={13} className="text-base"
+									onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); birthDateInputRef.current?.focus(); } }}
 								/>
 								{form.formState.errors.phone && (
-									<p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.phone.message}</p>
+									<p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>
 								)}
 							</div>
+						</div>
 
+						{/* 회원 여부 (Q버전만) */}
+						{appConfig.enableMemberFeature && (
+							<Controller control={form.control} name="isMember"
+								render={({ field }) => (
+									<div className="flex justify-between items-center px-3 py-2.5 rounded-lg bg-muted/50">
+										<span className="text-sm font-medium">회원 여부</span>
+										<div className="flex items-center gap-2">
+											<span className={cn("text-sm font-medium", field.value ? "text-primary" : "text-muted-foreground")}>
+												{field.value ? "회원" : "비회원"}
+											</span>
+											<Switch id="isMember" checked={field.value} onCheckedChange={field.onChange} />
+										</div>
+									</div>
+								)}
+							/>
+						)}
+					</div>
+
+					{/* 추가 정보 섹션 */}
+					<div className="rounded-xl border p-4 space-y-3">
+						<div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">추가 정보</div>
+						<div className="grid grid-cols-[140px_1fr] gap-3">
 							<div className="space-y-1.5">
 								<Label htmlFor="birthDate">생년월일</Label>
-								<Input
-									id="birthDate"
-									{...birthDateRegister}
+								<Input id="birthDate" {...birthDateRegister}
 									ref={(el: HTMLInputElement | null) => { birthDateRegister.ref(el); birthDateInputRef.current = el; }}
-									placeholder="6자리 입력"
-									maxLength={6}
-									className="text-base"
-									onKeyDown={(e) => {
-										if (e.key === "Enter") {
-											e.preventDefault();
-											addressInputRef.current?.focus();
-										}
-									}}
+									placeholder="6자리" maxLength={6} className="text-base"
+									onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addressInputRef.current?.focus(); } }}
 								/>
 							</div>
-
-							{appConfig.enableMemberFeature && (
-								<div className="flex items-center gap-2 pb-0.5">
-									<Controller
-										control={form.control}
-										name="isMember"
-										render={({ field }) => (
-											<div className="flex items-center gap-2">
-												<Switch
-													id="isMember"
-													checked={field.value}
-													onCheckedChange={field.onChange}
-												/>
-												<Label htmlFor="isMember" className="text-sm cursor-pointer whitespace-nowrap">
-													{field.value ? "회원" : "비회원"}
-												</Label>
-											</div>
-										)}
+							{!appConfig.hideAddressField && (
+								<div className="space-y-1.5">
+									<Label htmlFor="address">주소</Label>
+									<Input id="address" {...addressRegister}
+										ref={(el: HTMLInputElement | null) => { addressRegister.ref(el); addressInputRef.current = el; }}
+										placeholder="주소를 입력해주세요" className="text-base"
+										onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); notesInputRef.current?.focus(); } }}
 									/>
 								</div>
 							)}
 						</div>
-
-						{!appConfig.hideAddressField && (
-							<div className="space-y-1.5">
-								<Label htmlFor="address">주소</Label>
-								<Input
-									id="address"
-									{...addressRegister}
-									ref={(el: HTMLInputElement | null) => { addressRegister.ref(el); addressInputRef.current = el; }}
-									placeholder="주소를 입력해주세요"
-									className="text-base"
-									onKeyDown={(e) => {
-										if (e.key === "Enter") {
-											e.preventDefault();
-											notesInputRef.current?.focus();
-										}
-									}}
-								/>
-							</div>
-						)}
-
 						<div className="space-y-1.5">
 							<Label htmlFor="notes">메모</Label>
-							<Textarea
-								id="notes"
-								{...notesRegister}
-								ref={(el: HTMLTextAreaElement | null) => { notesRegister.ref(el); (notesInputRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el; }}
-								rows={2}
-								placeholder="추가 정보"
-								className="text-base"
-								onKeyDown={(e) => {
-									if (e.key === "Enter" && !e.shiftKey) {
-										e.preventDefault();
-										handleSubmit();
-									}
-								}}
+							<Input id="notes" {...notesRegister}
+								ref={(el: HTMLInputElement | null) => { notesRegister.ref(el); (notesInputRef as React.MutableRefObject<HTMLInputElement | null>).current = el; }}
+								placeholder="추가 정보를 입력하세요" className="text-base"
+								onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSubmit(); } }}
 							/>
 						</div>
 					</div>
 
 					{editingStudent && <EnrollmentHistory studentId={editingStudent.id} />}
 
-					<DialogFooter className={cn(editingStudent ? "justify-between" : "justify-end", "sm:justify-between")}>
+					<DialogFooter className={cn(editingStudent && !hideDelete ? "justify-between" : "justify-end")}>
 						{editingStudent && !hideDelete && (
 							<Button
 								type="button"
