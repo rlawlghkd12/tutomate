@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, BookOpen, Users, Calendar, DollarSign, Settings, UserCog } from 'lucide-react';
+import { motion } from 'motion/react';
 import { canManageMembers } from '@tutomate/core';
 
 const mainItems = [
@@ -13,30 +14,6 @@ const mainItems = [
 const bottomItems = [
   { key: '/settings', icon: Settings, label: '설정' },
 ];
-
-const navItemBase: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 12,
-  width: '100%',
-  padding: '12px 16px',
-  border: 'none',
-  borderRadius: 8,
-  fontSize: 'inherit',
-  fontWeight: 500,
-  cursor: 'pointer',
-  transition: 'background 0.15s, color 0.15s, font-size 0.2s ease',
-  background: 'transparent',
-  color: 'hsl(var(--muted-foreground))',
-  textAlign: 'left' as const,
-};
-
-const navItemActive: React.CSSProperties = {
-  ...navItemBase,
-  background: 'hsl(var(--primary) / 0.1)',
-  color: 'hsl(var(--primary))',
-  fontWeight: 600,
-};
 
 const Navigation: React.FC = () => {
   const navigate = useNavigate();
@@ -61,29 +38,58 @@ const Navigation: React.FC = () => {
       <button
         key={item.key}
         onClick={() => navigate(item.key)}
-        style={isActive ? navItemActive : navItemBase}
+        style={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          width: '100%',
+          padding: '9px 12px',
+          border: 'none',
+          borderRadius: 'calc(var(--radius) - 2px)',
+          fontSize: 'inherit',
+          fontWeight: isActive ? 600 : 450,
+          cursor: 'pointer',
+          background: 'transparent',
+          color: isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+          textAlign: 'left' as const,
+          transition: 'color 0.15s ease',
+          zIndex: 1,
+        }}
         onMouseEnter={(e) => {
           if (!isActive) {
-            e.currentTarget.style.background = 'hsl(var(--accent))';
             e.currentTarget.style.color = 'hsl(var(--foreground))';
           }
         }}
         onMouseLeave={(e) => {
           if (!isActive) {
-            e.currentTarget.style.background = 'transparent';
             e.currentTarget.style.color = 'hsl(var(--muted-foreground))';
           }
         }}
       >
-        <Icon style={{ width: 20, height: 20, flexShrink: 0 }} />
+        {/* Apple-style sliding background pill */}
+        {isActive && (
+          <motion.span
+            layoutId="nav-active-pill"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: 'inherit',
+              background: 'hsl(var(--primary) / 0.1)',
+              zIndex: -1,
+            }}
+            transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+          />
+        )}
+        <Icon style={{ width: 18, height: 18, flexShrink: 0 }} />
         <span>{item.label}</span>
       </button>
     );
   };
 
   return (
-    <nav style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '0 12px' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <nav style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '4px 10px 0' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {mainItems.map(renderItem)}
       </div>
       <div style={{ marginTop: 'auto', borderTop: '1px solid hsl(var(--border))', paddingTop: 8, paddingBottom: 12 }}>
