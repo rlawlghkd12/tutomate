@@ -183,8 +183,9 @@ const DashboardPage: React.FC = () => {
 					) : (
 						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
 							{courses.map((course) => {
-								const currentStudents = quarterEnrollments.filter(
-									(e) => e.courseId === course.id,
+								// 정원 표시는 strict 분기 매칭 (null-quarter legacy 제외)
+								const currentStudents = enrollments.filter(
+									(e) => isActiveEnrollment(e) && e.courseId === course.id && e.quarter === currentQuarter,
 								).length;
 								const percentage = (currentStudents / course.maxStudents) * 100;
 								return (

@@ -55,7 +55,7 @@ const RevenueManagementPage: React.FC = () => {
       const endDate = dayjs(dateRange[1]).endOf('day');
       filtered = filtered.filter((enrollment) => {
         const enrollDate = dayjs(enrollment.enrolledAt);
-        return enrollDate.isAfter(startDate) && enrollDate.isBefore(endDate);
+        return !enrollDate.isBefore(startDate) && !enrollDate.isAfter(endDate);
       });
     }
 

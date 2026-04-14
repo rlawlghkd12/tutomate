@@ -64,7 +64,7 @@ const GlobalSearchInner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       case 'course':
         return <BookOpen className="h-4 w-4 text-primary" />;
       case 'student':
-        return <User className="h-4 w-4 text-green-600" />;
+        return <User className="h-4 w-4 text-success" />;
       case 'enrollment':
         return <FileText className="h-4 w-4 text-amber-600" />;
     }

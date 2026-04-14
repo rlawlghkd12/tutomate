@@ -415,7 +415,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         return (
           <span className={cn(
             'whitespace-nowrap font-semibold',
-            record.remaining > 0 ? 'text-destructive' : 'text-green-600',
+            record.remaining > 0 ? 'text-destructive' : 'text-success',
           )}>
             {'\u20A9'}{record.remaining.toLocaleString()}
           </span>
@@ -535,13 +535,13 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         <div>
           <span className="text-xs text-muted-foreground">완납 인원</span>
           <div className="font-semibold">
-            <span className="text-green-600">{stats.paidCount}</span>
+            <span className="text-success">{stats.paidCount}</span>
             <span className="text-muted-foreground"> / {stats.totalStudents}명</span>
           </div>
         </div>
         <div>
           <span className="text-xs text-muted-foreground">납부 합계</span>
-          <div className="font-semibold text-green-600">{'\u20A9'}{stats.totalPaid.toLocaleString()}</div>
+          <div className="font-semibold text-success">{'\u20A9'}{stats.totalPaid.toLocaleString()}</div>
         </div>
         <div>
           <span className="text-xs text-muted-foreground">예상 합계</span>
@@ -552,7 +552,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           <div className={cn(
             'font-semibold',
             stats.expectedTotal > 0 && stats.totalPaid < stats.expectedTotal
-              ? 'text-destructive' : 'text-green-600',
+              ? 'text-destructive' : 'text-success',
           )}>
             {stats.expectedTotal > 0 ? Math.round((stats.totalPaid / stats.expectedTotal) * 100) : 0}%
           </div>
@@ -715,7 +715,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                 </div>
                 <div className="flex justify-between pt-1.5 border-t font-semibold text-[15px]">
                   <span>납부할 금액</span>
-                  <span className={modalRemaining > 0 ? 'text-destructive' : 'text-green-600'}>
+                  <span className={modalRemaining > 0 ? 'text-destructive' : 'text-success'}>
                     {'\u20A9'}{modalRemaining.toLocaleString()}
                   </span>
                 </div>
