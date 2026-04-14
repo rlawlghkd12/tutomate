@@ -15,7 +15,7 @@ import type { Enrollment, PaymentMethod } from '@tutomate/core';
 import { usePaymentRecordStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
-import { PAYMENT_METHOD_LABELS } from '@tutomate/core';
+import { PAYMENT_METHOD_LABELS, PaymentMethodEnum } from '@tutomate/core';
 import { getPreviousQuarter, getQuarterLabel, isActiveEnrollment } from '@tutomate/core';
 import type { Student, PaymentRecord } from '@tutomate/core';
 import dayjs from 'dayjs';
@@ -811,14 +811,32 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                 >
                   {/* 상단: 금액 + 방법 + 삭제 */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <span className={cn('text-[1.07rem] font-semibold', r.amount < 0 ? 'text-destructive' : '')}>
-                      {r.amount < 0 ? '-' : ''}{'\u20A9'}{Math.abs(r.amount).toLocaleString()}
-                    </span>
-                    {r.paymentMethod && (
-                      <Badge variant="secondary" className="text-xs">
-                        {PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS]}
-                      </Badge>
-                    )}
+                    <Input
+                      type="number"
+                      step={5000}
+                      className="h-7 text-[1.07rem] font-semibold w-[120px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      defaultValue={r.amount}
+                      onBlur={(e) => {
+                        const val = Number(e.target.value);
+                        if (!isNaN(val) && val !== r.amount) {
+                          updateRecord(r.id, { amount: val });
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="text-xs px-2 py-0.5 rounded-full border cursor-pointer hover:bg-muted transition-colors"
+                      onClick={() => {
+                        const methods = Object.values(PaymentMethodEnum) as PaymentMethod[];
+                        const currentIdx = methods.indexOf(r.paymentMethod as PaymentMethod);
+                        const next = methods[(currentIdx + 1) % methods.length];
+                        updateRecord(r.id, { paymentMethod: next });
+                      }}
+                    >
+                      {r.paymentMethod
+                        ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS]
+                        : '-'}
+                    </button>
                     <div style={{ marginLeft: 'auto' }}>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -848,8 +866,9 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Input
                       type="date"
-                      className="h-7 text-xs w-[130px] text-muted-foreground"
+                      className="h-7 text-sm w-[140px] cursor-pointer"
                       defaultValue={r.paidAt || ''}
+                      onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
                       onBlur={(e) => {
                         const val = e.target.value;
                         if (val && val !== (r.paidAt || '')) {
