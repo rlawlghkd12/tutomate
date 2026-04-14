@@ -67,9 +67,18 @@ const CourseDetailPage: React.FC = () => {
 	}, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
 	const course = id ? getCourseById(id) : undefined;
-	const courseEnrollments = appConfig.enableQuarterSystem
-		? enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e) && (e.quarter === selectedQuarter || !e.quarter))
+	// 분기 시스템: 해당 분기 수강생만 (strict 매칭 — 분기 미지정 legacy 제외)
+	const courseEnrollments = appConfig.enableQuarterSystem && selectedQuarter
+		? enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e) && e.quarter === selectedQuarter)
 		: enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e));
+
+	// 분기 미지정 legacy 수강생 (별도 표시용)
+	const legacyEnrollments = useMemo(
+		() => appConfig.enableQuarterSystem && selectedQuarter
+			? enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e) && !e.quarter)
+			: [],
+		[enrollments, id, selectedQuarter],
+	);
 
 	const allCourseEnrollments = useMemo(
 		() => enrollments.filter((e) => e.courseId === id),
@@ -77,7 +86,16 @@ const CourseDetailPage: React.FC = () => {
 	);
 
 	const handleImportFromQuarter = useCallback(async (studentIds: string[], quarter: string) => {
-		for (const studentId of studentIds) {
+		// 이미 해당 분기에 등록된 수강생 제외 (중복 방지)
+		const existingStudentIds = new Set(
+			enrollments
+				.filter((e) => e.courseId === id && e.quarter === quarter && isActiveEnrollment(e))
+				.map((e) => e.studentId)
+		);
+		const newStudentIds = studentIds.filter((sid) => !existingStudentIds.has(sid));
+		const skippedCount = studentIds.length - newStudentIds.length;
+
+		for (const studentId of newStudentIds) {
 			await addEnrollment({
 				courseId: id!,
 				studentId,
@@ -87,8 +105,13 @@ const CourseDetailPage: React.FC = () => {
 				quarter,
 			} as EnrollmentFormData);
 		}
-		toast.success(`${studentIds.length}명의 수강생을 가져왔습니다.`);
-	}, [id, addEnrollment]);
+
+		if (skippedCount > 0) {
+			toast.success(`${newStudentIds.length}명을 가져왔습니다. (${skippedCount}명은 이미 등록됨)`);
+		} else {
+			toast.success(`${newStudentIds.length}명의 수강생을 가져왔습니다.`);
+		}
+	}, [id, addEnrollment, enrollments]);
 
 	const nonExemptEnrollments = courseEnrollments.filter(
 		(e) => e.paymentStatus !== "exempt",
@@ -235,14 +258,18 @@ const CourseDetailPage: React.FC = () => {
 					{ label: "강사", value: course.instructorName },
 					{ label: "강의실", value: course.classroom },
 					{ label: "수강료", value: `₩${course.fee.toLocaleString()}` },
-					{ label: "수강생", value: `${courseEnrollments.length}/${course.maxStudents}` },
-					{ label: "총 수익", value: `₩${totalRevenue.toLocaleString()}`, colorClass: "text-green-600 dark:text-green-400" },
+					{
+						label: "수강생",
+						value: `${courseEnrollments.length}/${course.maxStudents}`,
+						colorClass: courseEnrollments.length >= course.maxStudents ? "text-error" : "",
+					},
+					{ label: "총 수익", value: `₩${totalRevenue.toLocaleString()}`, colorClass: "text-success" },
 					{
 						label: "완납률",
 						value: `${nonExemptEnrollments.length > 0 ? ((completedPayments / nonExemptEnrollments.length) * 100).toFixed(1) : "0.0"}%`,
 						colorClass: nonExemptEnrollments.length > 0 && completedPayments === nonExemptEnrollments.length
-							? "text-green-600 dark:text-green-400"
-							: "text-red-600 dark:text-red-400",
+							? "text-success"
+							: "text-error",
 					},
 				].map((item) => (
 					<div
@@ -259,6 +286,13 @@ const CourseDetailPage: React.FC = () => {
 				))}
 			</div>
 
+			{/* 분기 미지정 legacy 수강생 안내 */}
+			{legacyEnrollments.length > 0 && (
+				<div className="mb-3 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30 text-[13px] text-warning flex items-center gap-2">
+					<span>⚠</span>
+					<span>분기 미지정 수강생 {legacyEnrollments.length}명이 있습니다. 이 인원은 현재 분기 정원에 포함되지 않습니다.</span>
+				</div>
+			)}
 
 			{/* Remove students dialog */}
 			<AlertDialog open={removeStudentsDialogOpen} onOpenChange={setRemoveStudentsDialogOpen}>

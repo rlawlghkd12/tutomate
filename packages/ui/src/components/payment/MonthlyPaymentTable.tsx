@@ -308,7 +308,7 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
         const discount = record.enrollment.discountAmount ?? 0;
         if (discount === 0) return '-';
         return (
-          <span className="text-green-600 text-[13px]">
+          <span className="text-success text-[13px]">
             -{'\u20A9'}{discount.toLocaleString()}
           </span>
         );
@@ -450,13 +450,13 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
         <div>
           <span className="text-xs text-muted-foreground">납부 인원</span>
           <div className="font-semibold">
-            <span className="text-green-600">{monthStats.paidCount}</span>
+            <span className="text-success">{monthStats.paidCount}</span>
             <span className="text-muted-foreground"> / {monthStats.totalStudents}명</span>
           </div>
         </div>
         <div>
           <span className="text-xs text-muted-foreground">납부 합계</span>
-          <div className="font-semibold text-green-600">
+          <div className="font-semibold text-success">
             {'\u20A9'}{monthStats.totalPaid.toLocaleString()}
           </div>
         </div>
@@ -472,7 +472,7 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
             'font-semibold',
             monthStats.expectedTotal > 0 && monthStats.totalPaid < monthStats.expectedTotal
               ? 'text-destructive'
-              : 'text-green-600',
+              : 'text-success',
           )}>
             {monthStats.expectedTotal > 0 ? Math.round((monthStats.totalPaid / monthStats.expectedTotal) * 100) : 0}%
           </div>
