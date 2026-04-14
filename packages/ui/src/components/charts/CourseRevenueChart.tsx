@@ -33,8 +33,7 @@ export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollme
         };
       })
       .filter((course) => course.학생수 > 0)
-      .sort((a, b) => b.수익 - a.수익)
-      .slice(0, 8);
+      .sort((a, b) => b.수익 - a.수익);
   }, [enrollments, courses]);
 
   if (courseData.length === 0) {
@@ -54,13 +53,13 @@ export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollme
           angle={-45}
           textAnchor="end"
           height={100}
-          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: '0.79rem' }}
           axisLine={{ stroke: 'hsl(var(--border))' }}
           tickLine={false}
         />
         <YAxis
           tickFormatter={formatManWon}
-          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: '0.79rem' }}
           axisLine={false}
           tickLine={false}
         />
@@ -69,7 +68,7 @@ export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollme
           content={({ active, payload, label }) => {
             if (!active || !payload) return null;
             return (
-              <div style={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
+              <div style={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px 14px', fontSize: '0.86rem' }}>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>{label}</div>
                 {payload.map((p) => (
                   <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -84,7 +83,7 @@ export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollme
         />
         <Legend
           verticalAlign="bottom"
-          wrapperStyle={{ paddingTop: 12, fontSize: 13, color: 'hsl(var(--muted-foreground))' }}
+          wrapperStyle={{ paddingTop: 12, fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))' }}
         />
         <Bar dataKey="수익" fill="#6366f1" radius={[4, 4, 0, 0]} />
         <Bar dataKey="예상수익" fill="#a5b4fc" radius={[4, 4, 0, 0]} />
