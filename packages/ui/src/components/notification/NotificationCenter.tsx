@@ -132,22 +132,22 @@ const priorityStyles: Record<
   high: {
     text: '긴급',
     style: {
-      background: 'hsl(0 80% 92%)',
-      color: 'hsl(0 70% 40%)',
+      background: 'hsl(var(--error) / 0.12)',
+      color: 'hsl(var(--error))',
     },
   },
   medium: {
     text: '중요',
     style: {
-      background: 'hsl(30 80% 92%)',
-      color: 'hsl(30 70% 35%)',
+      background: 'hsl(var(--warning) / 0.12)',
+      color: 'hsl(var(--warning))',
     },
   },
   low: {
     text: '일반',
     style: {
-      background: 'hsl(210 80% 92%)',
-      color: 'hsl(210 70% 35%)',
+      background: 'hsl(var(--info) / 0.12)',
+      color: 'hsl(var(--info))',
     },
   },
 };
