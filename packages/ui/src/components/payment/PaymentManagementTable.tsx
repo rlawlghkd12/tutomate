@@ -685,13 +685,13 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             const modalEffectiveFee = courseFee - modalDiscount;
             const modalRemaining = Math.max(0, modalEffectiveFee - selectedData.totalPaid);
             return (
-              <div className="p-3 bg-muted/50 rounded-md space-y-1.5">
+              <div className="rounded-xl border p-4 space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">수강료</span>
-                  <span className="font-semibold">{'\u20A9'}{courseFee.toLocaleString()}</span>
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">수강료</span>
+                  <span className="text-sm font-semibold">{'\u20A9'}{courseFee.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">할인</span>
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">할인</span>
                   <Input
                     type="number"
                     min={0}
@@ -710,8 +710,8 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                   />
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">기납부액</span>
-                  <span>{'\u20A9'}{selectedData.totalPaid.toLocaleString()}</span>
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">기납부액</span>
+                  <span className="text-sm font-semibold">{'\u20A9'}{selectedData.totalPaid.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between pt-1.5 border-t font-semibold text-[15px]">
                   <span>납부할 금액</span>

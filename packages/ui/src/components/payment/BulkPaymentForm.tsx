@@ -104,21 +104,21 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
 
         <div className="space-y-4">
           {/* 요약 정보 */}
-          <div className="rounded-md bg-muted/50 p-3 space-y-1">
-            <div className="flex justify-between">
-              <span>선택된 수강생:</span>
+          <div className="rounded-xl border p-4 space-y-1.5">
+            <div className="flex justify-between items-center">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">선택된 수강생</span>
               <strong>{totalSelectedStudents}명</strong>
             </div>
-            <div className="flex justify-between">
-              <span>총 예상 금액:</span>
+            <div className="flex justify-between items-center">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">총 예상 금액</span>
               <strong>{totalExpectedAmount.toLocaleString()}</strong>
             </div>
-            <div className="flex justify-between">
-              <span>현재 총 납부액:</span>
+            <div className="flex justify-between items-center">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">현재 총 납부액</span>
               <strong>{totalCurrentPaid.toLocaleString()}</strong>
             </div>
-            <div className="flex justify-between">
-              <span>총 잔여 금액:</span>
+            <div className="flex justify-between items-center pt-1.5 border-t">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">총 잔여 금액</span>
               <strong className="text-destructive">{totalRemaining.toLocaleString()}</strong>
             </div>
           </div>
@@ -249,10 +249,16 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
           </div>
 
           {/* 미리보기 */}
-          <div className="rounded-md border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 p-3 space-y-1">
-            <strong>미리보기</strong>
-            <div>1인당 납부액: {previewPerStudent.toLocaleString()}</div>
-            <div>총 납부액: {previewTotal.toLocaleString()}</div>
+          <div className="rounded-xl border p-4 space-y-1.5">
+            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-2">미리보기</div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">1인당 납부액</span>
+              <span className="text-sm font-semibold">₩{previewPerStudent.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">총 납부액</span>
+              <span className="text-sm font-semibold text-success">₩{previewTotal.toLocaleString()}</span>
+            </div>
           </div>
         </div>
 
