@@ -190,12 +190,12 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
       cell: ({ row }) => {
         const record = row.original;
         if (record.enrollment.paymentStatus === 'exempt') {
-          return <Badge className="bg-purple-500 text-white hover:bg-purple-500/80">면제</Badge>;
+          return <Badge variant="secondary">면제</Badge>;
         }
         if (!record.monthPayment || record.monthPayment.status === 'pending') {
           return <Badge variant="destructive">미납</Badge>;
         }
-        return <Badge className="bg-green-600 text-white hover:bg-green-600/80">납부</Badge>;
+        return <Badge variant="success">납부</Badge>;
       },
     },
     {

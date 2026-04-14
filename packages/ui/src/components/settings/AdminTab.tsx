@@ -185,7 +185,7 @@ const AdminTab: React.FC = () => {
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopyKey(generatedKey)}>
                   <Copy className="h-3.5 w-3.5" />
                 </Button>
-                <Badge className="bg-green-600 hover:bg-green-600 text-white">생성됨</Badge>
+                <Badge variant="success">생성됨</Badge>
               </div>
             )}
           </div>

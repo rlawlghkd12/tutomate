@@ -132,9 +132,11 @@
 @utility bg-success-subtle { background-color: hsl(var(--success) / 0.1); }
 @utility bg-warning-subtle { background-color: hsl(var(--warning) / 0.1); }
 @utility bg-error-subtle { background-color: hsl(var(--error) / 0.1); }
+@utility bg-info-subtle { background-color: hsl(var(--info) / 0.1); }
 @utility border-success-subtle { border-color: hsl(var(--success) / 0.3); }
 @utility border-warning-subtle { border-color: hsl(var(--warning) / 0.3); }
 @utility border-error-subtle { border-color: hsl(var(--error) / 0.3); }
+@utility border-info-subtle { border-color: hsl(var(--info) / 0.3); }
 
 @utility text-background { color: hsl(var(--background)); }
 @utility text-foreground { color: hsl(var(--foreground)); }
