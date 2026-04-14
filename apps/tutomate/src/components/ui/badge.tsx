@@ -3,33 +3,33 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "../../lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center leading-none font-semibold transition-colors focus:outline-none",
+  "inline-flex items-center rounded-[3px] px-[7px] py-[3px] text-[11px] font-medium leading-none whitespace-nowrap transition-colors focus:outline-none",
   {
     variants: {
       variant: {
-        /* neutral */
+        /* ── neutral ─────────────────────────────────────── */
         default:
-          "rounded-[4px] bg-muted text-muted-foreground px-2 py-[3px] text-[11px]",
+          "bg-muted text-foreground",
         secondary:
-          "rounded-[4px] bg-secondary text-secondary-foreground px-2 py-[3px] text-[11px]",
+          "bg-muted text-muted-foreground",
         outline:
-          "rounded-[4px] border border-border text-foreground px-2 py-[3px] text-[11px]",
+          "border border-border text-foreground",
 
-        /* semantic — left-accent strip */
+        /* ── semantic — contrast hierarchy ───────────────── */
         success:
-          "rounded-r-[4px] border-l-[3px] border-success bg-success-subtle text-success pl-[7px] pr-2 py-[3px] text-[11px]",
+          "bg-muted text-muted-foreground",
         warning:
-          "rounded-r-[4px] border-l-[3px] border-warning bg-warning-subtle text-warning pl-[7px] pr-2 py-[3px] text-[11px]",
+          "border border-foreground/25 text-foreground font-semibold",
         error:
-          "rounded-r-[4px] border-l-[3px] border-error bg-error-subtle text-error pl-[7px] pr-2 py-[3px] text-[11px]",
+          "bg-foreground text-background font-semibold",
         destructive:
-          "rounded-r-[4px] border-l-[3px] border-error bg-error-subtle text-error pl-[7px] pr-2 py-[3px] text-[11px]",
+          "bg-foreground text-background font-semibold",
         info:
-          "rounded-r-[4px] border-l-[3px] border-info bg-info-subtle text-info pl-[7px] pr-2 py-[3px] text-[11px]",
+          "bg-muted text-foreground",
         purple:
-          "rounded-r-[4px] border-l-[3px] border-[hsl(263,70%,50%)] bg-[hsl(263,70%,50%/0.10)] text-[hsl(263,70%,40%)] pl-[7px] pr-2 py-[3px] text-[11px]",
+          "bg-muted text-foreground font-medium",
         orange:
-          "rounded-r-[4px] border-l-[3px] border-warning bg-warning-subtle text-warning pl-[7px] pr-2 py-[3px] text-[11px]",
+          "border border-foreground/25 text-foreground font-semibold",
       },
     },
     defaultVariants: {
