@@ -336,28 +336,34 @@ const RevenueManagementPage: React.FC = () => {
       {/* 수익 통계 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> 총 수익</p>
-            <p className="text-xl font-bold text-green-600 dark:text-green-400">{totalRevenue.toLocaleString()}원</p>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">총 수익</p>
+            <p className="text-2xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
+              {totalRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
+            </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> 예상 총 수익</p>
-            <p className="text-xl font-bold text-primary">{expectedRevenue.toLocaleString()}원</p>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">예상 수익</p>
+            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
+              {expectedRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
+            </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> 총 미수금</p>
-            <p className="text-xl font-bold text-red-600 dark:text-red-400">{totalUnpaid.toLocaleString()}원</p>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미수금</p>
+            <p className="text-2xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
+              {totalUnpaid.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
+            </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><CircleCheck className="h-3 w-3" /> 수익률</p>
-            <p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>
-              {expectedRevenue > 0 ? ((totalRevenue / expectedRevenue) * 100).toFixed(1) : '0.0'}%
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수익률</p>
+            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
+              {expectedRevenue > 0 ? ((totalRevenue / expectedRevenue) * 100).toFixed(1) : '0.0'}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
             </p>
           </CardContent>
         </Card>
@@ -365,27 +371,35 @@ const RevenueManagementPage: React.FC = () => {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><CircleCheck className="h-3 w-3" /> 완납</p>
-            <p className="text-xl font-bold text-green-600 dark:text-green-400">{completedPayments}건</p>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
+            <p className="text-3xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
+              {completedPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
+            </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> 부분납부</p>
-            <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400">{partialPayments}건</p>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">부분납부</p>
+            <p className="text-3xl font-bold tabular-nums text-warning" style={{ letterSpacing: '-0.02em' }}>
+              {partialPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
+            </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> 미납</p>
-            <p className="text-xl font-bold text-red-600 dark:text-red-400">{pendingPayments}건</p>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납</p>
+            <p className="text-3xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
+              {pendingPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
+            </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground">면제</p>
-            <p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>{exemptPayments}건</p>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">면제</p>
+            <p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em', color: EXEMPT_COLOR }}>
+              {exemptPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -401,7 +415,7 @@ const RevenueManagementPage: React.FC = () => {
         </TabsList>
 
         <TabsContent value="course-revenue">
-          <div className="rounded-md border">
+          <div className="rounded-xl overflow-hidden bg-card [box-shadow:var(--shadow-sm)]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -420,7 +434,7 @@ const RevenueManagementPage: React.FC = () => {
                     <TableCell>{row.studentCount}</TableCell>
                     <TableCell>{'\u20A9'}{row.revenue.toLocaleString()}</TableCell>
                     <TableCell>{'\u20A9'}{row.expected.toLocaleString()}</TableCell>
-                    <TableCell className={row.unpaid > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
+                    <TableCell className={row.unpaid > 0 ? 'text-error' : 'text-success'}>
                       {'\u20A9'}{row.unpaid.toLocaleString()}
                     </TableCell>
                     <TableCell>{row.completionRate.toFixed(1)}%</TableCell>
@@ -432,7 +446,7 @@ const RevenueManagementPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="unpaid">
-          <div className="rounded-md border">
+          <div className="rounded-xl overflow-hidden bg-card [box-shadow:var(--shadow-sm)]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -468,10 +482,10 @@ const RevenueManagementPage: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         {row.discountAmount > 0
-                          ? <span className="text-green-600 dark:text-green-400">-{'\u20A9'}{row.discountAmount.toLocaleString()}</span>
+                          ? <span className="text-success">-{'\u20A9'}{row.discountAmount.toLocaleString()}</span>
                           : '-'}
                       </TableCell>
-                      <TableCell className="text-red-600 dark:text-red-400 font-bold">
+                      <TableCell className="text-error font-bold">
                         {'\u20A9'}{row.remainingAmount.toLocaleString()}
                       </TableCell>
                       <TableCell>
@@ -513,7 +527,7 @@ const RevenueManagementPage: React.FC = () => {
             <div className="flex items-center gap-6 text-sm">
               <div>
                 <span className="text-muted-foreground">분기 수익: </span>
-                <span className="font-semibold text-green-600 dark:text-green-400">{'\u20A9'}{quarterTotalRevenue.toLocaleString()}</span>
+                <span className="font-semibold text-success">{'\u20A9'}{quarterTotalRevenue.toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">예상: </span>
@@ -521,13 +535,13 @@ const RevenueManagementPage: React.FC = () => {
               </div>
               <div>
                 <span className="text-muted-foreground">수납률: </span>
-                <span className={`font-semibold ${quarterTotalExpected > 0 && quarterTotalRevenue < quarterTotalExpected ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                <span className={`font-semibold ${quarterTotalExpected > 0 && quarterTotalRevenue < quarterTotalExpected ? 'text-error' : 'text-success'}`}>
                   {quarterTotalExpected > 0 ? Math.round((quarterTotalRevenue / quarterTotalExpected) * 100) : 0}%
                 </span>
               </div>
             </div>
           </div>
-          <div className="rounded-md border">
+          <div className="rounded-xl overflow-hidden bg-card [box-shadow:var(--shadow-sm)]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -552,13 +566,13 @@ const RevenueManagementPage: React.FC = () => {
                   <TableRow key={row.courseId}>
                     <TableCell>{row.courseName}</TableCell>
                     <TableCell>{row.studentCount}</TableCell>
-                    <TableCell className="text-green-600 dark:text-green-400">{row.paidCount}명</TableCell>
-                    <TableCell className={row.unpaidCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}>
+                    <TableCell className="text-success">{row.paidCount}명</TableCell>
+                    <TableCell className={row.unpaidCount > 0 ? 'text-error' : 'text-success'}>
                       {row.unpaidCount}명
                     </TableCell>
                     <TableCell>{'\u20A9'}{row.quarterRevenue.toLocaleString()}</TableCell>
                     <TableCell>{'\u20A9'}{row.quarterExpected.toLocaleString()}</TableCell>
-                    <TableCell className={row.collectionRate >= 100 ? 'text-green-600 dark:text-green-400' : row.collectionRate >= 50 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}>
+                    <TableCell className={row.collectionRate >= 100 ? 'text-success' : row.collectionRate >= 50 ? 'text-warning' : 'text-error'}>
                       {row.collectionRate.toFixed(1)}%
                     </TableCell>
                   </TableRow>

@@ -267,6 +267,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
           </div>
         )}
       </div>
+      <div className="rounded-xl overflow-hidden bg-card [box-shadow:var(--shadow-sm)]">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -316,6 +317,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
           )}
         </TableBody>
       </Table>
+      </div>
       <StudentForm
         visible={isModalVisible}
         onClose={handleCloseStudentModal}

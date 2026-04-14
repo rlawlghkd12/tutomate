@@ -120,42 +120,48 @@ const DashboardPage: React.FC = () => {
 		<PageEnter>
 			{/* 상단 통계 */}
 			<div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-				<Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/courses")}>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">강좌</p>
-						<p className="text-xl font-bold text-primary">{totalCourses}</p>
+				<Card className="cursor-pointer card-interactive" onClick={() => navigate("/courses")}>
+					<CardContent className="p-4">
+						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">강좌</p>
+						<p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>{totalCourses}</p>
 					</CardContent>
 				</Card>
-				<Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/students")}>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">수강생</p>
-						<p className="text-xl font-bold text-green-600 dark:text-green-400">{totalStudents}</p>
+				<Card className="cursor-pointer card-interactive" onClick={() => navigate("/students")}>
+					<CardContent className="p-4">
+						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수강생</p>
+						<p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>{totalStudents}</p>
 					</CardContent>
 				</Card>
-				<Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/revenue")}>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">납부</p>
-						<p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>{totalRevenue.toLocaleString()}원</p>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">납부율</p>
-						<p className={`text-xl font-bold ${paymentRate >= 80 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
-							{paymentRate.toFixed(0)}%
+				<Card className="cursor-pointer card-interactive" onClick={() => navigate("/revenue")}>
+					<CardContent className="p-4">
+						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">납부</p>
+						<p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
+							{totalRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
 						</p>
 					</CardContent>
 				</Card>
 				<Card>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">완납</p>
-						<p className="text-xl font-bold text-green-600 dark:text-green-400">{completedPayments}건</p>
+					<CardContent className="p-4">
+						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">납부율</p>
+						<p className={`text-3xl font-bold tabular-nums ${paymentRate >= 80 ? 'text-success' : 'text-warning'}`} style={{ letterSpacing: '-0.02em' }}>
+							{paymentRate.toFixed(0)}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
+						</p>
 					</CardContent>
 				</Card>
 				<Card>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">미납</p>
-						<p className="text-xl font-bold text-red-600 dark:text-red-400">{pendingPayments}건</p>
+					<CardContent className="p-4">
+						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
+						<p className="text-3xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
+							{completedPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
+						</p>
+					</CardContent>
+				</Card>
+				<Card>
+					<CardContent className="p-4">
+						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납</p>
+						<p className="text-3xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
+							{pendingPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
+						</p>
 					</CardContent>
 				</Card>
 			</div>
@@ -163,7 +169,7 @@ const DashboardPage: React.FC = () => {
 			{/* 전체 강좌 */}
 			<Card className="mt-4">
 				<CardHeader className="p-4 pb-2">
-					<CardTitle className="text-sm font-semibold">전체 강좌 ({totalCourses})</CardTitle>
+					<CardTitle className="text-sm">전체 강좌 ({totalCourses})</CardTitle>
 				</CardHeader>
 				<CardContent className="p-4 pt-2">
 					{courses.length === 0 ? (
@@ -188,7 +194,7 @@ const DashboardPage: React.FC = () => {
 										onClick={() => navigate(`/courses/${course.id}`)}
 									>
 										<CardContent className="p-3">
-											<div className="font-semibold text-sm mb-1 truncate">
+											<div className="font-semibold text-sm mb-1">
 												{course.name}
 											</div>
 											<div className="text-xs text-muted-foreground mb-2">
@@ -197,7 +203,7 @@ const DashboardPage: React.FC = () => {
 											<div className="flex items-center gap-2">
 												<Progress
 													value={Math.min(percentage, 100)}
-													className={`flex-1 h-2 ${percentage >= 100 ? '[&>div]:bg-destructive' : ''}`}
+													className="flex-1 h-1.5"
 												/>
 												<span className="text-xs text-muted-foreground whitespace-nowrap">
 													{currentStudents}/{course.maxStudents}
@@ -216,7 +222,7 @@ const DashboardPage: React.FC = () => {
 			<div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3 mt-4">
 				<Card>
 					<CardHeader className="p-4 pb-2">
-						<CardTitle className="text-sm font-semibold">강좌별 수익</CardTitle>
+						<CardTitle className="text-sm">강좌별 수익</CardTitle>
 					</CardHeader>
 					<CardContent className="p-4 pt-2">
 						<CourseRevenueChart enrollments={quarterEnrollments} courses={courses} />
@@ -224,7 +230,7 @@ const DashboardPage: React.FC = () => {
 				</Card>
 				<Card>
 					<CardHeader className="p-4 pb-2">
-						<CardTitle className="text-sm font-semibold">납부 상태</CardTitle>
+						<CardTitle className="text-sm">납부 상태</CardTitle>
 					</CardHeader>
 					<CardContent className="p-4 pt-2">
 						<PaymentStatusChart enrollments={quarterEnrollments} />

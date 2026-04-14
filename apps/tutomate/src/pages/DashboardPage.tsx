@@ -133,55 +133,55 @@ const DashboardPage: React.FC = () => {
 			{/* 상단 통계 - 한 줄 */}
 			<div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
 				<Card
-					className="cursor-pointer hover:shadow-md transition-shadow"
+					className="cursor-pointer card-interactive"
 					onClick={() => navigate("/courses")}
 				>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">강좌</p>
-						<p className="text-xl font-bold text-primary">{totalCourses}</p>
+					<CardContent className="p-4">
+						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">강좌</p>
+						<p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>{totalCourses}</p>
 					</CardContent>
 				</Card>
 				<Card
-					className="cursor-pointer hover:shadow-md transition-shadow"
+					className="cursor-pointer card-interactive"
 					onClick={() => navigate("/students")}
 				>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">수강생</p>
-						<p className="text-xl font-bold text-success">{totalStudents}</p>
+					<CardContent className="p-4">
+						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수강생</p>
+						<p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>{totalStudents}</p>
 					</CardContent>
 				</Card>
 				<Card
-					className="cursor-pointer hover:shadow-md transition-shadow"
+					className="cursor-pointer card-interactive"
 					onClick={() => navigate("/revenue")}
 				>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">납부</p>
-						<p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>
-							{totalRevenue.toLocaleString()}<span className="text-sm font-normal">원</span>
+					<CardContent className="p-4">
+						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">납부</p>
+						<p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
+							{totalRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
 						</p>
 					</CardContent>
 				</Card>
 				<Card>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">납부율</p>
-						<p className={`text-xl font-bold ${paymentRate >= 80 ? 'text-success' : 'text-warning'}`}>
-							{paymentRate.toFixed(0)}<span className="text-sm font-normal">%</span>
+					<CardContent className="p-4">
+						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">납부율</p>
+						<p className={`text-3xl font-bold tabular-nums ${paymentRate >= 80 ? 'text-success' : 'text-warning'}`} style={{ letterSpacing: '-0.02em' }}>
+							{paymentRate.toFixed(0)}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
 						</p>
 					</CardContent>
 				</Card>
 				<Card>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">완납</p>
-						<p className="text-xl font-bold text-success">
-							{completedPayments}<span className="text-sm font-normal">건</span>
+					<CardContent className="p-4">
+						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
+						<p className="text-3xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
+							{completedPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
 						</p>
 					</CardContent>
 				</Card>
 				<Card>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">미납</p>
-						<p className="text-xl font-bold text-error">
-							{pendingPayments}<span className="text-sm font-normal">건</span>
+					<CardContent className="p-4">
+						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납</p>
+						<p className="text-3xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
+							{pendingPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
 						</p>
 					</CardContent>
 				</Card>
