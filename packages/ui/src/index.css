@@ -49,29 +49,36 @@
   }
 
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 87%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 87%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 87%;
-    --primary: 211 100% 50%;
+    --background: 0 0% 8%;
+    --foreground: 0 0% 90%;
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 90%;
+    --popover: 0 0% 13%;
+    --popover-foreground: 0 0% 90%;
+    --primary: 211 100% 58%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 14.9%;
+    --secondary: 0 0% 16%;
     --secondary-foreground: 0 0% 87%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
+    --muted: 0 0% 13%;
+    --muted-foreground: 0 0% 58%;
+    --accent: 0 0% 16%;
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 72% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 211 100% 50%;
-    --success: 142 76% 36%;
-    --warning: 38 92% 50%;
-    --info: 217 91% 60%;
-    --error: 0 62.8% 30.6%;
+    --border: 0 0% 20%;
+    --input: 0 0% 18%;
+    --ring: 211 100% 58%;
+    --success: 142 60% 45%;
+    --warning: 38 92% 55%;
+    --info: 217 91% 65%;
+    --error: 0 72% 50%;
+
+    /* 다크모드 섀도우 — 더 짙게 */
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.25);
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.30), 0 1px 2px rgba(0,0,0,0.20);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.40), 0 2px 4px rgba(0,0,0,0.25);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.50), 0 4px 8px rgba(0,0,0,0.30);
+    --shadow-xl: 0 16px 40px rgba(0,0,0,0.55), 0 8px 16px rgba(0,0,0,0.35);
   }
 
   * {
