@@ -4,27 +4,27 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "../../lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors focus:outline-none",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80",
+          "bg-primary text-primary-foreground hover:bg-primary/80",
         secondary:
-          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
+          "bg-error-subtle text-error hover:opacity-90",
         error:
-          "border-transparent bg-error text-white shadow hover:opacity-90",
+          "bg-error-subtle text-error hover:opacity-90",
         warning:
-          "border-transparent bg-warning text-white shadow hover:opacity-90",
+          "bg-warning-subtle text-warning hover:opacity-90",
         success:
-          "border-transparent bg-success text-white shadow hover:opacity-90",
+          "bg-success-subtle text-success hover:opacity-90",
         purple:
-          "border-transparent bg-[hsl(263,70%,50%)] text-white shadow hover:opacity-90",
+          "bg-[hsl(263,70%,50%/0.12)] text-[hsl(263,70%,40%)] hover:opacity-90",
         info:
-          "border-transparent bg-info text-white shadow hover:opacity-90",
-        outline: "text-foreground",
+          "bg-info-subtle text-info hover:opacity-90",
+        outline: "border border-border text-foreground",
       },
     },
     defaultVariants: {

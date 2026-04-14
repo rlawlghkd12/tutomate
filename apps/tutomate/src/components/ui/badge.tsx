@@ -3,20 +3,20 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "../../lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors focus:outline-none",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground shadow",
-        secondary: "border-transparent bg-secondary text-secondary-foreground",
-        destructive: "border-transparent bg-destructive text-destructive-foreground shadow",
-        outline: "text-foreground",
-        success: "bg-success-subtle text-success border-success-subtle",
-        warning: "bg-warning-subtle text-warning border-warning-subtle",
-        info: "bg-info-subtle text-info border-info-subtle",
-        error: "bg-error-subtle text-error border-error-subtle",
-        purple: "border-transparent bg-[hsl(263,70%,50%/0.1)] text-[hsl(263,70%,40%)]",
-        orange: "bg-warning-subtle text-warning border-warning-subtle",
+        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        destructive: "bg-error-subtle text-error hover:opacity-90",
+        outline: "border border-border text-foreground",
+        success: "bg-success-subtle text-success hover:opacity-90",
+        warning: "bg-warning-subtle text-warning hover:opacity-90",
+        info: "bg-info-subtle text-info hover:opacity-90",
+        error: "bg-error-subtle text-error hover:opacity-90",
+        purple: "bg-[hsl(263,70%,50%/0.12)] text-[hsl(263,70%,40%)] hover:opacity-90",
+        orange: "bg-warning-subtle text-warning hover:opacity-90",
       },
     },
     defaultVariants: {

@@ -365,9 +365,9 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       cell: ({ row }) => {
         const s = row.original.enrollment.paymentStatus;
         if (s === 'exempt') return <Badge variant="secondary">면제</Badge>;
-        if (s === 'completed') return <Badge className="bg-success-subtle text-success border-success-subtle hover:bg-success-subtle">완납</Badge>;
-        if (s === 'partial') return <Badge className="bg-warning-subtle text-warning border-warning-subtle hover:bg-warning-subtle">부분납부</Badge>;
-        return <Badge className="bg-error-subtle text-error border-error-subtle hover:bg-error-subtle">미납</Badge>;
+        if (s === 'completed') return <Badge variant="success">완납</Badge>;
+        if (s === 'partial') return <Badge variant="warning">부분납부</Badge>;
+        return <Badge variant="error">미납</Badge>;
       },
     },
     {
