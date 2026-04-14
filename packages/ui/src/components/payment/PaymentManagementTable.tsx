@@ -364,10 +364,10 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       accessorFn: (row) => row.enrollment.paymentStatus,
       cell: ({ row }) => {
         const s = row.original.enrollment.paymentStatus;
-        if (s === 'exempt') return <Badge className="bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100">면제</Badge>;
-        if (s === 'completed') return <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">완납</Badge>;
-        if (s === 'partial') return <Badge className="bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100">부분납부</Badge>;
-        return <Badge className="bg-red-100 text-red-800 border-red-200 hover:bg-red-100">미납</Badge>;
+        if (s === 'exempt') return <Badge variant="secondary">면제</Badge>;
+        if (s === 'completed') return <Badge className="bg-success-subtle text-success border-success-subtle hover:bg-success-subtle">완납</Badge>;
+        if (s === 'partial') return <Badge className="bg-warning-subtle text-warning border-warning-subtle hover:bg-warning-subtle">부분납부</Badge>;
+        return <Badge className="bg-error-subtle text-error border-error-subtle hover:bg-error-subtle">미납</Badge>;
       },
     },
     {
@@ -530,27 +530,27 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   return (
     <div>
       {/* 통계 + 전체 완납 */}
-      <div className="mb-4 p-3 bg-muted/50 rounded-md flex items-center gap-6">
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
         {quarterSelector && <div style={{ flexShrink: 0 }}>{quarterSelector}</div>}
-        <div>
-          <span className="text-xs text-muted-foreground">완납 인원</span>
-          <div className="font-semibold">
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">완납 인원</div>
+          <div className="text-sm font-semibold mt-0.5">
             <span className="text-success">{stats.paidCount}</span>
             <span className="text-muted-foreground"> / {stats.totalStudents}명</span>
           </div>
         </div>
-        <div>
-          <span className="text-xs text-muted-foreground">납부 합계</span>
-          <div className="font-semibold text-success">{'\u20A9'}{stats.totalPaid.toLocaleString()}</div>
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">납부 합계</div>
+          <div className="text-sm font-semibold mt-0.5 text-success">{'\u20A9'}{stats.totalPaid.toLocaleString()}</div>
         </div>
-        <div>
-          <span className="text-xs text-muted-foreground">예상 합계</span>
-          <div className="font-semibold">{'\u20A9'}{stats.expectedTotal.toLocaleString()}</div>
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">예상 합계</div>
+          <div className="text-sm font-semibold mt-0.5">{'\u20A9'}{stats.expectedTotal.toLocaleString()}</div>
         </div>
-        <div>
-          <span className="text-xs text-muted-foreground">수납률</span>
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">수납률</div>
           <div className={cn(
-            'font-semibold',
+            'text-sm font-semibold mt-0.5',
             stats.expectedTotal > 0 && stats.totalPaid < stats.expectedTotal
               ? 'text-destructive' : 'text-success',
           )}>
@@ -960,10 +960,10 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             {prevQuarterData?.enrollments.map((e) => {
               const student = getStudentById(e.studentId);
               const statusInfo: Record<string, { label: string; className: string }> = {
-                pending:   { label: '미납',    className: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
-                partial:   { label: '부분납부', className: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300' },
-                completed: { label: '완납',    className: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
-                exempt:    { label: '면제',    className: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' },
+                pending:   { label: '미납',    className: 'bg-error-subtle text-error border-error-subtle' },
+                partial:   { label: '부분납부', className: 'bg-warning-subtle text-warning border-warning-subtle' },
+                completed: { label: '완납',    className: 'bg-success-subtle text-success border-success-subtle' },
+                exempt:    { label: '면제',    className: '' },
               };
               const si = statusInfo[e.paymentStatus];
               return (
