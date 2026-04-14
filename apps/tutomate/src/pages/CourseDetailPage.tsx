@@ -221,9 +221,9 @@ const CourseDetailPage: React.FC = () => {
 				].map((item) => (
 					<div
 						key={item.label}
-						className="flex-1 py-1.5 px-3 rounded-md border border-border"
+						className="flex-1 px-3 py-1.5 rounded-md border"
 					>
-						<div className="text-[11px] text-muted-foreground">
+						<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
 							{item.label}
 						</div>
 						<div

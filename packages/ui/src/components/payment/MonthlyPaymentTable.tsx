@@ -446,30 +446,30 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
       </div>
 
       {/* 월별 통계 */}
-      <div className="mb-4 p-3 bg-muted/50 rounded-lg flex gap-6">
-        <div>
-          <span className="text-xs text-muted-foreground">납부 인원</span>
-          <div className="font-semibold">
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">납부 인원</div>
+          <div className="text-sm font-semibold mt-0.5">
             <span className="text-success">{monthStats.paidCount}</span>
             <span className="text-muted-foreground"> / {monthStats.totalStudents}명</span>
           </div>
         </div>
-        <div>
-          <span className="text-xs text-muted-foreground">납부 합계</span>
-          <div className="font-semibold text-success">
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">납부 합계</div>
+          <div className="text-sm font-semibold mt-0.5 text-success">
             {'\u20A9'}{monthStats.totalPaid.toLocaleString()}
           </div>
         </div>
-        <div>
-          <span className="text-xs text-muted-foreground">예상 합계</span>
-          <div className="font-semibold">
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">예상 합계</div>
+          <div className="text-sm font-semibold mt-0.5">
             {'\u20A9'}{monthStats.expectedTotal.toLocaleString()}
           </div>
         </div>
-        <div>
-          <span className="text-xs text-muted-foreground">수납률</span>
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">수납률</div>
           <div className={cn(
-            'font-semibold',
+            'text-sm font-semibold mt-0.5',
             monthStats.expectedTotal > 0 && monthStats.totalPaid < monthStats.expectedTotal
               ? 'text-destructive'
               : 'text-success',
