@@ -88,10 +88,13 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
   const studentRows = useMemo(() => {
     return students.map((student, index) => {
       const studentEnrollments = enrollments.filter((e) => e.studentId === student.id && isActiveEnrollment(e));
+      const seen = new Set<string>();
       const studentCourses = studentEnrollments
         .map((enrollment) => {
           const course = courses.find((c) => c.id === enrollment.courseId);
-          return course && !isCourseEnded(course) ? { id: course.id, name: course.name } : null;
+          if (!course || isCourseEnded(course) || seen.has(course.id)) return null;
+          seen.add(course.id);
+          return { id: course.id, name: course.name };
         })
         .filter((c): c is { id: string; name: string } => c !== null);
 

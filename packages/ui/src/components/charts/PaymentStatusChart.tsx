@@ -27,10 +27,10 @@ const renderActiveShape = (props: any) => {
 
   return (
     <g>
-      <text x={cx} y={cy - 8} textAnchor="middle" style={{ fill: 'hsl(var(--foreground))', fontSize: 14, fontWeight: 600 }}>
+      <text x={cx} y={cy - 8} textAnchor="middle" style={{ fill: 'hsl(var(--foreground))', fontSize: '0.93rem', fontWeight: 600 }}>
         {payload.name}
       </text>
-      <text x={cx} y={cy + 12} textAnchor="middle" style={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+      <text x={cx} y={cy + 12} textAnchor="middle" style={{ fill: 'hsl(var(--muted-foreground))', fontSize: '0.79rem' }}>
         {value}건 ({(percent * 100).toFixed(0)}%)
       </text>
       <Sector
@@ -112,12 +112,12 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
           ))}
         </Pie>
         {activeIndex === undefined && (
-          <text x="50%" y="42%" textAnchor="middle" dominantBaseline="central" style={{ fill: 'hsl(var(--foreground))', fontSize: 20, fontWeight: 700 }}>
+          <text x="50%" y="42%" textAnchor="middle" dominantBaseline="central" style={{ fill: 'hsl(var(--foreground))', fontSize: '1.29rem', fontWeight: 700 }}>
             {totalCount}
           </text>
         )}
         {activeIndex === undefined && (
-          <text x="50%" y="52%" textAnchor="middle" dominantBaseline="central" style={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+          <text x="50%" y="52%" textAnchor="middle" dominantBaseline="central" style={{ fill: 'hsl(var(--muted-foreground))', fontSize: '0.79rem' }}>
             총 수강생
           </text>
         )}
@@ -126,7 +126,7 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
             if (!active || !payload?.length) return null;
             const data = payload[0];
             return (
-              <div style={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
+              <div style={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px 14px', fontSize: '0.86rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: data.payload.fill }} />
                   <span style={{ fontWeight: 600 }}>{data.name}</span>
@@ -140,9 +140,9 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
         />
         <Legend
           verticalAlign="bottom"
-          wrapperStyle={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', paddingTop: 8 }}
+          wrapperStyle={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', paddingTop: 8 }}
           formatter={(value: string) => (
-            <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>{value}</span>
+            <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.86rem' }}>{value}</span>
           )}
         />
       </PieChart>
