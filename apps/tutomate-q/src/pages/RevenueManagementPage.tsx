@@ -191,10 +191,10 @@ const RevenueManagementPage: React.FC = () => {
   const isAllRevenueSelected = selectedExportFields.length === allRevenueFieldKeys.length;
 
   const statusMap: Record<string, { color: string; text: string }> = {
-    pending: { color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300', text: '미납' },
-    partial: { color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300', text: '부분납부' },
-    completed: { color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300', text: '완납' },
-    exempt: { color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300', text: '면제' },
+    pending: { color: 'bg-error-subtle text-error border-error-subtle', text: '미납' },
+    partial: { color: 'bg-warning-subtle text-warning border-warning-subtle', text: '부분납부' },
+    completed: { color: 'bg-success-subtle text-success border-success-subtle', text: '완납' },
+    exempt: { color: '', text: '면제' },
   };
 
   const isDateRangeActive = (type: string) => {

@@ -170,25 +170,25 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
         </DialogHeader>
 
         {/* 현재 상태 요약 */}
-        <div className="rounded-md bg-muted p-3">
+        <div className="rounded-xl border p-4">
           {isExempt ? (
             <div className="flex items-center gap-2">
-              <Badge className="bg-purple-500 hover:bg-purple-600">면제</Badge>
+              <Badge variant="secondary">면제</Badge>
               <span>이 수강은 수강료가 면제되었습니다.</span>
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <div className="text-xs text-muted-foreground">수강료</div>
-                <div className="font-medium">₩{courseFee.toLocaleString()}</div>
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">수강료</div>
+                <div className="text-sm font-semibold mt-0.5">₩{courseFee.toLocaleString()}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">납부 금액</div>
-                <div className="font-medium text-success">₩{enrollment.paidAmount.toLocaleString()}</div>
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">납부 금액</div>
+                <div className="text-sm font-semibold mt-0.5 text-success">₩{enrollment.paidAmount.toLocaleString()}</div>
               </div>
               <div>
-                <div className="text-xs text-muted-foreground">잔여 금액</div>
-                <div className={cn('font-medium', enrollment.remainingAmount > 0 ? 'text-error' : 'text-success')}>
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">잔여 금액</div>
+                <div className={cn('text-sm font-semibold mt-0.5', enrollment.remainingAmount > 0 ? 'text-error' : 'text-success')}>
                   ₩{enrollment.remainingAmount.toLocaleString()}
                 </div>
               </div>
@@ -353,9 +353,9 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
 
           {/* 변경 후 잔여 금액 */}
           {!isExempt && (
-            <div className="rounded-md bg-muted p-2.5 text-center">
-              <span className="text-xs text-muted-foreground">변경 후 잔여 금액: </span>
-              <span className={cn('font-semibold', remainingAmount > 0 ? 'text-error' : 'text-success')}>
+            <div className="rounded-xl border px-4 py-3 flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">변경 후 잔여 금액</span>
+              <span className={cn('text-sm font-semibold', remainingAmount > 0 ? 'text-error' : 'text-success')}>
                 ₩{remainingAmount.toLocaleString()}
               </span>
             </div>
