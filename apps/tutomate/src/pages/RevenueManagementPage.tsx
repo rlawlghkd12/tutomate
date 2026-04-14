@@ -435,7 +435,7 @@ const RevenueManagementPage: React.FC = () => {
                     <td className="px-3 py-3.5">{row.studentCount}</td>
                     <td className="px-3 py-3.5">{'\u20A9'}{row.revenue.toLocaleString()}</td>
                     <td className="px-3 py-3.5">{'\u20A9'}{row.expected.toLocaleString()}</td>
-                    <td className={`p-2 ${row.unpaid > 0 ? 'text-error' : 'text-success'}`}>
+                    <td className={`px-3 py-3.5 ${row.unpaid > 0 ? 'text-error' : 'text-success'}`}>
                       {'\u20A9'}{row.unpaid.toLocaleString()}
                     </td>
                     <td className="px-3 py-3.5">{row.completionRate.toFixed(1)}%</td>
@@ -527,20 +527,20 @@ const RevenueManagementPage: React.FC = () => {
                 이번 분기
               </Button>
             </div>
-            <div className="flex items-center gap-6 text-sm">
-              <div>
-                <span className="text-xs text-muted-foreground">분기 수익: </span>
-                <span className="font-semibold text-success">{'\u20A9'}{quarterTotalRevenue.toLocaleString()}</span>
+            <div className="flex items-center gap-2">
+              <div className="px-3 py-1.5 rounded-md border">
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">분기 수익</div>
+                <div className="text-sm font-semibold mt-0.5 text-success">{'\u20A9'}{quarterTotalRevenue.toLocaleString()}</div>
               </div>
-              <div>
-                <span className="text-xs text-muted-foreground">예상: </span>
-                <span className="font-semibold">{'\u20A9'}{quarterTotalExpected.toLocaleString()}</span>
+              <div className="px-3 py-1.5 rounded-md border">
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">예상 합계</div>
+                <div className="text-sm font-semibold mt-0.5">{'\u20A9'}{quarterTotalExpected.toLocaleString()}</div>
               </div>
-              <div>
-                <span className="text-xs text-muted-foreground">수납률: </span>
-                <span className={`font-semibold ${quarterTotalExpected > 0 && quarterTotalRevenue < quarterTotalExpected ? 'text-error' : 'text-success'}`}>
+              <div className="px-3 py-1.5 rounded-md border">
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">수납률</div>
+                <div className={`text-sm font-semibold mt-0.5 ${quarterTotalExpected > 0 && quarterTotalRevenue < quarterTotalExpected ? 'text-error' : 'text-success'}`}>
                   {quarterTotalExpected > 0 ? Math.round((quarterTotalRevenue / quarterTotalExpected) * 100) : 0}%
-                </span>
+                </div>
               </div>
             </div>
           </div>
@@ -564,10 +564,10 @@ const RevenueManagementPage: React.FC = () => {
                     <td className="px-3 py-3.5">{row.courseName}</td>
                     <td className="px-3 py-3.5">{row.studentCount}</td>
                     <td className="px-3 py-3.5 text-success">{row.paidCount}명</td>
-                    <td className={`p-2 ${row.unpaidCount > 0 ? 'text-error' : 'text-success'}`}>{row.unpaidCount}명</td>
+                    <td className={`px-3 py-3.5 ${row.unpaidCount > 0 ? 'text-error' : 'text-success'}`}>{row.unpaidCount}명</td>
                     <td className="px-3 py-3.5">{'\u20A9'}{row.quarterRevenue.toLocaleString()}</td>
                     <td className="px-3 py-3.5">{'\u20A9'}{row.quarterExpected.toLocaleString()}</td>
-                    <td className={`p-2 ${row.collectionRate >= 100 ? 'text-success' : row.collectionRate >= 50 ? 'text-warning' : 'text-error'}`}>
+                    <td className={`px-3 py-3.5 ${row.collectionRate >= 100 ? 'text-success' : row.collectionRate >= 50 ? 'text-warning' : 'text-error'}`}>
                       {row.collectionRate.toFixed(1)}%
                     </td>
                   </tr>
