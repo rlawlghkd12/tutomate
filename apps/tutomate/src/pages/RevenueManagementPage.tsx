@@ -36,7 +36,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 
 const RevenueManagementPage: React.FC = () => {
   const { courses, loadCourses, getCourseById } = useCourseStore();
-  const { students, loadStudents, getStudentById } = useStudentStore();
+  const { students, loadStudents } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
   const { loadRecords } = usePaymentRecordStore();
 
@@ -81,12 +81,12 @@ const RevenueManagementPage: React.FC = () => {
 
   const revenueEnrollments = useMemo(() => filteredEnrollments.filter((e) => e.paymentStatus !== 'exempt'), [filteredEnrollments]);
 
+  const courseMap = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
+  const studentMap = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
+
   const { totalRevenue, expectedRevenue, totalUnpaid, completedPayments, partialPayments, pendingPayments, exemptPayments } = useMemo(() => {
     const revenue = revenueEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-    const expected = revenueEnrollments.reduce((sum, e) => {
-      const course = getCourseById(e.courseId);
-      return sum + (course?.fee || 0);
-    }, 0);
+    const expected = revenueEnrollments.reduce((sum, e) => sum + (courseMap.get(e.courseId)?.fee || 0), 0);
     return {
       totalRevenue: revenue,
       expectedRevenue: expected,
@@ -96,7 +96,7 @@ const RevenueManagementPage: React.FC = () => {
       pendingPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'pending').length,
       exemptPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'exempt').length,
     };
-  }, [revenueEnrollments, filteredEnrollments, getCourseById]);
+  }, [revenueEnrollments, filteredEnrollments, courseMap]);
 
   // 강좌별 수익 테이블 데이터
   const courseRevenueData = useMemo(() => courses.map((course) => {
@@ -122,8 +122,8 @@ const RevenueManagementPage: React.FC = () => {
   const unpaidList = useMemo(() => filteredEnrollments
     .filter((e) => e.paymentStatus !== 'completed' && e.paymentStatus !== 'exempt')
     .map((enrollment) => {
-      const student = getStudentById(enrollment.studentId);
-      const course = getCourseById(enrollment.courseId);
+      const student = studentMap.get(enrollment.studentId);
+      const course = courseMap.get(enrollment.courseId);
 
       return {
         ...enrollment,
@@ -134,7 +134,7 @@ const RevenueManagementPage: React.FC = () => {
         paymentMethod: enrollment.paymentMethod,
         discountAmount: enrollment.discountAmount ?? 0,
       };
-    }), [filteredEnrollments, getStudentById, getCourseById]);
+    }), [filteredEnrollments, studentMap, courseMap]);
 
   // 분기별 수익 현황 (강좌별)
   const quarterRevenueData = useMemo(() => {

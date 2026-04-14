@@ -8,18 +8,23 @@ import { useAuthStore } from '../stores/authStore';
 
 const getOrgName = () => useAuthStore.getState().organizationName || '';
 
+// 다운로드 링크 클릭 후 충분한 시간 뒤에 URL을 해제하는 헬퍼
+const triggerDownload = (url: string, filename: string) => {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  // 대용량 파일 다운로드가 시작될 때까지 URL 유지
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 // Excel 파일 다운로드 헬퍼
 const downloadExcel = (XLSX: typeof XLSXType, workbook: XLSXType.WorkBook, filename: string) => {
   const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
   const blob = new Blob([excelBuffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${filename}_${dayjs().format('YYYYMMDD_HHmmss')}.xlsx`;
-  link.click();
-  URL.revokeObjectURL(url);
+  triggerDownload(URL.createObjectURL(blob), `${filename}_${dayjs().format('YYYYMMDD_HHmmss')}.xlsx`);
 };
 
 // CSV 파일 다운로드 헬퍼
@@ -34,12 +39,7 @@ const downloadCSV = (csv: string, filename: string, encoding: 'utf-8' | 'euc-kr'
     blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   }
 
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${filename}_${dayjs().format('YYYYMMDD_HHmmss')}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
+  triggerDownload(URL.createObjectURL(blob), `${filename}_${dayjs().format('YYYYMMDD_HHmmss')}.csv`);
 };
 
 // Excel 시트에 헤더 행 추가 후 데이터 삽입하는 헬퍼

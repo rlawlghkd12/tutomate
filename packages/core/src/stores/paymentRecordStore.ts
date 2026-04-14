@@ -154,6 +154,7 @@ async function syncEnrollmentTotal(
   if (!enrollment) return;
   if (enrollment.paymentStatus === 'withdrawn') return;
 
+  const isExempt = enrollment.paymentStatus === 'exempt';
   const discount = enrollment.discountAmount ?? 0;
 
   await useEnrollmentStore.getState().updatePayment(
@@ -161,7 +162,7 @@ async function syncEnrollmentTotal(
     totalPaid,
     courseFee,
     latestRecord?.paidAt,
-    false,
+    isExempt,
     latestRecord?.paymentMethod,
     discount,
   );
