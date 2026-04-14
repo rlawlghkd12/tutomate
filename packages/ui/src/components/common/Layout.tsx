@@ -163,8 +163,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 					minWidth: SIDEBAR_WIDTH,
 					display: 'flex',
 					flexDirection: 'column',
-					borderRight: '1px solid hsl(var(--border))',
-					background: 'hsl(var(--muted))',
+					borderRight: '1px solid hsl(var(--border) / 0.7)',
+					background: 'hsl(0 0% 97.5%)',
 				}}
 			>
 				{/* 사이드바 상단: 트래픽 라이트 + 조직명 한 줄 */}
@@ -328,7 +328,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 						alignItems: 'center',
 						justifyContent: 'space-between',
 						padding: '0 20px',
-						borderBottom: '1px solid hsl(var(--border))',
+						borderBottom: '1px solid hsl(var(--border) / 0.6)',
+						background: 'hsl(var(--background) / 0.85)',
+						backdropFilter: 'blur(12px)',
+						WebkitBackdropFilter: 'blur(12px)',
 						WebkitAppRegion: 'drag',
 					} as React.CSSProperties}
 				>

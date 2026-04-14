@@ -1,5 +1,5 @@
-import { useRef, useEffect } from 'react';
-import type React from 'react';
+import React from 'react';
+import { motion } from 'motion/react';
 
 interface PageEnterProps {
   children: React.ReactNode;
@@ -7,47 +7,31 @@ interface PageEnterProps {
   style?: React.CSSProperties;
 }
 
-/** 마운트 시 1회만 stagger reveal. JS transition 기반 — CSS animation replay 문제 없음. */
+/**
+ * 페이지 마운트 시 spring stagger reveal.
+ * Apple 스타일 — opacity + y 스프링, 자식마다 0.04s 딜레이.
+ */
 export function PageEnter({ children, className = '', style }: PageEnterProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const animated = useRef(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || animated.current) return;
-    animated.current = true;
-
-    const kids = Array.from(el.children) as HTMLElement[];
-    kids.forEach((child, i) => {
-      child.style.opacity = '0';
-      child.style.transform = 'translateY(8px)';
-      child.style.transition = 'opacity 0.4s cubic-bezier(0.4,0,0.2,1), transform 0.4s cubic-bezier(0.4,0,0.2,1)';
-      child.style.transitionDelay = `${Math.min(i * 0.04, 0.4)}s`;
-    });
-
-    // rAF로 다음 프레임에서 최종 상태로 전환
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        kids.forEach((child) => {
-          child.style.opacity = '1';
-          child.style.transform = 'translateY(0)';
-        });
-        // transition 완료 후 인라인 스타일 정리
-        setTimeout(() => {
-          kids.forEach((child) => {
-            child.style.opacity = '';
-            child.style.transform = '';
-            child.style.transition = '';
-            child.style.transitionDelay = '';
-          });
-        }, 800);
-      });
-    });
-  }, []);
+  const items = React.Children.toArray(children);
 
   return (
-    <div ref={ref} className={className} style={style}>
-      {children}
+    <div className={className} style={style}>
+      {items.map((child, i) => (
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            type: 'spring',
+            stiffness: 420,
+            damping: 36,
+            delay: Math.min(i * 0.045, 0.35),
+          }}
+          style={{ willChange: 'opacity, transform' }}
+        >
+          {child}
+        </motion.div>
+      ))}
     </div>
   );
 }
