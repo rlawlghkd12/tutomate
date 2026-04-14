@@ -15,15 +15,15 @@ const badgeVariants = cva(
         destructive:
           "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
         error:
-          "border-transparent bg-[hsl(var(--destructive))] text-[hsl(var(--destructive-foreground))] shadow hover:bg-[hsl(var(--destructive))]/80",
+          "border-transparent bg-error text-white shadow hover:opacity-90",
         warning:
-          "border-transparent bg-[hsl(45,93%,47%)] text-[hsl(45,93%,10%)] shadow hover:bg-[hsl(45,93%,47%)]/80 dark:bg-[hsl(45,93%,47%)] dark:text-[hsl(45,93%,10%)]",
+          "border-transparent bg-warning text-white shadow hover:opacity-90",
         success:
-          "border-transparent bg-[hsl(142,71%,45%)] text-white shadow hover:bg-[hsl(142,71%,45%)]/80",
+          "border-transparent bg-success text-white shadow hover:opacity-90",
         purple:
-          "border-transparent bg-[hsl(263,70%,50%)] text-white shadow hover:bg-[hsl(263,70%,50%)]/80",
+          "border-transparent bg-[hsl(263,70%,50%)] text-white shadow hover:opacity-90",
         info:
-          "border-transparent bg-[hsl(217,91%,60%)] text-white shadow hover:bg-[hsl(217,91%,60%)]/80",
+          "border-transparent bg-info text-white shadow hover:opacity-90",
         outline: "text-foreground",
       },
     },
