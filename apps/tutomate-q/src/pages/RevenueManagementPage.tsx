@@ -190,11 +190,11 @@ const RevenueManagementPage: React.FC = () => {
   const allRevenueFieldKeys = useMemo(() => REVENUE_EXPORT_FIELDS.map((f) => f.key), []);
   const isAllRevenueSelected = selectedExportFields.length === allRevenueFieldKeys.length;
 
-  const statusMap: Record<string, { color: string; text: string }> = {
-    pending: { color: 'bg-error-subtle text-error border-error-subtle', text: '미납' },
-    partial: { color: 'bg-warning-subtle text-warning border-warning-subtle', text: '부분납부' },
-    completed: { color: 'bg-success-subtle text-success border-success-subtle', text: '완납' },
-    exempt: { color: '', text: '면제' },
+  const statusMap: Record<string, { variant: 'error' | 'warning' | 'success' | 'secondary'; text: string }> = {
+    pending: { variant: 'error', text: '미납' },
+    partial: { variant: 'warning', text: '부분납부' },
+    completed: { variant: 'success', text: '완납' },
+    exempt: { variant: 'secondary', text: '면제' },
   };
 
   const isDateRangeActive = (type: string) => {
@@ -473,7 +473,7 @@ const RevenueManagementPage: React.FC = () => {
                       <TableCell>{row.courseName}</TableCell>
                       <TableCell>{'\u20A9'}{row.courseFee.toLocaleString()}</TableCell>
                       <TableCell>
-                        <Badge className={s?.color} variant="outline">{s?.text}</Badge>
+                        <Badge variant={s?.variant}>{s?.text}</Badge>
                       </TableCell>
                       <TableCell>{'\u20A9'}{row.paidAmount.toLocaleString()}</TableCell>
                       <TableCell>{row.paidAt || '-'}</TableCell>

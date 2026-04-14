@@ -4,27 +4,27 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "../../lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors focus:outline-none",
+  "inline-flex items-center gap-[5px] rounded-[4px] px-[7px] py-[3px] text-[11px] font-medium leading-none transition-colors focus:outline-none",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground hover:bg-primary/80",
+          "bg-muted text-muted-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "bg-secondary text-secondary-foreground",
         destructive:
-          "bg-error-subtle text-error hover:opacity-90",
+          "bg-error-subtle text-error",
         error:
-          "bg-error-subtle text-error hover:opacity-90",
+          "bg-error-subtle text-error",
         warning:
-          "bg-warning-subtle text-warning hover:opacity-90",
+          "bg-warning-subtle text-warning",
         success:
-          "bg-success-subtle text-success hover:opacity-90",
+          "bg-success-subtle text-success",
         purple:
-          "bg-[hsl(263,70%,50%/0.12)] text-[hsl(263,70%,40%)] hover:opacity-90",
+          "bg-[hsl(263,70%,50%/0.12)] text-[hsl(263,70%,40%)]",
         info:
-          "bg-info-subtle text-info hover:opacity-90",
-        outline: "border border-border text-foreground",
+          "bg-info-subtle text-info",
+        outline: "border border-border bg-transparent text-foreground",
       },
     },
     defaultVariants: {
@@ -33,13 +33,32 @@ const badgeVariants = cva(
   }
 )
 
+const DOT_VARIANTS = new Set<string>([
+  "success", "warning", "error", "destructive", "info", "purple",
+]);
+
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {}
 
-function Badge({ className, variant, ...props }: BadgeProps) {
+function Badge({ className, variant, children, ...props }: BadgeProps) {
+  const showDot = variant != null && DOT_VARIANTS.has(variant);
   return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
+    <div className={cn(badgeVariants({ variant }), className)} {...props}>
+      {showDot && (
+        <svg
+          width="5"
+          height="5"
+          viewBox="0 0 5 5"
+          fill="currentColor"
+          className="shrink-0 opacity-75"
+          aria-hidden="true"
+        >
+          <circle cx="2.5" cy="2.5" r="2.5" />
+        </svg>
+      )}
+      {children}
+    </div>
   )
 }
 
