@@ -329,9 +329,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 						justifyContent: 'space-between',
 						padding: '0 20px',
 						borderBottom: '1px solid hsl(var(--border) / 0.6)',
-						background: 'hsl(var(--background) / 0.85)',
-						backdropFilter: 'blur(12px)',
-						WebkitBackdropFilter: 'blur(12px)',
+						background: 'hsl(var(--layout-bg))',
 						WebkitAppRegion: 'drag',
 					} as React.CSSProperties}
 				>
