@@ -14,40 +14,19 @@ import { cn } from "../../lib/utils"
  *   default            → neutral chip
  */
 const badgeVariants = cva(
-  "inline-flex items-center rounded-[3px] px-[7px] py-[3px] text-[11px] font-medium leading-none whitespace-nowrap transition-colors focus:outline-none",
+  "inline-flex items-center rounded-full px-3 py-[3px] text-[11px] font-medium leading-none whitespace-nowrap transition-colors focus:outline-none",
   {
     variants: {
       variant: {
-        /* ── neutral ─────────────────────────────────────── */
-        default:
-          "bg-muted text-foreground",
-        secondary:
-          "bg-muted text-muted-foreground",
-        outline:
-          "border border-border text-foreground",
-
-        /* ── semantic — contrast hierarchy ───────────────── */
-        /** 완납 · 납부 · 모집 중: positive, fade into bg */
-        success:
-          "bg-muted text-muted-foreground",
-
-        /** 부분납부 · 마감 임박: needs mild attention */
-        warning:
-          "border border-foreground/25 text-foreground font-semibold",
-
-        /** 미납 · 정원 마감 · 긴급: inverted — most urgent */
-        error:
-          "bg-foreground text-background font-semibold",
-        destructive:
-          "bg-foreground text-background font-semibold",
-
-        /** 일반 정보 */
-        info:
-          "bg-muted text-foreground",
-
-        /** 기타 */
-        purple:
-          "bg-muted text-foreground font-medium",
+        default:      "bg-muted text-foreground",
+        secondary:    "bg-muted text-muted-foreground",
+        outline:      "bg-muted text-foreground",
+        success:      "bg-muted text-muted-foreground",
+        warning:      "bg-foreground/10 text-foreground font-semibold",
+        error:        "bg-foreground text-background font-semibold",
+        destructive:  "bg-foreground text-background font-semibold",
+        info:         "bg-muted text-foreground",
+        purple:       "bg-muted text-foreground",
       },
     },
     defaultVariants: {
