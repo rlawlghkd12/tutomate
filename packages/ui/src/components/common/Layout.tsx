@@ -164,7 +164,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 					display: 'flex',
 					flexDirection: 'column',
 					borderRight: '1px solid hsl(var(--border) / 0.7)',
-					background: 'hsl(0 0% 97.5%)',
+					background: 'hsl(var(--muted))',
 				}}
 			>
 				{/* 사이드바 상단: 트래픽 라이트 + 조직명 한 줄 */}
