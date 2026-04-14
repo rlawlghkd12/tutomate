@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -7,6 +7,7 @@ import {
   flexRender,
   type ColumnDef,
   type SortingState,
+  type ColumnSizingState,
 } from '@tanstack/react-table';
 import { Search } from 'lucide-react';
 import type { Course } from '@tutomate/core';
@@ -48,6 +49,12 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
   const [searchField, setSearchField] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<string>('active');
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => {
+    try { const s = localStorage.getItem('courseList_colSizing'); return s ? JSON.parse(s) : {}; } catch { return {}; }
+  });
+  useEffect(() => {
+    if (Object.keys(columnSizing).length > 0) localStorage.setItem('courseList_colSizing', JSON.stringify(columnSizing));
+  }, [columnSizing]);
 
   const handleView = useCallback((id: string) => {
     const params = selectedQuarter ? `?q=${selectedQuarter}` : '';
@@ -235,8 +242,10 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
     columns,
     state: {
       sorting,
+      columnSizing,
     },
     onSortingChange: setSorting,
+    onColumnSizingChange: setColumnSizing,
     columnResizeMode: 'onChange',
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -335,6 +344,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
                       onMouseDown={header.getResizeHandler()}
                       onTouchStart={header.getResizeHandler()}
                       onClick={(e) => e.stopPropagation()}
+                      onDoubleClick={() => header.column.resetSize()}
                       className={cn(
                         'absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none opacity-0 group-hover:opacity-100 transition-opacity',
                         header.column.getIsResizing() && 'opacity-100 bg-primary'
