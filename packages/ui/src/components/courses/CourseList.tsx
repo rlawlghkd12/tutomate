@@ -54,8 +54,16 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
     navigate(`/courses/${id}${params}`);
   }, [navigate, selectedQuarter]);
 
+  const getQuarterEnrollmentCount = useCallback((courseId: string) => {
+    if (!selectedQuarter) return undefined;
+    return enrollments.filter(
+      (e) => e.courseId === courseId && isActiveEnrollment(e) && e.quarter === selectedQuarter
+    ).length;
+  }, [enrollments, selectedQuarter]);
+
   const getStatus = useCallback((course: Course) => {
-    const currentStudents = getEnrollmentCountByCourseId(course.id);
+    const currentStudents =
+      getQuarterEnrollmentCount(course.id) ?? getEnrollmentCountByCourseId(course.id);
     if (currentStudents >= course.maxStudents) {
       return 'full';
     } else if (currentStudents >= course.maxStudents * 0.8) {
@@ -63,14 +71,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
     } else {
       return 'open';
     }
-  }, [getEnrollmentCountByCourseId]);
-
-  const getQuarterEnrollmentCount = useCallback((courseId: string) => {
-    if (!selectedQuarter) return undefined;
-    return enrollments.filter(
-      (e) => e.courseId === courseId && isActiveEnrollment(e) && e.quarter === selectedQuarter
-    ).length;
-  }, [enrollments, selectedQuarter]);
+  }, [getQuarterEnrollmentCount, getEnrollmentCountByCourseId]);
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
