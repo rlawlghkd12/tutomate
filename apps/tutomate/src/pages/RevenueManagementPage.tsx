@@ -1,9 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
-  DollarSign,
-  CheckCircle,
-  Clock,
-  AlertTriangle,
   Download,
   FileSpreadsheet,
   FileText,

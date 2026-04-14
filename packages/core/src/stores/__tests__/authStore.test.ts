@@ -104,9 +104,13 @@ describe('authStore', () => {
       const orgLinkBuilder = createQueryBuilder([
         { organization_id: 'org-abc', role: 'owner', is_active: true },
       ]);
-      const orgBuilder = createQueryBuilder({ plan: 'basic', name: '테스트 조직' });
       mockFromHandlers['user_organizations'] = orgLinkBuilder;
-      mockFromHandlers['organizations'] = orgBuilder;
+
+      // initialize()는 항상 switch-organization Edge Function 경유
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { organization_id: 'org-abc', name: '테스트 조직', plan: 'basic', role: 'owner' },
+        error: null,
+      });
 
       await useAuthStore.getState().initialize();
 
@@ -119,11 +123,11 @@ describe('authStore', () => {
       expect(state.plan).toBe('basic');
       expect(state.session).toBe(fakeSession);
 
-      // 올바른 쿼리 파라미터로 호출됐는지 검증 (multi-org: .single() 없이 array 반환)
       expect(orgLinkBuilder.select).toHaveBeenCalledWith('organization_id, role, is_active');
       expect(orgLinkBuilder.eq).toHaveBeenCalledWith('user_id', 'user-123');
-      expect(orgBuilder.select).toHaveBeenCalledWith('plan, name');
-      expect(orgBuilder.eq).toHaveBeenCalledWith('id', 'org-abc');
+      expect(mockFunctionsInvoke).toHaveBeenCalledWith('switch-organization', {
+        body: { organization_id: 'org-abc' },
+      });
     });
 
     it('세션 없으면 loading: false (로그인 화면 표시)', async () => {
@@ -220,7 +224,10 @@ describe('authStore', () => {
       mockFromHandlers['user_organizations'] = createQueryBuilder([
         { organization_id: 'org-abc', role: 'owner', is_active: true },
       ]);
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: 'basic', name: 'Org' });
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { organization_id: 'org-abc', name: 'Org', plan: 'basic', role: 'owner' },
+        error: null,
+      });
 
       await useAuthStore.getState().initialize();
       // 두 번째 호출 — _initialized가 true이므로 즉시 리턴
@@ -254,28 +261,33 @@ describe('authStore', () => {
       const orgLinkBuilder = createQueryBuilder([
         { organization_id: 'org-123', role: 'member', is_active: true },
       ]);
-      const orgBuilder = createQueryBuilder({ plan: 'basic', name: 'Member Org' });
       mockFromHandlers['user_organizations'] = orgLinkBuilder;
-      mockFromHandlers['organizations'] = orgBuilder;
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { organization_id: 'org-123', name: 'Member Org', plan: 'basic', role: 'member' },
+        error: null,
+      });
 
       await useAuthStore.getState().initialize();
 
       expect(useAuthStore.getState().role).toBe('member');
     });
 
-    it('orgData null → plan fallback to trial', async () => {
+    it('Edge Function name 미반환 → TutorMate fallback', async () => {
       mockGetSession.mockResolvedValue({ data: { session: fakeSession } });
       mockFromHandlers['user_organizations'] = createQueryBuilder([
         { organization_id: 'org-abc', role: 'owner', is_active: true },
       ]);
-      mockFromHandlers['organizations'] = createQueryBuilder({ plan: null, name: null });
+      mockFunctionsInvoke.mockResolvedValue({
+        data: { organization_id: 'org-abc', name: '', plan: null, role: 'owner' },
+        error: null,
+      });
 
       await useAuthStore.getState().initialize();
 
       const state = useAuthStore.getState();
       expect(state.plan).toBe('trial');
       expect(state.organizationId).toBe('org-abc');
-      expect(state.organizationName).toBeNull();
+      expect(state.organizationName).toBe('TutorMate');
       expect(state.isCloud).toBe(true);
     });
 

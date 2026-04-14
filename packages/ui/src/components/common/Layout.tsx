@@ -94,6 +94,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 		try {
 			await useAuthStore.getState().switchOrganization(orgId);
+			// Edge Function 응답에 이름이 없을 수 있으므로, 드롭다운에서 알고 있는 이름으로 보장
+			if (targetName) useAuthStore.setState({ organizationName: targetName });
 			await reloadAllStores();
 			loadOrgs();
 		} catch {
@@ -197,7 +199,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 								onKeyDown={(e) => { if (e.key === 'Enter') setOrgMenuOpen(!orgMenuOpen); }}
 							>
 								<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-									{organizationName || 'TutorMate'}
+									{organizationName}
 								</span>
 								<ChevronDown style={{ width: 14, height: 14, opacity: 0.6, flexShrink: 0 }} />
 							</span>
@@ -243,7 +245,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 										const roleOrder: Record<string, number> = { owner: 0, admin: 1, member: 2 };
 										return (roleOrder[a.role || 'member']) - (roleOrder[b.role || 'member']);
 									})
-									: [{ id: currentOrgId || '_current', name: organizationName || 'TutorMate' }]
+									: [{ id: currentOrgId || '_current', name: organizationName || '', role: 'owner' }]
 								).map((org) => (
 									<div
 										key={org.id}

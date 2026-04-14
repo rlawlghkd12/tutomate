@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       organization_id,
-      name: org?.name || '',
+      name: org?.name || 'TutorMate',
       plan: org?.plan || 'trial',
       role: targetLink.role,
     }), {

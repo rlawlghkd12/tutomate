@@ -17,6 +17,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { CalendarIcon } from 'lucide-react';
 import { Calendar } from '../ui/calendar';
+import { cn } from '../../lib/utils';
 
 const DAYS_OF_WEEK = [
   { label: '일', value: 0 },
@@ -309,19 +310,17 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
           </>)}
 
           {step === 2 && (<>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* 📅 기간 */}
-              <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: 16 }}>
-                <div style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>📅</span> 기간
-                </div>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div className="flex flex-col gap-4">
+              {/* 기간 */}
+              <div className="rounded-xl border p-4">
+                <div className="text-sm font-semibold mb-3">기간</div>
+                <div className="flex gap-3 items-center">
                   <Controller control={form.control} name="schedule_startDate"
                     render={({ field }) => (
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" style={{ flex: 1, justifyContent: 'flex-start', fontSize: '1rem', fontWeight: 400 }}>
-                            <CalendarIcon style={{ width: 16, height: 16, marginRight: 8 }} />
+                          <Button variant="outline" className="flex-1 justify-start text-base font-normal">
+                            <CalendarIcon className="h-4 w-4 mr-2" />
                             {field.value ? format(field.value, 'PPP') : '시작일 선택'}
                           </Button>
                         </PopoverTrigger>
@@ -331,13 +330,13 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                       </Popover>
                     )}
                   />
-                  <span style={{ color: 'hsl(var(--muted-foreground))' }}>~</span>
+                  <span className="text-muted-foreground">~</span>
                   <Controller control={form.control} name="schedule_endDate"
                     render={({ field }) => (
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button variant="outline" style={{ flex: 1, justifyContent: 'flex-start', fontSize: '1rem', fontWeight: 400 }}>
-                            <CalendarIcon style={{ width: 16, height: 16, marginRight: 8 }} />
+                          <Button variant="outline" className="flex-1 justify-start text-base font-normal">
+                            <CalendarIcon className="h-4 w-4 mr-2" />
                             {field.value ? format(field.value, 'PPP') : '종료일 선택'}
                           </Button>
                         </PopoverTrigger>
@@ -350,15 +349,13 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                 </div>
               </div>
 
-              {/* 📆 요일 */}
-              <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: 16 }}>
-                <div style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>📆</span> 수업 요일
-                </div>
+              {/* 요일 */}
+              <div className="rounded-xl border p-4">
+                <div className="text-sm font-semibold mb-3">수업 요일</div>
                 <Controller control={form.control} name="schedule_daysOfWeek"
                   render={({ field }) => (
                     <div>
-                      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                      <div className="flex gap-1.5 mb-3">
                         {DAYS_OF_WEEK.map((day) => {
                           const isOn = field.value?.includes(day.value);
                           return (
@@ -369,22 +366,19 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                                   : [...field.value, day.value];
                                 field.onChange(newVal);
                               }}
-                              style={{
-                                width: 44, height: 44, borderRadius: 10,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '1.07rem', fontWeight: 500, cursor: 'pointer',
-                                border: isOn ? '1.5px solid hsl(var(--foreground))' : '1.5px solid hsl(var(--border))',
-                                background: isOn ? 'hsl(var(--foreground))' : 'transparent',
-                                color: isOn ? 'hsl(var(--background))' : 'hsl(var(--muted-foreground))',
-                                transition: 'all 0.15s',
-                              }}
+                              className={cn(
+                                'w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium cursor-pointer transition-all border',
+                                isOn
+                                  ? 'bg-foreground text-background border-foreground'
+                                  : 'bg-transparent text-muted-foreground border-border hover:border-foreground/30'
+                              )}
                             >
                               {day.label}
                             </button>
                           );
                         })}
                       </div>
-                      <div style={{ display: 'flex', gap: 6 }}>
+                      <div className="flex gap-1.5">
                         <Button type="button" variant="outline" size="sm" onClick={() => field.onChange([1, 2, 3, 4, 5])}>주중</Button>
                         <Button type="button" variant="outline" size="sm" onClick={() => field.onChange([0, 6])}>주말</Button>
                         <Button type="button" variant="outline" size="sm" onClick={() => field.onChange([1, 3, 5])}>월수금</Button>
@@ -395,12 +389,10 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                 />
               </div>
 
-              {/* 🕐 시간 */}
-              <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: 16 }}>
-                <div style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>🕐</span> 수업 시간
-                </div>
-                <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+              {/* 시간 */}
+              <div className="rounded-xl border p-4">
+                <div className="text-sm font-semibold mb-3">수업 시간</div>
+                <div className="flex gap-2 mb-3">
                   {[
                     { label: '오전반', sub: '9:00~12:00', start: '09:00', end: '12:00' },
                     { label: '오후반', sub: '13:00~17:00', start: '13:00', end: '17:00' },
@@ -410,43 +402,42 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                     return (
                       <button key={preset.label} type="button"
                         onClick={() => { form.setValue('schedule_startTime', preset.start); form.setValue('schedule_endTime', preset.end); }}
-                        style={{
-                          flex: 1, padding: '10px 8px', borderRadius: 10, cursor: 'pointer',
-                          textAlign: 'center', transition: 'all 0.15s',
-                          border: isActive ? '1.5px solid hsl(var(--foreground))' : '1.5px solid hsl(var(--border))',
-                          background: isActive ? 'hsl(var(--foreground))' : 'transparent',
-                          color: isActive ? 'hsl(var(--background))' : 'hsl(var(--foreground))',
-                        }}
+                        className={cn(
+                          'flex-1 py-2.5 px-2 rounded-lg cursor-pointer text-center transition-all border',
+                          isActive
+                            ? 'bg-foreground text-background border-foreground'
+                            : 'bg-transparent text-foreground border-border hover:border-foreground/30'
+                        )}
                       >
-                        <div style={{ fontSize: '0.93rem', fontWeight: 600 }}>{preset.label}</div>
-                        <div style={{ fontSize: '0.79rem', opacity: 0.6, marginTop: 2 }}>{preset.sub}</div>
+                        <div className="text-sm font-semibold">{preset.label}</div>
+                        <div className="text-xs opacity-60 mt-0.5">{preset.sub}</div>
                       </button>
                     );
                   })}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="flex items-center gap-3">
                   <Controller control={form.control} name="schedule_startTime"
                     render={({ field }) => (
                       <input type="time" value={field.value || '09:00'} onChange={(e) => field.onChange(e.target.value)}
-                        style={{ flex: 1, border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px', fontSize: '1.07rem', textAlign: 'center', background: 'transparent', color: 'hsl(var(--foreground))' }} />
+                        className="flex-1 h-10 rounded-lg border border-border bg-transparent text-center text-base text-foreground" />
                     )} />
-                  <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: '1.14rem' }}>~</span>
+                  <span className="text-muted-foreground text-lg">~</span>
                   <Controller control={form.control} name="schedule_endTime"
                     render={({ field }) => (
                       <input type="time" value={field.value || '12:00'} onChange={(e) => field.onChange(e.target.value)}
-                        style={{ flex: 1, border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px', fontSize: '1.07rem', textAlign: 'center', background: 'transparent', color: 'hsl(var(--foreground))' }} />
+                        className="flex-1 h-10 rounded-lg border border-border bg-transparent text-center text-base text-foreground" />
                     )} />
                 </div>
               </div>
 
               {/* 총 회차 */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Label htmlFor="schedule_totalSessions" style={{ whiteSpace: 'nowrap' }}>총 수업 회차</Label>
+              <div className="flex items-center gap-3">
+                <Label htmlFor="schedule_totalSessions" className="whitespace-nowrap">총 수업 회차</Label>
                 <Controller control={form.control} name="schedule_totalSessions"
                   render={({ field }) => (
-                    <Input id="schedule_totalSessions" type="number" value={field.value ?? ''} onChange={(e) => field.onChange(Number(e.target.value))} placeholder="12" min={1} style={{ width: 100, fontSize: '1.07rem' }} />
+                    <Input id="schedule_totalSessions" type="number" value={field.value ?? ''} onChange={(e) => field.onChange(Number(e.target.value))} placeholder="12" min={1} className="w-[100px] text-base" />
                   )} />
-                <span style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))' }}>회</span>
+                <span className="text-sm text-muted-foreground">회</span>
               </div>
             </div>
           </>)}
@@ -454,19 +445,19 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
           <DialogFooter>
             {step === 1 ? (
               <>
-                <Button type="button" variant="outline" onClick={onClose} style={{ fontSize: '1rem', padding: '10px 24px' }}>
+                <Button type="button" variant="outline" onClick={onClose} className="text-base px-6">
                   취소
                 </Button>
-                <Button type="button" onClick={() => setStep(2)} style={{ fontSize: '1rem', padding: '10px 24px' }}>
+                <Button type="button" onClick={() => setStep(2)} className="text-base px-6">
                   다음
                 </Button>
               </>
             ) : (
               <>
-                <Button type="button" variant="outline" onClick={() => setStep(1)} style={{ fontSize: '1rem', padding: '10px 24px' }}>
+                <Button type="button" variant="outline" onClick={() => setStep(1)} className="text-base px-6">
                   이전
                 </Button>
-                <Button type="button" disabled={submitting} onClick={form.handleSubmit(onSubmit)} style={{ fontSize: '1rem', padding: '10px 24px' }}>
+                <Button type="button" disabled={submitting} onClick={form.handleSubmit(onSubmit)} className="text-base px-6">
                   {course ? '수정' : '생성'}
                 </Button>
               </>

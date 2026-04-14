@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
-  DollarSign, CircleCheck, Clock, AlertTriangle,
   Download, FileSpreadsheet, FileText, Calendar,
 } from 'lucide-react';
 import { toast } from 'sonner';

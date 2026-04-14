@@ -9,7 +9,6 @@ import {
 	Card, CardContent, CardHeader, CardTitle, Progress, PageEnter,
 } from "@tutomate/ui";
 import {
-	EXEMPT_COLOR,
 	useCourseStore,
 	useEnrollmentStore,
 	useMonthlyPaymentStore,
@@ -32,11 +31,14 @@ const DashboardPage: React.FC = () => {
 			setLoading(false);
 		};
 		loadData().then(async () => {
-			const { enrollments, students, courses } = {
-				enrollments: useEnrollmentStore.getState().enrollments,
-				students: useStudentStore.getState().students,
-				courses: useCourseStore.getState().courses,
-			};
+			const allEnrollments = useEnrollmentStore.getState().enrollments;
+			const students = useStudentStore.getState().students;
+			const courses = useCourseStore.getState().courses;
+			// 현재 분기 enrollment만 알림 생성
+			const q = getCurrentQuarter();
+			const enrollments = allEnrollments.filter(
+				(e) => isActiveEnrollment(e) && (e.quarter === q || !e.quarter),
+			);
 			if (enrollments.length > 0 && students.length > 0 && courses.length > 0) {
 				generateAllNotifications(enrollments, students, courses);
 			}

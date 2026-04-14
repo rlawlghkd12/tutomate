@@ -6,7 +6,6 @@ import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 import { CourseRevenueChart, PaymentStatusChart, PageEnter } from "@tutomate/ui";
 import {
-	EXEMPT_COLOR,
 	useCourseStore,
 	useEnrollmentStore,
 	useMonthlyPaymentStore,
