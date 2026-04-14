@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@tutomate/ui';
 import { CourseList, CourseForm, PageEnter } from '@tutomate/ui';
 import { useCourseStore, getCurrentQuarter, getQuarterOptions } from '@tutomate/core';
@@ -7,7 +8,12 @@ import { useCourseStore, getCurrentQuarter, getQuarterOptions } from '@tutomate/
 const CoursesPage: React.FC = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const { loadCourses } = useCourseStore();
-  const [selectedQuarter, setSelectedQuarter] = useState(getCurrentQuarter());
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedQuarter = searchParams.get('q') || getCurrentQuarter();
+
+  const setSelectedQuarter = (quarter: string) => {
+    setSearchParams({ q: quarter }, { replace: true });
+  };
 
   useEffect(() => {
     loadCourses();
