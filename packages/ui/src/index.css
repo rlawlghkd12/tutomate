@@ -16,7 +16,7 @@
     --radius: 0.75rem;
     --font-size-base-value: 14px;
 
-    --background: 0 0% 94%;
+    --background: 0 0% 88%;
     --foreground: 0 0% 7%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 7%;
@@ -26,14 +26,14 @@
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 96%;
     --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 90%;
+    --muted: 0 0% 84%;
     --muted-foreground: 0 0% 26%;
-    --accent: 0 0% 92%;
+    --accent: 0 0% 86%;
     --accent-foreground: 0 0% 9%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 80%;
-    --input: 0 0% 88%;
+    --border: 0 0% 70%;
+    --input: 0 0% 82%;
     --ring: 211 100% 50%;
     --success: 142 76% 36%;
     --warning: 38 92% 50%;
