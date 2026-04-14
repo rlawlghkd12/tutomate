@@ -86,8 +86,8 @@ export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollme
           verticalAlign="bottom"
           wrapperStyle={{ paddingTop: 12, fontSize: 13, color: 'hsl(var(--muted-foreground))' }}
         />
-        <Bar dataKey="수익" fill="#555555" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="예상수익" fill="#b0b0b0" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="수익" fill="#6366f1" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="예상수익" fill="#a5b4fc" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
