@@ -13,29 +13,29 @@
 
 @layer base {
   :root {
-    --radius: 0.75rem;
-    --font-size-base-value: 14px;
+    --radius: 0.625rem;
+    --font-size-base-value: 15px;
 
     --background: 0 0% 100%;
-    --foreground: 0 0% 7%;
+    --foreground: 240 2% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 7%;
+    --card-foreground: 240 2% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 7%;
-    --primary: 0 0% 18%;
+    --popover-foreground: 240 2% 11%;
+    --primary: 240 2% 11%;
     --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 93%;
-    --muted-foreground: 0 0% 26%;
-    --accent: 0 0% 91%;
-    --accent-foreground: 0 0% 9%;
+    --secondary-foreground: 240 2% 11%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 240 1% 40%;
+    --accent: 0 0% 94%;
+    --accent-foreground: 240 2% 11%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 72%;
-    --input: 0 0% 88%;
-    --layout-bg: 30 4% 98%;
-    --ring: 0 0% 18%;
+    --border: 0 0% 88%;
+    --input: 0 0% 96%;
+    --layout-bg: 0 0% 94%;
+    --ring: 240 2% 11%;
     --success: 142 76% 36%;
     --warning: 38 92% 50%;
     --info: 217 91% 60%;
@@ -56,8 +56,8 @@
     --card-foreground: 0 0% 90%;
     --popover: 0 0% 13%;
     --popover-foreground: 0 0% 90%;
-    --primary: 211 100% 58%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 0 0% 90%;
+    --primary-foreground: 240 2% 11%;
     --secondary: 0 0% 16%;
     --secondary-foreground: 0 0% 87%;
     --muted: 0 0% 13%;
@@ -68,7 +68,8 @@
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 20%;
     --input: 0 0% 18%;
-    --ring: 211 100% 58%;
+    --ring: 0 0% 90%;
+    --layout-bg: 0 0% 12%;
     --success: 142 60% 45%;
     --warning: 38 92% 55%;
     --info: 217 91% 65%;
@@ -89,7 +90,7 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', 'Roboto', sans-serif;
     font-size: var(--font-size-base-value);
     transition: font-size 0.2s ease;
   }
