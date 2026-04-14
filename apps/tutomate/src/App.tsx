@@ -81,7 +81,7 @@ function App() {
   if (!session) {
     return (
       <ErrorBoundary>
-        <div className="flex h-screen items-center justify-center" style={{ background: 'hsl(var(--muted))' }}>
+        <div className="flex h-screen items-center justify-center" style={{ background: 'hsl(var(--layout-bg))' }}>
           <div className="w-full max-w-[380px] rounded-2xl p-12 text-center shadow-lg" style={{ background: 'hsl(var(--background))' }}>
             <img
               src="icon.png"

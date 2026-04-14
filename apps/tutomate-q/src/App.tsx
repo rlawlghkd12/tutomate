@@ -81,7 +81,7 @@ function App() {
   if (!session) {
     return (
       <ErrorBoundary>
-        <div className="flex h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-200">
+        <div className="flex h-screen items-center justify-center" style={{ background: 'hsl(var(--layout-bg))' }}>
           <div className="w-full max-w-[380px] rounded-2xl bg-white p-12 text-center shadow-lg">
             <img
               src="icon.png"
