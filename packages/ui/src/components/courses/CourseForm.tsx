@@ -180,130 +180,91 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[700px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-[580px]">
         <DialogHeader>
-          <DialogTitle>{course ? '강좌 수정' : '강좌 개설'}</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-base">{course ? '강좌 수정' : '강좌 개설'}</DialogTitle>
+            <div className="flex items-center gap-1.5 text-sm mr-6">
+              <span className={step === 1 ? 'font-semibold' : 'text-muted-foreground'}>기본 정보</span>
+              <span className="text-muted-foreground/40">›</span>
+              <span className={step === 2 ? 'font-semibold' : 'text-muted-foreground'}>일정</span>
+            </div>
+          </div>
         </DialogHeader>
-
-        {/* 스텝 인디케이터 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, marginTop: 16 }}>
-          <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'hsl(var(--foreground))', color: 'hsl(var(--background))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.86rem', fontWeight: 700 }}>1</div>
-          <span style={{ fontSize: '0.93rem', fontWeight: step === 1 ? 600 : 400, color: step === 1 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>기본 정보</span>
-          <div style={{ width: 30, height: 1, background: 'hsl(var(--border))' }} />
-          <div style={{ width: 24, height: 24, borderRadius: '50%', background: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--border))', color: step === 2 ? 'hsl(var(--background))' : 'hsl(var(--muted-foreground))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.86rem', fontWeight: 700 }}>2</div>
-          <span style={{ fontSize: '0.93rem', fontWeight: step === 2 ? 600 : 400, color: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>일정 설정</span>
-        </div>
 
         <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
           {step === 1 && (<>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">강좌 이름</Label>
-              <Input
-                id="name"
-                {...form.register('name')}
-                placeholder="예: 요가 초급"
-                className="text-base"
-              />
-              {form.formState.errors.name && (
-                <p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.name.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="classroom">강의실</Label>
-              <Input
-                id="classroom"
-                {...form.register('classroom')}
-                placeholder="예: A동 301호"
-                className="text-base"
-              />
-              {form.formState.errors.classroom && (
-                <p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.classroom.message}</p>
-              )}
+          {/* 강좌 정보 */}
+          <div className="rounded-xl border p-4 space-y-3">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">강좌 정보</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="name">강좌 이름</Label>
+                <Input id="name" {...form.register('name')} placeholder="예: 요가 초급" className="text-base" />
+                {form.formState.errors.name && <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="classroom">강의실</Label>
+                <Input id="classroom" {...form.register('classroom')} placeholder="예: A동 301호" className="text-base" />
+                {form.formState.errors.classroom && <p className="text-sm text-destructive">{form.formState.errors.classroom.message}</p>}
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="instructorName">강사 이름</Label>
-              <Input
-                id="instructorName"
-                {...form.register('instructorName')}
-                placeholder="예: 홍길동"
-                className="text-base"
-              />
-              {form.formState.errors.instructorName && (
-                <p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.instructorName.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="instructorPhone">강사 전화번호</Label>
-              <Input
-                id="instructorPhone"
-                {...form.register('instructorPhone')}
-                placeholder="01012341234"
-                maxLength={13}
-                onChange={(e) => {
-                  form.setValue('instructorPhone', formatPhone(e.target.value));
-                }}
-                className="text-base"
-              />
-              {form.formState.errors.instructorPhone && (
-                <p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.instructorPhone.message}</p>
-              )}
+          {/* 강사 정보 */}
+          <div className="rounded-xl border p-4 space-y-3">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">강사 정보</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="instructorName">이름</Label>
+                <Input id="instructorName" {...form.register('instructorName')} placeholder="예: 홍길동" className="text-base" />
+                {form.formState.errors.instructorName && <p className="text-sm text-destructive">{form.formState.errors.instructorName.message}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="instructorPhone">전화번호</Label>
+                <Input id="instructorPhone" {...form.register('instructorPhone')} placeholder="01012341234" maxLength={13}
+                  onChange={(e) => form.setValue('instructorPhone', formatPhone(e.target.value))} className="text-base" />
+                {form.formState.errors.instructorPhone && <p className="text-sm text-destructive">{form.formState.errors.instructorPhone.message}</p>}
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="fee">수강료</Label>
-              <Controller
-                control={form.control}
-                name="fee"
-                render={({ field }) => (
-                  <div className="space-y-2">
-                    <Input
-                      id="fee"
-                      type="number"
-                      step={5000}
-                      value={field.value}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                      placeholder="30000"
-                      className="text-base"
-                    />
-                    <div className="flex gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('fee', 20000)}>2만원</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('fee', 30000)}>3만원</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('fee', 50000)}>5만원</Button>
+          {/* 수강료 / 정원 */}
+          <div className="rounded-xl border p-4 space-y-3">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">수강료 / 정원</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="fee">수강료</Label>
+                <Controller control={form.control} name="fee"
+                  render={({ field }) => (
+                    <div className="space-y-2">
+                      <Input id="fee" type="number" step={5000} value={field.value}
+                        onChange={(e) => field.onChange(Number(e.target.value))} placeholder="30000" className="text-base" />
+                      <div className="flex gap-1.5">
+                        <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('fee', 20000)}>2만원</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('fee', 30000)}>3만원</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('fee', 50000)}>5만원</Button>
+                      </div>
                     </div>
-                  </div>
-                )}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="maxStudents">최대 인원</Label>
-              <Controller
-                control={form.control}
-                name="maxStudents"
-                render={({ field }) => (
-                  <div className="space-y-2">
-                    <Input
-                      id="maxStudents"
-                      type="number"
-                      value={field.value}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                      placeholder="20"
-                      className="text-base"
-                      min={1}
-                    />
-                    <div className="flex flex-wrap gap-1">
-                      {[15, 20, 25, 30, 35].map((n) => (
-                        <Button key={n} type="button" variant="outline" size="sm" onClick={() => form.setValue('maxStudents', n)}>{n}명</Button>
-                      ))}
+                  )}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="maxStudents">최대 인원</Label>
+                <Controller control={form.control} name="maxStudents"
+                  render={({ field }) => (
+                    <div className="space-y-2">
+                      <Input id="maxStudents" type="number" value={field.value}
+                        onChange={(e) => field.onChange(Number(e.target.value))} placeholder="20" className="text-base" min={1} />
+                      <div className="flex flex-wrap gap-1.5">
+                        {[15, 20, 25, 30, 35].map((n) => (
+                          <Button key={n} type="button" variant="outline" size="sm" onClick={() => form.setValue('maxStudents', n)}>{n}명</Button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              />
+                  )}
+                />
+              </div>
             </div>
           </div>
 
@@ -313,7 +274,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
           <div className="flex flex-col gap-4">
               {/* 기간 */}
               <div className="rounded-xl border p-4">
-                <div className="text-sm font-semibold mb-3">기간</div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">기간</div>
                 <div className="flex gap-3 items-center">
                   <Controller control={form.control} name="schedule_startDate"
                     render={({ field }) => (
@@ -351,7 +312,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
 
               {/* 요일 */}
               <div className="rounded-xl border p-4">
-                <div className="text-sm font-semibold mb-3">수업 요일</div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">수업 요일</div>
                 <Controller control={form.control} name="schedule_daysOfWeek"
                   render={({ field }) => (
                     <div>
@@ -391,7 +352,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
 
               {/* 시간 */}
               <div className="rounded-xl border p-4">
-                <div className="text-sm font-semibold mb-3">수업 시간</div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">수업 시간</div>
                 <div className="flex gap-2 mb-3">
                   {[
                     { label: '오전반', sub: '9:00~12:00', start: '09:00', end: '12:00' },
