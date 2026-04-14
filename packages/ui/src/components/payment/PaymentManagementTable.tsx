@@ -802,19 +802,14 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               납부 이력이 없습니다
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 400, overflowY: 'auto' }}>
+            <div className="flex flex-col gap-2 max-h-[400px] overflow-y-auto">
               {(selectedData?.records ?? []).map((r) => (
-                <div
-                  key={r.id}
-                  className="rounded-lg border bg-card"
-                  style={{ padding: '12px 16px' }}
-                >
-                  {/* 상단: 금액 + 방법 + 삭제 */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div key={r.id} className="rounded-xl border p-4">
+                  <div className="flex items-center gap-2 mb-3">
                     <Input
                       type="number"
                       step={5000}
-                      className="h-7 text-[1.07rem] font-semibold w-[120px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="h-8 text-base font-semibold w-[130px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       defaultValue={r.amount}
                       onBlur={(e) => {
                         const val = Number(e.target.value);
@@ -825,7 +820,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                     />
                     <button
                       type="button"
-                      className="text-xs px-2 py-0.5 rounded-full border cursor-pointer hover:bg-muted transition-colors"
+                      className="text-xs px-2.5 py-1 rounded-full border cursor-pointer hover:bg-muted transition-colors"
                       onClick={() => {
                         const methods = Object.values(PaymentMethodEnum) as PaymentMethod[];
                         const currentIdx = methods.indexOf(r.paymentMethod as PaymentMethod);
@@ -837,10 +832,10 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                         ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS]
                         : '-'}
                     </button>
-                    <div style={{ marginLeft: 'auto' }}>
+                    <div className="ml-auto">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10">
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10">
                             <X className="h-3 w-3" />
                           </Button>
                         </AlertDialogTrigger>
@@ -862,11 +857,10 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                       </AlertDialog>
                     </div>
                   </div>
-                  {/* 하단: 날짜 + 메모 */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="flex items-center gap-2">
                     <Input
                       type="date"
-                      className="h-7 text-sm w-[140px] cursor-pointer"
+                      className="h-8 text-sm w-[140px] cursor-pointer"
                       defaultValue={r.paidAt || ''}
                       onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
                       onBlur={(e) => {
@@ -877,7 +871,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                       }}
                     />
                     <Input
-                      className="h-7 text-xs flex-1"
+                      className="h-8 text-sm flex-1"
                       defaultValue={r.notes ?? ''}
                       placeholder="메모 입력"
                       onBlur={(e) => {

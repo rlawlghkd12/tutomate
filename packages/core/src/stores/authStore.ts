@@ -82,39 +82,36 @@ export const useAuthStore = create<AuthStore>((set) => ({
         return;
       }
 
-      // owner 조직 우선 선택
+      // 활성 조직 우선 → 없으면 owner → 없으면 첫 번째
+      const activeLink = orgLinks?.find((l: any) => l.is_active);
       const ownerLink = orgLinks?.find((l: any) => l.role === 'owner');
-      const orgLink = ownerLink || orgLinks?.[0] || null;
-
-      // owner 조직이 활성 상태가 아니면 is_active 토글 (DB + RLS 동기화)
-      if (ownerLink && !ownerLink.is_active) {
-        try {
-          await supabase.functions.invoke('switch-organization', {
-            body: { organization_id: ownerLink.organization_id },
-          });
-        } catch (e) {
-          logWarn('Failed to switch to owner org on init', { error: e });
-        }
-      }
+      const orgLink = activeLink || ownerLink || orgLinks?.[0] || null;
 
       if (orgLink) {
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('plan, name')
-          .eq('id', orgLink.organization_id)
-          .single();
+        // 항상 switch-organization Edge Function 경유 (service role → RLS 무관, is_active 동기화)
+        let orgName = 'TutorMate';
+        let orgPlan: string = 'trial';
+        try {
+          const { data } = await supabase.functions.invoke('switch-organization', {
+            body: { organization_id: orgLink.organization_id },
+          });
+          if (data?.name) orgName = data.name;
+          if (data?.plan) orgPlan = data.plan;
+        } catch (e) {
+          logWarn('Failed to fetch org via switch-organization', { error: e });
+        }
 
         set({
           session,
           organizationId: orgLink.organization_id,
-          organizationName: orgData?.name || null,
+          organizationName: orgName,
           role: (orgLink.role as OrgRoleType) || 'member',
-          plan: (orgData?.plan as PlanType) || PlanTypeEnum.TRIAL,
+          plan: (orgPlan as PlanType) || PlanTypeEnum.TRIAL,
           isCloud: true,
           loading: false,
         });
         _initialized = true;
-        logInfo('Cloud session restored', { data: { orgId: orgLink.organization_id, plan: orgData?.plan } });
+        logInfo('Cloud session restored', { data: { orgId: orgLink.organization_id, name: orgName, plan: orgPlan } });
       } else {
         // 로그인됐지만 org 없음 → 자동으로 조직 생성
         logInfo('No active org found, auto-creating org');
@@ -188,7 +185,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
       set({
         organizationId,
-        organizationName: name || null,
+        organizationName: name || 'TutorMate',
         role,
         plan,
         isCloud: true,
@@ -221,17 +218,17 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const organizationId = data.organization_id as string;
       const role = (data.role as OrgRoleType) || 'member';
       const plan = (data.plan as PlanType) || PlanTypeEnum.TRIAL;
-      const name = (data.name as string) || '';
+      const name = (data.name as string) || 'TutorMate';
 
       set({
         organizationId,
-        organizationName: name || null,
+        organizationName: name,
         role,
         plan,
         isCloud: true,
         loading: false,
       });
-      logInfo('Switched organization', { data: { orgId: organizationId, role, plan } });
+      logInfo('Switched organization', { data: { orgId: organizationId, name, role, plan } });
     } catch (error) {
       set({ loading: false });
       throw error;

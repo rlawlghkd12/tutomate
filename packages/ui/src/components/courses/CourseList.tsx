@@ -237,6 +237,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
       sorting,
     },
     onSortingChange: setSorting,
+    columnResizeMode: 'onChange',
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -304,29 +305,42 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
       </div>
 
       <div className="rounded-xl overflow-hidden bg-card [box-shadow:var(--shadow-sm)]">
-      <Table>
+      <Table style={{ width: table.getCenterTotalSize() }}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
+                  className="relative group"
                   style={{
                     width: header.getSize(),
                     cursor: header.column.getCanSort() ? 'pointer' : undefined,
-                    userSelect: header.column.getCanSort() ? 'none' : undefined,
+                    userSelect: 'none',
                   }}
                   onClick={header.column.getToggleSortingHandler()}
                 >
                   {header.isPlaceholder ? null : (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <span className="inline-flex items-center gap-1">
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getCanSort() && (
-                        <span style={{ fontSize: '0.71rem', opacity: header.column.getIsSorted() ? 1 : 0.3 }}>
+                        <span className="text-[0.71rem]" style={{ opacity: header.column.getIsSorted() ? 1 : 0.3 }}>
                           {header.column.getIsSorted() === 'asc' ? '▲' : header.column.getIsSorted() === 'desc' ? '▼' : '⇅'}
                         </span>
                       )}
                     </span>
+                  )}
+                  {header.column.getCanResize() && (
+                    <div
+                      onMouseDown={header.getResizeHandler()}
+                      onTouchStart={header.getResizeHandler()}
+                      onClick={(e) => e.stopPropagation()}
+                      className={cn(
+                        'absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none opacity-0 group-hover:opacity-100 transition-opacity',
+                        header.column.getIsResizing() && 'opacity-100 bg-primary'
+                      )}
+                      style={{ background: header.column.getIsResizing() ? undefined : 'hsl(var(--border))' }}
+                    />
                   )}
                 </TableHead>
               ))}
@@ -345,7 +359,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
                 onClick={() => handleView(row.original.id)}
               >
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
+                  <TableCell key={cell.id} style={{ width: cell.column.getSize() }}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}

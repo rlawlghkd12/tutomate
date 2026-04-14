@@ -4,29 +4,23 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "../../lib/utils"
 
 /**
- * macOS-native badge — semantic meaning through contrast weight, not color.
- *
- * Contrast hierarchy (high → low):
- *   error/destructive  → inverted chip  (bg-foreground / text-background)
- *   warning            → bordered chip  (border-foreground/30 / text-foreground)
- *   success            → muted chip     (bg-muted / text-muted-foreground)
- *   secondary/info     → muted chip     (bg-muted / text-muted-foreground)
- *   default            → neutral chip
+ * macOS-native solid capsule badge.
+ * Apple HIG system colors — solid fill + white text for semantic states.
  */
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold leading-none whitespace-nowrap transition-colors focus:outline-none",
+  "inline-flex items-center rounded-full px-3.5 py-1.5 text-[0.786rem] font-semibold leading-none whitespace-nowrap transition-colors focus:outline-none",
   {
     variants: {
       variant: {
-        default:      "bg-muted text-foreground",
-        secondary:    "bg-muted text-muted-foreground",
-        outline:      "bg-muted text-foreground",
-        success:      "bg-muted text-foreground",
-        warning:      "bg-warning-subtle text-warning",
-        error:        "bg-error-subtle text-error",
-        destructive:  "bg-error-subtle text-error",
-        info:         "bg-info-subtle text-info",
-        purple:       "bg-[hsl(263,70%,50%/0.12)] text-[hsl(263,70%,40%)]",
+        default:     "bg-muted text-foreground",
+        secondary:   "bg-muted text-muted-foreground",
+        outline:     "bg-muted text-foreground",
+        success:     "bg-muted text-foreground",
+        warning:     "bg-[#FF9500] text-white dark:bg-[#FF9F0A]",
+        error:       "bg-[#FF3B30] text-white dark:bg-[#FF453A]",
+        destructive: "bg-[#FF3B30] text-white dark:bg-[#FF453A]",
+        info:        "bg-[#007AFF] text-white dark:bg-[#0A84FF]",
+        purple:      "bg-[#AF52DE] text-white dark:bg-[#BF5AF2]",
       },
     },
     defaultVariants: {

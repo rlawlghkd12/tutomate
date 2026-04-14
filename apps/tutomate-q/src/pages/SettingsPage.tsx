@@ -245,7 +245,7 @@ const SettingsPage: React.FC = () => {
                     : '모든 기능을 제한 없이 사용 가능'}
                 </p>
               </div>
-              <Badge variant={planBadgeVariant} className="text-[13px] px-2.5 py-0.5">
+              <Badge variant={planBadgeVariant}>
                 {currentPlan === 'trial' ? '체험판' : currentPlan === 'admin' ? 'Admin' : 'Basic'}
               </Badge>
             </div>

@@ -21,7 +21,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
     {...props}
@@ -35,7 +35,6 @@ const DialogContent = React.forwardRef<
 >(({ className, children, ...props }, ref) => {
   const wrapperRef = React.useRef<HTMLDivElement>(null)
 
-  // Use callback ref on wrapper to ensure it's available
   const setupRef = React.useCallback((node: HTMLDivElement | null) => {
     (wrapperRef as React.MutableRefObject<HTMLDivElement | null>).current = node
     if (!node) return
@@ -63,33 +62,24 @@ const DialogContent = React.forwardRef<
       <DialogOverlay />
       <DialogPrimitive.Content
         ref={ref}
-        className={cn("", className)}
-        {...props}
+        className={cn(
+          "fixed left-[50%] top-[50%] z-50 w-[600px] translate-x-[-50%] translate-y-[-50%] rounded-xl bg-background shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-[0.98] data-[state=open]:zoom-in-[0.98]",
+          className
+        )}
         style={{
-          position: 'fixed',
-          left: '50%',
-          top: '50%',
-          transform: 'translate(-50%, -50%)',
-          zIndex: 50,
-          width: 600,
           maxHeight: '85vh',
-          border: '1px solid hsl(var(--border))',
-          borderRadius: 12,
-          background: 'hsl(var(--background))',
-          color: 'hsl(var(--foreground))',
-          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
           overflow: 'hidden',
-          transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           ...props.style,
         }}
+        {...props}
       >
         <div ref={setupRef} data-dialog-wrapper="" style={{ overflow: 'hidden' }}>
-          <div style={{ padding: 24, maxHeight: '85vh', overflowY: 'auto' }}>
+          <div className="p-6 max-h-[85vh] overflow-y-auto">
             {children}
           </div>
         </div>
-        <DialogPrimitive.Close style={{ position: 'absolute', right: 16, top: 16, borderRadius: 4, opacity: 0.7, border: 'none', background: 'transparent', cursor: 'pointer', color: 'hsl(var(--foreground))' }}>
-          <X style={{ width: 16, height: 16 }} />
+        <DialogPrimitive.Close className="absolute right-3 top-3 rounded-full p-1 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground focus:outline-none">
+          <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
@@ -104,7 +94,7 @@ const DialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-1.5 text-center sm:text-left",
+      "flex flex-col space-y-1.5 text-left pb-4 border-b",
       className
     )}
     {...props}
@@ -118,7 +108,7 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 pt-4",
+      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 border-t pt-4 mt-2",
       className
     )}
     {...props}
