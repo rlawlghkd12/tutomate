@@ -303,6 +303,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
         {actions && <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', gap: 8 }}>{actions}</div>}
       </div>
 
+      <div className="rounded-xl overflow-hidden bg-card [box-shadow:var(--shadow-sm)]">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -361,6 +362,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
           )}
         </TableBody>
       </Table>
+      </div>
     </>
   );
 };

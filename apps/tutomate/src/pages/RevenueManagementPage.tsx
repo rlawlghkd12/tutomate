@@ -337,34 +337,34 @@ const RevenueManagementPage: React.FC = () => {
       {/* 상단 통계 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> 총 수익</p>
-            <p className="text-xl font-bold text-success">
-              {totalRevenue.toLocaleString()}<span className="text-sm font-normal">원</span>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">총 수익</p>
+            <p className="text-2xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
+              {totalRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> 예상 총 수익</p>
-            <p className="text-xl font-bold text-primary">
-              {expectedRevenue.toLocaleString()}<span className="text-sm font-normal">원</span>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">예상 수익</p>
+            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
+              {expectedRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> 총 미수금</p>
-            <p className="text-xl font-bold text-error">
-              {totalUnpaid.toLocaleString()}<span className="text-sm font-normal">원</span>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미수금</p>
+            <p className="text-2xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
+              {totalUnpaid.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3" /> 수익률</p>
-            <p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>
-              {(expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0).toFixed(1)}<span className="text-sm font-normal">%</span>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수익률</p>
+            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
+              {(expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0).toFixed(1)}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
             </p>
           </CardContent>
         </Card>
@@ -372,34 +372,34 @@ const RevenueManagementPage: React.FC = () => {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3" /> 완납</p>
-            <p className="text-xl font-bold text-success">
-              {completedPayments}<span className="text-sm font-normal">건</span>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
+            <p className="text-3xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
+              {completedPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> 부분납부</p>
-            <p className="text-xl font-bold text-warning">
-              {partialPayments}<span className="text-sm font-normal">건</span>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">부분납부</p>
+            <p className="text-3xl font-bold tabular-nums text-warning" style={{ letterSpacing: '-0.02em' }}>
+              {partialPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> 미납</p>
-            <p className="text-xl font-bold text-error">
-              {pendingPayments}<span className="text-sm font-normal">건</span>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납</p>
+            <p className="text-3xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
+              {pendingPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3">
-            <p className="text-xs text-muted-foreground">면제</p>
-            <p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>
-              {exemptPayments}<span className="text-sm font-normal">건</span>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">면제</p>
+            <p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em', color: EXEMPT_COLOR }}>
+              {exemptPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
           </CardContent>
         </Card>
@@ -416,33 +416,33 @@ const RevenueManagementPage: React.FC = () => {
         </TabsList>
 
         <TabsContent value="1">
-          <div className="border rounded-md overflow-hidden">
+          <div className="rounded-xl overflow-hidden bg-card [box-shadow:var(--shadow-sm)]">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="p-2 text-left font-medium">강좌명</th>
-                  <th className="p-2 text-left font-medium">수강생 수</th>
-                  <th className="p-2 text-left font-medium">수익</th>
-                  <th className="p-2 text-left font-medium">예상 수익</th>
-                  <th className="p-2 text-left font-medium">미수금</th>
-                  <th className="p-2 text-left font-medium">완납률</th>
+                <tr className="border-b">
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">강좌명</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">수강생 수</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">수익</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">예상 수익</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">미수금</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">완납률</th>
                 </tr>
               </thead>
               <tbody>
                 {courseRevenueData.map((row) => (
                   <tr key={row.courseId} className="border-b hover:bg-muted/30">
-                    <td className="p-2">{row.courseName}</td>
-                    <td className="p-2">{row.studentCount}</td>
-                    <td className="p-2">{'\u20A9'}{row.revenue.toLocaleString()}</td>
-                    <td className="p-2">{'\u20A9'}{row.expected.toLocaleString()}</td>
+                    <td className="px-3 py-3.5">{row.courseName}</td>
+                    <td className="px-3 py-3.5">{row.studentCount}</td>
+                    <td className="px-3 py-3.5">{'\u20A9'}{row.revenue.toLocaleString()}</td>
+                    <td className="px-3 py-3.5">{'\u20A9'}{row.expected.toLocaleString()}</td>
                     <td className={`p-2 ${row.unpaid > 0 ? 'text-error' : 'text-success'}`}>
                       {'\u20A9'}{row.unpaid.toLocaleString()}
                     </td>
-                    <td className="p-2">{row.completionRate.toFixed(1)}%</td>
+                    <td className="px-3 py-3.5">{row.completionRate.toFixed(1)}%</td>
                   </tr>
                 ))}
                 {courseRevenueData.length === 0 && (
-                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">데이터가 없습니다</td></tr>
+                  <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">데이터가 없습니다</td></tr>
                 )}
               </tbody>
             </table>
@@ -450,21 +450,21 @@ const RevenueManagementPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="2">
-          <div className="border rounded-md overflow-auto">
+          <div className="rounded-xl overflow-auto bg-card [box-shadow:var(--shadow-sm)]">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="p-2 text-left font-medium">수강생</th>
-                  <th className="p-2 text-left font-medium">전화번호</th>
-                  <th className="p-2 text-left font-medium">강좌</th>
-                  <th className="p-2 text-left font-medium">수강료</th>
-                  <th className="p-2 text-left font-medium">납부 상태</th>
-                  <th className="p-2 text-left font-medium">납부 금액</th>
-                  <th className="p-2 text-left font-medium">납부일</th>
-                  <th className="p-2 text-left font-medium">납부 방법</th>
-                  <th className="p-2 text-left font-medium">할인</th>
-                  <th className="p-2 text-left font-medium">잔여 금액</th>
-                  <th className="p-2 text-left font-medium">작업</th>
+                <tr className="border-b">
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">수강생</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">전화번호</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">강좌</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">수강료</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">납부 상태</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">납부 금액</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">납부일</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">납부 방법</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">할인</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">잔여 금액</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">작업</th>
                 </tr>
               </thead>
               <tbody>
@@ -472,23 +472,23 @@ const RevenueManagementPage: React.FC = () => {
                   const s = statusMap[row.paymentStatus] || { label: row.paymentStatus, variant: 'secondary' as const };
                   return (
                     <tr key={row.id} className="border-b hover:bg-muted/30">
-                      <td className="p-2">{row.studentName}</td>
-                      <td className="p-2">{row.studentPhone}</td>
-                      <td className="p-2">{row.courseName}</td>
-                      <td className="p-2">{'\u20A9'}{row.courseFee.toLocaleString()}</td>
-                      <td className="p-2"><Badge variant={s.variant}>{s.label}</Badge></td>
-                      <td className="p-2">{'\u20A9'}{row.paidAmount.toLocaleString()}</td>
-                      <td className="p-2">{row.paidAt || '-'}</td>
-                      <td className="p-2">{row.paymentMethod ? PAYMENT_METHOD_LABELS[row.paymentMethod] : '-'}</td>
-                      <td className="p-2">
+                      <td className="px-3 py-3.5">{row.studentName}</td>
+                      <td className="px-3 py-3.5">{row.studentPhone}</td>
+                      <td className="px-3 py-3.5">{row.courseName}</td>
+                      <td className="px-3 py-3.5">{'\u20A9'}{row.courseFee.toLocaleString()}</td>
+                      <td className="px-3 py-3.5"><Badge variant={s.variant}>{s.label}</Badge></td>
+                      <td className="px-3 py-3.5">{'\u20A9'}{row.paidAmount.toLocaleString()}</td>
+                      <td className="px-3 py-3.5">{row.paidAt || '-'}</td>
+                      <td className="px-3 py-3.5">{row.paymentMethod ? PAYMENT_METHOD_LABELS[row.paymentMethod] : '-'}</td>
+                      <td className="px-3 py-3.5">
                         {row.discountAmount > 0 ? (
                           <span className="text-success">-{'\u20A9'}{row.discountAmount.toLocaleString()}</span>
                         ) : '-'}
                       </td>
-                      <td className="p-2">
+                      <td className="px-3 py-3.5">
                         <span className="text-error font-bold">{'\u20A9'}{row.remainingAmount.toLocaleString()}</span>
                       </td>
-                      <td className="p-2">
+                      <td className="px-3 py-3.5">
                         <Button variant="link" size="sm" className="h-auto p-0" onClick={() => handlePaymentEdit(row)}>
                           납부 처리
                         </Button>
@@ -497,7 +497,7 @@ const RevenueManagementPage: React.FC = () => {
                   );
                 })}
                 {unpaidList.length === 0 && (
-                  <tr><td colSpan={11} className="p-8 text-center text-muted-foreground">미납자가 없습니다</td></tr>
+                  <tr><td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">미납자가 없습니다</td></tr>
                 )}
               </tbody>
             </table>
@@ -545,35 +545,35 @@ const RevenueManagementPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="border rounded-md overflow-hidden">
+          <div className="rounded-xl overflow-hidden bg-card [box-shadow:var(--shadow-sm)]">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="p-2 text-left font-medium">강좌명</th>
-                  <th className="p-2 text-left font-medium w-20">수강생</th>
-                  <th className="p-2 text-left font-medium w-[70px]">납부</th>
-                  <th className="p-2 text-left font-medium w-[70px]">미납</th>
-                  <th className="p-2 text-left font-medium">분기 수익</th>
-                  <th className="p-2 text-left font-medium">예상 수익</th>
-                  <th className="p-2 text-left font-medium">수납률</th>
+                <tr className="border-b">
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">강좌명</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase w-20">수강생</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase w-[70px]">납부</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase w-[70px]">미납</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">분기 수익</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">예상 수익</th>
+                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">수납률</th>
                 </tr>
               </thead>
               <tbody>
                 {quarterRevenueData.map((row) => (
                   <tr key={row.courseId} className="border-b hover:bg-muted/30">
-                    <td className="p-2">{row.courseName}</td>
-                    <td className="p-2">{row.studentCount}</td>
-                    <td className="p-2 text-success">{row.paidCount}명</td>
+                    <td className="px-3 py-3.5">{row.courseName}</td>
+                    <td className="px-3 py-3.5">{row.studentCount}</td>
+                    <td className="px-3 py-3.5 text-success">{row.paidCount}명</td>
                     <td className={`p-2 ${row.unpaidCount > 0 ? 'text-error' : 'text-success'}`}>{row.unpaidCount}명</td>
-                    <td className="p-2">{'\u20A9'}{row.quarterRevenue.toLocaleString()}</td>
-                    <td className="p-2">{'\u20A9'}{row.quarterExpected.toLocaleString()}</td>
+                    <td className="px-3 py-3.5">{'\u20A9'}{row.quarterRevenue.toLocaleString()}</td>
+                    <td className="px-3 py-3.5">{'\u20A9'}{row.quarterExpected.toLocaleString()}</td>
                     <td className={`p-2 ${row.collectionRate >= 100 ? 'text-success' : row.collectionRate >= 50 ? 'text-warning' : 'text-error'}`}>
                       {row.collectionRate.toFixed(1)}%
                     </td>
                   </tr>
                 ))}
                 {quarterRevenueData.length === 0 && (
-                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">데이터가 없습니다</td></tr>
+                  <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">데이터가 없습니다</td></tr>
                 )}
               </tbody>
             </table>
