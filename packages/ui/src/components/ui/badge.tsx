@@ -3,32 +3,51 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "../../lib/utils"
 
+/**
+ * macOS-native badge — semantic meaning through contrast weight, not color.
+ *
+ * Contrast hierarchy (high → low):
+ *   error/destructive  → inverted chip  (bg-foreground / text-background)
+ *   warning            → bordered chip  (border-foreground/30 / text-foreground)
+ *   success            → muted chip     (bg-muted / text-muted-foreground)
+ *   secondary/info     → muted chip     (bg-muted / text-muted-foreground)
+ *   default            → neutral chip
+ */
 const badgeVariants = cva(
-  "inline-flex items-center leading-none font-semibold transition-colors focus:outline-none",
+  "inline-flex items-center rounded-[3px] px-[7px] py-[3px] text-[11px] font-medium leading-none whitespace-nowrap transition-colors focus:outline-none",
   {
     variants: {
       variant: {
-        /* neutral — 기본 칩 */
+        /* ── neutral ─────────────────────────────────────── */
         default:
-          "rounded-[4px] bg-muted text-muted-foreground px-2 py-[3px] text-[11px]",
+          "bg-muted text-foreground",
         secondary:
-          "rounded-[4px] bg-secondary text-secondary-foreground px-2 py-[3px] text-[11px]",
+          "bg-muted text-muted-foreground",
         outline:
-          "rounded-[4px] border border-border text-foreground px-2 py-[3px] text-[11px]",
+          "border border-border text-foreground",
 
-        /* semantic — left-accent strip */
+        /* ── semantic — contrast hierarchy ───────────────── */
+        /** 완납 · 납부 · 모집 중: positive, fade into bg */
         success:
-          "rounded-r-[4px] border-l-[3px] border-success bg-success-subtle text-success pl-[7px] pr-2 py-[3px] text-[11px]",
+          "bg-muted text-muted-foreground",
+
+        /** 부분납부 · 마감 임박: needs mild attention */
         warning:
-          "rounded-r-[4px] border-l-[3px] border-warning bg-warning-subtle text-warning pl-[7px] pr-2 py-[3px] text-[11px]",
+          "border border-foreground/25 text-foreground font-semibold",
+
+        /** 미납 · 정원 마감 · 긴급: inverted — most urgent */
         error:
-          "rounded-r-[4px] border-l-[3px] border-error bg-error-subtle text-error pl-[7px] pr-2 py-[3px] text-[11px]",
+          "bg-foreground text-background font-semibold",
         destructive:
-          "rounded-r-[4px] border-l-[3px] border-error bg-error-subtle text-error pl-[7px] pr-2 py-[3px] text-[11px]",
+          "bg-foreground text-background font-semibold",
+
+        /** 일반 정보 */
         info:
-          "rounded-r-[4px] border-l-[3px] border-info bg-info-subtle text-info pl-[7px] pr-2 py-[3px] text-[11px]",
+          "bg-muted text-foreground",
+
+        /** 기타 */
         purple:
-          "rounded-r-[4px] border-l-[3px] border-[hsl(263,70%,50%)] bg-[hsl(263,70%,50%/0.10)] text-[hsl(263,70%,40%)] pl-[7px] pr-2 py-[3px] text-[11px]",
+          "bg-muted text-foreground font-medium",
       },
     },
     defaultVariants: {
