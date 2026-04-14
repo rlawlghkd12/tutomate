@@ -1,4 +1,5 @@
 import type React from "react";
+import { Banknote, CreditCard, Building2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,7 +22,6 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { Textarea } from "../ui/textarea";
 import { toast } from "sonner";
 
 const enrollmentFormSchema = z.object({
@@ -251,28 +251,24 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 		}
 	};
 
-	const [showDiscount, setShowDiscount] = useState(false);
-
 	// 할인 토글 리셋
 	useEffect(() => {
-		if (visible) { setShowDiscount(false); setStep(1); setCourseSearch(""); }
+		if (visible) { setStep(1); setCourseSearch(""); }
 	}, [visible]);
 
 	return (
 		<Dialog open={visible} onOpenChange={(open) => !open && onClose()}>
 			<DialogContent>
 				<DialogHeader>
-					<DialogTitle style={{ fontSize: '1.29rem', fontWeight: 700, marginBottom: 0 }}>수강 신청 <span style={{ fontWeight: 400, color: 'hsl(var(--muted-foreground))' }}>· {student?.name}</span></DialogTitle>
+					<div className="flex items-center justify-between">
+						<DialogTitle className="text-base">수강 신청 <span className="font-normal text-muted-foreground">· {student?.name}</span></DialogTitle>
+						<div className="flex items-center gap-1.5 text-sm mr-6">
+							<span className={step === 1 ? 'font-semibold' : 'text-muted-foreground'}>강좌 선택</span>
+							<span className="text-muted-foreground/40">›</span>
+							<span className={step === 2 ? 'font-semibold' : 'text-muted-foreground'}>납부</span>
+						</div>
+					</div>
 				</DialogHeader>
-
-				{/* 스텝 인디케이터 */}
-				<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, marginBottom: 8 }}>
-					<div style={{ width: 24, height: 24, borderRadius: '50%', background: 'hsl(var(--foreground))', color: 'hsl(var(--background))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.86rem', fontWeight: 700 }}>1</div>
-					<span style={{ fontSize: '0.93rem', fontWeight: step === 1 ? 600 : 400, color: step === 1 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>강좌 선택</span>
-					<span style={{ color: 'hsl(var(--border))' }}>—</span>
-					<div style={{ width: 24, height: 24, borderRadius: '50%', background: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--border))', color: step === 2 ? 'hsl(var(--background))' : 'hsl(var(--muted-foreground))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.86rem', fontWeight: 700 }}>2</div>
-					<span style={{ fontSize: '0.93rem', fontWeight: step === 2 ? 600 : 400, color: step === 2 ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))' }}>납부 정보</span>
-				</div>
 
 				<form onSubmit={form.handleSubmit(handleSubmit)} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
@@ -369,147 +365,142 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 					</div>
 
 					<DialogFooter>
-						<Button type="button" variant="outline" onClick={onClose} style={{ fontSize: '1rem', padding: "10px 24px" }}>취소</Button>
-						<Button type="button" onClick={() => { if (!form.getValues('courseId')) { form.setError('courseId', { message: '강좌를 선택하세요' }); return; } setStep(2); }} style={{ fontSize: '1rem', padding: "10px 24px" }}>다음</Button>
+						<Button type="button" variant="outline" onClick={onClose} className="text-base px-6">취소</Button>
+						<Button type="button" onClick={() => { if (!form.getValues('courseId')) { form.setError('courseId', { message: '강좌를 선택하세요' }); return; } setStep(2); }} className="text-base px-6">다음 →</Button>
 					</DialogFooter>
 				</>
 				)}
 
 				{step === 2 && (
 				<>
-							{/* 할인 / 면제 */}
-							<div style={{ display: 'flex', gap: 8 }}>
-								<Button type="button" variant={showDiscount ? "default" : "outline"} size="sm" style={{ fontSize: '0.93rem', padding: '6px 14px' }}
-									onClick={() => { setShowDiscount(!showDiscount); if (showDiscount) { form.setValue('discountAmount', 0); setDiscountAmount(0); } }}
-									disabled={isExempt}>
-									할인 적용
-								</Button>
-								<Button type="button" variant={isExempt ? "destructive" : "outline"} size="sm" style={{ fontSize: '0.93rem', padding: '6px 14px' }}
-									onClick={handleExemptToggle}>
-									{isExempt ? "면제 해제" : "면제 처리"}
-								</Button>
-							</div>
-
-							{showDiscount && !isExempt && (
-							<div className="slide-enter">
-								<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-									<Label htmlFor="discountAmount">할인 금액 (원)</Label>
-									<Controller control={form.control} name="discountAmount"
-										render={({ field }) => (
-											<Input id="discountAmount" type="number" value={field.value}
-												onChange={(e) => { const val = Number(e.target.value) || 0; field.onChange(val); handleDiscountChange(val); }}
-												min={0} max={courseFee} step={5000} placeholder="0" style={{ fontSize: '1.07rem' }} />
-										)} />
-									{discountAmount > 0 && (
-										<p style={{ fontSize: '0.93rem', color: 'hsl(var(--success))', margin: 0 }}>할인 적용 수강료: ₩{effectiveFee.toLocaleString()}</p>
-									)}
-								</div>
-							</div>
-						)}
-
-						{isExempt && (
-							<div className="slide-enter" style={{ borderRadius: 8, background: 'hsl(var(--accent))', padding: '10px 12px', fontSize: '0.93rem', color: "hsl(var(--foreground))" }}>
-									면제 처리됩니다. 수익에 포함되지 않습니다.
-							</div>
-						)}
-
-						{/* 납부 금액 */}
-						<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-							<Label htmlFor="paidAmount">납부 금액</Label>
-							<Controller control={form.control} name="paidAmount"
+					{/* 요약 박스 (할인 인라인) */}
+					<div className="rounded-xl border p-4 space-y-2">
+						<div className="flex justify-between items-center">
+							<span className="text-sm text-muted-foreground">수강료</span>
+							<span className="text-sm font-semibold">₩{courseFee.toLocaleString()}</span>
+						</div>
+						<div className="flex justify-between items-center">
+							<span className="text-sm text-muted-foreground">할인</span>
+							<Controller control={form.control} name="discountAmount"
 								render={({ field }) => (
-									<Input id="paidAmount" type="number" value={field.value}
-										onChange={(e) => field.onChange(Number(e.target.value) || 0)}
-										min={0} max={effectiveFee} step={5000} placeholder="30000"
-										disabled={isExempt} style={{ fontSize: '1.07rem' }} />
+									<Input type="number" min={0} max={courseFee} step={5000}
+										value={field.value || ''}
+										onChange={(e) => { const val = Number(e.target.value) || 0; field.onChange(val); handleDiscountChange(val); }}
+										placeholder="0" disabled={isExempt}
+										className="h-7 w-[110px] text-right text-sm [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+									/>
 								)} />
-							{form.formState.errors.paidAmount && (
-								<p style={{ fontSize: '0.93rem', color: 'hsl(var(--destructive))' }}>{form.formState.errors.paidAmount.message}</p>
-							)}
 						</div>
-
-							<div style={{ display: "flex", gap: 8 }}>
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									onClick={() => form.setValue("paidAmount", effectiveFee)}
-									disabled={isExempt}
+						<div className="flex justify-between items-center pt-2 border-t">
+							<div className="flex items-center gap-2">
+								<span className="text-sm font-semibold">납부할 금액</span>
+								<button type="button" onClick={handleExemptToggle}
+									className={`text-xs px-3 py-1 rounded-full border cursor-pointer transition-colors font-medium ${
+										isExempt
+											? 'border-destructive text-destructive hover:bg-destructive/10'
+											: 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
+									}`}
 								>
-									완납
-								</Button>
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									onClick={() =>
-										form.setValue(
-											"paidAmount",
-											Math.floor(effectiveFee / 2),
-										)
-									}
-									disabled={isExempt}
-								>
-									절반
-								</Button>
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									onClick={() => form.setValue("paidAmount", 0)}
-									disabled={isExempt}
-								>
-									미납
-								</Button>
+									{isExempt ? '면제 해제' : '면제 처리'}
+								</button>
 							</div>
-
-							{/* 납부 방법 */}
-							<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-								<Label>납부 방법</Label>
-								<Controller control={form.control} name="paymentMethod"
-									render={({ field }) => (
-										<div style={{ display: "flex", gap: 6 }}>
-											{([{ v: "cash", l: "현금" }, { v: "card", l: "카드" }, { v: "transfer", l: "계좌이체" }] as const).map((m) => (
-												<Button key={m.v} type="button"
-													variant={field.value === m.v ? "default" : "outline"}
-													size="sm" style={{ fontSize: '1rem', padding: '8px 16px', flex: '1 0 auto' }}
-													disabled={isExempt}
-													onClick={() => field.onChange(m.v)}>
-													{m.l}
-												</Button>
-											))}
-										</div>
-									)} />
-							</div>
-
-					{/* 납부일 */}
-					{!isExempt && (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-							<Label htmlFor="paidAt">납부일</Label>
-							<Input
-								id="paidAt"
-								type="date"
-								value={formPaidAt}
-								onChange={(e) => setFormPaidAt(e.target.value)}
-								style={{ fontSize: '1.07rem' }}
-							/>
+							{isExempt
+								? <span className="text-base font-bold text-muted-foreground line-through">₩{effectiveFee.toLocaleString()}</span>
+								: <span className="text-base font-bold text-destructive">₩{effectiveFee.toLocaleString()}</span>
+							}
 						</div>
-					)}
-
-					<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-						<Label htmlFor="notes">메모</Label>
-						<Textarea
-							id="notes"
-							{...form.register("notes")}
-							rows={2}
-							placeholder="추가 정보를 입력하세요"
-							className="text-base"
-						/>
 					</div>
 
+					{/* 납부 금액 — 카드 버튼 + 직접 입력 */}
+					{!isExempt && (
+					<div className="space-y-2">
+						<Label>납부 금액</Label>
+						<div className="grid grid-cols-3 gap-2">
+							{([
+								{ label: '완납', amount: effectiveFee },
+								{ label: '절반', amount: Math.floor(effectiveFee / 2) },
+								{ label: '미납', amount: 0 },
+							] as const).map((opt) => {
+								const isActive = form.watch('paidAmount') === opt.amount;
+								return (
+									<button key={opt.label} type="button"
+										onClick={() => form.setValue('paidAmount', opt.amount)}
+										className={`py-3 rounded-lg border text-center transition-all cursor-pointer ${
+											isActive
+												? 'border-foreground bg-foreground text-background'
+												: 'border-border hover:border-foreground/30'
+										}`}
+									>
+										<div className="text-sm font-semibold">{opt.label}</div>
+										<div className={`text-xs mt-0.5 ${isActive ? 'opacity-60' : 'text-muted-foreground'}`}>₩{opt.amount.toLocaleString()}</div>
+									</button>
+								);
+							})}
+						</div>
+						<Controller control={form.control} name="paidAmount"
+							render={({ field }) => (
+								<Input type="number" min={0} max={effectiveFee} step={5000}
+									value={field.value}
+									onChange={(e) => field.onChange(Number(e.target.value) || 0)}
+									className="text-center text-xl font-bold h-12 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+								/>
+							)} />
+						{form.formState.errors.paidAmount && (
+							<p className="text-sm text-destructive">{form.formState.errors.paidAmount.message}</p>
+						)}
+					</div>
+					)}
+
+					{/* 납부 방법 — 아이콘 버튼 */}
+					{!isExempt && (
+					<div className="space-y-2">
+						<Label>납부 방법</Label>
+						<Controller control={form.control} name="paymentMethod"
+							render={({ field }) => (
+								<div className="grid grid-cols-3 gap-2">
+									{([
+										{ v: 'cash', l: '현금', Icon: Banknote },
+										{ v: 'card', l: '카드', Icon: CreditCard },
+										{ v: 'transfer', l: '계좌이체', Icon: Building2 },
+									] as const).map((m) => {
+										const isActive = field.value === m.v;
+										return (
+											<button key={m.v} type="button"
+												onClick={() => field.onChange(m.v)}
+												className={`flex flex-col items-center gap-1.5 py-3 rounded-lg border transition-all cursor-pointer ${
+													isActive
+														? 'border-primary bg-primary/10'
+														: 'border-border hover:border-foreground/30'
+												}`}
+											>
+												<m.Icon className={`h-6 w-6 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+												<span className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>{m.l}</span>
+											</button>
+										);
+									})}
+								</div>
+							)} />
+					</div>
+					)}
+
+					{/* 납부일 + 메모 */}
+					{!isExempt && (
+					<div className="grid grid-cols-2 gap-3">
+						<div className="space-y-1.5">
+							<Label htmlFor="paidAt">납부일</Label>
+							<Input id="paidAt" type="date" value={formPaidAt}
+								onChange={(e) => setFormPaidAt(e.target.value)} />
+						</div>
+						<div className="space-y-1.5">
+							<Label htmlFor="notes">메모</Label>
+							<Input id="notes" {...form.register("notes")} placeholder="선택 사항" />
+						</div>
+					</div>
+					)}
+
 					<DialogFooter>
-						<Button type="button" variant="outline" onClick={() => setStep(1)} style={{ fontSize: '1rem', padding: "10px 24px" }}>이전</Button>
-						<Button type="submit" disabled={submitting} style={{ fontSize: '1rem', padding: "10px 24px" }}>신청</Button>
+						<Button type="button" variant="outline" onClick={() => setStep(1)} className="text-base px-6">← 이전</Button>
+						<Button type="submit" disabled={submitting} className="text-base px-6">신청</Button>
 					</DialogFooter>
 				</>
 				)}
