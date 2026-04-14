@@ -46,10 +46,9 @@ const RevenueManagementPage: React.FC = () => {
     loadRecords();
   }, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
-  // Filter enrollments — 현재 분기만
-  const currentQuarter = getCurrentQuarter();
+  // Filter enrollments — 선택 분기 기준
   const filteredEnrollments = useMemo(() => {
-    let filtered = enrollments.filter((e) => isActiveEnrollment(e) && (e.quarter === currentQuarter || !e.quarter));
+    let filtered = enrollments.filter((e) => isActiveEnrollment(e) && (e.quarter === selectedQuarter || !e.quarter));
 
     if (dateRange[0] && dateRange[1]) {
       const startDate = dayjs(dateRange[0]).startOf('day');
@@ -67,7 +66,7 @@ const RevenueManagementPage: React.FC = () => {
     }
 
     return filtered;
-  }, [enrollments, dateRange, paymentStatusFilter]);
+  }, [enrollments, dateRange, paymentStatusFilter, selectedQuarter]);
 
   const revenueEnrollments = useMemo(() => filteredEnrollments.filter((e) => e.paymentStatus !== 'exempt'), [filteredEnrollments]);
 
@@ -251,6 +250,29 @@ const RevenueManagementPage: React.FC = () => {
             <Button variant="outline" size="sm" onClick={() => setIsExportModalVisible(true)}>
               <Download className="h-4 w-4" />
               내보내기
+            </Button>
+          </div>
+
+          {/* 분기 선택 */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="font-medium text-sm">분기:</span>
+            <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+              <SelectTrigger className="w-[140px] h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {getQuarterOptions().map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedQuarter(getCurrentQuarter())}
+              className="h-8"
+            >
+              이번 분기
             </Button>
           </div>
 

@@ -959,6 +959,13 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           <div style={{ maxHeight: 400, overflowY: 'auto' }}>
             {prevQuarterData?.enrollments.map((e) => {
               const student = getStudentById(e.studentId);
+              const statusInfo: Record<string, { label: string; className: string }> = {
+                pending:   { label: '미납',    className: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
+                partial:   { label: '부분납부', className: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300' },
+                completed: { label: '완납',    className: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
+                exempt:    { label: '면제',    className: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' },
+              };
+              const si = statusInfo[e.paymentStatus];
               return (
                 <label
                   key={e.studentId}
@@ -973,6 +980,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                     onCheckedChange={(v) => setImportChecked((prev) => ({ ...prev, [e.studentId]: !!v }))}
                   />
                   <span style={{ flex: 1 }}>{student?.name || '-'}</span>
+                  {si && (
+                    <Badge variant="outline" className={si.className} style={{ fontSize: '0.75rem' }}>
+                      {si.label}
+                    </Badge>
+                  )}
                   <span style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))' }}>
                     {student?.phone || ''}
                   </span>
