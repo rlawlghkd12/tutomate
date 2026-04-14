@@ -22,8 +22,8 @@
     --card-foreground: 0 0% 7%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 7%;
-    --primary: 211 100% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 0 0% 18%;
+    --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 96%;
     --secondary-foreground: 0 0% 9%;
     --muted: 0 0% 93%;
@@ -35,7 +35,7 @@
     --border: 0 0% 72%;
     --input: 0 0% 88%;
     --layout-bg: 0 0% 85%;
-    --ring: 211 100% 50%;
+    --ring: 0 0% 18%;
     --success: 142 76% 36%;
     --warning: 38 92% 50%;
     --info: 217 91% 60%;
