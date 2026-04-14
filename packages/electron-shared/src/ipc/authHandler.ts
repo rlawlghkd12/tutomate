@@ -1,16 +1,23 @@
 import { ipcMain, BrowserWindow } from 'electron';
 
-const ALLOWED_OAUTH_DOMAINS = [
+// 정확히 일치해야 하는 도메인
+const ALLOWED_OAUTH_EXACT_DOMAINS = new Set([
   'accounts.google.com',
   'kauth.kakao.com',
   'nid.naver.com',
-  '.supabase.co',
-];
+]);
+// 서브도메인 허용 (앞에 . 포함 — subdomain.supabase.co 형식)
+const ALLOWED_OAUTH_SUBDOMAIN_SUFFIXES = ['.supabase.co'];
+
+function isAllowedOAuthHost(hostname: string): boolean {
+  if (ALLOWED_OAUTH_EXACT_DOMAINS.has(hostname)) return true;
+  return ALLOWED_OAUTH_SUBDOMAIN_SUFFIXES.some(suffix => hostname.endsWith(suffix));
+}
 
 export function registerAuthHandlers(mainWindow: BrowserWindow) {
   ipcMain.handle('oauth-open-external', async (_event, url: string) => {
     const parsed = new URL(url);
-    if (!ALLOWED_OAUTH_DOMAINS.some(domain => parsed.hostname.endsWith(domain))) {
+    if (!isAllowedOAuthHost(parsed.hostname)) {
       throw new Error(`Unauthorized OAuth URL: ${parsed.hostname}`);
     }
 
