@@ -9,7 +9,6 @@ import {
 	Dialog, DialogContent, DialogHeader, DialogTitle,
 	AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
 	AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
-	Checkbox,
 	CourseForm, PaymentManagementTable, StudentForm, PageEnter,
 } from "@tutomate/ui";
 import { useCourseStore } from "@tutomate/core";
@@ -48,6 +47,8 @@ const CourseDetailPage: React.FC = () => {
 	const [selectedExportFields, setSelectedExportFields] = useState<string[]>(
 		DEFAULT_EXPORT_FIELDS,
 	);
+	const [dragIdx, setDragIdx] = useState<number | null>(null);
+	const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
 	const selectedQuarter = searchParams.get('q') || getCurrentQuarter();
 	const [isCourseEditVisible, setIsCourseEditVisible] = useState(false);
@@ -338,78 +339,90 @@ const CourseDetailPage: React.FC = () => {
 
 			{/* 내보내기 모달 */}
 			<Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
-				<DialogContent className="max-w-[320px]">
+				<DialogContent className="max-w-[680px]">
 					<DialogHeader>
 						<DialogTitle>수강생 내보내기</DialogTitle>
 					</DialogHeader>
 
-					<div className="flex justify-between items-center py-1 pb-2 border-b mb-3">
-						<div className="flex items-center gap-2">
-							<Checkbox
-								checked={isAllSelected}
-								onCheckedChange={(checked) =>
-									setSelectedExportFields(checked ? allFieldKeys : [])
-								}
-							/>
-							<span className="text-sm">전체 선택</span>
+					<div style={{ marginTop: 8 }}>
+						<div className="flex justify-between items-center mb-3">
+							<button type="button" className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+								onClick={() => setSelectedExportFields(isAllSelected ? [] : allFieldKeys)}>
+								{isAllSelected ? '선택 해제' : '전체 선택'}
+							</button>
+							<span className="text-xs text-muted-foreground">{selectedExportFields.length}개 선택 · 드래그로 순서 변경</span>
 						</div>
-						<span className="text-xs text-muted-foreground">
-							{selectedExportFields.length}/{allFieldKeys.length}
-						</span>
-					</div>
 
-					<div className="flex flex-col gap-0.5 mb-4">
-						{COURSE_STUDENT_EXPORT_FIELDS.map((field) => {
-							const isChecked = selectedExportFields.includes(field.key);
-							return (
-								<div
-									role="checkbox"
-									aria-checked={isChecked}
-									tabIndex={0}
-									key={field.key}
-									onClick={() => {
-										setSelectedExportFields((prev) =>
-											isChecked
-												? prev.filter((k: string) => k !== field.key)
-												: [...prev, field.key],
-										);
-									}}
-									onKeyDown={(e) => {
-										if (e.key === "Enter" || e.key === " ") {
-											e.preventDefault();
-											setSelectedExportFields((prev) =>
-												isChecked
-													? prev.filter((k: string) => k !== field.key)
-													: [...prev, field.key],
-											);
-										}
-									}}
-									className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer ${
-										isChecked ? 'bg-primary/10' : 'hover:bg-accent'
-									}`}
-								>
-									<Checkbox checked={isChecked} />
-									<span className="text-[13px]">{field.label}</span>
+						<div className="flex flex-wrap gap-2 mb-4">
+							{COURSE_STUDENT_EXPORT_FIELDS.map((field) => {
+								const isChecked = selectedExportFields.includes(field.key);
+								return (
+									<button key={field.key} type="button"
+										onClick={() => setSelectedExportFields((prev) => isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key])}
+										className={`px-3 py-1.5 rounded-full text-[13px] font-medium border transition-colors cursor-pointer ${
+											isChecked ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent text-muted-foreground border-border hover:border-foreground/30'
+										}`}>
+										{field.label}
+									</button>
+								);
+							})}
+						</div>
+
+						{selectedExportFields.length > 0 && (
+							<div className="flex flex-wrap gap-1.5 mb-4 p-3 rounded-lg bg-muted/30 border border-dashed border-border">
+								{selectedExportFields.map((key, idx) => {
+									const field = COURSE_STUDENT_EXPORT_FIELDS.find((f) => f.key === key);
+									if (!field) return null;
+									const isDragging = dragIdx === idx;
+									const showLeftBar = dragOverIdx === idx && dragIdx !== null && dragIdx > idx;
+									const showRightBar = dragOverIdx === idx && dragIdx !== null && dragIdx < idx;
+									return (
+										<span key={key} draggable
+											onDragStart={(e) => { e.dataTransfer.setData('text/plain', String(idx)); setDragIdx(idx); }}
+											onDragOver={(e) => { e.preventDefault(); if (dragOverIdx !== idx) setDragOverIdx(idx); }}
+											onDrop={(e) => { e.preventDefault(); const fromIdx = Number(e.dataTransfer.getData('text/plain')); setDragIdx(null); setDragOverIdx(null); if (fromIdx === idx) return; setSelectedExportFields((prev) => { const next = [...prev]; const [moved] = next.splice(fromIdx, 1); next.splice(idx, 0, moved); return next; }); }}
+											onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+											className={`relative px-2.5 py-1 rounded-md text-xs font-medium border cursor-grab active:cursor-grabbing select-none transition-opacity duration-150 ${isDragging ? 'opacity-20' : 'bg-background'}`}>
+											{showLeftBar && <span className="absolute -left-1.5 top-0 bottom-0 w-0.5 bg-primary rounded-full" />}
+											{field.label}
+											{showRightBar && <span className="absolute -right-1.5 top-0 bottom-0 w-0.5 bg-primary rounded-full" />}
+										</span>
+									);
+								})}
+							</div>
+						)}
+
+						{selectedExportFields.length > 0 && courseEnrollments.length > 0 && (
+							<div className="rounded-lg border overflow-hidden mb-4">
+								<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 bg-muted/30">미리보기</div>
+								<div className="overflow-x-auto">
+									<table className="w-full text-xs">
+										<thead><tr className="border-b bg-muted/20">
+											{selectedExportFields.map((key) => { const f = COURSE_STUDENT_EXPORT_FIELDS.find((x) => x.key === key); return <th key={key} className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">{f?.label}</th>; })}
+										</tr></thead>
+										<tbody>
+											{courseEnrollments.slice(0, 3).map((enrollment) => {
+												const student = getStudentById(enrollment.studentId);
+												if (!student) return null;
+												return (
+													<tr key={enrollment.id} className="border-b last:border-0">
+														{selectedExportFields.map((key) => { const f = COURSE_STUDENT_EXPORT_FIELDS.find((x) => x.key === key); const val = f ? f.getValue(student, enrollment) : ''; return <td key={key} className="px-3 py-2 whitespace-nowrap truncate max-w-[150px]">{val || '-'}</td>; })}
+													</tr>
+												);
+											})}
+										</tbody>
+									</table>
 								</div>
-							);
-						})}
+							</div>
+						)}
 					</div>
 
 					<div className="flex gap-2">
-						<Button
-							className="flex-1"
-							onClick={() => handleExport("excel")}
-						>
-							<FileSpreadsheet className="h-4 w-4" />
-							Excel
+						<Button className="flex-1" onClick={() => handleExport("excel")} disabled={selectedExportFields.length === 0}>
+							<FileSpreadsheet className="h-4 w-4" />Excel
 						</Button>
-						<Button
-							variant="outline"
-							className="flex-1"
-							onClick={() => handleExport("csv")}
-						>
-							<FileText className="h-4 w-4" />
-							CSV
+						<Button variant="outline" className="flex-1" onClick={() => handleExport("csv")} disabled={selectedExportFields.length === 0}>
+							<FileText className="h-4 w-4" />CSV
 						</Button>
 					</div>
 				</DialogContent>
