@@ -24,6 +24,8 @@ const StudentsPage: React.FC = () => {
   const [askEnrollStudent, setAskEnrollStudent] = useState<any>(null);
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState<string[]>(DEFAULT_EXPORT_FIELDS);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
   const { courses, loadCourses } = useCourseStore();
@@ -112,7 +114,7 @@ const StudentsPage: React.FC = () => {
       />
 
       <Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
-        <DialogContent className="max-w-[360px]">
+        <DialogContent className="max-w-[680px]">
           <DialogHeader>
             <DialogTitle>수강생 내보내기</DialogTitle>
           </DialogHeader>
@@ -127,11 +129,12 @@ const StudentsPage: React.FC = () => {
                 {isAllSelected ? '선택 해제' : '전체 선택'}
               </button>
               <span className="text-xs text-muted-foreground">
-                {selectedExportFields.length}개 선택
+                {selectedExportFields.length}개 선택 · 드래그로 순서 변경
               </span>
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-6">
+            {/* 선택 가능한 필드 */}
+            <div className="flex flex-wrap gap-2 mb-4">
               {STUDENT_EXPORT_FIELDS.map((field) => {
                 const isChecked = selectedExportFields.includes(field.key);
                 return (
@@ -154,6 +157,78 @@ const StudentsPage: React.FC = () => {
                 );
               })}
             </div>
+
+            {/* 선택된 컬럼 순서 (드래그) */}
+            {selectedExportFields.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-4 p-3 rounded-lg bg-muted/30 border border-dashed border-border">
+                {selectedExportFields.map((key, idx) => {
+                  const field = STUDENT_EXPORT_FIELDS.find((f) => f.key === key);
+                  if (!field) return null;
+                  const isDragging = dragIdx === idx;
+                  const showLeftBar = dragOverIdx === idx && dragIdx !== null && dragIdx > idx;
+                  const showRightBar = dragOverIdx === idx && dragIdx !== null && dragIdx < idx;
+                  return (
+                    <span
+                      key={key}
+                      draggable
+                      onDragStart={(e) => { e.dataTransfer.setData('text/plain', String(idx)); setDragIdx(idx); }}
+                      onDragOver={(e) => { e.preventDefault(); if (dragOverIdx !== idx) setDragOverIdx(idx); }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const fromIdx = Number(e.dataTransfer.getData('text/plain'));
+                        setDragIdx(null);
+                        setDragOverIdx(null);
+                        if (fromIdx === idx) return;
+                        setSelectedExportFields((prev) => {
+                          const next = [...prev];
+                          const [moved] = next.splice(fromIdx, 1);
+                          next.splice(idx, 0, moved);
+                          return next;
+                        });
+                      }}
+                      onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+                      className={`relative px-2.5 py-1 rounded-md text-xs font-medium border cursor-grab active:cursor-grabbing select-none transition-opacity duration-150 ${
+                        isDragging ? 'opacity-20' : 'bg-background'
+                      }`}
+                    >
+                      {showLeftBar && <span className="absolute -left-1.5 top-0 bottom-0 w-0.5 bg-primary rounded-full" />}
+                      {field.label}
+                      {showRightBar && <span className="absolute -right-1.5 top-0 bottom-0 w-0.5 bg-primary rounded-full" />}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 미리보기 */}
+            {selectedExportFields.length > 0 && students.length > 0 && (
+              <div className="rounded-lg border overflow-hidden mb-4">
+                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 bg-muted/30">미리보기</div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b bg-muted/20">
+                        {selectedExportFields.map((key) => {
+                          const field = STUDENT_EXPORT_FIELDS.find((f) => f.key === key);
+                          return <th key={key} className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">{field?.label}</th>;
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {students.slice(0, 3).map((student) => (
+                        <tr key={student.id} className="border-b last:border-0">
+                          {selectedExportFields.map((key) => {
+                            const field = STUDENT_EXPORT_FIELDS.find((f) => f.key === key);
+                            const value = field ? field.getValue(student, quarterEnrollments, courses) : '';
+                            return <td key={key} className="px-3 py-2 whitespace-nowrap truncate max-w-[150px]">{value || '-'}</td>;
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2">

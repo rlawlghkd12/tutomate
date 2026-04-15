@@ -42,20 +42,14 @@ const downloadCSV = (csv: string, filename: string, encoding: 'utf-8' | 'euc-kr'
   triggerDownload(URL.createObjectURL(blob), `${filename}_${dayjs().format('YYYYMMDD_HHmmss')}.csv`);
 };
 
-// Excel 시트에 헤더 행 추가 후 데이터 삽입하는 헬퍼
+// Excel 시트 생성 (테이블만, 제목 행 없음)
 const createSheetWithHeader = (
   XLSX: typeof XLSXType,
-  headerLines: string[],
+  _headerLines: string[],
   data: Record<string, string | number>[],
   colWidths?: { wch: number }[]
 ): XLSXType.WorkSheet => {
-  // 헤더 행 생성 (각 줄을 한 셀에)
-  const headerRows: (string | number)[][] = headerLines.map((line) => [line]);
-  headerRows.push([]); // 빈 줄
-
-  const ws = XLSX.utils.aoa_to_sheet(headerRows);
-  // 데이터 행 삽입 (헤더 + 빈줄 다음부터)
-  XLSX.utils.sheet_add_json(ws, data, { origin: headerRows.length });
+  const ws = XLSX.utils.json_to_sheet(data);
 
   if (colWidths) {
     ws['!cols'] = colWidths;
@@ -64,11 +58,9 @@ const createSheetWithHeader = (
   return ws;
 };
 
-// CSV에 헤더 행 추가하는 헬퍼
-const buildCSVWithHeader = (headerLines: string[], csvHeaders: string[], rows: string[][]): string => {
-  const header = headerLines.map((line) => `"${line}"`).join('\n');
-  const dataCSV = [csvHeaders.join(','), ...rows.map((row) => row.join(','))].join('\n');
-  return `${header}\n\n${dataCSV}`;
+// CSV 생성 (테이블만, 제목 행 없음)
+const buildCSVWithHeader = (_headerLines: string[], csvHeaders: string[], rows: string[][]): string => {
+  return [csvHeaders.join(','), ...rows.map((row) => row.join(','))].join('\n');
 };
 
 // 수강생 명단 Excel 내보내기
