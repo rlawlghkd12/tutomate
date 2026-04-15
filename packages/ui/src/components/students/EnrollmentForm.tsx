@@ -291,7 +291,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 									<div style={{ minHeight: 360, maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
 										{filtered.map((course) => {
 											const currentCount = enrollments.filter(
-												(e) => e.courseId === course.id,
+												(e) => e.courseId === course.id && isActiveEnrollment(e) &&
+													(!appConfig.enableQuarterSystem || e.quarter === currentQuarter || !e.quarter),
 											).length;
 											const trialLimit =
 												plan === "trial"
@@ -303,7 +304,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 												(e) =>
 													e.studentId === student?.id &&
 													e.courseId === course.id &&
-													isActiveEnrollment(e),
+													isActiveEnrollment(e) &&
+													(!appConfig.enableQuarterSystem || e.quarter === currentQuarter || !e.quarter),
 											);
 											const isDisabled = isFull || isEnrolled;
 											const isSelected = field.value === course.id;
