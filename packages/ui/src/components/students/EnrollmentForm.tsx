@@ -106,9 +106,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 			return;
 		}
 
-		// 활성 수강 중복 체크
+		// 활성 수강 중복 체크 (현재 분기)
+		const quarterFilter = (e: any) => !appConfig.enableQuarterSystem || e.quarter === currentQuarter;
 		const alreadyEnrolled = enrollments.some(
-			(e) => e.studentId === student.id && e.courseId === values.courseId && isActiveEnrollment(e),
+			(e) => e.studentId === student.id && e.courseId === values.courseId && isActiveEnrollment(e) && quarterFilter(e),
 		);
 		if (alreadyEnrolled) {
 			toast.error("이미 등록된 강좌입니다.");
@@ -116,7 +117,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 		}
 
 		const activeEnrollmentCount = enrollments.filter(
-			(e) => e.courseId === values.courseId && isActiveEnrollment(e),
+			(e) => e.courseId === values.courseId && isActiveEnrollment(e) && quarterFilter(e),
 		).length;
 		if (activeEnrollmentCount >= course.maxStudents) {
 			toast.error("강좌 정원이 마감되었습니다.");
