@@ -426,13 +426,13 @@ const RevenueManagementPage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="course-revenue">
+      <Tabs defaultValue="monthly">
         <TabsList>
-          <TabsTrigger value="course-revenue">강좌별 수익</TabsTrigger>
-          <TabsTrigger value="unpaid">미납자 관리 ({unpaidList.length})</TabsTrigger>
           <TabsTrigger value="monthly" className="flex items-center gap-1">
             <Calendar className="h-3.5 w-3.5" /> 분기별 수익 현황
           </TabsTrigger>
+          <TabsTrigger value="course-revenue">강좌별 수익</TabsTrigger>
+          <TabsTrigger value="unpaid">미납자 관리 ({unpaidList.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="course-revenue">
