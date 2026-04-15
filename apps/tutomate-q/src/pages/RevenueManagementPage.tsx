@@ -76,6 +76,9 @@ const RevenueManagementPage: React.FC = () => {
   }, 0);
   const totalUnpaid = expectedRevenue - totalRevenue;
 
+  const totalTransfer = revenueEnrollments.filter((e) => e.paymentMethod === 'transfer').reduce((sum, e) => sum + e.paidAmount, 0);
+  const totalCard = revenueEnrollments.filter((e) => e.paymentMethod === 'card').reduce((sum, e) => sum + e.paidAmount, 0);
+
   const completedPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'completed').length;
   const partialPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'partial').length;
   const pendingPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'pending').length;
@@ -332,8 +335,8 @@ const RevenueManagementPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* 수익 통계 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      {/* 수익 통계 — 1줄: 금액 */}
+      <div className="grid grid-cols-5 gap-3 mb-3">
         <Card>
           <CardContent className="p-4">
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">총 수익</p>
@@ -360,19 +363,36 @@ const RevenueManagementPage: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">계좌이체</p>
+            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
+              {totalTransfer.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">카드</p>
+            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
+              {totalCard.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 수익 통계 — 2줄: 상태 */}
+      <div className="grid grid-cols-5 gap-3 mb-4">
+        <Card>
+          <CardContent className="p-4">
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수익률</p>
             <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
               {expectedRevenue > 0 ? ((totalRevenue / expectedRevenue) * 100).toFixed(1) : '0.0'}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
             </p>
           </CardContent>
         </Card>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <Card>
           <CardContent className="p-4">
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
-            <p className="text-3xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
+            <p className="text-2xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
               {completedPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
           </CardContent>
@@ -380,7 +400,7 @@ const RevenueManagementPage: React.FC = () => {
         <Card>
           <CardContent className="p-4">
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">부분납부</p>
-            <p className="text-3xl font-bold tabular-nums text-warning" style={{ letterSpacing: '-0.02em' }}>
+            <p className="text-2xl font-bold tabular-nums text-warning" style={{ letterSpacing: '-0.02em' }}>
               {partialPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
           </CardContent>
@@ -388,7 +408,7 @@ const RevenueManagementPage: React.FC = () => {
         <Card>
           <CardContent className="p-4">
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납</p>
-            <p className="text-3xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
+            <p className="text-2xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
               {pendingPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
           </CardContent>
@@ -396,7 +416,7 @@ const RevenueManagementPage: React.FC = () => {
         <Card>
           <CardContent className="p-4">
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">면제</p>
-            <p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em', color: EXEMPT_COLOR }}>
+            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em', color: EXEMPT_COLOR }}>
               {exemptPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
           </CardContent>
