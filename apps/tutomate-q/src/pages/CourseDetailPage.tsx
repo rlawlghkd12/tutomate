@@ -38,7 +38,6 @@ const CourseDetailPage: React.FC = () => {
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 	const { getCourseById, loadCourses, deleteCourse } = useCourseStore();
-	const { getEnrollmentCountByCourseId } = useEnrollmentStore();
 	const { loadStudents, getStudentById } = useStudentStore();
 	const { enrollments, loadEnrollments, withdrawEnrollment, addEnrollment } =
 		useEnrollmentStore();
@@ -178,7 +177,7 @@ const CourseDetailPage: React.FC = () => {
 	const allFieldKeys = COURSE_STUDENT_EXPORT_FIELDS.map((f) => f.key);
 	const isAllSelected = selectedExportFields.length === allFieldKeys.length;
 
-	const studentCount = course ? getEnrollmentCountByCourseId(course.id) : 0;
+	const studentCount = courseEnrollments.length;
 
 	if (!id || !course) {
 		return <div>강좌를 찾을 수 없습니다.</div>;
