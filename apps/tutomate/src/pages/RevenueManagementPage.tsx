@@ -54,7 +54,8 @@ const RevenueManagementPage: React.FC = () => {
 
   // 날짜 범위 및 결제 상태에 따라 필터링된 수강 신청 목록
   const filteredEnrollments = useMemo(() => {
-    let filtered = enrollments.filter((e) => isActiveEnrollment(e));
+    // withdrawn 포함 — 환불 금액이 수익에 반영되어야 함
+    let filtered = [...enrollments];
 
     if (dateRange[0] && dateRange[1]) {
       const startDate = dayjs(dateRange[0]).startOf('day');

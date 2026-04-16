@@ -49,7 +49,8 @@ const RevenueManagementPage: React.FC = () => {
 
   // Filter enrollments — 선택 분기 기준
   const filteredEnrollments = useMemo(() => {
-    let filtered = enrollments.filter((e) => isActiveEnrollment(e) && (e.quarter === selectedQuarter || !e.quarter));
+    // withdrawn 포함 — 환불 금액이 수익에 반영되어야 함 (철회된 수강의 환불도 집계)
+    let filtered = enrollments.filter((e) => (e.quarter === selectedQuarter || !e.quarter));
 
     if (dateRange[0] && dateRange[1]) {
       const startDate = dayjs(dateRange[0]).startOf('day');
@@ -71,6 +72,7 @@ const RevenueManagementPage: React.FC = () => {
 
   const revenueEnrollments = useMemo(() => filteredEnrollments.filter((e) => e.paymentStatus !== 'exempt'), [filteredEnrollments]);
 
+  // withdrawn 포함 — 원래 기대했던 금액 vs 실제 납부 받은 금액 (환불 반영)
   const totalRevenue = revenueEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
   const expectedRevenue = revenueEnrollments.reduce((sum, e) => {
     const course = getCourseById(e.courseId);
@@ -78,6 +80,7 @@ const RevenueManagementPage: React.FC = () => {
   }, 0);
   const totalUnpaid = expectedRevenue - totalRevenue;
 
+  const totalCash = revenueEnrollments.filter((e) => e.paymentMethod === 'cash').reduce((sum, e) => sum + e.paidAmount, 0);
   const totalTransfer = revenueEnrollments.filter((e) => e.paymentMethod === 'transfer').reduce((sum, e) => sum + e.paidAmount, 0);
   const totalCard = revenueEnrollments.filter((e) => e.paymentMethod === 'card').reduce((sum, e) => sum + e.paidAmount, 0);
 
@@ -338,7 +341,7 @@ const RevenueManagementPage: React.FC = () => {
       </Card>
 
       {/* 수익 통계 — 1줄: 금액 */}
-      <div className="grid grid-cols-5 gap-3 mb-3">
+      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
         <Card>
           <CardContent className="p-4">
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">총 수익</p>
@@ -360,6 +363,14 @@ const RevenueManagementPage: React.FC = () => {
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미수금</p>
             <p className="text-2xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
               {totalUnpaid.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">현금</p>
+            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
+              {totalCash.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
             </p>
           </CardContent>
         </Card>
