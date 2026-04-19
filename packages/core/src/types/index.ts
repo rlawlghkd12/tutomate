@@ -138,6 +138,28 @@ export interface PaymentRecord {
   createdAt: string;
 }
 
+// 이벤트(감사) 로그
+export type EventLogEntityType = 'payment_record' | 'enrollment' | 'student' | 'course' | 'organization';
+
+export interface EventLogPayload {
+  before?: unknown;
+  after?: unknown;
+  meta?: Record<string, unknown>;
+}
+
+export interface EventLog {
+  id: string;
+  organizationId: string;
+  actorUserId: string | null;
+  actorLabel: string;
+  eventType: string; // 'payment.add', 'enrollment.withdraw' 등 namespace.action
+  entityType: EventLogEntityType;
+  entityId: string | null;
+  entityLabel: string | null;
+  payload: EventLogPayload;
+  createdAt: string;
+}
+
 // 조직 역할
 export const OrgRole = {
   OWNER: 'owner',

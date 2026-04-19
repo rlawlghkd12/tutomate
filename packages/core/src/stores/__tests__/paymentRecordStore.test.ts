@@ -640,19 +640,93 @@ describe("paymentRecordStore", () => {
 		expect(enrollment?.paidAmount).toBe(150000);
 	});
 
-	// ── syncEnrollmentTotal — withdrawn enrollment 무시 ──
+	// ── syncEnrollmentTotal — withdrawn enrollment: 환불 net 동기화, status 유지 ──
 
-	it("syncEnrollmentTotal — withdrawn enrollment → 갱신 안 함", async () => {
+	it("syncEnrollmentTotal — withdrawn 상태에서도 paidAmount는 환불 record 반영", async () => {
+		// 100,000원 완납된 후 철회된 enrollment
+		const existing = makeRecord({ id: "pr-paid", enrollmentId: "e1", amount: 100000, paidAt: "2026-03-01" });
+		usePaymentRecordStore.setState({ records: [existing] });
 		useEnrollmentStore.setState({
-			enrollments: [makeEnrollment({ paymentStatus: "withdrawn" })],
+			enrollments: [makeEnrollment({
+				paidAmount: 100000,
+				remainingAmount: 200000,
+				paymentStatus: "withdrawn",
+			})],
+		});
+
+		// 50,000원 환불(음수) 추가
+		await usePaymentRecordStore
+			.getState()
+			.addPayment("e1", -50000, 300000, "card", "2026-04-01", "환불");
+
+		const enrollment = useEnrollmentStore.getState().getEnrollmentById("e1");
+		// status는 withdrawn 유지
+		expect(enrollment?.paymentStatus).toBe("withdrawn");
+		// paidAmount는 환불 net (100,000 - 50,000 = 50,000)
+		expect(enrollment?.paidAmount).toBe(50000);
+		// withdrawn은 미수 개념 없음 → 0
+		expect(enrollment?.remainingAmount).toBe(0);
+	});
+
+	it("syncEnrollmentTotal — withdrawn 전액환불 시 paidAmount=0", async () => {
+		const existing = makeRecord({ id: "pr-paid", enrollmentId: "e1", amount: 100000, paidAt: "2026-03-01" });
+		usePaymentRecordStore.setState({ records: [existing] });
+		useEnrollmentStore.setState({
+			enrollments: [makeEnrollment({
+				paidAmount: 100000,
+				paymentStatus: "withdrawn",
+			})],
 		});
 
 		await usePaymentRecordStore
 			.getState()
-			.addPayment("e1", 100000, 300000, "card");
+			.addPayment("e1", -100000, 300000, "card", "2026-04-01", "전액환불");
 
-		// withdrawn enrollment은 paymentStatus가 변경되지 않음
 		const enrollment = useEnrollmentStore.getState().getEnrollmentById("e1");
 		expect(enrollment?.paymentStatus).toBe("withdrawn");
+		expect(enrollment?.paidAmount).toBe(0);
+	});
+
+	// ── syncEnrollmentTotal — 환불(음수) 섞인 active enrollment의 paymentMethod 보호 ──
+
+	it("syncEnrollmentTotal — 환불(음수) 후 latestRecord가 환불이어도 paymentMethod는 양수 record 기준", async () => {
+		useEnrollmentStore.setState({
+			enrollments: [makeEnrollment()],
+		});
+
+		// 양수 납부 (card, 2026-03-01)
+		await usePaymentRecordStore
+			.getState()
+			.addPayment("e1", 200000, 300000, "card", "2026-03-01");
+
+		// 환불 record (paymentMethod 같지만 미래 날짜)
+		await usePaymentRecordStore
+			.getState()
+			.addPayment("e1", -50000, 300000, undefined, "2026-04-01", "환불");
+
+		const enrollment = useEnrollmentStore.getState().getEnrollmentById("e1");
+		// paymentMethod는 양수 record 기준 → card 유지 (undefined 환불에 덮이지 않음)
+		expect(enrollment?.paymentMethod).toBe("card");
+		// paidAmount는 환불 net
+		expect(enrollment?.paidAmount).toBe(150000);
+		expect(enrollment?.paymentStatus).toBe("partial");
+	});
+
+	// ── enrollmentStore.updatePayment — 음수 잔여금 방지 ──
+
+	it("updatePayment — paidAmount > effectiveFee 초과 납부 시 remainingAmount는 0 (음수 방지)", async () => {
+		useEnrollmentStore.setState({
+			enrollments: [makeEnrollment()],
+		});
+
+		// 300,000 강좌에 350,000 납부 (50,000 초과)
+		await usePaymentRecordStore
+			.getState()
+			.addPayment("e1", 350000, 300000, "card");
+
+		const enrollment = useEnrollmentStore.getState().getEnrollmentById("e1");
+		expect(enrollment?.paymentStatus).toBe("completed");
+		expect(enrollment?.paidAmount).toBe(350000);
+		expect(enrollment?.remainingAmount).toBe(0); // 음수가 아닌 0
 	});
 });
