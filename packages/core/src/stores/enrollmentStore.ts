@@ -10,6 +10,9 @@ import {
 	mapEnrollmentUpdateToDb,
 } from "../utils/fieldMapper";
 import { handleError, showErrorMessage } from "../utils/errors";
+import { logEvent } from "../utils/eventLogger";
+import { useStudentStore } from "./studentStore";
+import { useCourseStore } from "./courseStore";
 
 const helper = createDataHelper<Enrollment, EnrollmentRow>({
 	table: "enrollments",
@@ -85,10 +88,28 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 			return false;
 		}
 		set({ enrollments: [...get().enrollments, newEnrollment] });
+
+		const student = useStudentStore.getState().getStudentById(newEnrollment.studentId);
+		const course = useCourseStore.getState().getCourseById(newEnrollment.courseId);
+		await logEvent({
+			eventType: 'enrollment.add',
+			entityType: 'enrollment',
+			entityId: newEnrollment.id,
+			entityLabel: student && course ? `${student.name} — ${course.name}` : undefined,
+			after: {
+				courseId: newEnrollment.courseId,
+				studentId: newEnrollment.studentId,
+				quarter: newEnrollment.quarter,
+				paidAmount: newEnrollment.paidAmount,
+				paymentStatus: newEnrollment.paymentStatus,
+				discountAmount: newEnrollment.discountAmount,
+			},
+		});
 		return true;
 	},
 
 	updateEnrollment: async (id: string, enrollmentData: Partial<Enrollment>) => {
+		const before = get().enrollments.find((e) => e.id === id);
 		const error = await helper.update(id, enrollmentData);
 		if (error) {
 			handleError(error);
@@ -99,23 +120,78 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 				e.id === id ? { ...e, ...enrollmentData } : e,
 			),
 		});
+		if (before) {
+			const student = useStudentStore.getState().getStudentById(before.studentId);
+			const course = useCourseStore.getState().getCourseById(before.courseId);
+			// 변경된 필드만 diff로 로깅
+			const changedKeys = (Object.keys(enrollmentData) as (keyof Enrollment)[])
+				.filter((k) => before[k] !== enrollmentData[k]);
+			if (changedKeys.length > 0) {
+				const beforeChanged: Partial<Enrollment> = {};
+				const afterChanged: Partial<Enrollment> = {};
+				for (const k of changedKeys) {
+					(beforeChanged as any)[k] = before[k];
+					(afterChanged as any)[k] = enrollmentData[k];
+				}
+				await logEvent({
+					eventType: 'enrollment.update',
+					entityType: 'enrollment',
+					entityId: id,
+					entityLabel: student && course ? `${student.name} — ${course.name}` : undefined,
+					before: beforeChanged,
+					after: afterChanged,
+				});
+			}
+		}
 		return true;
 	},
 
 	deleteEnrollment: async (id: string) => {
+		const before = get().enrollments.find((e) => e.id === id);
 		const error = await helper.remove(id);
 		if (error) {
 			handleError(error);
 			return false;
 		}
 		set({ enrollments: get().enrollments.filter((e) => e.id !== id) });
+		if (before) {
+			const student = useStudentStore.getState().getStudentById(before.studentId);
+			const course = useCourseStore.getState().getCourseById(before.courseId);
+			await logEvent({
+				eventType: 'enrollment.delete',
+				entityType: 'enrollment',
+				entityId: id,
+				entityLabel: student && course ? `${student.name} — ${course.name}` : undefined,
+				before: {
+					courseId: before.courseId,
+					studentId: before.studentId,
+					quarter: before.quarter,
+					paidAmount: before.paidAmount,
+					paymentStatus: before.paymentStatus,
+				},
+			});
+		}
 		return true;
 	},
 
 	withdrawEnrollment: async (id: string) => {
-		return get().updateEnrollment(id, {
+		const before = get().enrollments.find((e) => e.id === id);
+		const result = await get().updateEnrollment(id, {
 			paymentStatus: "withdrawn" as Enrollment["paymentStatus"],
 		});
+		if (result && before) {
+			const student = useStudentStore.getState().getStudentById(before.studentId);
+			const course = useCourseStore.getState().getCourseById(before.courseId);
+			await logEvent({
+				eventType: 'enrollment.withdraw',
+				entityType: 'enrollment',
+				entityId: id,
+				entityLabel: student && course ? `${student.name} — ${course.name}` : undefined,
+				before: { paymentStatus: before.paymentStatus },
+				meta: { paidAmount: before.paidAmount },
+			});
+		}
+		return result;
 	},
 
 	getEnrollmentById: (id: string) => {
@@ -156,6 +232,7 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 		const effectiveFee = totalFee - discount;
 
 		if (isExempt) {
+			const prevStatus = get().getEnrollmentById(id)?.paymentStatus;
 			await get().updateEnrollment(id, {
 				paidAmount: 0,
 				remainingAmount: 0,
@@ -164,13 +241,22 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 				...(paymentMethod !== undefined && { paymentMethod }),
 				...(discountAmount !== undefined && { discountAmount }),
 			});
+			if (prevStatus !== 'exempt') {
+				await logEvent({
+					eventType: 'enrollment.exempt',
+					entityType: 'enrollment',
+					entityId: id,
+					meta: { previousStatus: prevStatus },
+				});
+			}
 			return;
 		}
 
-		const remainingAmount = effectiveFee - paidAmount;
+		// 잔여금은 음수가 될 수 없음 (초과 납부도 잔여 0)
+		const remainingAmount = Math.max(0, effectiveFee - paidAmount);
 		let paymentStatus: "pending" | "partial" | "completed" = "pending";
 
-		if (paidAmount === 0) {
+		if (paidAmount <= 0) {
 			paymentStatus = "pending";
 		} else if (paidAmount < effectiveFee) {
 			paymentStatus = "partial";

@@ -19,6 +19,9 @@ export { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
 export { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow, TableFooter } from './components/ui/table';
 export { Textarea } from './components/ui/textarea';
 export { Skeleton } from './components/ui/skeleton';
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './components/ui/tooltip';
+export { Popover, PopoverTrigger, PopoverContent } from './components/ui/popover';
+export { RevenueBreakdownTooltip } from './components/revenue/RevenueBreakdownTooltip';
 
 // Common components
 export { ErrorBoundary, withErrorBoundary } from './components/common/ErrorBoundary';

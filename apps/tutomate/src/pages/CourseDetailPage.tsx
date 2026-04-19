@@ -109,9 +109,19 @@ const CourseDetailPage: React.FC = () => {
 
 	const handleWithdrawStudents = async (ids: string[], refundAmount?: number) => {
 		for (const id of ids) {
+			// 철회 전에 원본 paymentMethod 캡처 (환불 record에 동일 수단 사용)
+			const originalEnrollment = enrollments.find((e) => e.id === id);
+			const originalMethod = originalEnrollment?.paymentMethod;
 			await withdrawEnrollment(id);
 			if (refundAmount && refundAmount > 0) {
-				await addPayment(id, -refundAmount, course?.fee || 0, undefined, dayjs().format("YYYY-MM-DD"));
+				await addPayment(
+					id,
+					-refundAmount,
+					course?.fee || 0,
+					originalMethod,
+					dayjs().format("YYYY-MM-DD"),
+					'수강 철회 환불',
+				);
 			}
 		}
 		await loadEnrollments();

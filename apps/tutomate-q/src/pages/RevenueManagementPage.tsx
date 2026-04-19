@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Download, FileSpreadsheet, FileText, Calendar,
 } from 'lucide-react';
@@ -20,10 +21,14 @@ import { usePaymentRecordStore } from '@tutomate/core';
 import { getCurrentQuarter, getQuarterOptions } from '@tutomate/core';
 import { PaymentForm } from '@tutomate/ui';
 import type { Enrollment } from '@tutomate/core';
-import { PAYMENT_METHOD_LABELS, isActiveEnrollment } from '@tutomate/core';
+import { PAYMENT_METHOD_LABELS } from '@tutomate/core';
 import { exportRevenueToExcel, exportRevenueToCSV, REVENUE_EXPORT_FIELDS } from '@tutomate/core';
+import { RevenueBreakdownTooltip } from '@tutomate/ui';
 
 const RevenueManagementPage: React.FC = () => {
+  const navigate = useNavigate();
+  const goToCourse = (courseId: string) =>
+    navigate(`/courses/${courseId}?q=${encodeURIComponent(selectedQuarter)}`);
   const { courses, loadCourses, getCourseById } = useCourseStore();
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
@@ -36,6 +41,8 @@ const RevenueManagementPage: React.FC = () => {
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [dateRange, setDateRange] = useState<[string, string]>(['', '']);
+  // 기간 필터 모드: 'quarter' | 'date' — 상호 배타
+  const [filterMode, setFilterMode] = useState<'quarter' | 'date'>('quarter');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
 
   const [selectedQuarter, setSelectedQuarter] = useState<string>(getCurrentQuarter());
@@ -47,18 +54,24 @@ const RevenueManagementPage: React.FC = () => {
     loadRecords();
   }, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
-  // Filter enrollments — 선택 분기 기준
+  // Filter enrollments — filterMode에 따라 분기 OR 날짜 중 하나만 적용 (상호 배타)
   const filteredEnrollments = useMemo(() => {
-    // withdrawn 포함 — 환불 금액이 수익에 반영되어야 함 (철회된 수강의 환불도 집계)
-    let filtered = enrollments.filter((e) => (e.quarter === selectedQuarter || !e.quarter));
+    // withdrawn 포함 — 환불 금액이 수익에 반영되어야 함
+    let filtered: typeof enrollments;
 
-    if (dateRange[0] && dateRange[1]) {
-      const startDate = dayjs(dateRange[0]).startOf('day');
-      const endDate = dayjs(dateRange[1]).endOf('day');
-      filtered = filtered.filter((enrollment) => {
-        const enrollDate = dayjs(enrollment.enrolledAt);
-        return !enrollDate.isBefore(startDate) && !enrollDate.isAfter(endDate);
-      });
+    if (filterMode === 'quarter') {
+      filtered = enrollments.filter((e) => (e.quarter === selectedQuarter || !e.quarter));
+    } else {
+      // 날짜 모드: quarter 무시, dateRange만 적용
+      filtered = [...enrollments];
+      if (dateRange[0] && dateRange[1]) {
+        const startDate = dayjs(dateRange[0]).startOf('day');
+        const endDate = dayjs(dateRange[1]).endOf('day');
+        filtered = filtered.filter((enrollment) => {
+          const enrollDate = dayjs(enrollment.enrolledAt);
+          return !enrollDate.isBefore(startDate) && !enrollDate.isAfter(endDate);
+        });
+      }
     }
 
     if (paymentStatusFilter.length > 0) {
@@ -68,22 +81,33 @@ const RevenueManagementPage: React.FC = () => {
     }
 
     return filtered;
-  }, [enrollments, dateRange, paymentStatusFilter, selectedQuarter]);
+  }, [enrollments, filterMode, dateRange, paymentStatusFilter, selectedQuarter]);
 
+  // 할인 반영된 실제 수강료
+  const getEffectiveFee = (e: Enrollment) => {
+    const fee = getCourseById(e.courseId)?.fee ?? 0;
+    return Math.max(0, fee - (e.discountAmount ?? 0));
+  };
+
+  // 수익 집계 대상: exempt 제외
   const revenueEnrollments = useMemo(() => filteredEnrollments.filter((e) => e.paymentStatus !== 'exempt'), [filteredEnrollments]);
+  // 활성(active) = 수익 집계 대상 중 withdrawn 제외 → 예상수익/미수금 계산용
+  const activeRevenue = useMemo(() => revenueEnrollments.filter((e) => e.paymentStatus !== 'withdrawn'), [revenueEnrollments]);
 
-  // withdrawn 포함 — 원래 기대했던 금액 vs 실제 납부 받은 금액 (환불 반영)
+  // 총수익: active의 paidAmount + withdrawn의 net paidAmount(환불 차감 후)
   const totalRevenue = revenueEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-  const expectedRevenue = revenueEnrollments.reduce((sum, e) => {
-    const course = getCourseById(e.courseId);
-    return sum + (course?.fee || 0);
-  }, 0);
-  const totalUnpaid = expectedRevenue - totalRevenue;
+  // 예상수익: active만, 할인 반영
+  const expectedRevenue = activeRevenue.reduce((sum, e) => sum + getEffectiveFee(e), 0);
+  // 미수금: active 학생 기준만 (withdrawn은 미수가 아님). 음수 방지
+  const activeRevenueTotal = activeRevenue.reduce((sum, e) => sum + e.paidAmount, 0);
+  const totalUnpaid = Math.max(0, expectedRevenue - activeRevenueTotal);
 
+  // 결제수단별 통계: 환불(음수)도 그대로 합산되어 net 표시
   const totalCash = revenueEnrollments.filter((e) => e.paymentMethod === 'cash').reduce((sum, e) => sum + e.paidAmount, 0);
   const totalTransfer = revenueEnrollments.filter((e) => e.paymentMethod === 'transfer').reduce((sum, e) => sum + e.paidAmount, 0);
   const totalCard = revenueEnrollments.filter((e) => e.paymentMethod === 'card').reduce((sum, e) => sum + e.paidAmount, 0);
 
+  // 상태별 건수: withdrawn은 어떤 카테고리에도 포함하지 않음
   const completedPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'completed').length;
   const partialPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'partial').length;
   const pendingPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'pending').length;
@@ -92,10 +116,20 @@ const RevenueManagementPage: React.FC = () => {
   const courseRevenueData = useMemo(() => courses.map((course) => {
     const courseEnrollments = filteredEnrollments.filter((e) => e.courseId === course.id);
     const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
+    // active = withdrawn 제외 (예상수익/미수금 계산용)
+    const activeEnrollments = nonExemptEnrollments.filter((e) => e.paymentStatus !== 'withdrawn');
+    // 수익: 환불 net 포함
     const revenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-    const expected = nonExemptEnrollments.length * course.fee;
-    const unpaid = expected - revenue;
+    // 예상수익: active의 effectiveFee (할인 반영)
+    const expected = activeEnrollments.reduce(
+      (sum, e) => sum + Math.max(0, course.fee - (e.discountAmount ?? 0)),
+      0,
+    );
+    const activeRevenueLocal = activeEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
+    const unpaid = Math.max(0, expected - activeRevenueLocal);
     const completed = courseEnrollments.filter((e) => e.paymentStatus === 'completed').length;
+    // 활성 수강생 수 기준 완납률 (withdrawn/exempt 제외)
+    const completionRate = activeEnrollments.length > 0 ? (completed / activeEnrollments.length) * 100 : 0;
 
     return {
       courseId: course.id,
@@ -104,12 +138,13 @@ const RevenueManagementPage: React.FC = () => {
       revenue,
       expected,
       unpaid,
-      completionRate: nonExemptEnrollments.length > 0 ? (completed / nonExemptEnrollments.length) * 100 : 0,
+      completionRate,
+      revenueEnrollments: nonExemptEnrollments, // 툴팁용
     };
   }), [courses, filteredEnrollments]);
 
   const unpaidList = useMemo(() => filteredEnrollments
-    .filter((e) => e.paymentStatus !== 'completed' && e.paymentStatus !== 'exempt')
+    .filter((e) => e.paymentStatus === 'pending' || e.paymentStatus === 'partial')
     .map((enrollment) => {
       const student = getStudentById(enrollment.studentId);
       const course = getCourseById(enrollment.courseId);
@@ -125,23 +160,36 @@ const RevenueManagementPage: React.FC = () => {
     }), [filteredEnrollments, getStudentById, getCourseById]);
 
   // 분기별 수익 현황 (강좌별)
+  // - 분기 매칭된 모든 enrollment(withdrawn 포함)에서 환불 net 수익 합산
+  // - 예상수익은 활성(active) + 할인 반영
   const quarterRevenueData = useMemo(() => {
     return courses.map((course) => {
-      const courseEnrollments = enrollments.filter((e) => isActiveEnrollment(e) && e.courseId === course.id && e.quarter === selectedQuarter);
-      const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
-      const quarterRevenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-      const quarterExpected = nonExemptEnrollments.length * course.fee;
-      const paidCount = courseEnrollments.filter((e) => e.paymentStatus === 'completed').length;
+      const quarterAll = enrollments.filter(
+        (e) => e.courseId === course.id && e.quarter === selectedQuarter,
+      );
+      const nonExempt = quarterAll.filter((e) => e.paymentStatus !== 'exempt');
+      const active = nonExempt.filter((e) => e.paymentStatus !== 'withdrawn');
+      const quarterRevenue = nonExempt.reduce((sum, e) => sum + e.paidAmount, 0);
+      const quarterExpected = active.reduce(
+        (sum, e) => sum + Math.max(0, course.fee - (e.discountAmount ?? 0)),
+        0,
+      );
+      const activeRevenueLocal = active.reduce((sum, e) => sum + e.paidAmount, 0);
+      const paidCount = active.filter((e) => e.paymentStatus === 'completed').length;
+      const unpaidCount = active.length - paidCount;
+      // 수납률은 active 기준 (withdrawn은 분모/분자 모두에서 제외)
+      const collectionRate = quarterExpected > 0 ? (activeRevenueLocal / quarterExpected) * 100 : 0;
 
       return {
         courseId: course.id,
         courseName: course.name,
-        studentCount: courseEnrollments.length,
+        studentCount: active.length, // 활성 수강생 수 (withdrawn 제외)
         paidCount,
-        unpaidCount: nonExemptEnrollments.length - paidCount,
+        unpaidCount,
         quarterRevenue,
         quarterExpected,
-        collectionRate: quarterExpected > 0 ? (quarterRevenue / quarterExpected) * 100 : 0,
+        collectionRate,
+        revenueEnrollments: nonExempt, // 툴팁용
       };
     }).filter((d) => d.studentCount > 0);
   }, [courses, enrollments, selectedQuarter]);
@@ -217,69 +265,99 @@ const RevenueManagementPage: React.FC = () => {
       {/* 필터 섹션 */}
       <Card className="mb-6">
         <CardContent className="p-4 space-y-4">
-          {/* 날짜 범위 필터 */}
+          {/* 기간 필터 — 모드 토글 (분기 ↔ 세부 시간) */}
           <div className="flex items-center gap-3 flex-wrap justify-between">
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="font-medium text-sm">기간 선택:</span>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="date"
-                  value={dateRange[0]}
-                  onChange={(e) => setDateRange([e.target.value, dateRange[1]])}
-                  className="w-[150px] h-8 text-sm"
-                />
-                <span className="text-muted-foreground">~</span>
-                <Input
-                  type="date"
-                  value={dateRange[1]}
-                  onChange={(e) => setDateRange([dateRange[0], e.target.value])}
-                  className="w-[150px] h-8 text-sm"
-                />
+              {/* 모드 토글 */}
+              <div className="inline-flex rounded-md border p-0.5 bg-muted/30">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterMode('quarter');
+                    setDateRange(['', '']);
+                  }}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${
+                    filterMode === 'quarter'
+                      ? 'bg-background shadow-sm font-medium'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  분기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterMode('date')}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${
+                    filterMode === 'date'
+                      ? 'bg-background shadow-sm font-medium'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  날짜 지정
+                </button>
               </div>
-              <div className="flex gap-1">
-                {[
-                  { label: '전체', type: 'all' as const },
-                  { label: '이번 달', type: 'this-month' as const },
-                  { label: '지난 달', type: 'last-month' as const },
-                  { label: '올해', type: 'this-year' as const },
-                ].map((btn) => (
+
+              {/* 모드별 필터 */}
+              {filterMode === 'quarter' ? (
+                <>
+                  <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+                    <SelectTrigger className="w-[160px] h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getQuarterOptions().map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
-                    key={btn.type}
-                    variant={isDateRangeActive(btn.type) ? 'default' : 'outline'}
+                    variant="outline"
                     size="sm"
-                    onClick={() => setQuickDateRange(btn.type)}
+                    onClick={() => setSelectedQuarter(getCurrentQuarter())}
                   >
-                    {btn.label}
+                    이번 분기
                   </Button>
-                ))}
-              </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={dateRange[0]}
+                      onChange={(e) => setDateRange([e.target.value, dateRange[1]])}
+                      className="w-[150px] h-9 text-sm"
+                    />
+                    <span className="text-muted-foreground">~</span>
+                    <Input
+                      type="date"
+                      value={dateRange[1]}
+                      onChange={(e) => setDateRange([dateRange[0], e.target.value])}
+                      className="w-[150px] h-9 text-sm"
+                    />
+                  </div>
+                  <div className="flex gap-1">
+                    {[
+                      { label: '전체', type: 'all' as const },
+                      { label: '이번 달', type: 'this-month' as const },
+                      { label: '지난 달', type: 'last-month' as const },
+                      { label: '올해', type: 'this-year' as const },
+                    ].map((btn) => (
+                      <Button
+                        key={btn.type}
+                        variant={isDateRangeActive(btn.type) ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setQuickDateRange(btn.type)}
+                      >
+                        {btn.label}
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
             <Button variant="outline" size="sm" onClick={() => setIsExportModalVisible(true)}>
               <Download className="h-4 w-4" />
               내보내기
-            </Button>
-          </div>
-
-          {/* 분기 선택 */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="font-medium text-sm">분기:</span>
-            <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-              <SelectTrigger className="w-[140px] h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {getQuarterOptions().map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedQuarter(getCurrentQuarter())}
-              className="h-8"
-            >
-              이번 분기
             </Button>
           </div>
 
@@ -342,14 +420,16 @@ const RevenueManagementPage: React.FC = () => {
 
       {/* 수익 통계 — 1줄: 금액 */}
       <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">총 수익</p>
-            <p className="text-2xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
-              {totalRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
-            </p>
-          </CardContent>
-        </Card>
+        <RevenueBreakdownTooltip enrollments={revenueEnrollments}>
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">총 수익</p>
+              <p className="text-2xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
+                {totalRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
+              </p>
+            </CardContent>
+          </Card>
+        </RevenueBreakdownTooltip>
         <Card>
           <CardContent className="p-4">
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">예상 수익</p>
@@ -462,9 +542,21 @@ const RevenueManagementPage: React.FC = () => {
               <TableBody>
                 {courseRevenueData.map((row) => (
                   <TableRow key={row.courseId}>
-                    <TableCell>{row.courseName}</TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        className="text-primary hover:underline text-left"
+                        onClick={() => goToCourse(row.courseId)}
+                      >
+                        {row.courseName}
+                      </button>
+                    </TableCell>
                     <TableCell>{row.studentCount}</TableCell>
-                    <TableCell>{'\u20A9'}{row.revenue.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <RevenueBreakdownTooltip enrollments={row.revenueEnrollments}>
+                        <span>{'\u20A9'}{row.revenue.toLocaleString()}</span>
+                      </RevenueBreakdownTooltip>
+                    </TableCell>
                     <TableCell>{'\u20A9'}{row.expected.toLocaleString()}</TableCell>
                     <TableCell className={row.unpaid > 0 ? 'text-error' : 'text-success'}>
                       {'\u20A9'}{row.unpaid.toLocaleString()}
@@ -502,7 +594,15 @@ const RevenueManagementPage: React.FC = () => {
                     <TableRow key={row.id}>
                       <TableCell>{row.studentName}</TableCell>
                       <TableCell>{row.studentPhone}</TableCell>
-                      <TableCell>{row.courseName}</TableCell>
+                      <TableCell>
+                        <button
+                          type="button"
+                          className="text-primary hover:underline text-left"
+                          onClick={() => goToCourse(row.courseId)}
+                        >
+                          {row.courseName}
+                        </button>
+                      </TableCell>
                       <TableCell>{'\u20A9'}{row.courseFee.toLocaleString()}</TableCell>
                       <TableCell>
                         <Badge variant={s?.variant}>{s?.text}</Badge>
@@ -534,32 +634,13 @@ const RevenueManagementPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="monthly">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {getQuarterOptions().map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedQuarter(getCurrentQuarter())}
-              >
-                이번 분기
-              </Button>
-            </div>
+          <div className="flex items-center justify-end mb-4">
             <div className="flex items-center gap-6 text-sm">
               <div>
                 <span className="text-muted-foreground">분기 수익: </span>
-                <span className="font-semibold text-success">{'\u20A9'}{quarterTotalRevenue.toLocaleString()}</span>
+                <RevenueBreakdownTooltip enrollments={quarterRevenueData.flatMap((d) => d.revenueEnrollments)}>
+                  <span className="font-semibold text-success">{'\u20A9'}{quarterTotalRevenue.toLocaleString()}</span>
+                </RevenueBreakdownTooltip>
               </div>
               <div>
                 <span className="text-muted-foreground">예상: </span>
@@ -596,13 +677,25 @@ const RevenueManagementPage: React.FC = () => {
                 )}
                 {quarterRevenueData.map((row) => (
                   <TableRow key={row.courseId}>
-                    <TableCell>{row.courseName}</TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        className="text-primary hover:underline text-left"
+                        onClick={() => goToCourse(row.courseId)}
+                      >
+                        {row.courseName}
+                      </button>
+                    </TableCell>
                     <TableCell>{row.studentCount}</TableCell>
                     <TableCell className="text-success">{row.paidCount}명</TableCell>
                     <TableCell className={row.unpaidCount > 0 ? 'text-error' : 'text-success'}>
                       {row.unpaidCount}명
                     </TableCell>
-                    <TableCell>{'\u20A9'}{row.quarterRevenue.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <RevenueBreakdownTooltip enrollments={row.revenueEnrollments}>
+                        <span>{'\u20A9'}{row.quarterRevenue.toLocaleString()}</span>
+                      </RevenueBreakdownTooltip>
+                    </TableCell>
                     <TableCell>{'\u20A9'}{row.quarterExpected.toLocaleString()}</TableCell>
                     <TableCell className={row.collectionRate >= 100 ? 'text-success' : row.collectionRate >= 50 ? 'text-warning' : 'text-error'}>
                       {row.collectionRate.toFixed(1)}%

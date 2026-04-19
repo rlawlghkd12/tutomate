@@ -9,8 +9,11 @@ import {
   mapPaymentRecordUpdateToDb,
 } from "../utils/fieldMapper";
 import { useEnrollmentStore } from "./enrollmentStore";
+import { useStudentStore } from "./studentStore";
+import { useCourseStore } from "./courseStore";
 import { handleError, showErrorMessage } from "../utils/errors";
 import { logError } from "../utils/logger";
+import { logEvent } from "../utils/eventLogger";
 
 const helper = createDataHelper<PaymentRecord, PaymentRecordRow>({
   table: "payment_records",
@@ -86,10 +89,29 @@ export const usePaymentRecordStore = create<PaymentRecordStore>(
       }
       set({ records: [...get().records, newRecord] });
       await syncEnrollmentTotal(enrollmentId, courseFee, get().records);
+
+      // 감사 로그: 환불(음수)과 일반 결제를 구분
+      const enrollment = useEnrollmentStore.getState().getEnrollmentById(enrollmentId);
+      const student = enrollment ? useStudentStore.getState().getStudentById(enrollment.studentId) : undefined;
+      const course = enrollment ? useCourseStore.getState().getCourseById(enrollment.courseId) : undefined;
+      await logEvent({
+        eventType: amount < 0 ? 'payment.refund' : 'payment.add',
+        entityType: 'payment_record',
+        entityId: newRecord.id,
+        entityLabel: student && course ? `${student.name} — ${course.name}` : undefined,
+        after: {
+          amount: newRecord.amount,
+          paidAt: newRecord.paidAt,
+          paymentMethod: newRecord.paymentMethod,
+          notes: newRecord.notes,
+        },
+        meta: { enrollmentId },
+      });
       return newRecord;
     },
 
     updateRecord: async (id, updates) => {
+      const before = get().records.find((r) => r.id === id);
       const error = await helper.update(id, updates);
       if (error) {
         handleError(error);
@@ -98,6 +120,21 @@ export const usePaymentRecordStore = create<PaymentRecordStore>(
       set({
         records: get().records.map((r) => r.id === id ? { ...r, ...updates } : r),
       });
+      if (before) {
+        await logEvent({
+          eventType: 'payment.update',
+          entityType: 'payment_record',
+          entityId: id,
+          before: {
+            amount: before.amount,
+            paidAt: before.paidAt,
+            paymentMethod: before.paymentMethod,
+            notes: before.notes,
+          },
+          after: updates,
+          meta: { enrollmentId: before.enrollmentId },
+        });
+      }
       return true;
     },
 
@@ -113,6 +150,18 @@ export const usePaymentRecordStore = create<PaymentRecordStore>(
       const filtered = get().records.filter((r) => r.id !== id);
       set({ records: filtered });
       await syncEnrollmentTotal(record.enrollmentId, courseFee, filtered);
+      await logEvent({
+        eventType: 'payment.delete',
+        entityType: 'payment_record',
+        entityId: id,
+        before: {
+          amount: record.amount,
+          paidAt: record.paidAt,
+          paymentMethod: record.paymentMethod,
+          notes: record.notes,
+        },
+        meta: { enrollmentId: record.enrollmentId },
+      });
       return true;
     },
 
@@ -130,6 +179,18 @@ export const usePaymentRecordStore = create<PaymentRecordStore>(
       if (deletedIds.length > 0) {
         set({
           records: get().records.filter((r) => !deletedIds.includes(r.id)),
+        });
+        await logEvent({
+          eventType: 'payment.bulk_delete',
+          entityType: 'payment_record',
+          entityId: null,
+          meta: {
+            enrollmentId,
+            deletedCount: deletedIds.length,
+            deletedAmounts: toDelete
+              .filter((r) => deletedIds.includes(r.id))
+              .map((r) => r.amount),
+          },
         });
       }
     },
@@ -152,10 +213,28 @@ async function syncEnrollmentTotal(
 
   const enrollment = useEnrollmentStore.getState().getEnrollmentById(enrollmentId);
   if (!enrollment) return;
-  if (enrollment.paymentStatus === 'withdrawn') return;
+
+  // withdrawn: 상태는 유지하되 paidAmount는 환불 반영하여 동기화
+  // (수익 집계는 enrollment.paidAmount를 source of truth로 사용)
+  if (enrollment.paymentStatus === 'withdrawn') {
+    await useEnrollmentStore.getState().updateEnrollment(enrollmentId, {
+      paidAmount: totalPaid,
+      remainingAmount: 0,
+      paidAt: latestRecord?.paidAt,
+    });
+    return;
+  }
 
   const isExempt = enrollment.paymentStatus === 'exempt';
   const discount = enrollment.discountAmount ?? 0;
+
+  // 환불(amount<0)이 섞여 있을 때 paymentMethod 보호:
+  // 양수 record 중 가장 최근 것을 우선 사용 (없으면 latestRecord 사용)
+  const positiveRecords = enrollmentRecords.filter((r) => r.amount > 0);
+  const latestPositive = positiveRecords.sort((a, b) =>
+    (b.paidAt || '').localeCompare(a.paidAt || ''),
+  )[0];
+  const effectiveMethod = latestPositive?.paymentMethod ?? latestRecord?.paymentMethod;
 
   await useEnrollmentStore.getState().updatePayment(
     enrollmentId,
@@ -163,7 +242,7 @@ async function syncEnrollmentTotal(
     courseFee,
     latestRecord?.paidAt,
     isExempt,
-    latestRecord?.paymentMethod,
+    effectiveMethod,
     discount,
   );
 }

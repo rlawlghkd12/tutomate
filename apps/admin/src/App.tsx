@@ -6,8 +6,9 @@ import DashboardPage from './pages/DashboardPage';
 import UsersPage from './pages/UsersPage';
 import LicensesPage from './pages/LicensesPage';
 import OrganizationsPage from './pages/OrganizationsPage';
+import ActivityLogPage from './pages/ActivityLogPage';
 import { useEffect } from 'react';
-import { LayoutDashboard, User, Key, Users, LogOut, Loader2 } from 'lucide-react';
+import { LayoutDashboard, User, Key, Users, Activity, LogOut, Loader2 } from 'lucide-react';
 import { toast, Toaster } from 'sonner';
 
 const menuItems = [
@@ -15,6 +16,7 @@ const menuItems = [
   { key: '/users', icon: <User className="h-4 w-4" />, label: '유저' },
   { key: '/licenses', icon: <Key className="h-4 w-4" />, label: '라이선스' },
   { key: '/organizations', icon: <Users className="h-4 w-4" />, label: '조직' },
+  { key: '/activity', icon: <Activity className="h-4 w-4" />, label: '활동 로그' },
 ];
 
 function AdminLayout() {
@@ -72,6 +74,7 @@ function AdminLayout() {
             <Route path="/users" element={<UsersPage />} />
             <Route path="/licenses" element={<LicensesPage />} />
             <Route path="/organizations" element={<OrganizationsPage />} />
+            <Route path="/activity" element={<ActivityLogPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

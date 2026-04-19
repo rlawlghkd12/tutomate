@@ -3,7 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
-import { useEnrollmentStore, PaymentMethodEnum } from '@tutomate/core';
+import { useEnrollmentStore, PaymentMethodEnum, logEvent } from '@tutomate/core';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -82,6 +82,21 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
         const newPaidAmount = enrollment.paidAmount + amountPerStudent;
         await updatePayment(enrollment.id, newPaidAmount, courseFee, undefined, false, paymentMethod);
       }
+
+      // 일괄 작업 감사 로그 (개별 enrollment.update 로그 외 summary)
+      await logEvent({
+        eventType: 'payment.bulk_update',
+        entityType: 'enrollment',
+        entityId: null,
+        meta: {
+          mode: paymentType,
+          amountPerStudent,
+          studentCount: totalSelectedStudents,
+          totalAmount: amountPerStudent * totalSelectedStudents,
+          paymentMethod,
+          enrollmentIds: enrollments.map((e) => e.id),
+        },
+      });
 
       toast.success(`${totalSelectedStudents}명의 납부 정보가 업데이트되었습니다.`);
       form.reset();

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -15,7 +15,7 @@ import type { Enrollment, PaymentMethod } from '@tutomate/core';
 import { usePaymentRecordStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
-import { PAYMENT_METHOD_LABELS, PaymentMethodEnum } from '@tutomate/core';
+import { PAYMENT_METHOD_LABELS, PaymentMethodEnum, logEvent } from '@tutomate/core';
 import { getPreviousQuarter, getQuarterLabel, isActiveEnrollment } from '@tutomate/core';
 import type { Student, PaymentRecord } from '@tutomate/core';
 import dayjs from 'dayjs';
@@ -94,6 +94,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<string | null>(null);
   const [modalDiscount, setModalDiscount] = useState(0);
+  // 중복 클릭 방지:
+  // - ref: 동기 즉시 차단 (state batching/React render 무관하게 race 차단)
+  // - state: 버튼 disabled UI 반영용
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Form state (replacing antd Form)
   const [formAmount, setFormAmount] = useState<number | undefined>(undefined);
@@ -187,6 +192,9 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
 
   // 납부 추가
   const handleAddPayment = useCallback(async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
     try {
       if (!selectedEnrollmentId) return;
       if (formAmount === undefined || formAmount < 0) return;
@@ -217,6 +225,9 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       setSelectedEnrollmentId(null);
     } catch (error) {
       console.error('Payment failed:', error);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   }, [selectedEnrollmentId, formAmount, formPaymentMethod, formPaidAt, formNotes, formDiscountAmount, addPayment, courseFee, enrollments, handleDiscountChange, resetForm]);
 
@@ -242,42 +253,77 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       enrollment.id, totalPaid, courseFee, undefined, false,
       undefined, enrollment.discountAmount,
     );
+    await logEvent({
+      eventType: 'enrollment.unexempt',
+      entityType: 'enrollment',
+      entityId: enrollment.id,
+      meta: { restoredPaidAmount: totalPaid },
+    });
     toast.success('면제가 취소되었습니다.');
   }, [updateEnrollmentPayment, courseFee, records]);
 
   // 완납 처리
   const handleFullPayment = useCallback(async (enrollment: Enrollment) => {
-    const enrollmentRecords = records.filter((r) => r.enrollmentId === enrollment.id);
-    const totalPaid = enrollmentRecords.reduce((sum, r) => sum + r.amount, 0);
-    const effectiveFee = courseFee - (enrollment.discountAmount ?? 0);
-    const remaining = effectiveFee - totalPaid;
-    if (remaining <= 0) return;
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      const enrollmentRecords = records.filter((r) => r.enrollmentId === enrollment.id);
+      const totalPaid = enrollmentRecords.reduce((sum, r) => sum + r.amount, 0);
+      const effectiveFee = courseFee - (enrollment.discountAmount ?? 0);
+      const remaining = effectiveFee - totalPaid;
+      if (remaining <= 0) return;
 
-    await addPayment(
-      enrollment.id,
-      remaining,
-      courseFee,
-      undefined,
-      dayjs().format('YYYY-MM-DD'),
-    );
-    toast.success('완납 처리되었습니다.');
-  }, [records, addPayment, courseFee]);
-
-  // 전체 완납
-  const handleBulkFullPayment = useCallback(async () => {
-    const unpaid = tableData.filter(
-      (d) => d.enrollment.paymentStatus !== 'exempt' && d.remaining > 0,
-    );
-    for (const item of unpaid) {
       await addPayment(
-        item.enrollment.id,
-        item.remaining,
+        enrollment.id,
+        remaining,
         courseFee,
         undefined,
         dayjs().format('YYYY-MM-DD'),
       );
+      toast.success('완납 처리되었습니다.');
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
-    toast.success(`${unpaid.length}명의 완납이 처리되었습니다.`);
+  }, [records, addPayment, courseFee]);
+
+  // 전체 완납
+  const handleBulkFullPayment = useCallback(async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      const unpaid = tableData.filter(
+        (d) => d.enrollment.paymentStatus !== 'exempt' && d.remaining > 0,
+      );
+      for (const item of unpaid) {
+        await addPayment(
+          item.enrollment.id,
+          item.remaining,
+          courseFee,
+          undefined,
+          dayjs().format('YYYY-MM-DD'),
+        );
+      }
+      if (unpaid.length > 0) {
+        await logEvent({
+          eventType: 'payment.bulk_full',
+          entityType: 'enrollment',
+          entityId: null,
+          meta: {
+            studentCount: unpaid.length,
+            totalAmount: unpaid.reduce((sum, d) => sum + d.remaining, 0),
+            courseFee,
+            enrollmentIds: unpaid.map((d) => d.enrollment.id),
+          },
+        });
+      }
+      toast.success(`${unpaid.length}명의 완납이 처리되었습니다.`);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   }, [tableData, addPayment, courseFee]);
 
   // 선택된 수강생 데이터 (납부 모달 + 이력 모달 공용)
@@ -475,6 +521,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               <Button
                 variant="outline"
                 size="sm"
+                disabled={submitting}
                 onClick={() => handleFullPayment(record.enrollment)}
               >
                 완납
@@ -584,7 +631,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               <SelectItem value="exempt">면제</SelectItem>
             </SelectContent>
           </Select>
-          <Button size="sm" onClick={handleBulkFullPayment}>
+          <Button size="sm" disabled={submitting} onClick={handleBulkFullPayment}>
             전체 완납
           </Button>
         </div>
@@ -676,7 +723,10 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>납부 -- {selectedData?.studentName ?? ''}</DialogTitle>
+            <DialogTitle>
+              <span className="text-primary">{selectedData?.studentName ?? ''}</span>
+              <span className="text-muted-foreground font-normal ml-2">님 납부</span>
+            </DialogTitle>
             <DialogDescription className="sr-only">납부 정보를 입력합니다</DialogDescription>
           </DialogHeader>
 
@@ -776,7 +826,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             >
               취소
             </Button>
-            <Button onClick={handleAddPayment}>납부 기록</Button>
+            <Button disabled={submitting} onClick={handleAddPayment}>납부 기록</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -791,9 +841,12 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           }
         }}
       >
-        <DialogContent className="max-w-xl">
+        <DialogContent className="w-[60vw] max-w-5xl">
           <DialogHeader>
-            <DialogTitle>납부 이력 -- {selectedData?.studentName ?? ''}</DialogTitle>
+            <DialogTitle>
+              <span className="text-primary">{selectedData?.studentName ?? ''}</span>
+              <span className="text-muted-foreground font-normal ml-2">님의 납부 이력</span>
+            </DialogTitle>
             <DialogDescription className="sr-only">납부 이력을 확인합니다</DialogDescription>
           </DialogHeader>
 
@@ -802,86 +855,88 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               납부 이력이 없습니다
             </div>
           ) : (
-            <div className="flex flex-col gap-2 max-h-[400px] overflow-y-auto">
+            <div className="flex flex-col divide-y max-h-[420px] overflow-y-auto">
               {(selectedData?.records ?? []).map((r) => (
-                <div key={r.id} className="rounded-xl border p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Input
-                      type="number"
-                      step={5000}
-                      className="h-8 text-base font-semibold w-[130px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                      defaultValue={r.amount}
-                      onBlur={(e) => {
-                        const val = Number(e.target.value);
-                        if (!isNaN(val) && val !== r.amount) {
-                          updateRecord(r.id, { amount: val });
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="text-xs px-2.5 py-1 rounded-full border cursor-pointer hover:bg-muted transition-colors"
-                      onClick={() => {
-                        const methods = Object.values(PaymentMethodEnum) as PaymentMethod[];
-                        const currentIdx = methods.indexOf(r.paymentMethod as PaymentMethod);
-                        const next = methods[(currentIdx + 1) % methods.length];
-                        updateRecord(r.id, { paymentMethod: next });
-                      }}
-                    >
-                      {r.paymentMethod
-                        ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS]
-                        : '-'}
-                    </button>
-                    <div className="ml-auto">
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10">
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>납부 기록 삭제</AlertDialogTitle>
-                            <AlertDialogDescription>삭제하시겠습니까?</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>취소</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              onClick={() => handleDeletePayment(r.id)}
-                            >
-                              삭제
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="date"
-                      className="h-8 text-sm w-[140px] cursor-pointer"
-                      defaultValue={r.paidAt || ''}
-                      onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-                      onBlur={(e) => {
-                        const val = e.target.value;
-                        if (val && val !== (r.paidAt || '')) {
-                          updateRecord(r.id, { paidAt: val });
-                        }
-                      }}
-                    />
-                    <Input
-                      className="h-8 text-sm flex-1"
-                      defaultValue={r.notes ?? ''}
-                      placeholder="메모 입력"
-                      onBlur={(e) => {
-                        const val = e.target.value;
-                        if (val !== (r.notes ?? '')) {
-                          updateRecord(r.id, { notes: val || undefined });
-                        }
-                      }}
-                    />
-                  </div>
+                <div key={r.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1">
+                  <Input
+                    type="date"
+                    className="h-8 text-sm w-[170px] shrink-0 cursor-pointer"
+                    defaultValue={r.paidAt || ''}
+                    onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                    onBlur={(e) => {
+                      const val = e.target.value;
+                      if (val && val !== (r.paidAt || '')) {
+                        updateRecord(r.id, { paidAt: val });
+                      }
+                    }}
+                  />
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    className="h-8 text-sm font-semibold w-[120px] shrink-0 text-right tabular-nums"
+                    defaultValue={r.amount.toLocaleString('ko-KR')}
+                    onFocus={(e) => {
+                      // 편집 시작 시 콤마 제거 (숫자만 편집하기 쉽게)
+                      e.target.value = String(r.amount);
+                      e.target.select();
+                    }}
+                    onBlur={(e) => {
+                      const raw = e.target.value.replace(/[^\d-]/g, '');
+                      const val = Number(raw);
+                      if (!isNaN(val) && val !== r.amount) {
+                        updateRecord(r.id, { amount: val });
+                      }
+                      // 편집 종료 시 콤마 포맷 복원
+                      e.target.value = (isNaN(val) ? r.amount : val).toLocaleString('ko-KR');
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="text-xs px-2.5 py-1 rounded-full border cursor-pointer hover:bg-muted transition-colors shrink-0 whitespace-nowrap"
+                    onClick={() => {
+                      const methods = Object.values(PaymentMethodEnum) as PaymentMethod[];
+                      const currentIdx = methods.indexOf(r.paymentMethod as PaymentMethod);
+                      const next = methods[(currentIdx + 1) % methods.length];
+                      updateRecord(r.id, { paymentMethod: next });
+                    }}
+                  >
+                    {r.paymentMethod
+                      ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS]
+                      : '-'}
+                  </button>
+                  <Input
+                    className="h-8 text-sm flex-1 min-w-0"
+                    defaultValue={r.notes ?? ''}
+                    placeholder="메모"
+                    onBlur={(e) => {
+                      const val = e.target.value;
+                      if (val !== (r.notes ?? '')) {
+                        updateRecord(r.id, { notes: val || undefined });
+                      }
+                    }}
+                  />
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full shrink-0 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10">
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>납부 기록 삭제</AlertDialogTitle>
+                        <AlertDialogDescription>삭제하시겠습니까?</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={() => handleDeletePayment(r.id)}
+                        >
+                          삭제
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               ))}
             </div>

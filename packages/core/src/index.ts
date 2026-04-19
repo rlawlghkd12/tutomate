@@ -29,10 +29,15 @@ export { usePaymentRecordStore } from './stores/paymentRecordStore';
 export { reloadAllStores } from './stores/reloadStores';
 export { useLockStore } from './stores/lockStore';
 export { useNotificationStore, getUnreadCountForOrg } from './stores/notificationStore';
+export { useEventLogStore } from './stores/eventLogStore';
+export type { EventLogFilters } from './stores/eventLogStore';
 
 // ─── Utils ───────────────────────────────────────────────────────
 export { createDataHelper, clearAllCache } from './utils/dataHelper';
 export type { DataHelper, LoadResult } from './utils/dataHelper';
+
+export { logEvent, diffChanges } from './utils/eventLogger';
+export type { LogEventArgs } from './utils/eventLogger';
 
 export { default as dayjs } from './utils/dayjs';
 
