@@ -169,6 +169,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
           <DialogTitle>납부 관리</DialogTitle>
         </DialogHeader>
 
+        <div className="space-y-4 mt-4">
         {/* 현재 상태 요약 */}
         <div className="rounded-xl border p-4">
           {isExempt ? (
@@ -411,6 +412,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             </Button>
           </DialogFooter>
         </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

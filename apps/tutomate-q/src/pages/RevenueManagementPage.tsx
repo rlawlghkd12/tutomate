@@ -19,8 +19,8 @@ import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { usePaymentRecordStore } from '@tutomate/core';
 import { getCurrentQuarter, getQuarterOptions } from '@tutomate/core';
-import { PaymentForm } from '@tutomate/ui';
-import type { Enrollment } from '@tutomate/core';
+import { PaymentForm, StudentForm } from '@tutomate/ui';
+import type { Enrollment, Student } from '@tutomate/core';
 import { PAYMENT_METHOD_LABELS } from '@tutomate/core';
 import { exportRevenueToExcel, exportRevenueToCSV, REVENUE_EXPORT_FIELDS } from '@tutomate/core';
 import { RevenueBreakdownTooltip } from '@tutomate/ui';
@@ -36,6 +36,7 @@ const RevenueManagementPage: React.FC = () => {
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState<string[]>(['courseName', 'studentName', 'fee', 'paidAmount', 'remainingAmount', 'paymentStatus']);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -262,138 +263,95 @@ const RevenueManagementPage: React.FC = () => {
 
   return (
     <PageEnter>
-      {/* 필터 섹션 */}
+      {/* 필터 섹션 — 한 줄 통합: [기간 모드+값] | [결제상태] | [내보내기] */}
       <Card className="mb-6">
-        <CardContent className="p-4 space-y-4">
-          {/* 기간 필터 — 모드 토글 (분기 ↔ 세부 시간) */}
+        <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-3 flex-wrap justify-between">
             <div className="flex items-center gap-3 flex-wrap">
-              {/* 모드 토글 */}
+              {/* 기간 모드 토글 */}
               <div className="inline-flex rounded-md border p-0.5 bg-muted/30">
                 <button
                   type="button"
-                  onClick={() => {
-                    setFilterMode('quarter');
-                    setDateRange(['', '']);
-                  }}
-                  className={`px-3 py-1 text-sm rounded transition-colors ${
-                    filterMode === 'quarter'
-                      ? 'bg-background shadow-sm font-medium'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                  onClick={() => { setFilterMode('quarter'); setDateRange(['', '']); }}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${filterMode === 'quarter' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   분기
                 </button>
                 <button
                   type="button"
                   onClick={() => setFilterMode('date')}
-                  className={`px-3 py-1 text-sm rounded transition-colors ${
-                    filterMode === 'date'
-                      ? 'bg-background shadow-sm font-medium'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${filterMode === 'date' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   날짜 지정
                 </button>
               </div>
 
-              {/* 모드별 필터 */}
+              {/* 모드별 필터 값 */}
               {filterMode === 'quarter' ? (
                 <>
                   <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-                    <SelectTrigger className="w-[160px] h-9">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {getQuarterOptions().map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedQuarter(getCurrentQuarter())}
-                  >
-                    이번 분기
-                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setSelectedQuarter(getCurrentQuarter())}>이번 분기</Button>
                 </>
               ) : (
                 <>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="date"
-                      value={dateRange[0]}
+                  <div className="flex items-center gap-1.5">
+                    <Input type="date" value={dateRange[0]}
                       onChange={(e) => setDateRange([e.target.value, dateRange[1]])}
-                      className="w-[150px] h-9 text-sm"
-                    />
+                      className="w-[140px] h-9 text-sm" />
                     <span className="text-muted-foreground">~</span>
-                    <Input
-                      type="date"
-                      value={dateRange[1]}
+                    <Input type="date" value={dateRange[1]}
                       onChange={(e) => setDateRange([dateRange[0], e.target.value])}
-                      className="w-[150px] h-9 text-sm"
-                    />
+                      className="w-[140px] h-9 text-sm" />
                   </div>
                   <div className="flex gap-1">
                     {[
-                      { label: '전체', type: 'all' as const },
                       { label: '이번 달', type: 'this-month' as const },
                       { label: '지난 달', type: 'last-month' as const },
                       { label: '올해', type: 'this-year' as const },
                     ].map((btn) => (
-                      <Button
-                        key={btn.type}
+                      <Button key={btn.type}
                         variant={isDateRangeActive(btn.type) ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setQuickDateRange(btn.type)}
-                      >
+                        size="sm" onClick={() => setQuickDateRange(btn.type)}>
                         {btn.label}
                       </Button>
                     ))}
                   </div>
                 </>
               )}
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setIsExportModalVisible(true)}>
-              <Download className="h-4 w-4" />
-              내보내기
-            </Button>
-          </div>
 
-          {/* 결제 상태 필터 */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="font-medium text-sm">결제 상태:</span>
-            <div className="flex gap-1">
-              <Button
-                variant={paymentStatusFilter.length === 0 ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setPaymentStatusFilter([])}
-              >
-                전체
-              </Button>
-              <Button
-                variant={paymentStatusFilter.length === 1 && paymentStatusFilter[0] === 'pending' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setPaymentStatusFilter(['pending'])}
-              >
-                미납만
-              </Button>
-              <Button
-                variant={paymentStatusFilter.length === 2 && paymentStatusFilter.includes('pending') && paymentStatusFilter.includes('partial') ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setPaymentStatusFilter(['pending', 'partial'])}
-              >
-                미완납
-              </Button>
-              <Button
-                variant={paymentStatusFilter.length === 1 && paymentStatusFilter[0] === 'completed' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setPaymentStatusFilter(['completed'])}
-              >
-                완납만
-              </Button>
+              {/* 세로 구분선 */}
+              <div className="h-6 w-px bg-border" aria-hidden />
+
+              {/* 결제 상태 */}
+              <div className="flex gap-1">
+                {[
+                  { label: '전체', value: [] as string[] },
+                  { label: '미납', value: ['pending'] },
+                  { label: '미완납', value: ['pending', 'partial'] },
+                  { label: '완납', value: ['completed'] },
+                ].map((opt) => {
+                  const active = JSON.stringify([...paymentStatusFilter].sort()) === JSON.stringify([...opt.value].sort());
+                  return (
+                    <Button key={opt.label} size="sm"
+                      variant={active ? 'default' : 'outline'}
+                      onClick={() => setPaymentStatusFilter(opt.value)}>
+                      {opt.label}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
+
+            <Button variant="outline" size="sm" onClick={() => setIsExportModalVisible(true)}>
+              <Download className="h-4 w-4" />내보내기
+            </Button>
           </div>
 
           {/* 필터 요약 */}
@@ -592,7 +550,18 @@ const RevenueManagementPage: React.FC = () => {
                   const s = statusMap[row.paymentStatus];
                   return (
                     <TableRow key={row.id}>
-                      <TableCell>{row.studentName}</TableCell>
+                      <TableCell>
+                        <button
+                          type="button"
+                          className="text-primary hover:underline text-left"
+                          onClick={() => {
+                            const stu = students.find((s) => s.id === row.studentId);
+                            if (stu) setSelectedStudent(stu);
+                          }}
+                        >
+                          {row.studentName}
+                        </button>
+                      </TableCell>
                       <TableCell>{row.studentPhone}</TableCell>
                       <TableCell>
                         <button
@@ -670,8 +639,12 @@ const RevenueManagementPage: React.FC = () => {
               <TableBody>
                 {quarterRevenueData.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      해당 분기에 수강 데이터가 없습니다
+                    <TableCell colSpan={7} className="py-10">
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <Calendar className="h-8 w-8 opacity-40" />
+                        <p className="font-medium text-foreground">해당 분기에 수강 데이터가 없습니다</p>
+                        <p className="text-sm">다른 분기를 선택하거나 수강 신청을 등록해보세요</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}
@@ -719,6 +692,14 @@ const RevenueManagementPage: React.FC = () => {
           courseFee={getCourseById(selectedEnrollment.courseId)?.fee || 0}
         />
       )}
+
+      <StudentForm
+        visible={!!selectedStudent}
+        onClose={() => setSelectedStudent(null)}
+        student={selectedStudent}
+        hideDelete
+      />
+
 
       {/* 내보내기 모달 */}
       <Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>

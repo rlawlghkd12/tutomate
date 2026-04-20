@@ -268,35 +268,24 @@ const RevenueManagementPage: React.FC = () => {
 
   return (
     <PageEnter>
-      {/* 필터 섹션 */}
+      {/* 필터 섹션 — 한 줄 통합 */}
       <Card className="mb-6">
-        <CardContent className="p-4 space-y-4">
-          {/* 기간 필터 — 모드 토글 (분기 ↔ 날짜 지정) */}
+        <CardContent className="p-4 space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3 flex-wrap">
+              {/* 기간 모드 토글 */}
               <div className="inline-flex rounded-md border p-0.5 bg-muted/30">
                 <button
                   type="button"
-                  onClick={() => {
-                    setFilterMode('quarter');
-                    setDateRange(['', '']);
-                  }}
-                  className={`px-3 py-1 text-sm rounded transition-colors ${
-                    filterMode === 'quarter'
-                      ? 'bg-background shadow-sm font-medium'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                  onClick={() => { setFilterMode('quarter'); setDateRange(['', '']); }}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${filterMode === 'quarter' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   분기
                 </button>
                 <button
                   type="button"
                   onClick={() => setFilterMode('date')}
-                  className={`px-3 py-1 text-sm rounded transition-colors ${
-                    filterMode === 'date'
-                      ? 'bg-background shadow-sm font-medium'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${filterMode === 'date' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   날짜 지정
                 </button>
@@ -305,89 +294,69 @@ const RevenueManagementPage: React.FC = () => {
               {filterMode === 'quarter' ? (
                 <>
                   <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-                    <SelectTrigger className="w-[160px] h-9">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {getQuarterOptions().map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedQuarter(getCurrentQuarter())}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => setSelectedQuarter(getCurrentQuarter())}>
                     이번 분기
                   </Button>
                 </>
               ) : (
                 <>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={dateRange[0]}
+                  <div className="flex items-center gap-1.5">
+                    <input type="date" value={dateRange[0]}
                       onChange={(e) => setDateRange([e.target.value, dateRange[1]])}
-                      className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                    />
+                      className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm w-[140px]" />
                     <span className="text-muted-foreground">~</span>
-                    <input
-                      type="date"
-                      value={dateRange[1]}
+                    <input type="date" value={dateRange[1]}
                       onChange={(e) => setDateRange([dateRange[0], e.target.value])}
-                      className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                    />
+                      className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm w-[140px]" />
                   </div>
                   <div className="flex gap-1">
                     {([
-                      { type: 'all' as const, label: '전체' },
                       { type: 'this-month' as const, label: '이번 달' },
                       { type: 'last-month' as const, label: '지난 달' },
                       { type: 'this-year' as const, label: '올해' },
                     ] as const).map(({ type, label }) => (
-                      <Button
-                        key={type}
-                        size="sm"
+                      <Button key={type} size="sm"
                         variant={isQuickRange(type) ? 'default' : 'outline'}
-                        onClick={() => setQuickDateRange(type)}
-                      >
+                        onClick={() => setQuickDateRange(type)}>
                         {label}
                       </Button>
                     ))}
                   </div>
                 </>
               )}
-            </div>
-            <Button variant="outline" onClick={() => setIsExportModalVisible(true)}>
-              <Download className="h-4 w-4" />
-              내보내기
-            </Button>
-          </div>
 
-          {/* 결제 상태 필터 */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="font-medium text-sm">결제 상태:</span>
-            <div className="flex gap-1 flex-wrap">
-              {[
-                { value: [], label: '전체' },
-                { value: ['pending'], label: '미납만' },
-                { value: ['pending', 'partial'], label: '미완납' },
-                { value: ['completed'], label: '완납만' },
-              ].map((opt) => {
-                const isActive = JSON.stringify([...paymentStatusFilter].sort()) === JSON.stringify([...opt.value].sort());
-                return (
-                  <Button
-                    key={opt.label}
-                    size="sm"
-                    variant={isActive ? 'default' : 'outline'}
-                    onClick={() => setPaymentStatusFilter(opt.value)}
-                  >
-                    {opt.label}
-                  </Button>
-                );
-              })}
+              <div className="h-6 w-px bg-border" aria-hidden />
+
+              {/* 결제 상태 */}
+              <div className="flex gap-1 flex-wrap">
+                {[
+                  { value: [] as string[], label: '전체' },
+                  { value: ['pending'], label: '미납' },
+                  { value: ['pending', 'partial'], label: '미완납' },
+                  { value: ['completed'], label: '완납' },
+                ].map((opt) => {
+                  const isActive = JSON.stringify([...paymentStatusFilter].sort()) === JSON.stringify([...opt.value].sort());
+                  return (
+                    <Button key={opt.label} size="sm"
+                      variant={isActive ? 'default' : 'outline'}
+                      onClick={() => setPaymentStatusFilter(opt.value)}>
+                      {opt.label}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
+
+            <Button variant="outline" onClick={() => setIsExportModalVisible(true)}>
+              <Download className="h-4 w-4" />내보내기
+            </Button>
           </div>
 
           {/* 필터 요약 */}
@@ -509,12 +478,12 @@ const RevenueManagementPage: React.FC = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">강좌명</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">수강생 수</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">수익</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">예상 수익</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">미수금</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">완납률</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">강좌명</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">수강생 수</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">수익</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">예상 수익</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">미수금</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">완납률</th>
                 </tr>
               </thead>
               <tbody>
@@ -555,17 +524,17 @@ const RevenueManagementPage: React.FC = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">수강생</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">전화번호</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">강좌</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">수강료</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">납부 상태</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">납부 금액</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">납부일</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">납부 방법</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">할인</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">잔여 금액</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">작업</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">수강생</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">전화번호</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">강좌</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">수강료</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">납부 상태</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">납부 금액</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">납부일</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">납부 방법</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">할인</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">잔여 금액</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">작업</th>
                 </tr>
               </thead>
               <tbody>
@@ -639,13 +608,13 @@ const RevenueManagementPage: React.FC = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">강좌명</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase w-20">수강생</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase w-[70px]">납부</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase w-[70px]">미납</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">분기 수익</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">예상 수익</th>
-                  <th className="h-10 px-3 text-left text-[11px] font-semibold text-muted-foreground/70 tracking-widest uppercase">수납률</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">강좌명</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase w-20">수강생</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase w-[70px]">납부</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase w-[70px]">미납</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">분기 수익</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">예상 수익</th>
+                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">수납률</th>
                 </tr>
               </thead>
               <tbody>
