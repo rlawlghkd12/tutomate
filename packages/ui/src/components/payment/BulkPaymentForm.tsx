@@ -117,7 +117,7 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
           <DialogTitle>일괄 납부 처리</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 mt-4">
           {/* 요약 정보 */}
           <div className="rounded-xl border p-4 space-y-1.5">
             <div className="flex justify-between items-center">

@@ -192,7 +192,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
           </div>
         </DialogHeader>
 
-        <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-4 mt-4">
           {step === 1 && (<>
           {/* 강좌 정보 */}
           <div className="rounded-xl border p-4 space-y-3">

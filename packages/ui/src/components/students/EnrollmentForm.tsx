@@ -271,7 +271,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 					</div>
 				</DialogHeader>
 
-				<form onSubmit={form.handleSubmit(handleSubmit)} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+				<form onSubmit={form.handleSubmit(handleSubmit)} style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 16 }}>
 
 				{step === 1 && (
 				<>
