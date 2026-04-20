@@ -15,7 +15,7 @@ import type { Enrollment, PaymentMethod } from '@tutomate/core';
 import { usePaymentRecordStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
-import { PAYMENT_METHOD_LABELS, PaymentMethodEnum, logEvent } from '@tutomate/core';
+import { PAYMENT_METHOD_LABELS, logEvent } from '@tutomate/core';
 import { getPreviousQuarter, getQuarterLabel, isActiveEnrollment } from '@tutomate/core';
 import type { Student, PaymentRecord } from '@tutomate/core';
 import dayjs from 'dayjs';
@@ -219,7 +219,15 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         );
       }
 
-      toast.success('납부가 기록되었습니다.');
+      const student = enrollments.find((e) => e.id === selectedEnrollmentId)
+        ? getStudentById(enrollments.find((e) => e.id === selectedEnrollmentId)!.studentId)
+        : null;
+      const amt = formAmount || 0;
+      toast.success(
+        amt > 0
+          ? `${student?.name ?? '학생'} ₩${amt.toLocaleString()} 납부 기록`
+          : `${student?.name ?? '학생'} 할인 ${newDiscount.toLocaleString()}원 적용`,
+      );
       resetForm();
       setIsPaymentModalVisible(false);
       setSelectedEnrollmentId(null);
@@ -234,8 +242,14 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   // 납부 삭제 (Undo 지원 — 8초 내 "실행 취소" 가능)
   const handleDeletePayment = useCallback(async (recordId: string) => {
     const backup = records.find((r) => r.id === recordId);
+    const enrollment = backup ? enrollments.find((e) => e.id === backup.enrollmentId) : null;
+    const student = enrollment ? getStudentById(enrollment.studentId) : null;
     await deletePayment(recordId, courseFee);
-    toast.success('납부 기록이 삭제되었습니다.', {
+    toast.success(
+      backup
+        ? `${student?.name ?? '학생'} ₩${backup.amount.toLocaleString()} 납부 기록 삭제`
+        : '납부 기록이 삭제되었습니다',
+      {
       duration: 8000,
       action: backup
         ? {
@@ -253,16 +267,17 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             },
           }
         : undefined,
-    });
-  }, [deletePayment, courseFee, records, addPayment]);
+      },
+    );
+  }, [deletePayment, courseFee, records, addPayment, enrollments, getStudentById]);
 
   // 면제 처리
   const handleExempt = useCallback(async (enrollment: Enrollment) => {
     await updateEnrollmentPayment(
       enrollment.id, 0, courseFee, dayjs().format('YYYY-MM-DD'), true,
     );
-    toast.success('수강료가 면제 처리되었습니다.');
-  }, [updateEnrollmentPayment, courseFee]);
+    toast.success(`${getStudentById(enrollment.studentId)?.name ?? '학생'} 수강료 면제`);
+  }, [updateEnrollmentPayment, courseFee, getStudentById]);
 
   // 면제 취소
   const handleCancelExempt = useCallback(async (enrollment: Enrollment) => {
@@ -278,8 +293,8 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       entityId: enrollment.id,
       meta: { restoredPaidAmount: totalPaid },
     });
-    toast.success('면제가 취소되었습니다.');
-  }, [updateEnrollmentPayment, courseFee, records]);
+    toast.success(`${getStudentById(enrollment.studentId)?.name ?? '학생'} 면제 취소`);
+  }, [updateEnrollmentPayment, courseFee, records, getStudentById]);
 
   // 완납 처리
   const handleFullPayment = useCallback(async (enrollment: Enrollment) => {
@@ -300,12 +315,12 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         undefined,
         dayjs().format('YYYY-MM-DD'),
       );
-      toast.success('완납 처리되었습니다.');
+      toast.success(`${getStudentById(enrollment.studentId)?.name ?? '학생'} ₩${remaining.toLocaleString()} 완납`);
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
     }
-  }, [records, addPayment, courseFee]);
+  }, [records, addPayment, courseFee, getStudentById]);
 
   // 전체 완납
   const handleBulkFullPayment = useCallback(async () => {
@@ -910,21 +925,22 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                       e.target.value = (isNaN(val) ? r.amount : val).toLocaleString('ko-KR');
                     }}
                   />
-                  <button
-                    type="button"
-                    className="text-xs px-2.5 py-1 rounded-full border cursor-pointer hover:bg-muted transition-colors shrink-0 whitespace-nowrap"
-                    onClick={() => {
-                      const methods = Object.values(PaymentMethodEnum) as PaymentMethod[];
-                      const currentIdx = methods.indexOf(r.paymentMethod as PaymentMethod);
-                      const next = methods[(currentIdx + 1) % methods.length];
-                      updateRecord(r.id, { paymentMethod: next });
-                    }}
-                    aria-label={`결제 수단: ${r.paymentMethod ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] : '미지정'} (클릭해서 변경)`}
+                  <Select
+                    value={r.paymentMethod ?? ''}
+                    onValueChange={(v) => updateRecord(r.id, { paymentMethod: (v || undefined) as PaymentMethod | undefined })}
                   >
-                    {r.paymentMethod
-                      ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS]
-                      : '-'}
-                  </button>
+                    <SelectTrigger
+                      className="h-8 w-[88px] text-xs shrink-0"
+                      aria-label={`결제 수단 선택: 현재 ${r.paymentMethod ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] : '미지정'}`}
+                    >
+                      <SelectValue placeholder="-" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">현금</SelectItem>
+                      <SelectItem value="card">카드</SelectItem>
+                      <SelectItem value="transfer">계좌이체</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Input
                     className="h-8 text-sm flex-1 min-w-0"
                     defaultValue={r.notes ?? ''}
