@@ -133,7 +133,7 @@ const GlobalSearchInner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-medium">{result.title}</span>
-                    <Badge variant="secondary" className="shrink-0 text-[11px]">{getTypeLabel(result.type)}</Badge>
+                    <Badge variant="secondary" className="shrink-0 text-[0.73rem]">{getTypeLabel(result.type)}</Badge>
                     {result.matchedFields.length > 0 && (
                       <span className="shrink-0 text-xs text-muted-foreground">
                         매칭: {result.matchedFields.join(', ')}
@@ -166,7 +166,7 @@ const GlobalSearchInner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-medium">{result.title}</span>
-                    <Badge variant="secondary" className="shrink-0 text-[11px]">{getTypeLabel(result.type)}</Badge>
+                    <Badge variant="secondary" className="shrink-0 text-[0.73rem]">{getTypeLabel(result.type)}</Badge>
                     {result.matchedFields.length > 0 && (
                       <span className="shrink-0 text-xs text-muted-foreground">
                         매칭: {result.matchedFields.join(', ')}
@@ -199,7 +199,7 @@ const GlobalSearchInner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-medium">{result.title}</span>
-                    <Badge variant="secondary" className="shrink-0 text-[11px]">{getTypeLabel(result.type)}</Badge>
+                    <Badge variant="secondary" className="shrink-0 text-[0.73rem]">{getTypeLabel(result.type)}</Badge>
                     {result.matchedFields.length > 0 && (
                       <span className="shrink-0 text-xs text-muted-foreground">
                         매칭: {result.matchedFields.join(', ')}
@@ -224,7 +224,7 @@ const GlobalSearchInner: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             {results.length}개의 결과
           </span>
           <span className="text-xs text-muted-foreground">
-            <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px]">
+            <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-[0.73rem]">
               ESC
             </kbd>{' '}
             닫기

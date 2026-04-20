@@ -615,22 +615,22 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       <div className="mb-3 flex items-center gap-2 flex-wrap">
         {quarterSelector && <div style={{ flexShrink: 0 }}>{quarterSelector}</div>}
         <div className="px-3 py-1.5 rounded-md border">
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">완납 인원</div>
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">완납 인원</div>
           <div className="text-sm font-semibold mt-0.5">
             <span className="text-success">{stats.paidCount}</span>
             <span className="text-muted-foreground"> / {stats.totalStudents}명</span>
           </div>
         </div>
         <div className="px-3 py-1.5 rounded-md border">
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">납부 합계</div>
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">납부 합계</div>
           <div className="text-sm font-semibold mt-0.5 text-success">{'\u20A9'}{stats.totalPaid.toLocaleString()}</div>
         </div>
         <div className="px-3 py-1.5 rounded-md border">
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">예상 합계</div>
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">예상 합계</div>
           <div className="text-sm font-semibold mt-0.5">{'\u20A9'}{stats.expectedTotal.toLocaleString()}</div>
         </div>
         <div className="px-3 py-1.5 rounded-md border">
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">수납률</div>
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">수납률</div>
           <div className={cn(
             'text-sm font-semibold mt-0.5',
             stats.expectedTotal > 0 && stats.totalPaid < stats.expectedTotal
@@ -772,11 +772,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             return (
               <div className="rounded-xl border p-4 space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">수강료</span>
+                  <span className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">수강료</span>
                   <span className="text-sm font-semibold">{'\u20A9'}{courseFee.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">할인</span>
+                  <span className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">할인</span>
                   <Input
                     type="number"
                     min={0}
@@ -795,10 +795,10 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                   />
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">기납부액</span>
+                  <span className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">기납부액</span>
                   <span className="text-sm font-semibold">{'\u20A9'}{selectedData.totalPaid.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between pt-1.5 border-t font-semibold text-[15px]">
+                <div className="flex justify-between pt-1.5 border-t font-semibold text-base">
                   <span>납부할 금액</span>
                   <span className={modalRemaining > 0 ? 'text-destructive' : 'text-success'}>
                     {'\u20A9'}{modalRemaining.toLocaleString()}

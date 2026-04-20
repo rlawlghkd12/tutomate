@@ -332,7 +332,7 @@ const SettingsPage: React.FC = () => {
                         {t.label}
                         {selected && <span className="text-primary">✓</span>}
                       </div>
-                      <div className="text-[10px] text-muted-foreground leading-tight mt-0.5 line-clamp-2">
+                      <div className="text-[0.67rem] text-muted-foreground leading-tight mt-0.5 line-clamp-2">
                         {t.description}
                       </div>
                     </button>
@@ -474,7 +474,7 @@ const SettingsPage: React.FC = () => {
                     <Badge variant="success">새 버전</Badge>
                     <span className="font-semibold">v{updateAvailable.version}</span>
                   </div>
-                  <div className="text-[13px] text-muted-foreground" dangerouslySetInnerHTML={{ __html: updateAvailable.body }} />
+                  <div className="text-[0.87rem] text-muted-foreground" dangerouslySetInnerHTML={{ __html: updateAvailable.body }} />
                   {downloading ? (
                     <div className="space-y-1">
                       <Progress value={downloadProgress} />

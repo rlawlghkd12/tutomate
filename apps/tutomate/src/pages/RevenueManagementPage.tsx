@@ -361,7 +361,7 @@ const RevenueManagementPage: React.FC = () => {
 
           {/* 필터 요약 */}
           {(dateRange[0] || dateRange[1] || paymentStatusFilter.length > 0) && (
-            <p className="text-muted-foreground text-[13px]">
+            <p className="text-muted-foreground text-[0.87rem]">
               {dateRange[0] && dateRange[1] && (
                 <>
                   {dayjs(dateRange[0]).format('YYYY년 M월 D일')} ~ {dayjs(dateRange[1]).format('YYYY년 M월 D일')}
@@ -395,7 +395,7 @@ const RevenueManagementPage: React.FC = () => {
         <RevenueBreakdownTooltip enrollments={revenueEnrollments}>
           <Card>
             <CardContent className="p-4">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">총 수익</p>
+              <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">총 수익</p>
               <p className="text-2xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
                 {totalRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
               </p>
@@ -404,7 +404,7 @@ const RevenueManagementPage: React.FC = () => {
         </RevenueBreakdownTooltip>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">예상 수익</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">예상 수익</p>
             <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
               {expectedRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
             </p>
@@ -412,7 +412,7 @@ const RevenueManagementPage: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미수금</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미수금</p>
             <p className="text-2xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
               {totalUnpaid.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
             </p>
@@ -420,7 +420,7 @@ const RevenueManagementPage: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수익률</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수익률</p>
             <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
               {(expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0).toFixed(1)}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
             </p>
@@ -431,7 +431,7 @@ const RevenueManagementPage: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
             <p className="text-3xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
               {completedPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
@@ -439,7 +439,7 @@ const RevenueManagementPage: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">부분납부</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">부분납부</p>
             <p className="text-3xl font-bold tabular-nums text-warning" style={{ letterSpacing: '-0.02em' }}>
               {partialPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
@@ -447,7 +447,7 @@ const RevenueManagementPage: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납</p>
             <p className="text-3xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
               {pendingPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
@@ -455,7 +455,7 @@ const RevenueManagementPage: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">면제</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">면제</p>
             <p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em', color: EXEMPT_COLOR }}>
               {exemptPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
@@ -587,16 +587,16 @@ const RevenueManagementPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <RevenueBreakdownTooltip enrollments={quarterRevenueData.flatMap((d) => d.revenueEnrollments)}>
                 <div className="px-3 py-1.5 rounded-md border">
-                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">분기 수익</div>
+                  <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">분기 수익</div>
                   <div className="text-sm font-semibold mt-0.5 text-success">{'\u20A9'}{quarterTotalRevenue.toLocaleString()}</div>
                 </div>
               </RevenueBreakdownTooltip>
               <div className="px-3 py-1.5 rounded-md border">
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">예상 합계</div>
+                <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">예상 합계</div>
                 <div className="text-sm font-semibold mt-0.5">{'\u20A9'}{quarterTotalExpected.toLocaleString()}</div>
               </div>
               <div className="px-3 py-1.5 rounded-md border">
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">수납률</div>
+                <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">수납률</div>
                 <div className={`text-sm font-semibold mt-0.5 ${quarterTotalExpected > 0 && quarterTotalRevenue < quarterTotalExpected ? 'text-error' : 'text-success'}`}>
                   {quarterTotalExpected > 0 ? Math.round((quarterTotalRevenue / quarterTotalExpected) * 100) : 0}%
                 </div>
@@ -697,7 +697,7 @@ const RevenueManagementPage: React.FC = () => {
                         isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
                       );
                     }}
-                    className={`px-3 py-1.5 rounded-full text-[13px] font-medium border transition-colors cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-full text-[0.87rem] font-medium border transition-colors cursor-pointer ${
                       isChecked
                         ? 'bg-primary text-primary-foreground border-primary'
                         : 'bg-transparent text-muted-foreground border-border hover:border-foreground/30'

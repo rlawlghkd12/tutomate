@@ -529,7 +529,7 @@ const SettingsPage: React.FC = () => {
                     <Badge variant="success">새 버전</Badge>
                     <span className="font-semibold">v{updateAvailable.version}</span>
                   </div>
-                  <div className="text-[13px] text-muted-foreground" dangerouslySetInnerHTML={{ __html: updateAvailable.body }} />
+                  <div className="text-[0.87rem] text-muted-foreground" dangerouslySetInnerHTML={{ __html: updateAvailable.body }} />
                   {downloading ? (
                     <div className="space-y-1">
                       <Progress value={downloadProgress} />

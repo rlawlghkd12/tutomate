@@ -231,12 +231,12 @@ const CourseDetailPage: React.FC = () => {
 				<div className="flex items-baseline gap-1.5">
 					<a
 						onClick={() => navigate("/courses")}
-						className="text-[13px] text-muted-foreground cursor-pointer hover:underline"
+						className="text-[0.87rem] text-muted-foreground cursor-pointer hover:underline"
 					>
 						강좌 관리
 					</a>
 					<span className="text-muted-foreground/50 text-xs">/</span>
-					<span className="text-[15px] font-semibold">{course.name}</span>
+					<span className="text-base font-semibold">{course.name}</span>
 				</div>
 				<div className="flex items-center gap-1.5">
 					<Button
@@ -316,7 +316,7 @@ const CourseDetailPage: React.FC = () => {
 						key={item.label}
 						className="flex-1 px-3 py-1.5 rounded-md border"
 					>
-						<div className="text-[11px] text-muted-foreground">
+						<div className="text-[0.73rem] text-muted-foreground">
 							{item.label}
 						</div>
 						<div className={`text-sm font-semibold mt-0.5 ${(item as any).colorClass || ''}`}>
@@ -328,7 +328,7 @@ const CourseDetailPage: React.FC = () => {
 
 			{/* 분기 미지정 legacy 수강생 안내 */}
 			{legacyEnrollments.length > 0 && (
-				<div className="mb-3 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30 text-[13px] text-warning flex items-center gap-2">
+				<div className="mb-3 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30 text-[0.87rem] text-warning flex items-center gap-2">
 					<span>⚠</span>
 					<span>분기 미지정 수강생 {legacyEnrollments.length}명이 있습니다. 이 인원은 현재 분기 정원에 포함되지 않습니다.</span>
 				</div>
@@ -399,7 +399,7 @@ const CourseDetailPage: React.FC = () => {
 								return (
 									<button key={field.key} type="button"
 										onClick={() => setSelectedExportFields((prev) => isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key])}
-										className={`px-3 py-1.5 rounded-full text-[13px] font-medium border transition-colors cursor-pointer ${
+										className={`px-3 py-1.5 rounded-full text-[0.87rem] font-medium border transition-colors cursor-pointer ${
 											isChecked ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent text-muted-foreground border-border hover:border-foreground/30'
 										}`}>
 										{field.label}
@@ -434,7 +434,7 @@ const CourseDetailPage: React.FC = () => {
 
 						{selectedExportFields.length > 0 && courseEnrollments.length > 0 && (
 							<div className="rounded-lg border overflow-hidden mb-4">
-								<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 bg-muted/30">미리보기</div>
+								<div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 bg-muted/30">미리보기</div>
 								<div className="overflow-x-auto">
 									<table className="w-full text-xs">
 										<thead><tr className="border-b bg-muted/20">
