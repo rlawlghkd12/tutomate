@@ -294,7 +294,7 @@ const RevenueManagementPage: React.FC = () => {
               {filterMode === 'quarter' ? (
                 <>
                   <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-                    <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-[170px] h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {getQuarterOptions().map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>

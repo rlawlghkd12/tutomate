@@ -117,11 +117,11 @@ describe('getQuarterMonths', () => {
 // ─── getQuarterOptions ─────────────────────────────────────────────────────
 
 describe('getQuarterOptions', () => {
-  it('현재 분기 기준 ±2 분기 — 총 5개 반환', () => {
+  it('기본 범위 (-4~+1) — 총 6개 반환', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-04-01')); // Q2
     const options = getQuarterOptions();
-    expect(options).toHaveLength(5);
+    expect(options).toHaveLength(6);
   });
 
   it('value는 YYYY-Q# 형식', () => {
@@ -142,23 +142,33 @@ describe('getQuarterOptions', () => {
     }
   });
 
-  it('Q1에서 -2 → 전년도 Q3/Q4 처리', () => {
+  it('Q1에서 -4 → 전년도 분기 처리', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-01')); // Q1
     const options = getQuarterOptions();
-    expect(options).toHaveLength(5);
-    // 가장 이른 분기는 2025-Q3
-    expect(options[0].value).toBe('2025-Q3');
-    expect(options[4].value).toBe('2026-Q3');
+    expect(options).toHaveLength(6);
+    // 정렬 후 가장 이른 분기는 2025-Q1
+    expect(options[0].value).toBe('2025-Q1');
+    // 가장 늦은 분기는 2026-Q2
+    expect(options[5].value).toBe('2026-Q2');
   });
 
-  it('Q4에서 +2 → 다음 연도 Q1/Q2 처리', () => {
+  it('Q4에서 +1 → 다음 연도 Q1 처리', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-01')); // Q4
     const options = getQuarterOptions();
-    expect(options).toHaveLength(5);
-    // 가장 늦은 분기는 2027-Q2
-    expect(options[4].value).toBe('2027-Q2');
+    expect(options).toHaveLength(6);
+    // 가장 늦은 분기는 2027-Q1
+    expect(options[5].value).toBe('2027-Q1');
+  });
+
+  it('extraQuarters로 데이터 기반 분기 추가 + 시간순 정렬 + 중복 제거', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-01'));
+    const options = getQuarterOptions(['2024-Q1', '2026-Q2']);
+    // 기본 6개 + 2024-Q1 추가 (2026-Q2는 중복) = 7개
+    expect(options).toHaveLength(7);
+    expect(options[0].value).toBe('2024-Q1');
   });
 });
 
