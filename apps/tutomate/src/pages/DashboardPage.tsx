@@ -136,7 +136,7 @@ const DashboardPage: React.FC = () => {
 					onClick={() => navigate("/courses")}
 				>
 					<CardContent className="p-4">
-						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">강좌</p>
+						<p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">강좌</p>
 						<p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>{totalCourses}</p>
 					</CardContent>
 				</Card>
@@ -145,7 +145,7 @@ const DashboardPage: React.FC = () => {
 					onClick={() => navigate("/students")}
 				>
 					<CardContent className="p-4">
-						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수강생</p>
+						<p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수강생</p>
 						<p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>{totalStudents}</p>
 					</CardContent>
 				</Card>
@@ -154,7 +154,7 @@ const DashboardPage: React.FC = () => {
 					onClick={() => navigate("/revenue")}
 				>
 					<CardContent className="p-4">
-						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">납부</p>
+						<p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">납부</p>
 						<p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
 							{totalRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
 						</p>
@@ -162,7 +162,7 @@ const DashboardPage: React.FC = () => {
 				</Card>
 				<Card>
 					<CardContent className="p-4">
-						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">납부율</p>
+						<p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">납부율</p>
 						<p className={`text-3xl font-bold tabular-nums ${paymentRate >= 80 ? 'text-success' : 'text-warning'}`} style={{ letterSpacing: '-0.02em' }}>
 							{paymentRate.toFixed(0)}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
 						</p>
@@ -170,7 +170,7 @@ const DashboardPage: React.FC = () => {
 				</Card>
 				<Card>
 					<CardContent className="p-4">
-						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
+						<p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
 						<p className="text-3xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
 							{completedPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
 						</p>
@@ -178,7 +178,7 @@ const DashboardPage: React.FC = () => {
 				</Card>
 				<Card>
 					<CardContent className="p-4">
-						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납</p>
+						<p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납</p>
 						<p className="text-3xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
 							{pendingPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
 						</p>

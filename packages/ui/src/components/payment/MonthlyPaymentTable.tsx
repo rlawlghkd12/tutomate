@@ -308,7 +308,7 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
         const discount = record.enrollment.discountAmount ?? 0;
         if (discount === 0) return '-';
         return (
-          <span className="text-success text-[13px]">
+          <span className="text-success text-[0.87rem]">
             -{'\u20A9'}{discount.toLocaleString()}
           </span>
         );
@@ -448,26 +448,26 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
       {/* 월별 통계 */}
       <div className="mb-3 flex items-center gap-2 flex-wrap">
         <div className="px-3 py-1.5 rounded-md border">
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">납부 인원</div>
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">납부 인원</div>
           <div className="text-sm font-semibold mt-0.5">
             <span className="text-success">{monthStats.paidCount}</span>
             <span className="text-muted-foreground"> / {monthStats.totalStudents}명</span>
           </div>
         </div>
         <div className="px-3 py-1.5 rounded-md border">
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">납부 합계</div>
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">납부 합계</div>
           <div className="text-sm font-semibold mt-0.5 text-success">
             {'\u20A9'}{monthStats.totalPaid.toLocaleString()}
           </div>
         </div>
         <div className="px-3 py-1.5 rounded-md border">
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">예상 합계</div>
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">예상 합계</div>
           <div className="text-sm font-semibold mt-0.5">
             {'\u20A9'}{monthStats.expectedTotal.toLocaleString()}
           </div>
         </div>
         <div className="px-3 py-1.5 rounded-md border">
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">수납률</div>
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">수납률</div>
           <div className={cn(
             'text-sm font-semibold mt-0.5',
             monthStats.expectedTotal > 0 && monthStats.totalPaid < monthStats.expectedTotal

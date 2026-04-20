@@ -204,12 +204,12 @@ const CourseDetailPage: React.FC = () => {
 				<div className="flex items-baseline gap-1.5">
 					<a
 						onClick={() => navigate("/courses")}
-						className="text-[13px] text-muted-foreground cursor-pointer hover:underline"
+						className="text-[0.87rem] text-muted-foreground cursor-pointer hover:underline"
 					>
 						강좌 관리
 					</a>
 					<span className="text-muted-foreground/50 text-xs">/</span>
-					<span className="text-[15px] font-semibold">{course.name}</span>
+					<span className="text-base font-semibold">{course.name}</span>
 				</div>
 				<div className="flex items-center gap-1.5">
 					<Button
@@ -260,7 +260,7 @@ const CourseDetailPage: React.FC = () => {
 						key={item.label}
 						className="flex-1 px-3 py-1.5 rounded-md border"
 					>
-						<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
+						<div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">
 							{item.label}
 						</div>
 						<div
@@ -341,7 +341,7 @@ const CourseDetailPage: React.FC = () => {
 									}`}
 								>
 									<Checkbox checked={isChecked} />
-									<span className="text-[13px]">{field.label}</span>
+									<span className="text-[0.87rem]">{field.label}</span>
 								</div>
 							);
 						})}

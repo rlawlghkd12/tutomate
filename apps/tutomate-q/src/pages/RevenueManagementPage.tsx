@@ -381,7 +381,7 @@ const RevenueManagementPage: React.FC = () => {
         <RevenueBreakdownTooltip enrollments={revenueEnrollments}>
           <Card>
             <CardContent className="p-4">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">총 수익</p>
+              <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">총 수익</p>
               <p className="text-2xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
                 {totalRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
               </p>
@@ -390,7 +390,7 @@ const RevenueManagementPage: React.FC = () => {
         </RevenueBreakdownTooltip>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">예상 수익</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">예상 수익</p>
             <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
               {expectedRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
             </p>
@@ -398,7 +398,7 @@ const RevenueManagementPage: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미수금</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미수금</p>
             <p className="text-2xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
               {totalUnpaid.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
             </p>
@@ -406,7 +406,7 @@ const RevenueManagementPage: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">현금</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">현금</p>
             <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
               {totalCash.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
             </p>
@@ -414,7 +414,7 @@ const RevenueManagementPage: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">계좌이체</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">계좌이체</p>
             <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
               {totalTransfer.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
             </p>
@@ -422,7 +422,7 @@ const RevenueManagementPage: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">카드</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">카드</p>
             <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
               {totalCard.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
             </p>
@@ -434,7 +434,7 @@ const RevenueManagementPage: React.FC = () => {
       <div className="grid grid-cols-5 gap-3 mb-4">
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수익률</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수익률</p>
             <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
               {expectedRevenue > 0 ? ((totalRevenue / expectedRevenue) * 100).toFixed(1) : '0.0'}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
             </p>
@@ -442,7 +442,7 @@ const RevenueManagementPage: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
             <p className="text-2xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
               {completedPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
@@ -450,7 +450,7 @@ const RevenueManagementPage: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">부분납부</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">부분납부</p>
             <p className="text-2xl font-bold tabular-nums text-warning" style={{ letterSpacing: '-0.02em' }}>
               {partialPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
@@ -458,7 +458,7 @@ const RevenueManagementPage: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납</p>
             <p className="text-2xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
               {pendingPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
@@ -466,7 +466,7 @@ const RevenueManagementPage: React.FC = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">면제</p>
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">면제</p>
             <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em', color: EXEMPT_COLOR }}>
               {exemptPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
@@ -723,7 +723,7 @@ const RevenueManagementPage: React.FC = () => {
                 return (
                   <button key={field.key} type="button"
                     onClick={() => setSelectedExportFields((prev) => isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key])}
-                    className={`px-3 py-1.5 rounded-full text-[13px] font-medium border transition-colors cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-full text-[0.87rem] font-medium border transition-colors cursor-pointer ${
                       isChecked ? 'bg-primary text-primary-foreground border-primary' : 'bg-transparent text-muted-foreground border-border hover:border-foreground/30'
                     }`}>
                     {field.label}
@@ -758,7 +758,7 @@ const RevenueManagementPage: React.FC = () => {
 
             {selectedExportFields.length > 0 && filteredEnrollments.length > 0 && (
               <div className="rounded-lg border overflow-hidden mb-4">
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 bg-muted/30">미리보기</div>
+                <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 bg-muted/30">미리보기</div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead><tr className="border-b bg-muted/20">

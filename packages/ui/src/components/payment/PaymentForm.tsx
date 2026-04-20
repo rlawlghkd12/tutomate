@@ -180,15 +180,15 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
           ) : (
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">수강료</div>
+                <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">수강료</div>
                 <div className="text-sm font-semibold mt-0.5">₩{courseFee.toLocaleString()}</div>
               </div>
               <div>
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">납부 금액</div>
+                <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">납부 금액</div>
                 <div className="text-sm font-semibold mt-0.5 text-success">₩{enrollment.paidAmount.toLocaleString()}</div>
               </div>
               <div>
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">잔여 금액</div>
+                <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">잔여 금액</div>
                 <div className={cn('text-sm font-semibold mt-0.5', enrollment.remainingAmount > 0 ? 'text-error' : 'text-success')}>
                   ₩{enrollment.remainingAmount.toLocaleString()}
                 </div>
@@ -355,7 +355,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
           {/* 변경 후 잔여 금액 */}
           {!isExempt && (
             <div className="rounded-xl border px-4 py-3 flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">변경 후 잔여 금액</span>
+              <span className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">변경 후 잔여 금액</span>
               <span className={cn('text-sm font-semibold', remainingAmount > 0 ? 'text-error' : 'text-success')}>
                 ₩{remainingAmount.toLocaleString()}
               </span>

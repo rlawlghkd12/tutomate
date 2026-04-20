@@ -143,7 +143,7 @@ const StudentsPage: React.FC = () => {
                         isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
                       );
                     }}
-                    className={`px-3 py-1.5 rounded-full text-[13px] font-medium border transition-colors cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-full text-[0.87rem] font-medium border transition-colors cursor-pointer ${
                       isChecked
                         ? 'bg-primary text-primary-foreground border-primary'
                         : 'bg-transparent text-muted-foreground border-border hover:border-foreground/30'
@@ -198,7 +198,7 @@ const StudentsPage: React.FC = () => {
 
             {selectedExportFields.length > 0 && students.length > 0 && (
               <div className="rounded-lg border overflow-hidden mb-4">
-                <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 bg-muted/30">미리보기</div>
+                <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 bg-muted/30">미리보기</div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
