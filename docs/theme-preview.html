@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TutorMate — 테마 미리보기 (5종)</title>
+<style>
+  /* ───────── 테마 정의 ───────── */
+  :root {
+    /* Light (기본) */
+    --bg: hsl(0 0% 100%);
+    --fg: hsl(240 2% 11%);
+    --card: hsl(0 0% 100%);
+    --border: hsl(0 0% 88%);
+    --muted: hsl(0 0% 96%);
+    --muted-fg: hsl(240 1% 40%);
+    --primary: hsl(240 2% 11%);
+    --primary-fg: hsl(0 0% 98%);
+    --accent: hsl(217 91% 60%);
+    --success: hsl(142 76% 36%);
+    --warning: hsl(38 92% 50%);
+    --error: hsl(0 84% 60%);
+    --shadow: 0 1px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  [data-theme="dark"] {
+    --bg: hsl(0 0% 8%);
+    --fg: hsl(0 0% 90%);
+    --card: hsl(0 0% 11%);
+    --border: hsl(0 0% 20%);
+    --muted: hsl(0 0% 13%);
+    --muted-fg: hsl(0 0% 58%);
+    --primary: hsl(0 0% 90%);
+    --primary-fg: hsl(240 2% 11%);
+    --accent: hsl(217 91% 65%);
+    --success: hsl(142 60% 45%);
+    --warning: hsl(38 92% 55%);
+    --error: hsl(0 72% 50%);
+    --shadow: 0 1px 4px rgba(0,0,0,0.30), 0 1px 2px rgba(0,0,0,0.20);
+  }
+  [data-theme="sepia"] {
+    --bg: hsl(38 40% 93%);
+    --fg: hsl(25 35% 22%);
+    --card: hsl(38 45% 96%);
+    --border: hsl(30 30% 78%);
+    --muted: hsl(35 35% 90%);
+    --muted-fg: hsl(25 30% 38%);
+    --primary: hsl(25 55% 30%);
+    --primary-fg: hsl(38 45% 96%);
+    --accent: hsl(15 60% 45%);
+    --success: hsl(100 40% 32%);
+    --warning: hsl(30 80% 40%);
+    --error: hsl(0 55% 42%);
+    --shadow: 0 1px 4px rgba(80,50,20,0.10), 0 1px 2px rgba(80,50,20,0.06);
+  }
+  [data-theme="high-contrast"] {
+    --bg: hsl(0 0% 100%);
+    --fg: hsl(0 0% 0%);
+    --card: hsl(0 0% 100%);
+    --border: hsl(0 0% 25%);          /* 훨씬 진한 경계선 */
+    --muted: hsl(0 0% 92%);
+    --muted-fg: hsl(0 0% 18%);        /* 흐린 글씨도 진하게 */
+    --primary: hsl(220 85% 32%);       /* 진한 파랑 */
+    --primary-fg: hsl(0 0% 100%);
+    --accent: hsl(220 85% 32%);
+    --success: hsl(140 80% 22%);       /* 진한 초록 */
+    --warning: hsl(35 100% 35%);       /* 진한 주황 */
+    --error: hsl(0 85% 38%);           /* 진한 빨강 */
+    --shadow: 0 1px 0 rgba(0,0,0,0.4); /* 뚜렷 */
+  }
+  [data-theme="slate"] {
+    --bg: hsl(220 20% 12%);
+    --fg: hsl(220 15% 88%);
+    --card: hsl(220 22% 16%);
+    --border: hsl(220 15% 26%);
+    --muted: hsl(220 18% 18%);
+    --muted-fg: hsl(220 10% 62%);
+    --primary: hsl(200 85% 68%);          /* 아이스 블루 포인트 */
+    --primary-fg: hsl(220 25% 12%);
+    --accent: hsl(200 85% 68%);
+    --success: hsl(150 55% 55%);
+    --warning: hsl(35 85% 60%);
+    --error: hsl(0 70% 62%);
+    --shadow: 0 1px 4px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.25);
+  }
+
+  /* ───────── 기본 ───────── */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    transition: background 0.2s, color 0.2s;
+    line-height: 1.5;
+  }
+  [data-theme="high-contrast"] body { font-weight: 500; } /* 고대비 본문 굵게 */
+
+  .layout { display: grid; grid-template-columns: 320px 1fr; min-height: 100vh; }
+
+  /* ───────── 왼쪽 테마 셀렉터 ───────── */
+  aside {
+    background: var(--muted);
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+  aside h1 { font-size: 18px; margin: 0 0 4px; }
+  aside p { font-size: 12px; color: var(--muted-fg); margin: 0 0 20px; }
+
+  .theme-card {
+    display: block; width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    background: var(--card);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+    font: inherit; color: inherit;
+  }
+  .theme-card:hover { border-color: var(--border); }
+  .theme-card.active { border-color: var(--primary); box-shadow: var(--shadow); }
+
+  .swatches { display: flex; gap: 4px; height: 36px; border-radius: 6px; overflow: hidden; margin-bottom: 8px; border: 1px solid var(--border); }
+  .swatches > div { flex: 1; }
+
+  .theme-name { font-weight: 600; font-size: 14px; }
+  .theme-desc { font-size: 11px; color: var(--muted-fg); margin-top: 2px; }
+
+  /* ───────── 오른쪽 미리보기 ───────── */
+  main { padding: 32px; max-width: 1100px; }
+
+  header h2 { margin: 0 0 4px; font-size: 24px; }
+  header p { margin: 0 0 24px; color: var(--muted-fg); font-size: 14px; }
+
+  .grid { display: grid; gap: 12px; margin-bottom: 24px; }
+  .grid-6 { grid-template-columns: repeat(6, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .stat-label { font-size: 11px; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  .stat-value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+  .stat-value.success { color: var(--success); }
+  .stat-value.error { color: var(--error); }
+  .stat-value.warning { color: var(--warning); }
+
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+  th { text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted-fg); background: var(--muted); font-weight: 600; }
+  td { padding: 12px; border-top: 1px solid var(--border); font-size: 14px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge-success { background: color-mix(in oklch, var(--success) 18%, transparent); color: var(--success); }
+  .badge-error { background: color-mix(in oklch, var(--error) 18%, transparent); color: var(--error); }
+  .badge-warning { background: color-mix(in oklch, var(--warning) 20%, transparent); color: var(--warning); }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--fg); cursor: pointer; font: inherit; font-weight: 500; min-height: 44px; }
+  .btn:hover { background: var(--muted); }
+  .btn-primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+  .btn-primary:hover { opacity: 0.9; background: var(--primary); }
+  .btn-danger { background: var(--error); color: white; border-color: var(--error); }
+
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+  .divider { width: 1px; height: 24px; background: var(--border); }
+
+  h3 { margin: 32px 0 12px; font-size: 16px; }
+</style>
+</head>
+<body data-theme="light">
+
+<div class="layout">
+  <aside>
+    <h1>테마 선택</h1>
+    <p>좌측에서 클릭하여 전환</p>
+    <div id="themes"></div>
+
+    <!-- 자동 연동 (테마와 독립된 별도 옵션) -->
+    <div style="margin-top:16px; padding:12px; background:var(--card); border:1px solid var(--border); border-radius:10px;">
+      <label style="display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer;">
+        <div>
+          <div style="font-size:13px; font-weight:600;">OS 설정 자동 연동</div>
+          <div style="font-size:11px; color:var(--muted-fg); margin-top:2px;">시스템이 다크모드면 다크, 라이트면 라이트로 자동 전환</div>
+        </div>
+        <input type="checkbox" id="autoSwitch" style="width:18px; height:18px;" />
+      </label>
+    </div>
+
+    <div style="margin-top:12px; padding:12px; background:var(--card); border:1px solid var(--border); border-radius:10px;">
+      <div style="font-size:12px; font-weight:600; margin-bottom:4px;">현재 활성</div>
+      <div id="currentId" style="font-family:monospace; font-size:12px; color:var(--muted-fg);">light</div>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <h2>수익 관리</h2>
+      <p>TutorMate — 5개 테마 미리보기</p>
+    </header>
+
+    <!-- 툴바 -->
+    <div class="toolbar">
+      <button class="btn btn-primary">분기</button>
+      <button class="btn">날짜 지정</button>
+      <select class="btn" style="min-width: 160px; padding-right: 12px;">
+        <option>2026년 2분기</option>
+        <option>2026년 1분기</option>
+      </select>
+      <button class="btn">이번 분기</button>
+      <div class="divider"></div>
+      <button class="btn btn-primary">전체</button>
+      <button class="btn">미납</button>
+      <button class="btn">완납</button>
+      <div style="margin-left:auto;">
+        <button class="btn">⬇ 내보내기</button>
+      </div>
+    </div>
+
+    <!-- 통계 카드 -->
+    <div class="grid grid-6">
+      <div class="stat-card">
+        <div class="stat-label">총 수익</div>
+        <div class="stat-value success">930,000<span style="font-size:12px; color:var(--muted-fg); margin-left:4px;">원</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">예상 수익</div>
+        <div class="stat-value">1,200,000<span style="font-size:12px; color:var(--muted-fg); margin-left:4px;">원</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">미수금</div>
+        <div class="stat-value error">270,000<span style="font-size:12px; color:var(--muted-fg); margin-left:4px;">원</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">현금</div>
+        <div class="stat-value">120,000<span style="font-size:12px; color:var(--muted-fg); margin-left:4px;">원</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">계좌이체</div>
+        <div class="stat-value">760,000<span style="font-size:12px; color:var(--muted-fg); margin-left:4px;">원</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">카드</div>
+        <div class="stat-value">50,000<span style="font-size:12px; color:var(--muted-fg); margin-left:4px;">원</span></div>
+      </div>
+    </div>
+
+    <!-- 상태 카드 -->
+    <div class="grid grid-3">
+      <div class="stat-card"><div class="stat-label">완납</div><div class="stat-value success">207<span style="font-size:12px;"> 건</span></div></div>
+      <div class="stat-card"><div class="stat-label">미납</div><div class="stat-value error">222<span style="font-size:12px;"> 건</span></div></div>
+      <div class="stat-card"><div class="stat-label">면제</div><div class="stat-value warning">21<span style="font-size:12px;"> 건</span></div></div>
+    </div>
+
+    <!-- 테이블 -->
+    <h3>미납자 관리</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>수강생</th>
+          <th>강좌</th>
+          <th>납부 상태</th>
+          <th>수강료</th>
+          <th>잔여</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>김남희</td><td>천아트</td><td><span class="badge badge-success">완납</span></td><td>60,000원</td><td>0원</td></tr>
+        <tr><td>박정아</td><td>드럼</td><td><span class="badge badge-warning">부분납부</span></td><td>60,000원</td><td>30,000원</td></tr>
+        <tr><td>강신욱</td><td>태극권</td><td><span class="badge badge-error">미납</span></td><td>60,000원</td><td>60,000원</td></tr>
+      </tbody>
+    </table>
+
+    <!-- 납부 버튼들 (터치 타깃) -->
+    <h3>작업 버튼 (min-h 44px)</h3>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn btn-primary">납부 기록</button>
+      <button class="btn">완납 처리</button>
+      <button class="btn btn-danger">면제</button>
+      <button class="btn">면제 취소</button>
+    </div>
+  </main>
+</div>
+
+<script>
+  const THEMES = [
+    { id: 'light', label: '라이트', desc: '기본 화이트 톤', swatches: ['#ffffff','#1c1c1e','#0060df'] },
+    { id: 'dark', label: '다크', desc: '눈 부담 적은 어두운 배경', swatches: ['#141414','#242424','#e6e6e6'] },
+    { id: 'sepia', label: '세피아', desc: '크림톤 · 장시간 사용에 편안', swatches: ['#f4ecd8','#e8d9b6','#8b5a2b'] },
+    { id: 'high-contrast', label: '고대비', desc: '시력 약한 분께 권장 (WCAG AAA)', swatches: ['#ffffff','#000000','#0040a0'] },
+    { id: 'slate', label: '슬레이트', desc: '회청색 다크 · 차분한 톤', swatches: ['#1a2130','#2a3344','#7dd3fc'] },
+  ];
+
+  const list = document.getElementById('themes');
+  const html = document.documentElement;
+  const body = document.body;
+  const currentIdEl = document.getElementById('currentId');
+
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+
+  function apply(themeId) {
+    body.setAttribute('data-theme', themeId);
+    html.setAttribute('data-theme', themeId);
+    currentIdEl.textContent = themeId;
+    document.querySelectorAll('.theme-card').forEach(c => c.classList.toggle('active', c.dataset.id === themeId));
+    localStorage.setItem('previewTheme', themeId);
+  }
+
+  THEMES.forEach(t => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'theme-card';
+    btn.dataset.id = t.id;
+    btn.onclick = () => apply(t.id);
+    btn.innerHTML = `
+      <div class="swatches">
+        ${t.swatches.map(c => `<div style="background:${c}"></div>`).join('')}
+      </div>
+      <div class="theme-name">${t.label}</div>
+      <div class="theme-desc">${t.desc}</div>
+    `;
+    list.appendChild(btn);
+  });
+
+  // 자동 연동 스위치 — OS가 라이트↔다크 바뀌면 자동 대응
+  const autoSwitch = document.getElementById('autoSwitch');
+  function applyAutoIfEnabled() {
+    if (!autoSwitch.checked) return;
+    apply(mq.matches ? 'dark' : 'light');
+  }
+  autoSwitch.addEventListener('change', () => {
+    localStorage.setItem('previewAutoSync', String(autoSwitch.checked));
+    applyAutoIfEnabled();
+  });
+  mq.addEventListener('change', applyAutoIfEnabled);
+
+  // Restore
+  autoSwitch.checked = localStorage.getItem('previewAutoSync') === 'true';
+  apply(localStorage.getItem('previewTheme') || 'light');
+  applyAutoIfEnabled();
+</script>
+</body>
+</html>

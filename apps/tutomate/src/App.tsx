@@ -1,6 +1,6 @@
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout, ErrorBoundary, UpdateChecker, LockScreen, MemberManagementPage } from '@tutomate/ui';
-import { useSettingsStore, useLockStore, useAutoLock, useAuthStore, appConfig, isElectron, OAUTH_PROVIDERS } from '@tutomate/core';
+import { useSettingsStore, useLockStore, useAutoLock, useAuthStore, appConfig, isElectron, OAUTH_PROVIDERS, getThemeMode } from '@tutomate/core';
 import type { OAuthProvider } from '@tutomate/core';
 import React, { Suspense, useEffect } from 'react';
 
@@ -15,6 +15,7 @@ import { toast, Toaster } from 'sonner';
 
 function App() {
   const theme = useSettingsStore((s) => s.theme);
+  const autoThemeSync = useSettingsStore((s) => s.autoThemeSync);
   const fontSize = useSettingsStore((s) => s.fontSize);
   const loadSettings = useSettingsStore((s) => s.loadSettings);
   const initialize = useAuthStore((s) => s.initialize);
@@ -51,9 +52,25 @@ function App() {
   useEffect(() => {
     document.documentElement.style.backgroundColor = '';
     document.body.style.backgroundColor = '';
-    document.documentElement.setAttribute('data-theme', theme);
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-  }, [theme]);
+
+    const applyTheme = () => {
+      let active = theme;
+      if (autoThemeSync) {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        active = prefersDark ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', active);
+      document.documentElement.classList.toggle('dark', getThemeMode(active) === 'dark');
+    };
+
+    applyTheme();
+
+    if (autoThemeSync) {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      mq.addEventListener('change', applyTheme);
+      return () => mq.removeEventListener('change', applyTheme);
+    }
+  }, [theme, autoThemeSync]);
 
   useEffect(() => {
     const fontSizeMap: Record<string, number> = {

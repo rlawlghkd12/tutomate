@@ -23,16 +23,19 @@ import {
   useAuthStore,
   getAuthProviderLabel,
   getAuthProviderColor,
+  THEMES,
 } from '@tutomate/core';
-import type { FontSize } from '@tutomate/core';
+import type { FontSize, ThemeId } from '@tutomate/core';
 // AdminTab removed — admin 앱에서 관리
 
 const SettingsPage: React.FC = () => {
   const {
     theme: appTheme,
+    autoThemeSync,
     fontSize,
     notificationsEnabled,
     setTheme,
+    setAutoThemeSync,
     setFontSize,
     setNotificationsEnabled,
     loadSettings,
@@ -296,14 +299,57 @@ const SettingsPage: React.FC = () => {
             <p className="text-sm text-muted-foreground mt-1">앱 모양 변경</p>
           </div>
           <div className="border rounded-xl px-5 py-1 mb-2">
+            {/* 테마 갤러리 */}
+            <div className="border-b py-4">
+              <div className="mb-3">
+                <p className="font-semibold text-sm">테마</p>
+                <p className="text-muted-foreground text-[0.85em]">앱의 색상 테마를 선택하세요</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                {THEMES.map((t) => {
+                  const selected = appTheme === t.id && !autoThemeSync;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => { setAutoThemeSync(false); setTheme(t.id as ThemeId); }}
+                      disabled={autoThemeSync}
+                      className={`relative rounded-xl border-2 p-2.5 text-left transition-all ${
+                        selected
+                          ? 'border-primary shadow-sm'
+                          : 'border-transparent bg-muted/40 hover:border-border'
+                      } ${autoThemeSync ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      aria-label={`${t.label} 테마${selected ? ' (선택됨)' : ''}`}
+                    >
+                      <div
+                        className="h-12 rounded-md mb-1.5 flex border"
+                        style={{ background: t.preview.bg, borderColor: 'rgba(0,0,0,0.08)' }}
+                      >
+                        <div className="flex-1" />
+                        <div className="w-5 m-1.5 rounded" style={{ background: t.preview.accent }} />
+                      </div>
+                      <div className="text-xs font-medium flex items-center gap-1">
+                        {t.label}
+                        {selected && <span className="text-primary">✓</span>}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground leading-tight mt-0.5 line-clamp-2">
+                        {t.description}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* OS 자동 연동 스위치 */}
             <div className="flex justify-between items-center border-b py-4">
               <div>
-                <p className="font-semibold text-sm">다크 모드</p>
-                <p className="text-muted-foreground text-[0.85em]">앱의 테마를 변경합니다</p>
+                <p className="font-semibold text-sm">OS 설정 자동 연동</p>
+                <p className="text-muted-foreground text-[0.85em]">시스템이 다크모드면 다크, 라이트면 라이트로 자동 전환</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{appTheme === 'dark' ? '켜짐' : '꺼짐'}</span>
-                <Switch checked={appTheme === 'dark'} onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')} />
+                <span className="text-xs text-muted-foreground">{autoThemeSync ? '켜짐' : '꺼짐'}</span>
+                <Switch checked={autoThemeSync} onCheckedChange={setAutoThemeSync} />
               </div>
             </div>
             <div className="flex items-center" style={{ padding: '16px 0' }}>
