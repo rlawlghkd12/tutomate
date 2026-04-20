@@ -131,7 +131,14 @@ const DashboardPage: React.FC = () => {
 				<Card className="cursor-pointer card-interactive" onClick={() => navigate("/students")}>
 					<CardContent className="p-4">
 						<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수강생</p>
-						<p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>{totalStudents}</p>
+						{totalStudents === 0 ? (
+							<div className="flex items-center gap-1.5 text-sm text-primary font-medium mt-1">
+								<Plus className="h-4 w-4" />
+								<span>등록하기</span>
+							</div>
+						) : (
+							<p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>{totalStudents}</p>
+						)}
 					</CardContent>
 				</Card>
 				<Card className="cursor-pointer card-interactive" onClick={() => navigate("/revenue")}>

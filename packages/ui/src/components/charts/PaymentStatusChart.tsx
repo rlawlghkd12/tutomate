@@ -22,6 +22,14 @@ const COLORS: Record<string, string> = {
   exempt: '#a78bfa',
 };
 
+// 색맹 접근성: 색 + 패턴(스트라이프/도트/체크/실선)으로 상태 구분
+const PATTERN_IDS: Record<string, string> = {
+  completed: 'pat-completed',   // 실선 (색만)
+  partial: 'pat-partial',       // 대각선 줄무늬
+  pending: 'pat-pending',       // 점
+  exempt: 'pat-exempt',         // 체크보드
+};
+
 const renderActiveShape = (props: any) => {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, value, percent } = props;
 
@@ -54,6 +62,32 @@ const renderActiveShape = (props: any) => {
     </g>
   );
 };
+
+// 색맹 사용자용 SVG 패턴 정의 — 색 + 패턴 이중 구분
+const ColorBlindPatterns: React.FC = () => (
+  <defs>
+    {/* 완납 — 실선 (색만) */}
+    <pattern id="pat-completed" patternUnits="userSpaceOnUse" width="1" height="1">
+      <rect width="1" height="1" fill={COLORS.completed} />
+    </pattern>
+    {/* 부분납부 — 대각선 줄무늬 */}
+    <pattern id="pat-partial" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+      <rect width="6" height="6" fill={COLORS.partial} />
+      <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(0,0,0,0.18)" strokeWidth="2" />
+    </pattern>
+    {/* 미납 — 점 */}
+    <pattern id="pat-pending" patternUnits="userSpaceOnUse" width="6" height="6">
+      <rect width="6" height="6" fill={COLORS.pending} />
+      <circle cx="3" cy="3" r="1.2" fill="rgba(0,0,0,0.22)" />
+    </pattern>
+    {/* 면제 — 체크보드 */}
+    <pattern id="pat-exempt" patternUnits="userSpaceOnUse" width="6" height="6">
+      <rect width="6" height="6" fill={COLORS.exempt} />
+      <rect width="3" height="3" fill="rgba(0,0,0,0.15)" />
+      <rect x="3" y="3" width="3" height="3" fill="rgba(0,0,0,0.15)" />
+    </pattern>
+  </defs>
+);
 
 export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollments }) => {
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
@@ -93,6 +127,7 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
   return (
     <ResponsiveContainer width="100%" height={300}>
       <PieChart>
+        <ColorBlindPatterns />
         <Pie
           data={statusData}
           cx="50%"
@@ -108,7 +143,7 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
           stroke="none"
         >
           {statusData.map((entry) => (
-            <Cell key={`cell-${entry.status}`} fill={COLORS[entry.status]} />
+            <Cell key={`cell-${entry.status}`} fill={`url(#${PATTERN_IDS[entry.status]})`} />
           ))}
         </Pie>
         {activeIndex === undefined && (

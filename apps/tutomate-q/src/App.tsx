@@ -9,6 +9,7 @@ import StudentsPage from './pages/StudentsPage';
 import CalendarPage from './pages/CalendarPage';
 import RevenueManagementPage from './pages/RevenueManagementPage';
 import SettingsPage from './pages/SettingsPage';
+import { CommandPalette } from './components/CommandPalette';
 import { useEffect } from 'react';
 import { toast, Toaster } from 'sonner';
 
@@ -132,6 +133,7 @@ function App() {
       <UpdateChecker autoCheck={true} checkInterval={60} />
       <Router>
         <GlobalSearch visible={visible} onClose={close} />
+        <CommandPalette />
         <Layout>
           <ErrorBoundary>
           <Routes>
