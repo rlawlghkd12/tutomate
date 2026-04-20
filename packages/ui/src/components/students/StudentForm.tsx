@@ -251,6 +251,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 						</DialogTitle>
 					</DialogHeader>
 
+					<div className="space-y-4 mt-4">
 					{selectedExistingStudent && (
 						<Alert className="relative">
 							<Info className="h-4 w-4" />
@@ -394,6 +395,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 					</div>
 
 					{editingStudent && <EnrollmentHistory studentId={editingStudent.id} />}
+					</div>
 
 					<DialogFooter className={cn(editingStudent && !hideDelete ? "justify-between" : "justify-end")}>
 						{editingStudent && !hideDelete && (

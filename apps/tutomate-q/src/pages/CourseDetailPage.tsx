@@ -38,9 +38,9 @@ const CourseDetailPage: React.FC = () => {
 	const [searchParams] = useSearchParams();
 	const { getCourseById, loadCourses, deleteCourse } = useCourseStore();
 	const { loadStudents, getStudentById } = useStudentStore();
-	const { enrollments, loadEnrollments, withdrawEnrollment, addEnrollment } =
+	const { enrollments, loadEnrollments, withdrawEnrollment, addEnrollment, updateEnrollment } =
 		useEnrollmentStore();
-	const { loadRecords, addPayment } = usePaymentRecordStore();
+	const { loadRecords, addPayment, deletePayment } = usePaymentRecordStore();
 
 	const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 	const [isExportModalVisible, setIsExportModalVisible] = useState(false);
@@ -132,13 +132,23 @@ const CourseDetailPage: React.FC = () => {
 	};
 
 	const handleRemoveStudents = async (enrollmentIds: string[], refundAmount?: number) => {
+		// 복원용 스냅샷 (Undo)
+		const snapshots: Array<{
+			id: string;
+			prevStatus: Enrollment['paymentStatus'];
+			refundRecordId?: string;
+		}> = [];
+
 		for (const id of enrollmentIds) {
-			// 철회 전에 원본 paymentMethod 캡처 (환불 record에 동일 수단 사용)
 			const originalEnrollment = enrollments.find((e) => e.id === id);
 			const originalMethod = originalEnrollment?.paymentMethod;
+			const snapshot: typeof snapshots[number] = {
+				id,
+				prevStatus: originalEnrollment?.paymentStatus ?? 'pending',
+			};
 			await withdrawEnrollment(id);
 			if (refundAmount && refundAmount > 0) {
-				await addPayment(
+				const rec = await addPayment(
 					id,
 					-refundAmount,
 					course?.fee || 0,
@@ -146,13 +156,33 @@ const CourseDetailPage: React.FC = () => {
 					dayjs().format("YYYY-MM-DD"),
 					'수강 철회 환불',
 				);
+				if (rec) snapshot.refundRecordId = rec.id;
 			}
+			snapshots.push(snapshot);
 		}
 		setSelectedRowKeys([]);
 		await loadEnrollments();
 		await loadRecords();
 		const refundMsg = refundAmount ? ` (환불 ₩${refundAmount.toLocaleString()})` : '';
-		toast.success(`${enrollmentIds.length}명의 수강이 철회되었습니다.${refundMsg}`);
+		toast.success(`${enrollmentIds.length}명의 수강이 철회되었습니다.${refundMsg}`, {
+			duration: 10000,
+			action: {
+				label: '실행 취소',
+				onClick: async () => {
+					for (const snap of snapshots) {
+						// 환불 record 먼저 삭제 (있다면)
+						if (snap.refundRecordId) {
+							await deletePayment(snap.refundRecordId, course?.fee || 0);
+						}
+						// 철회 상태 복원
+						await updateEnrollment(snap.id, { paymentStatus: snap.prevStatus });
+					}
+					await loadEnrollments();
+					await loadRecords();
+					toast.success(`${snapshots.length}명의 수강 철회가 취소되었습니다.`);
+				},
+			},
+		});
 	};
 
 	const handleExport = (type: "excel" | "csv") => {
