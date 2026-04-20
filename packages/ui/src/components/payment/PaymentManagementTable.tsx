@@ -231,11 +231,30 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
     }
   }, [selectedEnrollmentId, formAmount, formPaymentMethod, formPaidAt, formNotes, formDiscountAmount, addPayment, courseFee, enrollments, handleDiscountChange, resetForm]);
 
-  // 납부 삭제
+  // 납부 삭제 (Undo 지원 — 8초 내 "실행 취소" 가능)
   const handleDeletePayment = useCallback(async (recordId: string) => {
+    const backup = records.find((r) => r.id === recordId);
     await deletePayment(recordId, courseFee);
-    toast.success('납부 기록이 삭제되었습니다.');
-  }, [deletePayment, courseFee]);
+    toast.success('납부 기록이 삭제되었습니다.', {
+      duration: 8000,
+      action: backup
+        ? {
+            label: '실행 취소',
+            onClick: async () => {
+              await addPayment(
+                backup.enrollmentId,
+                backup.amount,
+                courseFee,
+                backup.paymentMethod,
+                backup.paidAt,
+                backup.notes ?? undefined,
+              );
+              toast.success('납부 기록이 복원되었습니다.');
+            },
+          }
+        : undefined,
+    });
+  }, [deletePayment, courseFee, records, addPayment]);
 
   // 면제 처리
   const handleExempt = useCallback(async (enrollment: Enrollment) => {
@@ -479,7 +498,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             <div className="flex items-center gap-1">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm">면제 취소</Button>
+                  <Button variant="outline" size="sm" className="min-h-11 px-3">면제 취소</Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
@@ -498,11 +517,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           );
         }
         return (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <Button
               variant="outline"
               size="sm"
-              className="border-primary text-primary hover:bg-primary/10"
+              className="min-h-11 px-3 border-primary text-primary hover:bg-primary/10"
               onClick={() => {
                 const discount = record.enrollment.discountAmount ?? 0;
                 setSelectedEnrollmentId(record.enrollment.id);
@@ -521,6 +540,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               <Button
                 variant="outline"
                 size="sm"
+                className="min-h-11 px-3"
                 disabled={submitting}
                 onClick={() => handleFullPayment(record.enrollment)}
               >
@@ -529,7 +549,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm">면제</Button>
+                <Button variant="destructive" size="sm" className="min-h-11 px-3">면제</Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -609,11 +629,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             <>
               <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>{rowSelection.selectedRowKeys.length}명 선택</span>
               {onRemoveEnrollments && (
-                <Button size="sm" variant="destructive" onClick={() => { setRefundAmount(0); setWithdrawDialogOpen(true); }}>
+                <Button size="sm" variant="destructive" className="min-h-11 px-3" onClick={() => { setRefundAmount(0); setWithdrawDialogOpen(true); }}>
                   수강 철회
                 </Button>
               )}
-              <Button size="sm" variant="outline" onClick={() => rowSelection.onChange([])}>
+              <Button size="sm" variant="outline" className="min-h-11 px-3" onClick={() => rowSelection.onChange([])}>
                 해제
               </Button>
               <div style={{ width: 1, height: 20, background: 'hsl(var(--border))' }} />
@@ -631,7 +651,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               <SelectItem value="exempt">면제</SelectItem>
             </SelectContent>
           </Select>
-          <Button size="sm" disabled={submitting} onClick={handleBulkFullPayment}>
+          <Button size="sm" className="min-h-11 px-4" disabled={submitting} onClick={handleBulkFullPayment}>
             전체 완납
           </Button>
         </div>
@@ -899,6 +919,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                       const next = methods[(currentIdx + 1) % methods.length];
                       updateRecord(r.id, { paymentMethod: next });
                     }}
+                    aria-label={`결제 수단: ${r.paymentMethod ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] : '미지정'} (클릭해서 변경)`}
                   >
                     {r.paymentMethod
                       ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS]
@@ -917,7 +938,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                   />
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full shrink-0 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10">
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full shrink-0 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10" aria-label="납부 기록 삭제">
                         <X className="h-3.5 w-3.5" />
                       </Button>
                     </AlertDialogTrigger>
