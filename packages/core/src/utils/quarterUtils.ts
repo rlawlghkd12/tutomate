@@ -23,22 +23,35 @@ export function getQuarterMonths(quarter: string): number[] {
   return [start, start + 1, start + 2];
 }
 
-/** 현재 ±2 분기 목록 */
-export function getQuarterOptions(): { value: string; label: string }[] {
+/**
+ * 분기 옵션 목록 — 과거 4분기 + 현재 + 미래 1분기 (총 6개)
+ * extraQuarters: 실제 데이터에 존재하는 분기 중 기본 범위 밖의 것도 함께 포함 (고유화)
+ * 결과는 시간순 정렬 (오래된 → 최신).
+ */
+export function getQuarterOptions(extraQuarters: string[] = []): { value: string; label: string }[] {
   const now = new Date();
   const year = now.getFullYear();
   const currentQ = Math.ceil((now.getMonth() + 1) / 3);
-  const results: { value: string; label: string }[] = [];
+  const unique = new Set<string>();
 
-  for (let offset = -2; offset <= 2; offset++) {
+  // 기본 범위: 과거 4분기 + 현재 + 미래 1분기
+  for (let offset = -4; offset <= 1; offset++) {
     let q = currentQ + offset;
     let y = year;
     while (q < 1) { q += 4; y -= 1; }
     while (q > 4) { q -= 4; y += 1; }
-    const value = `${y}-Q${q}`;
-    results.push({ value, label: getQuarterLabel(value) });
+    unique.add(`${y}-Q${q}`);
   }
-  return results;
+
+  // 실제 데이터에 있는 분기 추가
+  for (const q of extraQuarters) {
+    if (q && /^\d{4}-Q[1-4]$/.test(q)) unique.add(q);
+  }
+
+  // 시간순 정렬 (오래된 → 최신)
+  return Array.from(unique)
+    .sort((a, b) => a.localeCompare(b))
+    .map((value) => ({ value, label: getQuarterLabel(value) }));
 }
 
 /** 분기 + 월 → YYYY-MM 형식 — "2026-Q1", 1 → "2026-01" */
