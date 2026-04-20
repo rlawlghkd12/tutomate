@@ -49,7 +49,8 @@
     --shadow-xl: 0 16px 40px rgba(0,0,0,0.12), 0 8px 16px rgba(0,0,0,0.06);
   }
 
-  .dark {
+  .dark,
+  [data-theme="dark"] {
     --background: 0 0% 8%;
     --foreground: 0 0% 90%;
     --card: 0 0% 11%;
@@ -81,6 +82,102 @@
     --shadow-md: 0 4px 12px rgba(0,0,0,0.40), 0 2px 4px rgba(0,0,0,0.25);
     --shadow-lg: 0 8px 24px rgba(0,0,0,0.50), 0 4px 8px rgba(0,0,0,0.30);
     --shadow-xl: 0 16px 40px rgba(0,0,0,0.55), 0 8px 16px rgba(0,0,0,0.35);
+  }
+
+  /* Sepia — 크림톤, 장시간 사용 편안 (light-mode 기반) */
+  [data-theme="sepia"] {
+    --background: 38 40% 93%;
+    --foreground: 25 35% 22%;
+    --card: 38 45% 96%;
+    --card-foreground: 25 35% 22%;
+    --popover: 38 45% 96%;
+    --popover-foreground: 25 35% 22%;
+    --primary: 25 55% 30%;
+    --primary-foreground: 38 45% 96%;
+    --secondary: 38 35% 88%;
+    --secondary-foreground: 25 35% 22%;
+    --muted: 35 35% 90%;
+    --muted-foreground: 25 30% 38%;
+    --accent: 35 40% 85%;
+    --accent-foreground: 25 35% 22%;
+    --destructive: 0 55% 42%;
+    --destructive-foreground: 38 45% 96%;
+    --border: 30 30% 78%;
+    --input: 35 35% 88%;
+    --ring: 25 55% 30%;
+    --layout-bg: 38 35% 90%;
+    --success: 100 40% 32%;
+    --warning: 30 80% 40%;
+    --info: 210 60% 40%;
+    --error: 0 55% 42%;
+  }
+
+  /* High Contrast — 시력 약한 분 / WCAG AAA */
+  [data-theme="high-contrast"] {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+    --primary: 220 85% 32%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 92%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 94%;
+    --muted-foreground: 0 0% 18%;
+    --accent: 220 85% 32%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 85% 38%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 25%;
+    --input: 0 0% 96%;
+    --ring: 220 85% 32%;
+    --layout-bg: 0 0% 96%;
+    --success: 140 80% 22%;
+    --warning: 35 100% 35%;
+    --info: 220 85% 32%;
+    --error: 0 85% 38%;
+
+    --shadow-xs: 0 1px 0 rgba(0,0,0,0.4);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+    --shadow-md: 0 2px 4px rgba(0,0,0,0.55);
+    --shadow-lg: 0 4px 8px rgba(0,0,0,0.6);
+    --shadow-xl: 0 8px 16px rgba(0,0,0,0.65);
+  }
+
+  /* Slate — 회청색 다크 변종 */
+  [data-theme="slate"] {
+    --background: 220 20% 12%;
+    --foreground: 220 15% 88%;
+    --card: 220 22% 16%;
+    --card-foreground: 220 15% 88%;
+    --popover: 220 25% 18%;
+    --popover-foreground: 220 15% 88%;
+    --primary: 200 85% 68%;
+    --primary-foreground: 220 25% 12%;
+    --secondary: 220 20% 22%;
+    --secondary-foreground: 220 15% 88%;
+    --muted: 220 18% 18%;
+    --muted-foreground: 220 10% 62%;
+    --accent: 220 20% 22%;
+    --accent-foreground: 220 15% 88%;
+    --destructive: 0 70% 62%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 15% 26%;
+    --input: 220 18% 20%;
+    --ring: 200 85% 68%;
+    --layout-bg: 220 22% 14%;
+    --success: 150 55% 55%;
+    --warning: 35 85% 60%;
+    --info: 200 85% 68%;
+    --error: 0 70% 62%;
+
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-sm: 0 1px 4px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.45), 0 2px 4px rgba(0,0,0,0.3);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.55), 0 4px 8px rgba(0,0,0,0.35);
+    --shadow-xl: 0 16px 40px rgba(0,0,0,0.6), 0 8px 16px rgba(0,0,0,0.4);
   }
 
   * {
