@@ -3,31 +3,21 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
-import { ko } from 'date-fns/locale';
+import { Banknote, CreditCard, Building2 } from 'lucide-react';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
-import { useEnrollmentStore, PaymentMethodEnum } from '@tutomate/core';
+import { useEnrollmentStore, useStudentStore, PaymentMethodEnum } from '@tutomate/core';
 import dayjs from 'dayjs';
-import { cn } from '../../lib/utils';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
-import { Separator } from '../ui/separator';
 import { Badge } from '../ui/badge';
 import {
   AlertDialog,
@@ -40,8 +30,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '../ui/alert-dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { Calendar } from '../ui/calendar';
 
 interface PaymentFormProps {
   visible: boolean;
@@ -57,6 +45,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   courseFee,
 }) => {
   const { updatePayment } = useEnrollmentStore();
+  const { getStudentById } = useStudentStore();
   const [discountAmount, setDiscountAmount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
@@ -65,9 +54,10 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       .number({ message: '납부 금액을 입력하세요' })
       .min(0)
       .max(courseFee - discountAmount, '수강료를 초과할 수 없습니다'),
-    paidAt: z.date({ message: '납부일을 선택하세요' }),
+    paidAt: z.string().min(1, '납부일을 선택하세요'),
     paymentMethod: z.enum(['transfer', 'card', 'cash'] as const, { message: '납부 방법을 선택하세요' }),
     discountAmount: z.number().min(0).max(courseFee).default(0),
+    notes: z.string().optional(),
   });
 
   type PaymentFormData = z.infer<typeof paymentSchema>;
@@ -78,15 +68,16 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     reset,
     setValue,
     watch,
-    trigger,
+    register,
     formState: { errors },
   } = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema) as any,
     defaultValues: {
       paidAmount: 0,
-      paidAt: new Date(),
+      paidAt: dayjs().format('YYYY-MM-DD'),
       paymentMethod: PaymentMethodEnum.TRANSFER,
       discountAmount: 0,
+      notes: '',
     },
   });
 
@@ -98,9 +89,10 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       setDiscountAmount(discount);
       reset({
         paidAmount: enrollment.paidAmount,
-        paidAt: enrollment.paidAt ? new Date(enrollment.paidAt) : new Date(),
+        paidAt: enrollment.paidAt ? enrollment.paidAt : dayjs().format('YYYY-MM-DD'),
         paymentMethod: enrollment.paymentMethod || PaymentMethodEnum.TRANSFER,
         discountAmount: discount,
+        notes: '',
       });
     }
   }, [visible, enrollment, reset]);
@@ -116,14 +108,11 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
         return;
       }
 
-      const paidAt = values.paidAt
-        ? dayjs(values.paidAt).format('YYYY-MM-DD')
-        : undefined;
       await updatePayment(
         enrollment.id,
         values.paidAmount,
         courseFee,
-        paidAt,
+        values.paidAt,
         false,
         values.paymentMethod as PaymentMethod,
         values.discountAmount ?? 0,
@@ -159,214 +148,31 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   }
 
   const isExempt = enrollment.paymentStatus === 'exempt';
+  const studentName = getStudentById(enrollment.studentId)?.name ?? '';
   const currentPaidAmount = watchedPaidAmount ?? enrollment.paidAmount;
-  const remainingAmount = effectiveFee - currentPaidAmount;
+  const remainingAmount = Math.max(0, effectiveFee - currentPaidAmount);
 
   return (
     <Dialog open={visible} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>납부 관리</DialogTitle>
+          <DialogTitle className="text-base">
+            <span className="text-primary">{studentName}</span>님의 납부기록
+          </DialogTitle>
+          <DialogDescription className="sr-only">납부 정보를 입력합니다</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 mt-4">
-        {/* 현재 상태 요약 */}
-        <div className="rounded-xl border p-4">
-          {isExempt ? (
-            <div className="flex items-center gap-2">
+        {isExempt ? (
+          <>
+            <div className="mt-4 rounded-xl border p-4 flex items-center gap-2">
               <Badge variant="secondary">면제</Badge>
-              <span>이 수강은 수강료가 면제되었습니다.</span>
+              <span className="text-sm">이 수강은 수강료가 면제되었습니다.</span>
             </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">수강료</div>
-                <div className="text-sm font-semibold mt-0.5">₩{courseFee.toLocaleString()}</div>
-              </div>
-              <div>
-                <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">납부 금액</div>
-                <div className="text-sm font-semibold mt-0.5 text-success">₩{enrollment.paidAmount.toLocaleString()}</div>
-              </div>
-              <div>
-                <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">잔여 금액</div>
-                <div className={cn('text-sm font-semibold mt-0.5', enrollment.remainingAmount > 0 ? 'text-error' : 'text-success')}>
-                  ₩{enrollment.remainingAmount.toLocaleString()}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* 할인 */}
-          <div className="space-y-2">
-            <Label htmlFor="discountAmount">할인 금액</Label>
-            <Controller
-              name="discountAmount"
-              control={control}
-              render={({ field }) => (
-                <Input
-                  id="discountAmount"
-                  type="number"
-                  step={5000}
-                  min={0}
-                  max={courseFee}
-                  placeholder="0원이면 할인 없음"
-                  disabled={isExempt}
-                  value={field.value ?? ''}
-                  onChange={(e) => {
-                    const val = Number(e.target.value) || 0;
-                    field.onChange(val);
-                    setDiscountAmount(val);
-                  }}
-                />
-              )}
-            />
-          </div>
-          {discountAmount > 0 && (
-            <p className="-mt-2 text-xs text-success">
-              할인 적용 수강료: ₩{effectiveFee.toLocaleString()} (₩{courseFee.toLocaleString()} - ₩{discountAmount.toLocaleString()})
-            </p>
-          )}
-
-          <Separator className="my-2" />
-
-          {/* 납부 금액 + 납부일 */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="paidAmount">납부 금액</Label>
-              <Controller
-                name="paidAmount"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    id="paidAmount"
-                    type="number"
-                    step={5000}
-                    min={0}
-                    max={effectiveFee}
-                    placeholder="납부 금액 입력"
-                    disabled={isExempt}
-                    value={field.value ?? ''}
-                    onChange={(e) => {
-                      field.onChange(Number(e.target.value) || 0);
-                      trigger('paidAmount');
-                    }}
-                  />
-                )}
-              />
-              {errors.paidAmount && (
-                <p className="text-xs text-destructive">{errors.paidAmount.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>납부일</Label>
-              <Controller
-                name="paidAt"
-                control={control}
-                render={({ field }) => (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        disabled={isExempt}
-                        className={cn(
-                          'w-full justify-start text-left font-normal',
-                          !field.value && 'text-muted-foreground'
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value
-                          ? format(field.value, 'yyyy-MM-dd', { locale: ko })
-                          : '납부일 선택'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={(date: Date | undefined) => field.onChange(date)}
-                        locale={ko}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                )}
-              />
-              {errors.paidAt && (
-                <p className="text-xs text-destructive">{errors.paidAt.message}</p>
-              )}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isExempt}
-              onClick={() => {
-                setValue('paidAmount', Math.floor(effectiveFee / 2));
-                trigger('paidAmount');
-              }}
-            >
-              절반
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isExempt}
-              onClick={() => {
-                setValue('paidAmount', effectiveFee);
-                trigger('paidAmount');
-              }}
-            >
-              잔액 전액
-            </Button>
-          </div>
-
-          {/* 납부 방법 */}
-          <div className="space-y-2">
-            <Label>납부 방법</Label>
-            <Controller
-              name="paymentMethod"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  disabled={isExempt}
-                  value={field.value}
-                  onValueChange={field.onChange}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="납부 방법 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="transfer">계좌이체</SelectItem>
-                    <SelectItem value="card">카드</SelectItem>
-                    <SelectItem value="cash">현금</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.paymentMethod && (
-              <p className="text-xs text-destructive">{errors.paymentMethod.message}</p>
-            )}
-          </div>
-
-          {/* 변경 후 잔여 금액 */}
-          {!isExempt && (
-            <div className="rounded-xl border px-4 py-3 flex items-center justify-between">
-              <span className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">변경 후 잔여 금액</span>
-              <span className={cn('text-sm font-semibold', remainingAmount > 0 ? 'text-error' : 'text-success')}>
-                ₩{remainingAmount.toLocaleString()}
-              </span>
-            </div>
-          )}
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            {isExempt ? (
+            <DialogFooter className="mt-5">
+              <Button type="button" variant="outline" onClick={onClose} className="text-base px-6">닫기</Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button type="button" variant="outline">면제 취소</Button>
+                  <Button type="button" variant="outline" className="text-base px-6">면제 취소</Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
@@ -383,10 +189,159 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-            ) : (
+            </DialogFooter>
+          </>
+        ) : (
+          <form onSubmit={handleSubmit(onSubmit)}>
+            {/* 요약 박스 — 수강료 / 할인 인라인 / 납부할 금액 */}
+            <div className="mt-4 rounded-xl border p-4 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">수강료</span>
+                <span className="text-sm font-semibold">{'\u20A9'}{courseFee.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">할인</span>
+                <Controller
+                  control={control}
+                  name="discountAmount"
+                  render={({ field }) => (
+                    <Input
+                      type="number"
+                      min={0}
+                      max={courseFee}
+                      step={5000}
+                      value={field.value || ''}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 0;
+                        field.onChange(val);
+                        setDiscountAmount(val);
+                      }}
+                      placeholder="0"
+                      className="h-7 w-[110px] text-right text-sm [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                  )}
+                />
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t">
+                <span className="text-sm font-semibold">납부할 금액</span>
+                <span className={`text-base font-bold ${remainingAmount > 0 ? 'text-destructive' : 'text-success'}`}>
+                  {'\u20A9'}{effectiveFee.toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {/* 납부 금액 — 빠른선택 버튼 + 직접 입력 */}
+            <div className="mt-5 space-y-2">
+              <Label>납부 금액 <span className="text-destructive">*</span></Label>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { label: '완납', amount: effectiveFee },
+                  { label: '절반', amount: Math.floor(effectiveFee / 2) },
+                  { label: '미납', amount: 0 },
+                ] as const).map((opt) => {
+                  const isActive = watchedPaidAmount === opt.amount;
+                  return (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => setValue('paidAmount', opt.amount)}
+                      className={`py-3 rounded-lg border text-center transition-all cursor-pointer ${
+                        isActive
+                          ? 'border-foreground bg-foreground text-background'
+                          : 'border-border hover:border-foreground/30'
+                      }`}
+                    >
+                      <div className="text-sm font-semibold">{opt.label}</div>
+                      <div className={`text-xs mt-0.5 ${isActive ? 'opacity-60' : 'text-muted-foreground'}`}>
+                        {'\u20A9'}{opt.amount.toLocaleString()}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <Controller
+                control={control}
+                name="paidAmount"
+                render={({ field }) => (
+                  <Input
+                    type="number"
+                    min={0}
+                    max={effectiveFee}
+                    step={5000}
+                    value={field.value}
+                    onChange={(e) => field.onChange(Number(e.target.value) || 0)}
+                    className="text-center text-xl font-bold h-12 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
+                )}
+              />
+              {errors.paidAmount && (
+                <p className="text-sm text-destructive">{errors.paidAmount.message}</p>
+              )}
+            </div>
+
+            {/* 납부 방법 — 아이콘 버튼 */}
+            <div className="mt-5 space-y-2">
+              <Label>납부 방법</Label>
+              <Controller
+                control={control}
+                name="paymentMethod"
+                render={({ field }) => (
+                  <div className="grid grid-cols-3 gap-2">
+                    {([
+                      { v: 'cash', l: '현금', Icon: Banknote },
+                      { v: 'card', l: '카드', Icon: CreditCard },
+                      { v: 'transfer', l: '계좌이체', Icon: Building2 },
+                    ] as const).map((m) => {
+                      const isActive = field.value === m.v;
+                      return (
+                        <button
+                          key={m.v}
+                          type="button"
+                          onClick={() => field.onChange(m.v)}
+                          className={`flex flex-col items-center gap-1.5 py-3 rounded-lg border transition-all cursor-pointer ${
+                            isActive
+                              ? 'border-primary bg-primary/10'
+                              : 'border-border hover:border-foreground/30'
+                          }`}
+                        >
+                          <m.Icon className={`h-6 w-6 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                          <span className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>{m.l}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              />
+              {errors.paymentMethod && (
+                <p className="text-sm text-destructive">{errors.paymentMethod.message}</p>
+              )}
+            </div>
+
+            {/* 납부일 + 메모 */}
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="payment-form-paidAt">납부일 <span className="text-destructive">*</span></Label>
+                <Controller
+                  control={control}
+                  name="paidAt"
+                  render={({ field }) => (
+                    <Input id="payment-form-paidAt" type="date" value={field.value} onChange={(e) => field.onChange(e.target.value)} />
+                  )}
+                />
+                {errors.paidAt && (
+                  <p className="text-xs text-destructive">{errors.paidAt.message}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="payment-form-notes">메모</Label>
+                <Input id="payment-form-notes" placeholder="선택 사항" {...register('notes')} />
+              </div>
+            </div>
+
+            <DialogFooter className="mt-5">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button type="button" variant="destructive">면제</Button>
+                  <Button type="button" variant="destructive" className="text-base px-6">면제</Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
@@ -403,16 +358,11 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-            )}
-            <Button type="button" variant="outline" onClick={onClose}>
-              취소
-            </Button>
-            <Button type="submit" disabled={submitting || isExempt}>
-              저장
-            </Button>
-          </DialogFooter>
-        </form>
-        </div>
+              <Button type="button" variant="outline" onClick={onClose} className="text-base px-6">취소</Button>
+              <Button type="submit" disabled={submitting} className="text-base px-6">저장</Button>
+            </DialogFooter>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

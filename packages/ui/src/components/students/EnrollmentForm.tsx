@@ -150,7 +150,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 			paymentStatus = "completed";
 		}
 
-		// 철회된 기존 수강이 있으면 재활성화
+		// 포기된 기존 수강이 있으면 재활성화
 		const withdrawnEnrollment = enrollments.find(
 			(e) => e.studentId === student.id && e.courseId === values.courseId && e.paymentStatus === PaymentStatus.WITHDRAWN,
 		);
@@ -262,7 +262,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 			<DialogContent>
 				<DialogHeader>
 					<div className="flex items-center justify-between">
-						<DialogTitle className="text-base">수강 신청 <span className="font-normal text-muted-foreground">· {student?.name}</span></DialogTitle>
+						<DialogTitle className="text-base"><span className="text-primary">{student?.name}</span>님의 수강신청</DialogTitle>
 						<div className="flex items-center gap-1.5 text-sm mr-6">
 							<span className={step === 1 ? 'font-semibold' : 'text-muted-foreground'}>강좌 선택</span>
 							<span className="text-muted-foreground/40">›</span>

@@ -75,7 +75,7 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatusType, string> = {
   partial: '부분납부',
   completed: '완납',
   exempt: '면제',
-  withdrawn: '철회',
+  withdrawn: '포기',
 };
 
 // 수강 신청 인터페이스

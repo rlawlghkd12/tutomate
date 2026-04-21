@@ -66,9 +66,15 @@ const CourseDetailPage: React.FC = () => {
 	}, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
 	const course = id ? getCourseById(id) : undefined;
+	// 포기 포함 — 표시용
 	const courseEnrollments = useMemo(
-		() => enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e)),
+		() => enrollments.filter((e) => e.courseId === id),
 		[enrollments, id],
+	);
+	// 포기 제외 — 정원/완납률 계산용
+	const activeEnrollments = useMemo(
+		() => courseEnrollments.filter((e) => isActiveEnrollment(e)),
+		[courseEnrollments],
 	);
 
 	const enrolledStudents = useMemo(() => {
@@ -82,6 +88,7 @@ const CourseDetailPage: React.FC = () => {
 	}, [courseEnrollments, getStudentById]);
 
 	const { nonExemptEnrollments, totalRevenue, completedPayments } = useMemo(() => {
+		// 수익 계산용 (포기 포함 → 환불 음수 차감)
 		const nonExempt = courseEnrollments.filter(
 			(e) => e.paymentStatus !== "exempt",
 		);
@@ -89,11 +96,11 @@ const CourseDetailPage: React.FC = () => {
 			(sum, e) => sum + e.paidAmount,
 			0,
 		);
-		const completed = courseEnrollments.filter(
+		const completed = activeEnrollments.filter(
 			(e) => e.paymentStatus === "completed",
 		).length;
 		return { nonExemptEnrollments: nonExempt, totalRevenue: revenue, completedPayments: completed };
-	}, [courseEnrollments]);
+	}, [courseEnrollments, activeEnrollments]);
 
 	const handleDeleteCourse = () => {
 		if (!course) return;
@@ -123,22 +130,26 @@ const CourseDetailPage: React.FC = () => {
 			};
 			await withdrawEnrollment(id);
 			if (refundAmount && refundAmount > 0) {
-				const rec = await addPayment(
-					id,
-					-refundAmount,
-					course?.fee || 0,
-					originalMethod,
-					dayjs().format("YYYY-MM-DD"),
-					'수강 철회 환불',
-				);
-				if (rec) snapshot.refundRecordId = rec.id;
+				// 학생별 실제 환불 금액은 기납부액을 상한으로 clamp (과환불 방지)
+				const individualRefund = Math.min(refundAmount, Math.max(0, originalEnrollment?.paidAmount ?? 0));
+				if (individualRefund > 0) {
+					const rec = await addPayment(
+						id,
+						-individualRefund,
+						course?.fee || 0,
+						originalMethod,
+						dayjs().format("YYYY-MM-DD"),
+						'수강 포기 환불',
+					);
+					if (rec) snapshot.refundRecordId = rec.id;
+				}
 			}
 			snapshots.push(snapshot);
 		}
 		await loadEnrollments();
 		await loadRecords();
 		const refundMsg = refundAmount ? ` (환불 ₩${refundAmount.toLocaleString()})` : '';
-		toast.success(`${ids.length}명의 수강이 철회되었습니다.${refundMsg}`, {
+		toast.success(`${ids.length}명의 수강이 포기되었습니다.${refundMsg}`, {
 			duration: 10000,
 			action: {
 				label: '실행 취소',
@@ -151,7 +162,7 @@ const CourseDetailPage: React.FC = () => {
 					}
 					await loadEnrollments();
 					await loadRecords();
-					toast.success(`${snapshots.length}명의 수강 철회가 취소되었습니다.`);
+					toast.success(`${snapshots.length}명의 수강 포기가 취소되었습니다.`);
 				},
 			},
 		});
@@ -252,7 +263,7 @@ const CourseDetailPage: React.FC = () => {
 					})() },
 					{ label: "강의실", value: course.classroom },
 					{ label: "수강료", value: `\u20A9${course.fee.toLocaleString()}` },
-					{ label: "수강생", value: `${courseEnrollments.length}/${course.maxStudents}` },
+					{ label: "수강생", value: `${activeEnrollments.length}/${course.maxStudents}` },
 					{ label: "총 수익", value: `\u20A9${totalRevenue.toLocaleString()}`, colorClass: "text-success" },
 					{ label: "완납률", value: `${nonExemptEnrollments.length > 0 ? ((completedPayments / nonExemptEnrollments.length) * 100).toFixed(1) : "0.0"}%`, colorClass: nonExemptEnrollments.length > 0 && completedPayments === nonExemptEnrollments.length ? "text-success" : "text-error" },
 				].map((item) => (
@@ -402,9 +413,9 @@ const CourseDetailPage: React.FC = () => {
 			<AlertDialog open={removeDialogOpen} onOpenChange={setRemoveDialogOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>수강 철회</AlertDialogTitle>
+						<AlertDialogTitle>수강 포기</AlertDialogTitle>
 						<AlertDialogDescription>
-							{selectedRowKeys.length}명의 수강을 철회하시겠습니까? 납부 기록은 유지됩니다.
+							{selectedRowKeys.length}명의 수강을 포기하시겠습니까? 납부 기록은 유지됩니다.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -416,7 +427,7 @@ const CourseDetailPage: React.FC = () => {
 								setRemoveDialogOpen(false);
 							}}
 						>
-							철회
+							포기
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
