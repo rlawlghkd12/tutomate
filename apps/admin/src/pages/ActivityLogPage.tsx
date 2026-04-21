@@ -24,7 +24,7 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
   'enrollment.add': '수강 등록',
   'enrollment.update': '수강 수정',
   'enrollment.delete': '수강 삭제',
-  'enrollment.withdraw': '수강 철회',
+  'enrollment.withdraw': '수강 포기',
   'enrollment.exempt': '면제 처리',
   'enrollment.unexempt': '면제 취소',
   'student.add': '학생 추가',

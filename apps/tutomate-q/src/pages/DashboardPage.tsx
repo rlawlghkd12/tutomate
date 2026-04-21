@@ -68,32 +68,36 @@ const DashboardPage: React.FC = () => {
 	}, [loadCourses, loadStudents, loadEnrollments]);
 
 	const currentQuarter = getCurrentQuarter();
-	const quarterEnrollments = enrollments.filter(
-		(e) => isActiveEnrollment(e) && (e.quarter === currentQuarter || !e.quarter),
+	// 분기 전체 (withdrawn 포함 — 환불이 수익에 차감되어야 함)
+	const quarterAll = enrollments.filter(
+		(e) => e.quarter === currentQuarter || !e.quarter,
 	);
+	// 수익 집계용 (exempt 제외, withdrawn 포함하여 환불 차감 반영)
+	const quarterRevenue = quarterAll.filter((e) => e.paymentStatus !== "exempt");
+	// 활성 수강생 (완납/미납 카운트 및 예상수익/차트용)
+	const quarterActive = quarterRevenue.filter((e) => e.paymentStatus !== "withdrawn");
 
 	const totalCourses = courses.length;
 	const totalStudents = students.length;
 
-	const completedPayments = quarterEnrollments.filter(
+	const completedPayments = quarterActive.filter(
 		(e) => e.paymentStatus === "completed",
 	).length;
-	const pendingPayments = quarterEnrollments.filter(
+	const pendingPayments = quarterActive.filter(
 		(e) => e.paymentStatus === "pending",
 	).length;
 
-	const totalRevenue = quarterEnrollments
-		.filter((e) => e.paymentStatus !== "exempt")
-		.reduce((sum, enrollment) => {
-			return sum + enrollment.paidAmount;
-		}, 0);
+	// 총 수익: withdrawn 포함 — 환불 금액(음수 paidAmount) 차감됨
+	const totalRevenue = quarterRevenue.reduce(
+		(sum, enrollment) => sum + enrollment.paidAmount,
+		0,
+	);
 
-	const expectedRevenue = quarterEnrollments
-		.filter((e) => e.paymentStatus !== "exempt")
-		.reduce((sum, enrollment) => {
-			const course = courses.find((c) => c.id === enrollment.courseId);
-			return sum + (course?.fee || 0);
-		}, 0);
+	// 예상수익: active만 (포기 학생은 기대 수익에서 제외)
+	const expectedRevenue = quarterActive.reduce((sum, enrollment) => {
+		const course = courses.find((c) => c.id === enrollment.courseId);
+		return sum + (course?.fee || 0);
+	}, 0);
 
 	const paymentRate =
 		expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0;
@@ -235,7 +239,7 @@ const DashboardPage: React.FC = () => {
 						<CardTitle className="text-sm">강좌별 수익</CardTitle>
 					</CardHeader>
 					<CardContent className="p-4 pt-2">
-						<CourseRevenueChart enrollments={quarterEnrollments} courses={courses} />
+						<CourseRevenueChart enrollments={quarterRevenue} courses={courses} />
 					</CardContent>
 				</Card>
 				<Card>
@@ -243,7 +247,7 @@ const DashboardPage: React.FC = () => {
 						<CardTitle className="text-sm">납부 상태</CardTitle>
 					</CardHeader>
 					<CardContent className="p-4 pt-2">
-						<PaymentStatusChart enrollments={quarterEnrollments} />
+						<PaymentStatusChart enrollments={quarterActive} />
 					</CardContent>
 				</Card>
 			</div>

@@ -9,7 +9,7 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
-import { X } from 'lucide-react';
+import { X, Banknote, CreditCard, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
 import { usePaymentRecordStore } from '@tutomate/core';
@@ -444,6 +444,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       accessorFn: (row) => row.enrollment.paymentStatus,
       cell: ({ row }) => {
         const s = row.original.enrollment.paymentStatus;
+        if (s === 'withdrawn') return <Badge variant="secondary" className="opacity-70">포기</Badge>;
         if (s === 'exempt') return <Badge variant="secondary">면제</Badge>;
         if (s === 'completed') return <Badge variant="success">완납</Badge>;
         if (s === 'partial') return <Badge variant="warning">부분납부</Badge>;
@@ -492,6 +493,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       cell: ({ row }) => {
         const record = row.original;
         if (record.enrollment.paymentStatus === 'exempt') return '-';
+        if (record.enrollment.paymentStatus === 'withdrawn') return <span className="text-muted-foreground">-</span>;
         return (
           <span className={cn(
             'whitespace-nowrap font-semibold',
@@ -508,6 +510,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       size: 200,
       cell: ({ row }) => {
         const record = row.original;
+        if (record.enrollment.paymentStatus === 'withdrawn') {
+          return (
+            <span className="text-xs text-muted-foreground">포기됨</span>
+          );
+        }
         if (record.enrollment.paymentStatus === 'exempt') {
           return (
             <div className="flex items-center gap-1">
@@ -645,7 +652,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>{rowSelection.selectedRowKeys.length}명 선택</span>
               {onRemoveEnrollments && (
                 <Button size="sm" variant="destructive" className="min-h-11 px-3" onClick={() => { setRefundAmount(0); setWithdrawDialogOpen(true); }}>
-                  수강 철회
+                  수강 포기
                 </Button>
               )}
               <Button size="sm" variant="outline" className="min-h-11 px-3" onClick={() => rowSelection.onChange([])}>
@@ -664,6 +671,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               <SelectItem value="partial">부분납부</SelectItem>
               <SelectItem value="pending">미납</SelectItem>
               <SelectItem value="exempt">면제</SelectItem>
+              <SelectItem value="withdrawn">포기</SelectItem>
             </SelectContent>
           </Select>
           <Button size="sm" className="min-h-11 px-4" disabled={submitting} onClick={handleBulkFullPayment}>
@@ -729,18 +737,22 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               </TableCell>
             </TableRow>
           ) : (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={row.getIsSelected() ? 'selected' : undefined}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} style={{ width: cell.column.getSize() }}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
+            table.getRowModel().rows.map((row) => {
+              const isWithdrawn = row.original.enrollment.paymentStatus === 'withdrawn';
+              return (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() ? 'selected' : undefined}
+                  className={isWithdrawn ? 'opacity-55' : ''}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id} style={{ width: cell.column.getSize() }}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>
@@ -756,11 +768,10 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           }
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              <span className="text-primary">{selectedData?.studentName ?? ''}</span>
-              <span className="text-muted-foreground font-normal ml-2">님 납부</span>
+            <DialogTitle className="text-base">
+              <span className="text-primary">{selectedData?.studentName ?? ''}</span>님의 납부기록
             </DialogTitle>
             <DialogDescription className="sr-only">납부 정보를 입력합니다</DialogDescription>
           </DialogHeader>
@@ -770,13 +781,13 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             const modalEffectiveFee = courseFee - modalDiscount;
             const modalRemaining = Math.max(0, modalEffectiveFee - selectedData.totalPaid);
             return (
-              <div className="rounded-xl border p-4 space-y-1.5">
+              <div className="mt-4 rounded-xl border p-4 space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">수강료</span>
+                  <span className="text-sm text-muted-foreground">수강료</span>
                   <span className="text-sm font-semibold">{'\u20A9'}{courseFee.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">할인</span>
+                  <span className="text-sm text-muted-foreground">할인</span>
                   <Input
                     type="number"
                     min={0}
@@ -791,16 +802,16 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                       setFormAmount(newRemaining);
                     }}
                     placeholder="0"
-                    className="h-7 w-[120px] text-right text-sm [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    className="h-7 w-[110px] text-right text-sm [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   />
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">기납부액</span>
+                  <span className="text-sm text-muted-foreground">기납부액</span>
                   <span className="text-sm font-semibold">{'\u20A9'}{selectedData.totalPaid.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between pt-1.5 border-t font-semibold text-base">
-                  <span>납부할 금액</span>
-                  <span className={modalRemaining > 0 ? 'text-destructive' : 'text-success'}>
+                <div className="flex justify-between items-center pt-2 border-t">
+                  <span className="text-sm font-semibold">납부할 금액</span>
+                  <span className={`text-base font-bold ${modalRemaining > 0 ? 'text-destructive' : 'text-success'}`}>
                     {'\u20A9'}{modalRemaining.toLocaleString()}
                   </span>
                 </div>
@@ -808,49 +819,113 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             );
           })()}
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>납부 금액 <span className="text-destructive">*</span></Label>
-              <Input
-                type="number"
-                min={0}
-                step={5000}
-                value={formAmount ?? ''}
-                onChange={(e) => setFormAmount(e.target.value ? Number(e.target.value) : undefined)}
-              />
+          {/* 납부 금액 — 빠른선택 버튼 + 직접 입력 */}
+          {selectedData && (() => {
+            const modalEffectiveFee = courseFee - modalDiscount;
+            const modalRemaining = Math.max(0, modalEffectiveFee - selectedData.totalPaid);
+            const quickOptions = [
+              { label: '잔액', amount: modalRemaining },
+              { label: '절반', amount: Math.floor(modalRemaining / 2) },
+              { label: '직접', amount: -1 },
+            ] as const;
+            return (
+              <div className="mt-5 space-y-2">
+                <Label>납부 금액 <span className="text-destructive">*</span></Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {quickOptions.map((opt) => {
+                    const isDirect = opt.amount === -1;
+                    const isActive = !isDirect && formAmount === opt.amount;
+                    return (
+                      <button
+                        key={opt.label}
+                        type="button"
+                        onClick={() => {
+                          if (isDirect) {
+                            setFormAmount(undefined);
+                          } else {
+                            setFormAmount(opt.amount);
+                          }
+                        }}
+                        className={`py-3 rounded-lg border text-center transition-all cursor-pointer ${
+                          isActive
+                            ? 'border-foreground bg-foreground text-background'
+                            : 'border-border hover:border-foreground/30'
+                        }`}
+                      >
+                        <div className="text-sm font-semibold">{opt.label}</div>
+                        {!isDirect && (
+                          <div className={`text-xs mt-0.5 ${isActive ? 'opacity-60' : 'text-muted-foreground'}`}>
+                            {'\u20A9'}{opt.amount.toLocaleString()}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <Input
+                  type="number"
+                  min={0}
+                  step={5000}
+                  value={formAmount ?? ''}
+                  onChange={(e) => setFormAmount(e.target.value ? Number(e.target.value) : undefined)}
+                  className="text-center text-xl font-bold h-12 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+              </div>
+            );
+          })()}
+
+          {/* 납부 방법 — 아이콘 버튼 */}
+          <div className="mt-5 space-y-2">
+            <Label>납부 방법</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { v: 'cash', l: '현금', Icon: Banknote },
+                { v: 'card', l: '카드', Icon: CreditCard },
+                { v: 'transfer', l: '계좌이체', Icon: Building2 },
+              ] as const).map((m) => {
+                const isActive = formPaymentMethod === m.v;
+                return (
+                  <button
+                    key={m.v}
+                    type="button"
+                    onClick={() => setFormPaymentMethod(m.v as PaymentMethod)}
+                    className={`flex flex-col items-center gap-1.5 py-3 rounded-lg border transition-all cursor-pointer ${
+                      isActive
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border hover:border-foreground/30'
+                    }`}
+                  >
+                    <m.Icon className={`h-6 w-6 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <span className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>{m.l}</span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="space-y-2">
-              <Label>납부 방법</Label>
-              <Select value={formPaymentMethod ?? ''} onValueChange={(v) => setFormPaymentMethod((v || undefined) as PaymentMethod | undefined)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="transfer">계좌이체</SelectItem>
-                  <SelectItem value="card">카드</SelectItem>
-                  <SelectItem value="cash">현금</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>납부일 <span className="text-destructive">*</span></Label>
+          </div>
+
+          {/* 납부일 + 메모 */}
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="payment-modal-paidAt">납부일 <span className="text-destructive">*</span></Label>
               <Input
+                id="payment-modal-paidAt"
                 type="date"
                 value={formPaidAt}
                 onChange={(e) => setFormPaidAt(e.target.value)}
               />
             </div>
-            <div className="space-y-2">
-              <Label>메모</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="payment-modal-notes">메모</Label>
               <Input
-                placeholder="메모"
+                id="payment-modal-notes"
+                placeholder="선택 사항"
                 value={formNotes}
                 onChange={(e) => setFormNotes(e.target.value)}
               />
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="mt-5">
             <Button
               variant="outline"
               onClick={() => {
@@ -858,10 +933,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                 setSelectedEnrollmentId(null);
                 resetForm();
               }}
+              className="text-base px-6"
             >
               취소
             </Button>
-            <Button disabled={submitting} onClick={handleAddPayment}>납부 기록</Button>
+            <Button disabled={submitting} onClick={handleAddPayment} className="text-base px-6">납부 기록</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -980,40 +1056,52 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           )}
         </DialogContent>
       </Dialog>
-      {/* 수강 철회 확인 다이얼로그 */}
+      {/* 수강 포기 확인 다이얼로그 */}
       <AlertDialog open={withdrawDialogOpen} onOpenChange={setWithdrawDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>수강 철회</AlertDialogTitle>
+            <AlertDialogTitle>수강 포기</AlertDialogTitle>
             <AlertDialogDescription>
-              {rowSelection?.selectedRowKeys.length || 0}명의 수강을 철회합니다.
+              {rowSelection?.selectedRowKeys.length || 0}명의 수강을 포기합니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div style={{ padding: '0 24px 16px' }}>
             {(() => {
               const selectedIds = (rowSelection?.selectedRowKeys || []) as string[];
               const selectedRows = filteredData.filter((d) => selectedIds.includes(d.key));
-              const totalPaid = selectedRows.reduce((sum, d) => sum + d.totalPaid, 0);
+              const isMulti = selectedRows.length > 1;
+              // 개별 환불 상한 = 선택된 학생 중 최소 납부액 (아무도 과환불 안 되도록)
+              const individualMax = selectedRows.length > 0
+                ? Math.min(...selectedRows.map((r) => Math.max(0, r.totalPaid)))
+                : 0;
               return (
                 <>
                   <div style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginBottom: 8, padding: '8px 12px', background: 'hsl(var(--muted) / 0.5)', borderRadius: 6 }}>
-                    기납부 합계: <span style={{ fontWeight: 600, color: 'hsl(var(--foreground))' }}>₩{totalPaid.toLocaleString()}</span>
+                    {isMulti ? (
+                      <>선택 <span style={{ fontWeight: 600, color: 'hsl(var(--foreground))' }}>{selectedRows.length}명</span> · 1인당 최대 환불 <span style={{ fontWeight: 600, color: 'hsl(var(--foreground))' }}>₩{individualMax.toLocaleString()}</span></>
+                    ) : (
+                      <>기납부 금액 <span style={{ fontWeight: 600, color: 'hsl(var(--foreground))' }}>₩{individualMax.toLocaleString()}</span></>
+                    )}
                   </div>
-                  <Label style={{ marginBottom: 6, display: 'block' }}>환불 금액 (원)</Label>
+                  <Label style={{ marginBottom: 6, display: 'block' }}>
+                    환불 금액{isMulti ? ' (1인당)' : ''}
+                  </Label>
                   <Input
                     type="number"
                     step={5000}
                     value={refundAmount || ''}
                     onChange={(e) => {
                       const val = Number(e.target.value) || 0;
-                      setRefundAmount(Math.min(val, totalPaid));
+                      setRefundAmount(Math.min(val, individualMax));
                     }}
                     placeholder="0 (환불 없음)"
                     min={0}
-                    max={totalPaid}
+                    max={individualMax}
                   />
                   <p style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
-                    최대 ₩{totalPaid.toLocaleString()} 환불 가능
+                    {isMulti
+                      ? `각 학생에게 동일하게 적용 · 최대 ₩${individualMax.toLocaleString()} / 명`
+                      : `최대 ₩${individualMax.toLocaleString()} 환불 가능`}
                   </p>
                 </>
               );
@@ -1030,7 +1118,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                 setWithdrawDialogOpen(false);
               }}
             >
-              철회
+              포기
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

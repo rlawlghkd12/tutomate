@@ -74,12 +74,12 @@ const DashboardPage: React.FC = () => {
 			(e) => isActiveEnrollment(e) && e.paymentStatus === "pending",
 		).length;
 
+		// 총 수익: withdrawn 포함 (환불 음수 차감 반영), exempt 제외
 		const revenue = enrollments
-			.filter((e) => isActiveEnrollment(e) && e.paymentStatus !== "exempt")
-			.reduce((sum, enrollment) => {
-				return sum + enrollment.paidAmount;
-			}, 0);
+			.filter((e) => e.paymentStatus !== "exempt")
+			.reduce((sum, enrollment) => sum + enrollment.paidAmount, 0);
 
+		// 예상수익: active만 (포기 제외)
 		const expected = enrollments
 			.filter((e) => isActiveEnrollment(e) && e.paymentStatus !== "exempt")
 			.reduce((sum, enrollment) => {

@@ -35,7 +35,7 @@ const RevenueManagementPage: React.FC = () => {
   const { courses, loadCourses, getCourseById } = useCourseStore();
   const { students, loadStudents } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
-  const { loadRecords } = usePaymentRecordStore();
+  const { loadRecords, records } = usePaymentRecordStore();
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
@@ -90,7 +90,7 @@ const RevenueManagementPage: React.FC = () => {
   const courseMap = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
   const studentMap = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
 
-  const { totalRevenue, expectedRevenue, totalUnpaid, completedPayments, partialPayments, pendingPayments, exemptPayments } = useMemo(() => {
+  const { totalRevenue, expectedRevenue, totalUnpaid, completedPayments, partialPayments, pendingPayments, exemptPayments, withdrawnPayments } = useMemo(() => {
     // active = withdrawn 제외 → 예상수익/미수금 계산용
     const active = revenueEnrollments.filter((e) => e.paymentStatus !== 'withdrawn');
     // 총수익: active + withdrawn(환불 net) 모두
@@ -109,6 +109,7 @@ const RevenueManagementPage: React.FC = () => {
       partialPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'partial').length,
       pendingPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'pending').length,
       exemptPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'exempt').length,
+      withdrawnPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'withdrawn').length,
     };
   }, [revenueEnrollments, filteredEnrollments, courseMap]);
 
@@ -130,19 +131,33 @@ const RevenueManagementPage: React.FC = () => {
     // 활성 수강생 기준 완납률
     const completionRate = activeEnrollments.length > 0 ? (completed / activeEnrollments.length) * 100 : 0;
 
+    const withdrawnCount = courseEnrollments.filter((e) => e.paymentStatus === 'withdrawn').length;
+    const enrollmentIds = new Set(courseEnrollments.map((e) => e.id));
+    const courseRecords = records.filter((r) => enrollmentIds.has(r.enrollmentId));
+    const refundTotal = Math.abs(courseRecords.filter((r) => r.amount < 0).reduce((sum, r) => sum + r.amount, 0));
+    const withdrawnKept = courseEnrollments
+      .filter((e) => e.paymentStatus === 'withdrawn')
+      .reduce((sum, e) => sum + e.paidAmount, 0);
     return {
       courseId: course.id,
       courseName: course.name,
-      studentCount: courseEnrollments.length,
+      studentCount: activeEnrollments.length,
+      totalEnrollments: courseEnrollments.length,
+      withdrawnCount,
       revenue,
+      refundTotal,
+      withdrawnKept,
       expected,
       unpaid,
       completionRate,
+      completedCount: completed,
+      activeCount: activeEnrollments.length,
       revenueEnrollments: nonExemptEnrollments,
+      courseRecords,
     };
-  }), [courses, filteredEnrollments]);
+  }), [courses, filteredEnrollments, records]);
 
-  // 미납자 목록 (면제/완납/철회 제외 → pending/partial만)
+  // 미납자 목록 (면제/완납/포기 제외 → pending/partial만)
   const unpaidList = useMemo(() => filteredEnrollments
     .filter((e) => e.paymentStatus === 'pending' || e.paymentStatus === 'partial')
     .map((enrollment) => {
@@ -180,19 +195,30 @@ const RevenueManagementPage: React.FC = () => {
       const unpaidCount = active.length - paidCount;
       const collectionRate = quarterExpected > 0 ? (activeRevenueLocal / quarterExpected) * 100 : 0;
 
+      const withdrawnCount = quarterAll.filter((e) => e.paymentStatus === 'withdrawn').length;
+      const enrollmentIds = new Set(quarterAll.map((e) => e.id));
+      const courseRecords = records.filter((r) => enrollmentIds.has(r.enrollmentId));
+      const refundTotal = Math.abs(courseRecords.filter((r) => r.amount < 0).reduce((sum, r) => sum + r.amount, 0));
+      const withdrawnKept = quarterAll
+        .filter((e) => e.paymentStatus === 'withdrawn')
+        .reduce((sum, e) => sum + e.paidAmount, 0);
       return {
         courseId: course.id,
         courseName: course.name,
         studentCount: active.length,
+        withdrawnCount,
         paidCount,
         unpaidCount,
         quarterRevenue,
         quarterExpected,
+        refundTotal,
+        withdrawnKept,
         collectionRate,
         revenueEnrollments: nonExempt,
+        courseRecords,
       };
-    }).filter((d) => d.studentCount > 0);
-  }, [courses, enrollments, selectedQuarter]);
+    }).filter((d) => d.studentCount > 0 || d.withdrawnCount > 0);
+  }, [courses, enrollments, selectedQuarter, records]);
 
   const quarterTotalRevenue = useMemo(() => quarterRevenueData.reduce((sum, d) => sum + d.quarterRevenue, 0), [quarterRevenueData]);
   const quarterTotalExpected = useMemo(() => quarterRevenueData.reduce((sum, d) => sum + d.quarterExpected, 0), [quarterRevenueData]);
@@ -341,6 +367,7 @@ const RevenueManagementPage: React.FC = () => {
                   { value: ['pending'], label: '미납' },
                   { value: ['pending', 'partial'], label: '미완납' },
                   { value: ['completed'], label: '완납' },
+                  { value: ['withdrawn'], label: '포기' },
                 ].map((opt) => {
                   const isActive = JSON.stringify([...paymentStatusFilter].sort()) === JSON.stringify([...opt.value].sort());
                   return (
@@ -377,6 +404,8 @@ const RevenueManagementPage: React.FC = () => {
                         pending: '미납',
                         partial: '부분납부',
                         completed: '완납',
+                        withdrawn: '포기',
+                        exempt: '면제',
                       };
                       return map[s];
                     })
@@ -391,8 +420,8 @@ const RevenueManagementPage: React.FC = () => {
       </Card>
 
       {/* 상단 통계 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <RevenueBreakdownTooltip enrollments={revenueEnrollments}>
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+        <RevenueBreakdownTooltip enrollments={revenueEnrollments} records={records}>
           <Card>
             <CardContent className="p-4">
               <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">총 수익</p>
@@ -418,7 +447,7 @@ const RevenueManagementPage: React.FC = () => {
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card title="총수익 ÷ 예상수익 — 미환불이 있으면 100%를 넘을 수 있음">
           <CardContent className="p-4">
             <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수익률</p>
             <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
@@ -426,9 +455,17 @@ const RevenueManagementPage: React.FC = () => {
             </p>
           </CardContent>
         </Card>
+        <Card title="미수금 ÷ 예상수익 — 수강 중 학생 기준">
+          <CardContent className="p-4">
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납률</p>
+            <p className={`text-2xl font-bold tabular-nums ${totalUnpaid > 0 ? 'text-error' : 'text-success'}`} style={{ letterSpacing: '-0.02em' }}>
+              {(expectedRevenue > 0 ? (totalUnpaid / expectedRevenue) * 100 : 0).toFixed(1)}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
         <Card>
           <CardContent className="p-4">
             <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
@@ -458,6 +495,14 @@ const RevenueManagementPage: React.FC = () => {
             <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">면제</p>
             <p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em', color: EXEMPT_COLOR }}>
               {exemptPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">포기</p>
+            <p className="text-3xl font-bold tabular-nums text-muted-foreground" style={{ letterSpacing: '-0.02em' }}>
+              {withdrawnPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
             </p>
           </CardContent>
         </Card>
@@ -498,17 +543,27 @@ const RevenueManagementPage: React.FC = () => {
                         {row.courseName}
                       </button>
                     </td>
-                    <td className="px-3 py-3.5">{row.studentCount}</td>
                     <td className="px-3 py-3.5">
-                      <RevenueBreakdownTooltip enrollments={row.revenueEnrollments}>
-                        <span>{'\u20A9'}{row.revenue.toLocaleString()}</span>
+                      <span className="tabular-nums">{row.studentCount}</span>
+                      {row.withdrawnCount > 0 && (
+                        <span className="text-muted-foreground ml-1.5 text-[0.82rem]" title="환불 없이 포기한 수강생 수">
+                          (포기 {row.withdrawnCount})
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3.5">
+                      <RevenueBreakdownTooltip enrollments={row.revenueEnrollments} records={row.courseRecords}>
+                        <span className="tabular-nums">{'\u20A9'}{row.revenue.toLocaleString()}</span>
                       </RevenueBreakdownTooltip>
                     </td>
                     <td className="px-3 py-3.5">{'\u20A9'}{row.expected.toLocaleString()}</td>
                     <td className={`px-3 py-3.5 ${row.unpaid > 0 ? 'text-error' : 'text-success'}`}>
                       {'\u20A9'}{row.unpaid.toLocaleString()}
                     </td>
-                    <td className="px-3 py-3.5">{row.completionRate.toFixed(1)}%</td>
+                    <td className="px-3 py-3.5">
+                      <span className="tabular-nums">{row.completedCount}/{row.activeCount}</span>
+                      <span className="text-muted-foreground ml-1.5 text-[0.86rem]">({row.completionRate.toFixed(0)}%)</span>
+                    </td>
                   </tr>
                 ))}
                 {courseRevenueData.length === 0 && (
@@ -585,7 +640,7 @@ const RevenueManagementPage: React.FC = () => {
         <TabsContent value="3">
           <div className="flex items-center justify-end mb-4 flex-wrap gap-3">
             <div className="flex items-center gap-2">
-              <RevenueBreakdownTooltip enrollments={quarterRevenueData.flatMap((d) => d.revenueEnrollments)}>
+              <RevenueBreakdownTooltip enrollments={quarterRevenueData.flatMap((d) => d.revenueEnrollments)} records={quarterRevenueData.flatMap((d) => d.courseRecords)}>
                 <div className="px-3 py-1.5 rounded-md border">
                   <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">분기 수익</div>
                   <div className="text-sm font-semibold mt-0.5 text-success">{'\u20A9'}{quarterTotalRevenue.toLocaleString()}</div>
@@ -629,12 +684,19 @@ const RevenueManagementPage: React.FC = () => {
                         {row.courseName}
                       </button>
                     </td>
-                    <td className="px-3 py-3.5">{row.studentCount}</td>
+                    <td className="px-3 py-3.5">
+                      <span className="tabular-nums">{row.studentCount}</span>
+                      {row.withdrawnCount > 0 && (
+                        <span className="text-muted-foreground ml-1.5 text-[0.82rem]" title="환불 없이 포기한 수강생 수">
+                          (포기 {row.withdrawnCount})
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 py-3.5 text-success">{row.paidCount}명</td>
                     <td className={`px-3 py-3.5 ${row.unpaidCount > 0 ? 'text-error' : 'text-success'}`}>{row.unpaidCount}명</td>
                     <td className="px-3 py-3.5">
-                      <RevenueBreakdownTooltip enrollments={row.revenueEnrollments}>
-                        <span>{'\u20A9'}{row.quarterRevenue.toLocaleString()}</span>
+                      <RevenueBreakdownTooltip enrollments={row.revenueEnrollments} records={row.courseRecords}>
+                        <span className="tabular-nums">{'\u20A9'}{row.quarterRevenue.toLocaleString()}</span>
                       </RevenueBreakdownTooltip>
                     </td>
                     <td className="px-3 py-3.5">{'\u20A9'}{row.quarterExpected.toLocaleString()}</td>

@@ -459,7 +459,7 @@ function EnrollmentHistory({ studentId }: { studentId: string }) {
 		partial: { text: '부분납부', bg: 'hsl(var(--warning) / 0.1)', color: 'hsl(var(--warning))' },
 		completed: { text: '완납', bg: 'hsl(var(--success) / 0.1)', color: 'hsl(var(--success))' },
 		exempt: { text: '면제', bg: 'hsl(var(--info) / 0.1)', color: 'hsl(var(--info))' },
-		withdrawn: { text: '철회', bg: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' },
+		withdrawn: { text: '포기', bg: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' },
 	};
 
 	// 분기 목록 추출 (최신 먼저)

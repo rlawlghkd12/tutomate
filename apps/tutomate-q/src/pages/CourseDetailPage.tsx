@@ -67,10 +67,10 @@ const CourseDetailPage: React.FC = () => {
 	}, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
 	const course = id ? getCourseById(id) : undefined;
-	// 분기 시스템: 해당 분기 수강생만 (strict 매칭 — 분기 미지정 legacy 제외)
+	// 분기 시스템: 해당 분기 수강생 (포기 포함 — "포기" 표시로 남김)
 	const courseEnrollments = appConfig.enableQuarterSystem && selectedQuarter
-		? enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e) && e.quarter === selectedQuarter)
-		: enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e));
+		? enrollments.filter((e) => e.courseId === id && e.quarter === selectedQuarter)
+		: enrollments.filter((e) => e.courseId === id);
 
 	// 분기 미지정 legacy 수강생 (별도 표시용)
 	const legacyEnrollments = useMemo(
@@ -113,14 +113,17 @@ const CourseDetailPage: React.FC = () => {
 		}
 	}, [id, addEnrollment, enrollments]);
 
+	// active 수강생 (정원/완납률 계산용 — 포기 제외)
+	const activeEnrollments = courseEnrollments.filter((e) => isActiveEnrollment(e));
 	const nonExemptEnrollments = courseEnrollments.filter(
 		(e) => e.paymentStatus !== "exempt",
 	);
+	// 총수익: 포기의 음수 환불도 차감됨
 	const totalRevenue = nonExemptEnrollments.reduce(
 		(sum, e) => sum + e.paidAmount,
 		0,
 	);
-	const completedPayments = courseEnrollments.filter(
+	const completedPayments = activeEnrollments.filter(
 		(e) => e.paymentStatus === "completed",
 	).length;
 
@@ -148,15 +151,19 @@ const CourseDetailPage: React.FC = () => {
 			};
 			await withdrawEnrollment(id);
 			if (refundAmount && refundAmount > 0) {
-				const rec = await addPayment(
-					id,
-					-refundAmount,
-					course?.fee || 0,
-					originalMethod,
-					dayjs().format("YYYY-MM-DD"),
-					'수강 철회 환불',
-				);
-				if (rec) snapshot.refundRecordId = rec.id;
+				// 학생별 실제 환불 금액은 기납부액을 상한으로 clamp (과환불 방지)
+				const individualRefund = Math.min(refundAmount, Math.max(0, originalEnrollment?.paidAmount ?? 0));
+				if (individualRefund > 0) {
+					const rec = await addPayment(
+						id,
+						-individualRefund,
+						course?.fee || 0,
+						originalMethod,
+						dayjs().format("YYYY-MM-DD"),
+						'수강 포기 환불',
+					);
+					if (rec) snapshot.refundRecordId = rec.id;
+				}
 			}
 			snapshots.push(snapshot);
 		}
@@ -164,7 +171,7 @@ const CourseDetailPage: React.FC = () => {
 		await loadEnrollments();
 		await loadRecords();
 		const refundMsg = refundAmount ? ` (환불 ₩${refundAmount.toLocaleString()})` : '';
-		toast.success(`${enrollmentIds.length}명의 수강이 철회되었습니다.${refundMsg}`, {
+		toast.success(`${enrollmentIds.length}명의 수강이 포기되었습니다.${refundMsg}`, {
 			duration: 10000,
 			action: {
 				label: '실행 취소',
@@ -174,12 +181,12 @@ const CourseDetailPage: React.FC = () => {
 						if (snap.refundRecordId) {
 							await deletePayment(snap.refundRecordId, course?.fee || 0);
 						}
-						// 철회 상태 복원
+						// 포기 상태 복원
 						await updateEnrollment(snap.id, { paymentStatus: snap.prevStatus });
 					}
 					await loadEnrollments();
 					await loadRecords();
-					toast.success(`${snapshots.length}명의 수강 철회가 취소되었습니다.`);
+					toast.success(`${snapshots.length}명의 수강 포기가 취소되었습니다.`);
 				},
 			},
 		});
@@ -218,7 +225,7 @@ const CourseDetailPage: React.FC = () => {
 	const allFieldKeys = COURSE_STUDENT_EXPORT_FIELDS.map((f) => f.key);
 	const isAllSelected = selectedExportFields.length === allFieldKeys.length;
 
-	const studentCount = courseEnrollments.length;
+	const studentCount = activeEnrollments.length;
 
 	if (!id || !course) {
 		return <div>강좌를 찾을 수 없습니다.</div>;
@@ -300,16 +307,20 @@ const CourseDetailPage: React.FC = () => {
 					{ label: "수강료", value: `₩${course.fee.toLocaleString()}` },
 					{
 						label: "수강생",
-						value: `${courseEnrollments.length}/${course.maxStudents}`,
-						colorClass: courseEnrollments.length >= course.maxStudents ? "text-error" : "",
+						value: `${activeEnrollments.length}/${course.maxStudents}`,
+						colorClass: activeEnrollments.length >= course.maxStudents ? "text-error" : "",
 					},
 					{ label: "총 수익", value: `₩${totalRevenue.toLocaleString()}`, colorClass: "text-success" },
 					{
 						label: "완납률",
-						value: `${nonExemptEnrollments.length > 0 ? ((completedPayments / nonExemptEnrollments.length) * 100).toFixed(1) : "0.0"}%`,
-						colorClass: nonExemptEnrollments.length > 0 && completedPayments === nonExemptEnrollments.length
-							? "text-success"
-							: "text-error",
+						value: (() => {
+							const activeNonExempt = activeEnrollments.filter((e) => e.paymentStatus !== "exempt").length;
+							return `${activeNonExempt > 0 ? ((completedPayments / activeNonExempt) * 100).toFixed(1) : "0.0"}%`;
+						})(),
+						colorClass: (() => {
+							const activeNonExempt = activeEnrollments.filter((e) => e.paymentStatus !== "exempt").length;
+							return activeNonExempt > 0 && completedPayments === activeNonExempt ? "text-success" : "text-error";
+						})(),
 					},
 				].map((item) => (
 					<div
