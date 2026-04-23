@@ -282,7 +282,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                         <PopoverTrigger asChild>
                           <Button variant="outline" className="flex-1 justify-start text-base font-normal">
                             <CalendarIcon className="h-4 w-4 mr-2" />
-                            {field.value ? format(field.value, 'PPP') : '시작일 선택'}
+                            {field.value ? format(field.value, 'PPP', { locale: ko }) : '시작일 선택'}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
@@ -298,7 +298,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
                         <PopoverTrigger asChild>
                           <Button variant="outline" className="flex-1 justify-start text-base font-normal">
                             <CalendarIcon className="h-4 w-4 mr-2" />
-                            {field.value ? format(field.value, 'PPP') : '종료일 선택'}
+                            {field.value ? format(field.value, 'PPP', { locale: ko }) : '종료일 선택'}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
