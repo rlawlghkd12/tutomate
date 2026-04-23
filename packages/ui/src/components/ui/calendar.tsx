@@ -18,20 +18,21 @@ function Calendar({
     <DayPicker
       locale={ko}
       showOutsideDays={showOutsideDays}
+      navLayout="around"
       className={cn('p-3', className)}
       classNames={{
         months: 'flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0',
-        month: 'space-y-4',
-        month_caption: 'flex justify-center pt-1 relative items-center',
+        month: 'space-y-4 relative w-fit',
+        month_caption: 'flex justify-center pt-1 items-center h-9',
         caption_label: 'text-sm font-medium',
-        nav: 'space-x-1 flex items-center',
+        nav: 'contents',
         button_previous: cn(
           buttonVariants({ variant: 'outline' }),
-          'h-9 w-9 bg-transparent p-0 opacity-50 hover:opacity-100 absolute left-1'
+          'h-9 w-9 bg-transparent p-0 opacity-50 hover:opacity-100 absolute left-1 top-3 z-10'
         ),
         button_next: cn(
           buttonVariants({ variant: 'outline' }),
-          'h-9 w-9 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-1'
+          'h-9 w-9 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-1 top-3 z-10'
         ),
         month_grid: 'w-full border-collapse space-y-1',
         weekdays: 'flex',
