@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import { Alert, AlertDescription } from '../ui/alert';
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
@@ -10,14 +11,15 @@ import { supabase, useAuthStore, canManageMembers, ORG_ROLE_LABELS } from '@tuto
 import type { OrgRoleType } from '@tutomate/core';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '../ui/input';
-import { Trash2, Loader2, RefreshCw, Plus, Copy } from 'lucide-react';
+import { Trash2, Loader2, RefreshCw, Plus, Copy, Ticket, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageEnter } from '../common/PageEnter';
+import { TableSkeleton } from '../common/TableSkeleton';
 
 interface Member {
   userId: string;
   email: string;
-  role: 'owner' | 'member';
+  role: OrgRoleType;
   createdAt: string;
 }
 
@@ -121,114 +123,158 @@ export function MemberManagementPage() {
     }
   };
 
+  const myRoleLabel = useMemo(() => {
+    if (!role) return '-';
+    return ORG_ROLE_LABELS[role as OrgRoleType] || role;
+  }, [role]);
+
+  const emptySeats = data ? Math.max(0, data.maxSeats - data.currentCount) : 0;
+  const seatFull = data ? data.currentCount >= data.maxSeats : false;
+
   return (
     <PageEnter style={{ maxWidth: 800 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {data && (
-            <Badge variant="secondary">
-              {data.currentCount}/{data.maxSeats}명 사용 중
-            </Badge>
-          )}
+      {/* 상단: 통계 칩 + 액션 버튼 */}
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="px-3 py-1.5 rounded-md border">
+            <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">현재 멤버</div>
+            <div className="text-sm font-semibold mt-0.5">
+              {data ? (
+                <>
+                  <span className={seatFull ? 'text-destructive' : 'text-success'}>{data.currentCount}</span>
+                  <span className="text-muted-foreground"> / {data.maxSeats}명</span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">-</span>
+              )}
+            </div>
+          </div>
+          <div className="px-3 py-1.5 rounded-md border">
+            <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">빈 좌석</div>
+            <div className="text-sm font-semibold mt-0.5">
+              {data ? (
+                <span className={emptySeats === 0 ? 'text-destructive' : ''}>{emptySeats}명</span>
+              ) : (
+                <span className="text-muted-foreground">-</span>
+              )}
+            </div>
+          </div>
+          <div className="px-3 py-1.5 rounded-md border">
+            <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">내 역할</div>
+            <div className="text-sm font-semibold mt-0.5">{myRoleLabel}</div>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Button variant="outline" size="sm" onClick={handleCreateInvite} disabled={creatingInvite}>
-            {creatingInvite ? <Loader2 style={{ width: 16, height: 16, marginRight: 4, animation: 'spin 1s linear infinite' }} /> : <Plus style={{ width: 16, height: 16, marginRight: 4 }} />}
+
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleCreateInvite} disabled={creatingInvite || seatFull}>
+            {creatingInvite
+              ? <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              : <Plus className="w-4 h-4 mr-1" />}
             초대 코드 생성
           </Button>
           <Button variant="outline" size="sm" onClick={loadMembers} disabled={loading}>
-            <RefreshCw style={{ width: 16, height: 16, marginRight: 4 }} />
+            <RefreshCw className="w-4 h-4 mr-1" />
             새로고침
           </Button>
         </div>
       </div>
 
+      {/* 초대 코드 — Alert 배너 */}
       {inviteCode && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: '12px 16px', marginBottom: '1rem',
-          background: 'hsl(var(--muted))', borderRadius: 8,
-          border: '1px solid hsl(var(--border))',
-        }}>
-          <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>초대 코드:</span>
-          <Input
-            value={inviteCode}
-            readOnly
-            className="w-[240px] font-mono text-center"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              navigator.clipboard.writeText(inviteCode);
-              toast.success('초대 코드가 복사되었습니다.');
-            }}
+        <Alert className="relative mb-4 pr-10">
+          <Ticket className="h-4 w-4" />
+          <AlertDescription>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="font-medium">초대 코드가 생성되었습니다</span>
+              <Input
+                value={inviteCode}
+                readOnly
+                className="w-[220px] font-mono text-center h-8"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(inviteCode);
+                  toast.success('초대 코드가 복사되었습니다.');
+                }}
+              >
+                <Copy className="w-3.5 h-3.5 mr-1" />
+                복사
+              </Button>
+              <span className="text-xs text-muted-foreground">7일간 유효</span>
+            </div>
+          </AlertDescription>
+          <button
+            type="button"
+            onClick={() => setInviteCode('')}
+            aria-label="초대 코드 닫기"
+            className="absolute top-2 right-2 p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
-            <Copy style={{ width: 14, height: 14, marginRight: 4 }} />
-            복사
-          </Button>
-          <span style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))' }}>7일간 유효</span>
-        </div>
+            <X className="w-4 h-4" />
+          </button>
+        </Alert>
       )}
 
+      {/* 테이블 영역 */}
       {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {[1, 2, 3].map((i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 16px', borderBottom: '1px solid hsl(var(--border))' }}>
-              <div style={{ width: '40%', height: 14, borderRadius: 6, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
-              <div style={{ width: 60, height: 22, borderRadius: 10, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite', animationDelay: '0.1s' }} />
-              <div style={{ width: 100, height: 14, borderRadius: 6, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite', animationDelay: '0.2s' }} />
-            </div>
-          ))}
-        </div>
-      ) : !data || data.members.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem', color: 'hsl(var(--muted-foreground))' }}>
-          멤버가 없습니다.
-        </div>
+        <TableSkeleton rows={4} columns={4} />
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>이메일</TableHead>
-              <TableHead style={{ width: 100 }}>역할</TableHead>
-              <TableHead style={{ width: 150 }}>가입일</TableHead>
-              <TableHead style={{ width: 80 }}>작업</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.members.map((member) => {
-              const isMe = member.userId === currentUserId;
-              return (
-                <TableRow key={member.userId}>
-                  <TableCell>
-                    <span>{member.email}</span>
-                    {isMe && (
-                      <Badge variant="outline" style={{ marginLeft: 8 }}>나</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={member.role === 'owner' ? 'default' : 'secondary'}>
-                      {ORG_ROLE_LABELS[member.role as OrgRoleType] || member.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDate(member.createdAt)}</TableCell>
-                  <TableCell>
-                    {member.role !== 'owner' && !isMe && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setRemoveTarget(member)}
-                        style={{ color: 'hsl(var(--destructive))' }}
-                      >
-                        <Trash2 style={{ width: 16, height: 16 }} />
-                      </Button>
-                    )}
+        <div className="rounded-xl overflow-hidden border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>이메일</TableHead>
+                <TableHead style={{ width: 100 }}>역할</TableHead>
+                <TableHead style={{ width: 150 }}>가입일</TableHead>
+                <TableHead style={{ width: 80 }}>작업</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {!data || data.members.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-24 text-center">
+                    <span className="text-muted-foreground">멤버가 없습니다</span>
                   </TableCell>
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+              ) : (
+                data.members.map((member) => {
+                  const isMe = member.userId === currentUserId;
+                  const canRemove = member.role !== 'owner' && !isMe;
+                  return (
+                    <TableRow key={member.userId}>
+                      <TableCell>
+                        <span>{member.email}</span>
+                        {isMe && (
+                          <Badge variant="outline" className="ml-2">나</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={member.role === 'owner' ? 'default' : 'secondary'}>
+                          {ORG_ROLE_LABELS[member.role] || member.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{formatDate(member.createdAt)}</TableCell>
+                      <TableCell>
+                        {canRemove && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setRemoveTarget(member)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            aria-label={`${member.email} 제거`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
@@ -245,7 +291,7 @@ export function MemberManagementPage() {
             <AlertDialogAction
               onClick={handleRemove}
               disabled={removing}
-              style={{ background: 'hsl(var(--destructive))', color: 'white' }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {removing ? '제거 중...' : '제거'}
             </AlertDialogAction>
