@@ -11,7 +11,7 @@ import {
   Tabs, TabsContent, TabsList, TabsTrigger,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-  Input, PageEnter,
+  PageEnter,
 } from '@tutomate/ui';
 import { EXEMPT_COLOR } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
