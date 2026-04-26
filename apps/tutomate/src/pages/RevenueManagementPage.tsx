@@ -22,7 +22,7 @@ import {
   getQuarterOptions,
 } from '@tutomate/core';
 import type { Enrollment } from '@tutomate/core';
-import { PaymentForm, PageEnter, RevenueBreakdownTooltip } from '@tutomate/ui';
+import { PaymentForm, PageEnter, RevenueBreakdownTooltip, DatePicker } from '@tutomate/ui';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -334,13 +334,13 @@ const RevenueManagementPage: React.FC = () => {
               ) : (
                 <>
                   <div className="flex items-center gap-1.5">
-                    <input type="date" value={dateRange[0]}
-                      onChange={(e) => setDateRange([e.target.value, dateRange[1]])}
-                      className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm w-[140px]" />
+                    <DatePicker size="sm" className="w-[170px]"
+                      value={dateRange[0]}
+                      onChange={(v) => setDateRange([v, dateRange[1]])} />
                     <span className="text-muted-foreground">~</span>
-                    <input type="date" value={dateRange[1]}
-                      onChange={(e) => setDateRange([dateRange[0], e.target.value])}
-                      className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm w-[140px]" />
+                    <DatePicker size="sm" className="w-[170px]"
+                      value={dateRange[1]}
+                      onChange={(v) => setDateRange([dateRange[0], v])} />
                   </div>
                   <div className="flex gap-1">
                     {([

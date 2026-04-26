@@ -21,6 +21,8 @@ export { Textarea } from './components/ui/textarea';
 export { Skeleton } from './components/ui/skeleton';
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './components/ui/tooltip';
 export { Popover, PopoverTrigger, PopoverContent } from './components/ui/popover';
+export { DatePicker } from './components/ui/date-picker';
+export type { DatePickerProps } from './components/ui/date-picker';
 export { RevenueBreakdownTooltip } from './components/revenue/RevenueBreakdownTooltip';
 export {
   Command, CommandDialog, CommandInput, CommandList, CommandEmpty,

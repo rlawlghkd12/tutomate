@@ -28,6 +28,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { DatePicker } from '../ui/date-picker';
 import { Checkbox } from '../ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -581,27 +582,30 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             </div>
           );
         }
+        const isCompleted = record.enrollment.paymentStatus === 'completed';
         return (
           <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              className="min-h-11 px-3 border-primary text-primary hover:bg-primary/10"
-              onClick={() => {
-                const discount = record.enrollment.discountAmount ?? 0;
-                setSelectedEnrollmentId(record.enrollment.id);
-                setModalDiscount(discount);
-                setFormAmount(record.remaining > 0 ? record.remaining : undefined);
-                setFormPaidAt(dayjs().format('YYYY-MM-DD'));
-                setFormDiscountAmount(discount);
-                setFormPaymentMethod(undefined);
-                setFormNotes('');
-                setIsPaymentModalVisible(true);
-              }}
-            >
-              납부
-            </Button>
-            {record.remaining > 0 && (
+            {!isCompleted && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-11 px-3 border-primary text-primary hover:bg-primary/10"
+                onClick={() => {
+                  const discount = record.enrollment.discountAmount ?? 0;
+                  setSelectedEnrollmentId(record.enrollment.id);
+                  setModalDiscount(discount);
+                  setFormAmount(record.remaining > 0 ? record.remaining : undefined);
+                  setFormPaidAt(dayjs().format('YYYY-MM-DD'));
+                  setFormDiscountAmount(discount);
+                  setFormPaymentMethod(undefined);
+                  setFormNotes('');
+                  setIsPaymentModalVisible(true);
+                }}
+              >
+                납부
+              </Button>
+            )}
+            {!isCompleted && record.remaining > 0 && (
               <Button
                 variant="outline"
                 size="sm"
@@ -867,7 +871,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             const modalEffectiveFee = courseFee - modalDiscount;
             const modalRemaining = Math.max(0, modalEffectiveFee - selectedData.totalPaid);
             const quickOptions = [
-              { label: '잔액', amount: modalRemaining },
+              { label: '전액', amount: modalRemaining },
               { label: '절반', amount: Math.floor(modalRemaining / 2) },
               { label: '직접', amount: -1 },
             ] as const;
@@ -950,11 +954,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="payment-modal-paidAt">납부일 <span className="text-destructive">*</span></Label>
-              <Input
+              <DatePicker
                 id="payment-modal-paidAt"
-                type="date"
                 value={formPaidAt}
-                onChange={(e) => setFormPaidAt(e.target.value)}
+                onChange={setFormPaidAt}
+                className="w-full"
               />
             </div>
             <div className="space-y-1.5">
@@ -1021,12 +1025,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                 if (isEditing && editDraft) {
                   return (
                     <div key={r.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1 bg-accent/30 rounded-md px-2">
-                      <Input
-                        type="date"
-                        className="h-8 text-sm w-[170px] shrink-0 cursor-pointer"
+                      <DatePicker
+                        size="sm"
+                        className="w-[170px] shrink-0"
                         value={editDraft.paidAt}
-                        onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-                        onChange={(e) => setEditDraft((d) => d && { ...d, paidAt: e.target.value })}
+                        onChange={(val) => setEditDraft((d) => d && { ...d, paidAt: val })}
                       />
                       <Input
                         type="text"

@@ -18,6 +18,7 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { DatePicker } from '../ui/date-picker';
 import { Badge } from '../ui/badge';
 import {
   AlertDialog,
@@ -325,7 +326,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                   control={control}
                   name="paidAt"
                   render={({ field }) => (
-                    <Input id="payment-form-paidAt" type="date" value={field.value} onChange={(e) => field.onChange(e.target.value)} />
+                    <DatePicker id="payment-form-paidAt" value={field.value} onChange={field.onChange} className="w-full" />
                   )}
                 />
                 {errors.paidAt && (
