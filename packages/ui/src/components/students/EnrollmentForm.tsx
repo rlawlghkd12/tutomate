@@ -56,6 +56,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 	const [discountAmount, setDiscountAmount] = useState(0);
 	const [isExempt, setIsExempt] = useState(false);
 	const [formPaidAt, setFormPaidAt] = useState(dayjs().format('YYYY-MM-DD'));
+	const [customAmountMode, setCustomAmountMode] = useState(false);
 
 	const currentQuarter = getCurrentQuarter();
 
@@ -88,6 +89,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 			setSelectedCourseId(null);
 			setDiscountAmount(0);
 			setIsExempt(student?.isMember ? true : false);
+			setCustomAmountMode(false);
 		}
 	}, [visible, form, student]);
 
@@ -228,6 +230,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 		if (course) {
 			form.setValue("paidAmount", memberExempt ? 0 : course.fee);
 			form.setValue("discountAmount", 0);
+			setCustomAmountMode(false);
 		}
 	};
 
@@ -245,6 +248,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 	const handleExemptToggle = () => {
 		const newExempt = !isExempt;
 		setIsExempt(newExempt);
+		setCustomAmountMode(false);
 		if (newExempt) {
 			form.setValue("paidAmount", 0);
 		} else {
@@ -414,38 +418,65 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 						</div>
 					</div>
 
-					{/* 납부 금액 — 카드 버튼 + 직접 입력 */}
+					{/* 납부 금액 — 전액 / 미납 / 직접 */}
 					{!isExempt && (
 					<div className="space-y-2">
 						<Label>납부 금액</Label>
 						<div className="grid grid-cols-3 gap-2">
-							{([
-								{ label: '완납', amount: effectiveFee },
-								{ label: '절반', amount: Math.floor(effectiveFee / 2) },
-								{ label: '미납', amount: 0 },
-							] as const).map((opt) => {
-								const isActive = form.watch('paidAmount') === opt.amount;
+							{(() => {
+								const watched = form.watch('paidAmount');
+								const presets = [
+									{ key: 'full', label: '전액', amount: effectiveFee, active: !customAmountMode && watched === effectiveFee },
+									{ key: 'unpaid', label: '미납', amount: 0, active: !customAmountMode && watched === 0 },
+								] as const;
 								return (
-									<button key={opt.label} type="button"
-										onClick={() => form.setValue('paidAmount', opt.amount)}
-										className={`py-3 rounded-lg border text-center transition-all cursor-pointer ${
-											isActive
-												? 'border-foreground bg-foreground text-background'
-												: 'border-border hover:border-foreground/30'
-										}`}
-									>
-										<div className="text-sm font-semibold">{opt.label}</div>
-										<div className={`text-xs mt-0.5 ${isActive ? 'opacity-60' : 'text-muted-foreground'}`}>₩{opt.amount.toLocaleString()}</div>
-									</button>
+									<>
+										{presets.map((opt) => (
+											<button key={opt.key} type="button"
+												onClick={() => {
+													setCustomAmountMode(false);
+													form.setValue('paidAmount', opt.amount);
+												}}
+												className={`py-3 rounded-lg border text-center transition-all cursor-pointer ${
+													opt.active
+														? 'border-foreground bg-foreground text-background'
+														: 'border-border hover:border-foreground/30'
+												}`}
+											>
+												<div className="text-sm font-semibold">{opt.label}</div>
+												<div className={`text-xs mt-0.5 ${opt.active ? 'opacity-60' : 'text-muted-foreground'}`}>₩{opt.amount.toLocaleString()}</div>
+											</button>
+										))}
+										<button type="button"
+											onClick={() => setCustomAmountMode(true)}
+											className={`py-3 rounded-lg border text-center transition-all cursor-pointer ${
+												customAmountMode
+													? 'border-foreground bg-foreground text-background'
+													: 'border-border hover:border-foreground/30'
+											}`}
+										>
+											<div className="text-sm font-semibold">직접</div>
+											<div className={`text-xs mt-0.5 ${customAmountMode ? 'opacity-60' : 'text-muted-foreground'}`}>금액 입력</div>
+										</button>
+									</>
 								);
-							})}
+							})()}
 						</div>
 						<Controller control={form.control} name="paidAmount"
 							render={({ field }) => (
-								<Input type="number" min={0} max={effectiveFee} step={5000}
-									value={field.value}
-									onChange={(e) => field.onChange(Number(e.target.value) || 0)}
-									className="text-center text-xl font-bold h-12 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+								<Input type="text" inputMode="numeric"
+									value={field.value ? field.value.toLocaleString('ko-KR') : ''}
+									onChange={(e) => {
+										const raw = e.target.value.replace(/[^\d]/g, '');
+										const val = raw === '' ? 0 : Number(raw);
+										if (!isNaN(val)) {
+											const clamped = Math.min(val, effectiveFee);
+											field.onChange(clamped);
+										}
+									}}
+									disabled={!customAmountMode}
+									placeholder={customAmountMode ? '금액을 입력하세요' : '직접 버튼을 누르면 입력할 수 있습니다'}
+									className="text-center text-xl font-bold h-12 tabular-nums disabled:opacity-50 disabled:cursor-not-allowed"
 								/>
 							)} />
 						{form.formState.errors.paidAmount && (
