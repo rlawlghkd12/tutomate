@@ -9,7 +9,7 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
-import { X, Banknote, CreditCard, Building2 } from 'lucide-react';
+import { X, Banknote, CreditCard, Building2, Pencil, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
 import { usePaymentRecordStore } from '@tutomate/core';
@@ -93,6 +93,49 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<string | null>(null);
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{
+    paidAt: string;
+    amount: number;
+    paymentMethod?: PaymentMethod;
+    notes?: string;
+  } | null>(null);
+
+  const startEditRecord = useCallback((r: PaymentRecord) => {
+    setEditingRecordId(r.id);
+    setEditDraft({
+      paidAt: r.paidAt || '',
+      amount: r.amount,
+      paymentMethod: r.paymentMethod,
+      notes: r.notes,
+    });
+  }, []);
+
+  const cancelEditRecord = useCallback(() => {
+    setEditingRecordId(null);
+    setEditDraft(null);
+  }, []);
+
+  const saveEditRecord = useCallback(async () => {
+    if (!editingRecordId || !editDraft) return;
+    if (!editDraft.paidAt) {
+      toast.error('납부일을 입력해주세요');
+      return;
+    }
+    if (!Number.isFinite(editDraft.amount) || editDraft.amount <= 0) {
+      toast.error('금액은 0보다 커야 합니다');
+      return;
+    }
+    await updateRecord(editingRecordId, {
+      paidAt: editDraft.paidAt,
+      amount: editDraft.amount,
+      paymentMethod: editDraft.paymentMethod,
+      notes: editDraft.notes,
+    });
+    setEditingRecordId(null);
+    setEditDraft(null);
+    toast.success('납부 기록이 수정되었습니다');
+  }, [editingRecordId, editDraft, updateRecord]);
   const [modalDiscount, setModalDiscount] = useState(0);
   // 중복 클릭 방지:
   // - ref: 동기 즉시 차단 (state batching/React render 무관하게 race 차단)
@@ -949,6 +992,8 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           if (!open) {
             setIsHistoryModalVisible(false);
             setSelectedEnrollmentId(null);
+            setEditingRecordId(null);
+            setEditDraft(null);
           }
         }}
       >
@@ -967,91 +1012,133 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             </div>
           ) : (
             <div className="flex flex-col divide-y max-h-[420px] overflow-y-auto">
-              {(selectedData?.records ?? []).map((r) => (
-                <div key={r.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1">
-                  <Input
-                    type="date"
-                    className="h-8 text-sm w-[170px] shrink-0 cursor-pointer"
-                    defaultValue={r.paidAt || ''}
-                    onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-                    onBlur={(e) => {
-                      const val = e.target.value;
-                      if (val && val !== (r.paidAt || '')) {
-                        updateRecord(r.id, { paidAt: val });
-                      }
-                    }}
-                  />
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    className="h-8 text-sm font-semibold w-[120px] shrink-0 text-right tabular-nums"
-                    defaultValue={r.amount.toLocaleString('ko-KR')}
-                    onFocus={(e) => {
-                      // 편집 시작 시 콤마 제거 (숫자만 편집하기 쉽게)
-                      e.target.value = String(r.amount);
-                      e.target.select();
-                    }}
-                    onBlur={(e) => {
-                      const raw = e.target.value.replace(/[^\d-]/g, '');
-                      const val = Number(raw);
-                      if (!isNaN(val) && val !== r.amount) {
-                        updateRecord(r.id, { amount: val });
-                      }
-                      // 편집 종료 시 콤마 포맷 복원
-                      e.target.value = (isNaN(val) ? r.amount : val).toLocaleString('ko-KR');
-                    }}
-                  />
-                  <Select
-                    value={r.paymentMethod ?? ''}
-                    onValueChange={(v) => updateRecord(r.id, { paymentMethod: (v || undefined) as PaymentMethod | undefined })}
-                  >
-                    <SelectTrigger
-                      className="h-8 w-[88px] text-xs shrink-0"
-                      aria-label={`결제 수단 선택: 현재 ${r.paymentMethod ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] : '미지정'}`}
-                    >
-                      <SelectValue placeholder="-" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">현금</SelectItem>
-                      <SelectItem value="card">카드</SelectItem>
-                      <SelectItem value="transfer">계좌이체</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    className="h-8 text-sm flex-1 min-w-0"
-                    defaultValue={r.notes ?? ''}
-                    placeholder="메모"
-                    onBlur={(e) => {
-                      const val = e.target.value;
-                      if (val !== (r.notes ?? '')) {
-                        updateRecord(r.id, { notes: val || undefined });
-                      }
-                    }}
-                  />
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 rounded-full shrink-0 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10" aria-label="납부 기록 삭제">
-                        <X className="h-3.5 w-3.5" />
+              {(selectedData?.records ?? []).map((r) => {
+                const isEditing = editingRecordId === r.id;
+                const methodLabel = r.paymentMethod
+                  ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS]
+                  : '-';
+
+                if (isEditing && editDraft) {
+                  return (
+                    <div key={r.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1 bg-accent/30 rounded-md px-2">
+                      <Input
+                        type="date"
+                        className="h-8 text-sm w-[170px] shrink-0 cursor-pointer"
+                        value={editDraft.paidAt}
+                        onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                        onChange={(e) => setEditDraft((d) => d && { ...d, paidAt: e.target.value })}
+                      />
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        className="h-8 text-sm font-semibold w-[120px] shrink-0 text-right tabular-nums"
+                        value={editDraft.amount === 0 ? '' : editDraft.amount.toLocaleString('ko-KR')}
+                        onFocus={(e) => {
+                          e.target.value = String(editDraft.amount);
+                          e.target.select();
+                        }}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/[^\d-]/g, '');
+                          const val = raw === '' ? 0 : Number(raw);
+                          if (!isNaN(val)) {
+                            setEditDraft((d) => d && { ...d, amount: val });
+                          }
+                        }}
+                      />
+                      <Select
+                        value={editDraft.paymentMethod ?? ''}
+                        onValueChange={(v) => setEditDraft((d) => d && { ...d, paymentMethod: (v || undefined) as PaymentMethod | undefined })}
+                      >
+                        <SelectTrigger className="h-8 w-[88px] text-xs shrink-0" aria-label="결제 수단 선택">
+                          <SelectValue placeholder="-" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">현금</SelectItem>
+                          <SelectItem value="card">카드</SelectItem>
+                          <SelectItem value="transfer">계좌이체</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        className="h-8 text-sm flex-1 min-w-0"
+                        value={editDraft.notes ?? ''}
+                        placeholder="메모"
+                        onChange={(e) => setEditDraft((d) => d && { ...d, notes: e.target.value || undefined })}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-3 text-sm shrink-0"
+                        onClick={cancelEditRecord}
+                      >
+                        취소
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>납부 기록 삭제</AlertDialogTitle>
-                        <AlertDialogDescription>삭제하시겠습니까?</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>취소</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          onClick={() => handleDeletePayment(r.id)}
+                      <Button
+                        size="sm"
+                        className="h-8 px-3 text-sm shrink-0"
+                        onClick={saveEditRecord}
+                      >
+                        <Check className="h-3.5 w-3.5 mr-1" />
+                        수정 완료
+                      </Button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={r.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1 px-2">
+                    <span className="text-sm w-[170px] shrink-0 tabular-nums">
+                      {r.paidAt ? dayjs(r.paidAt).format('YYYY.MM.DD') : '-'}
+                    </span>
+                    <span className="text-sm font-semibold w-[120px] shrink-0 text-right tabular-nums">
+                      ₩{r.amount.toLocaleString('ko-KR')}
+                    </span>
+                    <span className="text-xs w-[88px] shrink-0 text-muted-foreground">
+                      {methodLabel}
+                    </span>
+                    <span className="text-sm flex-1 min-w-0 truncate text-muted-foreground">
+                      {r.notes || <span className="opacity-50">메모 없음</span>}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 rounded-full shrink-0 text-muted-foreground/60 hover:text-foreground hover:bg-accent"
+                      onClick={() => startEditRecord(r)}
+                      disabled={editingRecordId !== null}
+                      aria-label="납부 기록 수정"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 rounded-full shrink-0 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10"
+                          disabled={editingRecordId !== null}
+                          aria-label="납부 기록 삭제"
                         >
-                          삭제
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              ))}
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>납부 기록 삭제</AlertDialogTitle>
+                          <AlertDialogDescription>삭제하시겠습니까?</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>취소</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => handleDeletePayment(r.id)}
+                          >
+                            삭제
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                );
+              })}
             </div>
           )}
         </DialogContent>
