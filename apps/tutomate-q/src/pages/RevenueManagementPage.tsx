@@ -23,7 +23,7 @@ import { PaymentForm, StudentForm } from '@tutomate/ui';
 import type { Enrollment, Student } from '@tutomate/core';
 import { PAYMENT_METHOD_LABELS } from '@tutomate/core';
 import { exportRevenueToExcel, exportRevenueToCSV, REVENUE_EXPORT_FIELDS } from '@tutomate/core';
-import { RevenueBreakdownTooltip } from '@tutomate/ui';
+import { RevenueBreakdownTooltip, DatePicker } from '@tutomate/ui';
 
 const RevenueManagementPage: React.FC = () => {
   const navigate = useNavigate();
@@ -335,13 +335,13 @@ const RevenueManagementPage: React.FC = () => {
               ) : (
                 <>
                   <div className="flex items-center gap-1.5">
-                    <Input type="date" value={dateRange[0]}
-                      onChange={(e) => setDateRange([e.target.value, dateRange[1]])}
-                      className="w-[140px] h-9 text-sm" />
+                    <DatePicker size="sm" className="w-[170px]"
+                      value={dateRange[0]}
+                      onChange={(v) => setDateRange([v, dateRange[1]])} />
                     <span className="text-muted-foreground">~</span>
-                    <Input type="date" value={dateRange[1]}
-                      onChange={(e) => setDateRange([dateRange[0], e.target.value])}
-                      className="w-[140px] h-9 text-sm" />
+                    <DatePicker size="sm" className="w-[170px]"
+                      value={dateRange[1]}
+                      onChange={(v) => setDateRange([dateRange[0], v])} />
                   </div>
                   <div className="flex gap-1">
                     {[

@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useEventLogStore } from '@tutomate/core';
 import type { EventLog, EventLogFilters } from '@tutomate/core';
-import { Badge, Button } from '@tutomate/ui';
+import { Badge, Button, DatePicker } from '@tutomate/ui';
 import dayjs from 'dayjs';
 import { Loader2, Filter, X } from 'lucide-react';
 
@@ -115,18 +115,18 @@ export default function ActivityLogPage() {
         {/* 기간 */}
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-sm font-medium">기간:</span>
-          <input
-            type="date"
+          <DatePicker
+            size="sm"
+            className="w-[170px]"
             value={sinceDate}
-            onChange={(e) => { setPage(0); setSinceDate(e.target.value); }}
-            className="h-8 rounded-md border px-2 text-sm"
+            onChange={(v) => { setPage(0); setSinceDate(v); }}
           />
           <span className="text-muted-foreground text-sm">~</span>
-          <input
-            type="date"
+          <DatePicker
+            size="sm"
+            className="w-[170px]"
             value={untilDate}
-            onChange={(e) => { setPage(0); setUntilDate(e.target.value); }}
-            className="h-8 rounded-md border px-2 text-sm"
+            onChange={(v) => { setPage(0); setUntilDate(v); }}
           />
           {(sinceDate || untilDate) && (
             <button

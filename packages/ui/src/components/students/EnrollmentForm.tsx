@@ -22,6 +22,7 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { DatePicker } from "../ui/date-picker";
 import { toast } from "sonner";
 
 const enrollmentFormSchema = z.object({
@@ -522,8 +523,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 					<div className="grid grid-cols-2 gap-3">
 						<div className="space-y-1.5">
 							<Label htmlFor="paidAt">납부일</Label>
-							<Input id="paidAt" type="date" value={formPaidAt}
-								onChange={(e) => setFormPaidAt(e.target.value)} />
+							<DatePicker id="paidAt" value={formPaidAt}
+								onChange={setFormPaidAt} className="w-full" />
 						</div>
 						<div className="space-y-1.5">
 							<Label htmlFor="notes">메모</Label>
