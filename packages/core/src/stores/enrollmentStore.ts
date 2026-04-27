@@ -70,9 +70,12 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 	invalidate: () => helper.invalidate(),
 
 	addEnrollment: async (enrollmentData: EnrollmentFormData) => {
-		const remainingAmount = enrollmentData.courseId
-			? 0
-			: enrollmentData.paidAmount || 0;
+		// course.fee 기반으로 remainingAmount 계산 — paidAmount=0이어도 정확히 잔여 표기
+		const courseForCalc = enrollmentData.courseId
+			? useCourseStore.getState().getCourseById(enrollmentData.courseId)
+			: null;
+		const effectiveFee = (courseForCalc?.fee ?? 0) - (enrollmentData.discountAmount ?? 0);
+		const remainingAmount = Math.max(0, effectiveFee - (enrollmentData.paidAmount || 0));
 
 		const newEnrollment: Enrollment = {
 			...enrollmentData,

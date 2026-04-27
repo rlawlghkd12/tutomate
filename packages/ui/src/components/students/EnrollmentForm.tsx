@@ -176,7 +176,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 					paidAmount,
 					course.fee,
 					values.paymentMethod,
-					dayjs().format("YYYY-MM-DD"),
+					formPaidAt,
 				);
 			}
 		} else {
@@ -205,7 +205,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 					paidAmount,
 					course.fee,
 					values.paymentMethod,
-					dayjs().format("YYYY-MM-DD"),
+					formPaidAt,
 				);
 			}
 		}
@@ -449,7 +449,10 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 											</button>
 										))}
 										<button type="button"
-											onClick={() => setCustomAmountMode(true)}
+											onClick={() => {
+												setCustomAmountMode(true);
+												form.setValue('paidAmount', 0); // 빈 입력 상태로 초기화
+											}}
 											className={`py-3 rounded-lg border text-center transition-all cursor-pointer ${
 												customAmountMode
 													? 'border-foreground bg-foreground text-background'
