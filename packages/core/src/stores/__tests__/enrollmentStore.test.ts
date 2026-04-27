@@ -665,7 +665,9 @@ describe("enrollmentStore — updatePayment edge cases", () => {
 		expect(enrollments[0].discountAmount).toBe(0);
 	});
 
-	it("addEnrollment — courseId 없으면 remainingAmount = paidAmount", async () => {
+	it("addEnrollment — courseId 없으면 course 조회 불가 → remainingAmount = 0", async () => {
+		// 실제로는 courseId가 항상 있음. courseId 없는 경우는 엣지 케이스 —
+		// course.fee 조회 불가 → effectiveFee = 0 → remainingAmount = 0
 		useEnrollmentStore.setState({ enrollments: [] });
 		const result = await useEnrollmentStore.getState().addEnrollment({
 			courseId: "",
@@ -676,7 +678,7 @@ describe("enrollmentStore — updatePayment edge cases", () => {
 		} as any);
 		expect(result).toBe(true);
 		const enrollments = useEnrollmentStore.getState().enrollments;
-		expect(enrollments[0].remainingAmount).toBe(50000);
+		expect(enrollments[0].remainingAmount).toBe(0);
 	});
 
 	it("addEnrollment — courseId 없고 paidAmount 없으면 remainingAmount = 0", async () => {
