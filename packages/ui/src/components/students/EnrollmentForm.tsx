@@ -9,7 +9,7 @@ import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
 import { useAuthStore, PLAN_LIMITS } from "@tutomate/core";
 import { usePaymentRecordStore } from "@tutomate/core";
-import { appConfig, isActiveEnrollment, isCourseEnded, PaymentStatus, DAY_LABELS } from "@tutomate/core";
+import { appConfig, isActiveEnrollment, isCourseEnded, PaymentStatus, DAY_LABELS, formatTime12 } from "@tutomate/core";
 import type { EnrollmentFormData, Student } from "@tutomate/core";
 import { getCurrentQuarter } from "@tutomate/core";
 import {
@@ -320,7 +320,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 												? schedule.daysOfWeek.sort((a: number, b: number) => a - b).map((d: number) => DAY_LABELS[d]).join(', ')
 												: '';
 											const timeText = schedule?.startTime && schedule?.endTime
-												? `${schedule.startTime}~${schedule.endTime}` : '';
+												? `${formatTime12(schedule.startTime)} ~ ${formatTime12(schedule.endTime)}` : '';
 											const subText = [daysText, timeText].filter(Boolean).join(' · ');
 											return (
 												<button

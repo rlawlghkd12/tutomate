@@ -20,6 +20,7 @@ import {
 	exportCourseStudentsToCSV,
 	exportCourseStudentsToExcel,
 	isActiveEnrollment,
+	formatTime12,
 } from "@tutomate/core";
 import type { Enrollment } from "@tutomate/core";
 import { Button } from "../components/ui/button";
@@ -258,7 +259,9 @@ const CourseDetailPage: React.FC = () => {
 					{ label: "일정", value: (() => {
 						const dl = ['일','월','화','수','목','금','토'];
 						const days = course.schedule?.daysOfWeek?.length ? course.schedule.daysOfWeek.sort((a: number,b: number) => a-b).map((d: number) => dl[d]).join('') : '-';
-						const time = course.schedule?.startTime && course.schedule?.endTime ? `${course.schedule.startTime}~${course.schedule.endTime}` : '';
+						const time = course.schedule?.startTime && course.schedule?.endTime
+							? `${formatTime12(course.schedule.startTime)} ~ ${formatTime12(course.schedule.endTime)}`
+							: '';
 						return `${days} ${time}`.trim() || '-';
 					})() },
 					{ label: "강의실", value: course.classroom },

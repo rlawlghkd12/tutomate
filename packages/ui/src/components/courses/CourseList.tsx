@@ -12,7 +12,7 @@ import {
 import { Search } from 'lucide-react';
 import type { Course } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
-import { useEnrollmentStore, isCourseEnded, DAY_LABELS, isActiveEnrollment } from '@tutomate/core';
+import { useEnrollmentStore, isCourseEnded, DAY_LABELS, isActiveEnrollment, formatTime12 } from '@tutomate/core';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import {
@@ -172,7 +172,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
       enableSorting: false,
       cell: ({ row }) => {
         const s = row.original.schedule;
-        return s?.startTime && s?.endTime ? `${s.startTime}~${s.endTime}` : '-';
+        return s?.startTime && s?.endTime ? `${formatTime12(s.startTime)} ~ ${formatTime12(s.endTime)}` : '-';
       },
     },
     {

@@ -304,12 +304,16 @@ describe('formatDaysOfWeek', () => {
 // ─── formatClassTime ──────────────────────────────────────────────────────
 
 describe('formatClassTime', () => {
-  it('"09:00", "10:00" → "09:00-10:00"', () => {
-    expect(formatClassTime('09:00', '10:00')).toBe('09:00-10:00');
+  it('"09:00", "10:00" → "오전 9:00 ~ 오전 10:00"', () => {
+    expect(formatClassTime('09:00', '10:00')).toBe('오전 9:00 ~ 오전 10:00');
   });
 
-  it('"19:00", "21:00" → "19:00-21:00"', () => {
-    expect(formatClassTime('19:00', '21:00')).toBe('19:00-21:00');
+  it('"19:00", "21:00" → "오후 7:00 ~ 오후 9:00"', () => {
+    expect(formatClassTime('19:00', '21:00')).toBe('오후 7:00 ~ 오후 9:00');
+  });
+
+  it('"00:00" → "오전 12:00", "12:00" → "오후 12:00"', () => {
+    expect(formatClassTime('00:00', '12:00')).toBe('오전 12:00 ~ 오후 12:00');
   });
 });
 
@@ -320,7 +324,7 @@ describe('formatScheduleSummary', () => {
     const schedule = makeSchedule({ daysOfWeek: [1, 3], totalSessions: 12 });
     const summary = formatScheduleSummary(schedule);
     expect(summary).toContain('월, 수');
-    expect(summary).toContain('09:00-10:00');
+    expect(summary).toContain('오전 9:00 ~ 오전 10:00');
     expect(summary).toContain('2026-01-05 시작, 총 12회');
   });
 

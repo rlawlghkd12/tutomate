@@ -99,9 +99,22 @@ export const formatDaysOfWeek = (daysOfWeek: number[]): string => {
     .join(', ');
 };
 
-// 수업 시간 포맷 (예: "19:00-21:00")
+// 24시간 HH:mm → 12시간 한글 포맷 ("14:00" → "오후 2:00")
+// 0:00 = 오전 12:00, 12:00 = 오후 12:00
+export const formatTime12 = (time: string): string => {
+  if (!time) return '';
+  const [hStr, mStr] = time.split(':');
+  const h = Number(hStr);
+  if (Number.isNaN(h)) return time;
+  const m = mStr ?? '00';
+  const ampm = h < 12 ? '오전' : '오후';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${ampm} ${h12}:${m}`;
+};
+
+// 수업 시간 포맷 (12시간 한글, 예: "오후 7:00 ~ 오후 9:00")
 export const formatClassTime = (startTime: string, endTime: string): string => {
-  return `${startTime}-${endTime}`;
+  return `${formatTime12(startTime)} ~ ${formatTime12(endTime)}`;
 };
 
 // 전체 일정 요약 문자열 (예: "월,수,금 19:00-21:00 (2024-01-01 시작, 총 12회)")

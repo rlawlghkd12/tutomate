@@ -1,18 +1,20 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronRight as ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import {
   Button, Dialog, DialogContent, DialogHeader, DialogTitle,
   Badge, Card, CardContent, PageEnter,
 } from '@tutomate/ui';
-import { useCourseStore, DAY_LABELS } from '@tutomate/core';
+import { useCourseStore, DAY_LABELS, formatTime12 } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import type { Course } from '@tutomate/core';
 
 const CalendarPage: React.FC = () => {
   const { courses, loadCourses } = useCourseStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
   const [currentMonth, setCurrentMonth] = useState<Dayjs>(dayjs());
   const [selectedCourses, setSelectedCourses] = useState<Course[]>([]);
@@ -24,19 +26,25 @@ const CalendarPage: React.FC = () => {
   }, [loadCourses, loadEnrollments]);
 
   const getCoursesForDate = useCallback((date: Dayjs): Course[] => {
-    return courses.filter((course) => {
-      if (!course.schedule) return false;
+    return courses
+      .filter((course) => {
+        if (!course.schedule) return false;
 
-      const { startDate, endDate, daysOfWeek, holidays } = course.schedule;
-      const dateStr = date.format('YYYY-MM-DD');
+        const { startDate, endDate, daysOfWeek, holidays } = course.schedule;
+        const dateStr = date.format('YYYY-MM-DD');
 
-      if (dateStr < startDate) return false;
-      if (endDate && dateStr > endDate) return false;
-      if (holidays && holidays.includes(dateStr)) return false;
+        if (dateStr < startDate) return false;
+        if (endDate && dateStr > endDate) return false;
+        if (holidays && holidays.includes(dateStr)) return false;
 
-      const dayOfWeek = date.day();
-      return daysOfWeek.includes(dayOfWeek);
-    });
+        const dayOfWeek = date.day();
+        return daysOfWeek.includes(dayOfWeek);
+      })
+      .sort((a, b) => {
+        const at = a.schedule?.startTime || '';
+        const bt = b.schedule?.startTime || '';
+        return at.localeCompare(bt);
+      });
   }, [courses]);
 
   const handleCourseClick = (date: Dayjs) => {
@@ -136,7 +144,7 @@ const CalendarPage: React.FC = () => {
                       <div className={`text-sm mb-1 ${isToday ? 'font-bold text-primary' : 'text-muted-foreground'}`}>
                         {date.date()}
                       </div>
-                      {coursesOnDate.map((course) => {
+                      {coursesOnDate.slice(0, 3).map((course) => {
                         const enrollmentCount = enrollments.filter((e) => e.courseId === course.id).length;
                         const isFull = enrollmentCount >= course.maxStudents;
                         return (
@@ -157,7 +165,7 @@ const CalendarPage: React.FC = () => {
                             }}
                           >
                             <div className="font-medium truncate">
-                              {course.schedule?.startTime} {course.name}
+                              {course.schedule?.startTime ? formatTime12(course.schedule.startTime) : ''} {course.name}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {course.classroom} ({enrollmentCount}/{course.maxStudents})
@@ -165,6 +173,15 @@ const CalendarPage: React.FC = () => {
                           </div>
                         );
                       })}
+                      {coursesOnDate.length > 3 && (
+                        <button
+                          type="button"
+                          className="w-full text-sm font-medium text-primary px-2 py-1.5 rounded hover:bg-primary/10 transition-colors text-left"
+                          onClick={(e) => { e.stopPropagation(); handleCourseClick(date); }}
+                        >
+                          + {coursesOnDate.length - 3}개 더 보기
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
@@ -175,66 +192,53 @@ const CalendarPage: React.FC = () => {
       </Card>
 
       <Dialog open={isModalVisible} onOpenChange={setIsModalVisible}>
-        <DialogContent className="max-w-[700px]">
+        <DialogContent className="max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>{selectedDate.format('YYYY년 MM월 DD일 (ddd)')} 강좌 목록</DialogTitle>
+            <DialogTitle className="text-base">
+              {selectedDate.format('YYYY년 MM월 DD일 (ddd)')}
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                {selectedCourses.length}개 수업
+              </span>
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+          <div className="divide-y border-y -mx-6 px-6 max-h-[60vh] overflow-y-auto">
             {selectedCourses.map((course) => {
               const enrollmentCount = enrollments.filter((e) => e.courseId === course.id).length;
               const isFull = enrollmentCount >= course.maxStudents;
-
               return (
-                <Card key={course.id}>
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h5 className="font-semibold mb-1">{course.name}</h5>
-                        {isFull && (
-                          <Badge variant="destructive">정원 마감</Badge>
-                        )}
-                      </div>
-                      <Badge variant="info">
-                        {enrollmentCount}/{course.maxStudents}명
-                      </Badge>
+                <button
+                  key={course.id}
+                  type="button"
+                  onClick={() => {
+                    setIsModalVisible(false);
+                    navigate(`/courses/${course.id}`);
+                  }}
+                  className="w-[calc(100%+3rem)] -mx-6 px-6 flex items-center gap-4 py-3 hover:bg-accent text-left transition-colors"
+                >
+                  {/* 시간 */}
+                  <div className="flex flex-col items-center min-w-[80px] tabular-nums">
+                    <div className="text-base font-semibold leading-tight">
+                      {course.schedule?.startTime ? formatTime12(course.schedule.startTime) : ''}
                     </div>
-
-                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                      <div>
-                        <dt className="text-muted-foreground">강의실</dt>
-                        <dd>{course.classroom}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">강사</dt>
-                        <dd>{course.instructorName}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">수업 시간</dt>
-                        <dd>{course.schedule?.startTime} ~ {course.schedule?.endTime}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">수강료</dt>
-                        <dd>{'\u20A9'}{course.fee.toLocaleString()}</dd>
-                      </div>
-                    </dl>
-
-                    {course.schedule && (
-                      <div className="mt-2 p-2 bg-muted/50 rounded text-xs text-muted-foreground space-y-1">
-                        <div>
-                          <strong>시작일:</strong> {course.schedule.startDate}
-                          {course.schedule.totalSessions && ` (총 ${course.schedule.totalSessions}회)`}
-                        </div>
-                        <div>
-                          <strong>수업 요일:</strong>{' '}
-                          {[...(Array.isArray(course.schedule.daysOfWeek) ? course.schedule.daysOfWeek : [])]
-                            .sort()
-                            .map((day) => DAY_LABELS[day])
-                            .join(', ')}
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                    <div className="text-xs text-muted-foreground leading-tight">
+                      ~ {course.schedule?.endTime ? formatTime12(course.schedule.endTime) : ''}
+                    </div>
+                  </div>
+                  {/* 본문 */}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold truncate">{course.name}</div>
+                    <div className="text-sm text-muted-foreground truncate">
+                      {course.classroom} · {course.instructorName}
+                    </div>
+                  </div>
+                  {/* 인원 + 화살표 */}
+                  <div className="flex items-center gap-2">
+                    <Badge variant={isFull ? 'destructive' : 'info'}>
+                      {enrollmentCount}/{course.maxStudents}
+                    </Badge>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </button>
               );
             })}
           </div>
