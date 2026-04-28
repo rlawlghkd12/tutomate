@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, ChevronRight as ArrowRight } from 'lucide-re
 import { useNavigate } from 'react-router-dom';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import { useCourseStore, useEnrollmentStore, DAY_LABELS, formatTime12 } from '@tutomate/core';
+import { useCourseStore, useEnrollmentStore, DAY_LABELS, formatTime12, isActiveEnrollment } from '@tutomate/core';
 import type { Course } from '@tutomate/core';
 import { PageEnter } from '@tutomate/ui';
 import { Button } from '../components/ui/button';
@@ -148,7 +148,7 @@ const CalendarPage: React.FC = () => {
                     {date.date()}
                   </div>
                   {coursesOnDate.slice(0, 3).map((course) => {
-                    const enrollmentCount = enrollments.filter((e) => e.courseId === course.id).length;
+                    const enrollmentCount = enrollments.filter((e) => e.courseId === course.id && isActiveEnrollment(e)).length;
                     const isFull = enrollmentCount >= course.maxStudents;
 
                     return (
@@ -207,7 +207,7 @@ const CalendarPage: React.FC = () => {
 
           <div className="divide-y border-y -mx-6 px-6 max-h-[60vh] overflow-y-auto">
             {selectedCourses.map((course) => {
-              const enrollmentCount = enrollments.filter((e) => e.courseId === course.id).length;
+              const enrollmentCount = enrollments.filter((e) => e.courseId === course.id && isActiveEnrollment(e)).length;
               const isFull = enrollmentCount >= course.maxStudents;
               return (
                 <button
