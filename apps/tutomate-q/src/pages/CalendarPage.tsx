@@ -7,7 +7,10 @@ import {
   Button, Dialog, DialogContent, DialogHeader, DialogTitle,
   Badge, Card, CardContent, PageEnter,
 } from '@tutomate/ui';
-import { useCourseStore, DAY_LABELS, formatTime12 } from '@tutomate/core';
+import {
+  useCourseStore, DAY_LABELS, formatTime12,
+  isActiveEnrollment, getCurrentQuarter, appConfig,
+} from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import type { Course } from '@tutomate/core';
 
@@ -15,6 +18,15 @@ const CalendarPage: React.FC = () => {
   const { courses, loadCourses } = useCourseStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
   const navigate = useNavigate();
+  const currentQuarter = getCurrentQuarter();
+
+  // 현재 활성 + (Q 모드면) 현재 분기 enrollment만 카운트
+  const countEnrollments = (courseId: string): number =>
+    enrollments.filter((e) =>
+      e.courseId === courseId
+      && isActiveEnrollment(e)
+      && (!appConfig.enableQuarterSystem || e.quarter === currentQuarter)
+    ).length;
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
   const [currentMonth, setCurrentMonth] = useState<Dayjs>(dayjs());
   const [selectedCourses, setSelectedCourses] = useState<Course[]>([]);
@@ -145,7 +157,7 @@ const CalendarPage: React.FC = () => {
                         {date.date()}
                       </div>
                       {coursesOnDate.slice(0, 3).map((course) => {
-                        const enrollmentCount = enrollments.filter((e) => e.courseId === course.id).length;
+                        const enrollmentCount = countEnrollments(course.id);
                         const isFull = enrollmentCount >= course.maxStudents;
                         return (
                           <div
@@ -203,7 +215,7 @@ const CalendarPage: React.FC = () => {
           </DialogHeader>
           <div className="divide-y border-y -mx-6 px-6 max-h-[60vh] overflow-y-auto">
             {selectedCourses.map((course) => {
-              const enrollmentCount = enrollments.filter((e) => e.courseId === course.id).length;
+              const enrollmentCount = countEnrollments(course.id);
               const isFull = enrollmentCount >= course.maxStudents;
               return (
                 <button

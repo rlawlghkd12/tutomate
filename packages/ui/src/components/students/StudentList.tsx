@@ -149,7 +149,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
       accessorFn: (row) => row.student.name,
       cell: ({ row }) => (
         <button
-          className="text-primary hover:underline whitespace-nowrap"
+          className="text-info font-semibold hover:underline whitespace-nowrap"
           onClick={() => handleEdit(row.original.student)}
         >
           {row.original.student.name}
