@@ -149,7 +149,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
       accessorFn: (row) => row.student.name,
       cell: ({ row }) => (
         <button
-          className="text-info font-semibold hover:underline whitespace-nowrap"
+          className="text-primary hover:underline whitespace-nowrap"
           onClick={() => handleEdit(row.original.student)}
         >
           {row.original.student.name}
@@ -163,7 +163,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
       accessorFn: (row: StudentRow) => row.student.isMember ? 1 : 0,
       sortingFn: 'basic',
       cell: ({ row }: { row: { original: StudentRow } }) => row.original.student.isMember
-        ? <Badge>회원</Badge>
+        ? <Badge variant="info">회원</Badge>
         : <Badge variant="secondary">비회원</Badge>,
     } satisfies ColumnDef<StudentRow>] : []),
     {
