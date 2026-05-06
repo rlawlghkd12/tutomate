@@ -173,5 +173,8 @@ export { tryRuleMapping, computeSignature } from './mapping/ColumnMapper';
 export type { MappingResult } from './mapping/ColumnMapper';
 export { loadCachedMapping, saveMappingCache } from './mapping/mappingCacheStore';
 
+// ─── AI (Tool catalog + dispatcher + types) ────────────────────
+export * from './ai';
+
 // ─── Types ───────────────────────────────────────────────────────
 export * from './types/index';
