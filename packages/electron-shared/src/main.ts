@@ -5,6 +5,8 @@ import { registerFileHandlers } from './ipc/fileHandler';
 import { registerMachineIdHandler } from './ipc/machineId';
 import { registerDialogHandlers } from './ipc/dialogHandler';
 import { registerAuthHandlers } from './ipc/authHandler';
+import { registerFileStashHandlers } from './ipc/fileStashHandler';
+import { registerAiHandlers } from './ipc/aiHandler';
 import { setupUpdater } from './updater';
 import log from 'electron-log/main';
 
@@ -106,6 +108,8 @@ if (!gotTheLock) {
     registerFileHandlers(ipcMain);
     registerMachineIdHandler(ipcMain);
     registerDialogHandlers(ipcMain);
+    registerFileStashHandlers(ipcMain);
+    registerAiHandlers(ipcMain);
 
     createWindow();
 
