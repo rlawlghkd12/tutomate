@@ -61,8 +61,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   aiUninstall: () => ipcRenderer.invoke('ai:uninstall'),
   aiChat: (payload: { messages: unknown[]; orgId: string; userId: string }) =>
     ipcRenderer.invoke('ai:chat', payload),
-  aiDirectImport: (fileId: string) =>
-    ipcRenderer.invoke('ai:direct-import', fileId),
+  aiDirectImport: (fileId: string, orgId: string, userId: string) =>
+    ipcRenderer.invoke('ai:direct-import', fileId, orgId, userId),
   onAiDownloadEvent: (callback: (e: any) => void) => {
     const handler = (_event: any, e: any) => callback(e);
     ipcRenderer.on('ai:download-event', handler);

@@ -9,10 +9,18 @@ directories:
 files:
   - dist/**/*
   - dist-electron/**/*
+  - "node_modules/node-llama-cpp/**"
+  - "node_modules/@node-llama-cpp/**"
+  - "node_modules/@huggingface/**"
+  - "node_modules/@reflink/**"
   - "!node_modules/@tailwindcss/**"
   - "!node_modules/tailwindcss/**"
   - "!node_modules/lightningcss/**"
   - "!node_modules/lightningcss-*/**"
+
+asarUnpack:
+  - "node_modules/node-llama-cpp/**"
+  - "node_modules/@node-llama-cpp/**"
 
 publish:
   provider: github

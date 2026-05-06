@@ -53,7 +53,7 @@ export interface ChatStreamEvent {
 export interface ToolContext {
   orgId: string;
   userId: string;
-  fileStash?: { read(fileId: string): Promise<Buffer> };
+  fileStash?: { read(fileId: string): Promise<Uint8Array> };
   /** 도구가 UI에 카드를 푸시할 때 사용 */
   emit?: (card: SmartCard) => void;
 }

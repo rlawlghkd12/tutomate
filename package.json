@@ -39,7 +39,9 @@
     "onlyBuiltDependencies": [
       "electron",
       "electron-winstaller",
-      "esbuild"
+      "esbuild",
+      "node-llama-cpp",
+      "@reflink/reflink"
     ]
   }
 }
