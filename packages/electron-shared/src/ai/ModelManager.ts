@@ -13,13 +13,23 @@ export interface ModelSpec {
   sizeBytes: number;
 }
 
-export const QWEN_2_5_3B_Q4: ModelSpec = {
-  id: 'qwen-2.5-3b-instruct-q4',
-  filename: 'qwen-2.5-3b-instruct-q4_k_m.gguf',
-  url: 'https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf',
+/**
+ * Qwen 3.5 4B Instruct (Q4_K_M).
+ * 선정 근거: TAU2 agentic 27 (도구 호출 정확도 — 동급 대비 4배 안정).
+ * 한국어 자연스러움 ★★★★, 함수 호출 chat template fix 적용된 빌드.
+ *
+ * 첫 다운로드 후 sha256 측정해 갱신.
+ */
+export const QWEN_3_5_4B_Q4: ModelSpec = {
+  id: 'qwen-3.5-4b-instruct-q4',
+  filename: 'qwen3.5-4b-q4_k_m.gguf',
+  url: 'https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf',
   sha256: 'TBD-FILL-AFTER-FIRST-DOWNLOAD',
-  sizeBytes: 2_100_000_000, // ~2GB
+  sizeBytes: 2_740_937_888, // ~2.74GB
 };
+
+/** @deprecated v0.7.0부터 QWEN_3_5_4B_Q4 사용. 호환성 위해 alias 유지. */
+export const QWEN_2_5_3B_Q4 = QWEN_3_5_4B_Q4;
 
 export type ModelEvent =
   | { type: 'progress'; received: number; total: number }

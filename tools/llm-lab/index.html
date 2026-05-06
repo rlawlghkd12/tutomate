@@ -28,19 +28,38 @@
       .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 12px; }
       .panel { display: flex; flex-direction: column; min-height: 300px; }
       .panel-header { font-weight: 600; padding-bottom: 6px; border-bottom: 1px solid #eee; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-      .panel-output { flex: 1; font-size: 12px; white-space: pre-wrap; overflow-y: auto; max-height: 500px; line-height: 1.5; }
+      .panel-output { flex: 1; font-size: 13px; overflow-y: auto; max-height: 500px; line-height: 1.6; }
+      .md-block { white-space: normal; }
+      .md-block p { margin: 4px 0; }
+      .md-block h1, .md-block h2, .md-block h3 { font-size: 14px; margin: 8px 0 4px; font-weight: 700; }
+      .md-block ul, .md-block ol { margin: 4px 0; padding-left: 18px; }
+      .md-block li { margin: 2px 0; }
+      .md-block code { background: #f3f4f6; padding: 1px 4px; border-radius: 3px; font-size: 12px; font-family: ui-monospace, monospace; }
+      .md-block pre { background: #f3f4f6; padding: 8px; border-radius: 4px; overflow-x: auto; }
+      .md-block pre code { background: none; padding: 0; }
+      .md-block table { border-collapse: collapse; margin: 4px 0; }
+      .md-block th, .md-block td { border: 1px solid #ddd; padding: 3px 6px; font-size: 12px; }
+      .md-block th { background: #f9fafb; font-weight: 600; }
+      .md-block strong { font-weight: 700; }
+      .md-block blockquote { border-left: 3px solid #ddd; padding-left: 8px; color: #555; margin: 4px 0; }
       .tool-call { background: #fef3c7; padding: 6px; border-radius: 4px; margin: 4px 0; font-family: monospace; font-size: 11px; }
       .tool-call .tool-name { font-weight: 700; color: #92400e; }
       .metrics { font-size: 11px; color: #555; padding: 6px 0; border-top: 1px solid #eee; margin-top: 6px; }
       .progress { height: 4px; background: #eee; border-radius: 2px; overflow: hidden; margin-top: 4px; }
       .progress > div { height: 100%; background: #2563eb; transition: width 0.2s; }
-      .preset-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-      .preset-row button { font-size: 11px; padding: 3px 8px; }
+      .preset-group { margin-top: 8px; }
+      .preset-label { font-size: 11px; color: #666; font-weight: 600; margin-bottom: 3px; }
+      .preset-row { display: flex; flex-wrap: wrap; gap: 4px; }
+      .preset-row button { font-size: 11px; padding: 3px 8px; text-align: left; }
+      .preset-row button.import { background: #fef3c7; border-color: #fbbf24; }
+      .preset-row button.tricky { background: #fee2e2; border-color: #f87171; }
       .file-input { font-size: 12px; }
       .panel-error { color: #b91c1c; }
       .card-mapping-error { background: #fef3c7; border: 1px solid #fbbf24; padding: 8px; border-radius: 4px; margin: 4px 0; font-size: 12px; }
       .card-import-preview { background: #dbeafe; border: 1px solid #60a5fa; padding: 8px; border-radius: 4px; margin: 4px 0; font-size: 12px; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked@14.1.3/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script>
   </head>
   <body>
     <div class="container">
@@ -61,11 +80,78 @@
           <div class="card">
             <h2>프롬프트</h2>
             <textarea id="prompt" placeholder="예: 민준이 결제 언제 했더라?"></textarea>
-            <div class="preset-row">
-              <button onclick="setPrompt('민준이 결제 언제 했더라?')">결제 조회</button>
-              <button onclick="setPrompt('이번 달 미납 누구야?')">미납 조회</button>
-              <button onclick="setPrompt('5월 매출 알려줘')">월간 요약</button>
-              <button onclick="setPrompt('이서연 학생 정보 알려줘')">학생 검색</button>
+            <div class="preset-group">
+              <div class="preset-label">📋 결제 조회</div>
+              <div class="preset-row">
+                <button onclick="setPrompt('민준이 결제 언제 했더라?')">민준이 결제</button>
+                <button onclick="setPrompt('임도윤 학생 최근 3개월 결제 내역 알려줘')">임도윤 최근 3개월</button>
+                <button onclick="setPrompt('박지민 학생 카드로 낸 결제만 보여줘')">박지민 카드 결제</button>
+                <button onclick="setPrompt('전화번호 010-8765-4321 학생 결제 이력')">전화번호로 검색</button>
+                <button onclick="setPrompt('최우진 학생 부분납한 적 있어?')" class="tricky">부분납 추적</button>
+              </div>
+            </div>
+
+            <div class="preset-group">
+              <div class="preset-label">⚠️ 미납 / 매출</div>
+              <div class="preset-row">
+                <button onclick="setPrompt('이번 달 미납 누구야?')">이번 달 미납</button>
+                <button onclick="setPrompt('5월에 미납한 학생들 보호자 연락처 알려줘')">미납자 보호자 번호</button>
+                <button onclick="setPrompt('영어회화반에서 5월 미납자만')">강좌별 미납</button>
+                <button onclick="setPrompt('이번 달 매출 얼마야?')">월 매출</button>
+                <button onclick="setPrompt('5월 결제 방법별 통계 (현금/카드/계좌)')">결제 수단 통계</button>
+              </div>
+            </div>
+
+            <div class="preset-group">
+              <div class="preset-label">📅 출석</div>
+              <div class="preset-row">
+                <button onclick="setPrompt('박지민 학생 출석 어땠어?')">박지민 출석</button>
+                <button onclick="setPrompt('지난달 김민준 학생 출석률 계산해줘')">출석률 계산</button>
+                <button onclick="setPrompt('임도윤 학생 결석한 날 있어?')">결석 확인</button>
+              </div>
+            </div>
+
+            <div class="preset-group">
+              <div class="preset-label">👤 수강생 종합</div>
+              <div class="preset-row">
+                <button onclick="setPrompt('이서연 학생 정보 요약해줘')">이서연 요약</button>
+                <button onclick="setPrompt('임도윤 학생이 듣는 강좌 다 알려줘')">다중 등록</button>
+                <button onclick="setPrompt('휴원 중인 학생 누구야?')">휴원 학생</button>
+                <button onclick="setPrompt('회원이 아닌 수강생 명단')">비회원 명단</button>
+                <button onclick="setPrompt('김민준 학생 두 명 있어? 둘 다 정보 보여줘')" class="tricky">동명이인 처리</button>
+              </div>
+            </div>
+
+            <div class="preset-group">
+              <div class="preset-label">🏫 강좌</div>
+              <div class="preset-row">
+                <button onclick="setPrompt('강좌 목록 알려줘')">전체 강좌</button>
+                <button onclick="setPrompt('수학반 학생 명단')">수학반 명단</button>
+                <button onclick="setPrompt('피아노반에 몇 명 있어?')">반 인원</button>
+                <button onclick="setPrompt('박선생님 담당 강좌')" class="tricky">강사로 검색</button>
+              </div>
+            </div>
+
+            <div class="preset-group">
+              <div class="preset-label">📥 엑셀 임포트 (위에서 .xlsx 첨부 후)</div>
+              <div class="preset-row">
+                <button onclick="setPrompt('이 엑셀 파일 정보 추가해줘')" class="import">기본 임포트</button>
+                <button onclick="setPrompt('이 파일 결제 내역인데 추가해주세요')" class="import">결제 임포트</button>
+                <button onclick="setPrompt('이 엑셀 헤더만 먼저 확인해줘')" class="import">헤더만 확인</button>
+                <button onclick="setPrompt('이 파일 학생 정보 등록해줘')" class="import">학생 등록</button>
+              </div>
+            </div>
+
+            <div class="preset-group">
+              <div class="preset-label">🧪 까다로운 시나리오</div>
+              <div class="preset-row">
+                <button onclick="setPrompt('5월에 모든 강좌 다 낸 학생 누구야?')" class="tricky">조건 합성</button>
+                <button onclick="setPrompt('박지민 학생 이번 달 미납액이 정확히 얼마지?')" class="tricky">정확한 금액</button>
+                <button onclick="setPrompt('이번 달 신규 등록 학생 있어?')" class="tricky">기간별 등록</button>
+                <button onclick="setPrompt('윤서아 학생 4월 결제 합계')" class="tricky">기간 합계</button>
+                <button onclick="setPrompt('출석률 70% 미만인 학생 있어?')" class="tricky">계산 + 비교</button>
+                <button onclick="setPrompt('도시락여부 컬럼이 있는 엑셀인데 추가해줘')" class="tricky">미매칭 컬럼</button>
+              </div>
             </div>
             <div style="margin-top: 8px;">
               <input type="file" id="file" class="file-input" accept=".xlsx,.xls" />
@@ -192,12 +278,40 @@
         document.getElementById('runStatus').textContent = '완료';
       }
 
+      // 마크다운 안전 렌더링 — DOMPurify로 XSS 차단
+      const mdParse = (raw) => {
+        try {
+          const html = window.marked.parse(raw, { breaks: true, gfm: true });
+          return window.DOMPurify.sanitize(html);
+        } catch (e) {
+          return raw.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+        }
+      };
+
       async function runOne(id, prompt, panel) {
         const status = panel.querySelector('[data-status]');
         const output = panel.querySelector('[data-output]');
         const metrics = panel.querySelector('[data-metrics]');
         status.textContent = '실행 중';
         output.textContent = '';
+
+        // 현재 assistant 텍스트 블록 (markdown 누적)
+        let mdBuf = '';
+        let mdEl = null;
+
+        function ensureMdBlock() {
+          if (!mdEl) {
+            mdEl = document.createElement('div');
+            mdEl.className = 'md-block';
+            output.appendChild(mdEl);
+            mdBuf = '';
+          }
+          return mdEl;
+        }
+        function finalizeMdBlock() {
+          mdEl = null;
+          mdBuf = '';
+        }
 
         const res = await fetch('/api/chat?id=' + id, {
           method: 'POST',
@@ -217,14 +331,20 @@
             if (!line.startsWith('data: ')) continue;
             const e = JSON.parse(line.slice(6));
             if (e.type === 'token') {
-              output.textContent += e.token;
+              ensureMdBlock();
+              mdBuf += e.token;
+              mdEl.innerHTML = mdParse(mdBuf);
               output.scrollTop = output.scrollHeight;
             } else if (e.type === 'tool_call') {
+              finalizeMdBlock();
               const div = document.createElement('div');
               div.className = 'tool-call';
-              div.innerHTML = `<span class="tool-name">${e.name}</span> (${e.ms}ms)<br>args: ${JSON.stringify(e.args)}<br>→ ${JSON.stringify(e.result).slice(0, 200)}`;
+              const argsStr = JSON.stringify(e.args);
+              const resStr = JSON.stringify(e.result);
+              div.innerHTML = `<span class="tool-name">🔧 ${e.name}</span> <span style="color:#888;">(${e.ms}ms)</span><br>args: <code>${argsStr.slice(0, 200)}</code><br>→ <code>${resStr.slice(0, 250)}${resStr.length > 250 ? '…' : ''}</code>`;
               output.appendChild(div);
             } else if (e.type === 'card') {
+              finalizeMdBlock();
               const div = document.createElement('div');
               const cls = e.card.type === 'mappingError' ? 'card-mapping-error' : 'card-import-preview';
               div.className = cls;
@@ -236,7 +356,10 @@
             } else if (e.type === 'error') {
               status.textContent = '에러';
               status.classList.add('panel-error');
-              output.innerHTML += `<div class="panel-error">${e.message}</div>`;
+              const errDiv = document.createElement('div');
+              errDiv.className = 'panel-error';
+              errDiv.textContent = e.message;
+              output.appendChild(errDiv);
             }
           }
         }
