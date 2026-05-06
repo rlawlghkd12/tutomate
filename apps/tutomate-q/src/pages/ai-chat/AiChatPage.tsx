@@ -10,8 +10,8 @@ import type { DisplayMessage } from './components/MessageBubble';
 type AiState = 'not_installed' | 'loading_pending' | 'ready' | 'disabled';
 
 export default function AiChatPage() {
-  const orgId = useAuthStore((s) => s.currentOrgId ?? '');
-  const userId = useAuthStore((s) => s.user?.id ?? '');
+  const orgId = useAuthStore((s) => s.organizationId ?? '');
+  const userId = useAuthStore((s) => s.session?.user?.id ?? '');
 
   const [state, setState] = useState<AiState>('loading_pending');
   const [messages, setMessages] = useState<DisplayMessage[]>([]);

@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import dayjs from 'dayjs';
+import quarterOfYear from 'dayjs/plugin/quarterOfYear';
 import { supabase } from '../../config/supabase';
 import type { ToolHandler } from '../types';
+
+dayjs.extend(quarterOfYear);
 
 const schema = z.object({
   studentId: z.string(),

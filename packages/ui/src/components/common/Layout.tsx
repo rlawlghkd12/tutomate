@@ -30,6 +30,7 @@ const PAGE_TITLES: Record<string, string> = {
 	'/revenue': '수익 관리',
 	'/members': '멤버 관리',
 	'/settings': '설정',
+	'/ai-chat': 'AI 어시스턴트',
 };
 
 const SIDEBAR_WIDTH = 220;

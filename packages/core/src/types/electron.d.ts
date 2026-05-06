@@ -48,7 +48,7 @@ interface ElectronAPI {
   aiCancel(): Promise<void>;
   aiUninstall(): Promise<void>;
   aiChat(payload: { messages: unknown[]; orgId: string; userId: string }): Promise<void>;
-  aiDirectImport(fileId: string): Promise<{ card: any }>;
+  aiDirectImport(fileId: string, orgId: string, userId: string): Promise<{ card: any }>;
   onAiDownloadEvent(callback: (e: any) => void): () => void;
   onAiChatEvent(callback: (e: any) => void): () => void;
 }

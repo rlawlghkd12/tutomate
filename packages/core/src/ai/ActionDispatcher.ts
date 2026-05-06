@@ -14,8 +14,10 @@ export interface Dispatcher {
  *
  * LLM이 환각으로 잘못된 도구를 호출해도 안전하게 차단.
  */
-export function createDispatcher(tools: ToolHandler[]): Dispatcher {
-  const map = new Map<string, ToolHandler>();
+type AnyTool = ToolHandler<any>;
+
+export function createDispatcher(tools: AnyTool[]): Dispatcher {
+  const map = new Map<string, AnyTool>();
   for (const t of tools) map.set(t.name, t);
 
   return {

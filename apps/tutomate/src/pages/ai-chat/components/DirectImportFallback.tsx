@@ -6,8 +6,8 @@ import { ImportResultCard } from './SmartCard/ImportResultCard';
 import { MappingErrorCard } from './SmartCard/MappingErrorCard';
 
 export function DirectImportFallback() {
-  const orgId = useAuthStore((s) => s.currentOrgId ?? '');
-  const userId = useAuthStore((s) => s.user?.id ?? '');
+  const orgId = useAuthStore((s) => s.organizationId ?? '');
+  const userId = useAuthStore((s) => s.session?.user?.id ?? '');
   const [card, setCard] = useState<SmartCard | null>(null);
   const [busy, setBusy] = useState(false);
 
