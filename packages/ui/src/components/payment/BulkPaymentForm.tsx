@@ -38,7 +38,7 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
 
 	const [submitting, setSubmitting] = useState(false);
   const form = useForm<BulkPaymentFormValues>({
-    resolver: zodResolver(bulkPaymentSchema),
+    resolver: zodResolver(bulkPaymentSchema as any),
     defaultValues: {
       fixedAmount: 0,
       ratio: 0,
