@@ -1,0 +1,38 @@
+import { z } from 'zod';
+import { supabase } from '../../config/supabase';
+import type { ToolHandler } from '../types';
+
+const schema = z.object({ month: z.string().regex(/^\d{4}-\d{2}$/) });
+
+export const getMonthlySummary: ToolHandler<typeof schema> = {
+  name: 'getMonthlySummary',
+  description: '해당 월의 매출/등록 요약 통계',
+  schema,
+  async execute({ month }, ctx) {
+    if (!supabase) throw new Error('Supabase 미설정');
+    const { data: pays } = await supabase
+      .from('payment_records')
+      .select('amount')
+      .eq('org_id', ctx.orgId)
+      .gte('paid_at', `${month}-01`)
+      .lte('paid_at', `${month}-31`);
+    const totalAmount = (pays ?? []).reduce(
+      (s, p: any) => s + (p.amount ?? 0),
+      0,
+    );
+
+    const { count: newEnrollments } = await supabase
+      .from('enrollments')
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', ctx.orgId)
+      .gte('started_at', `${month}-01`)
+      .lte('started_at', `${month}-31`);
+
+    return {
+      month,
+      totalAmount,
+      paymentCount: pays?.length ?? 0,
+      newEnrollments: newEnrollments ?? 0,
+    };
+  },
+};
