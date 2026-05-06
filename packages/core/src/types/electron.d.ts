@@ -31,6 +31,26 @@ interface ElectronAPI {
   // OAuth
   openOAuthUrl(url: string): Promise<void>;
   onOAuthCallback(callback: (url: string) => void): () => void;
+
+  // 첨부 파일 임시 저장 (챗봇 도구용)
+  fileStashSave(name: string, buffer: ArrayBuffer): Promise<{ fileId: string; name: string }>;
+  fileStashDelete(fileId: string): Promise<void>;
+
+  // AI 챗봇
+  aiStatus(): Promise<'not_installed' | 'loading_pending' | 'ready' | 'disabled'>;
+  aiDiagnose(): Promise<{
+    ramGB: number;
+    diskGB: number;
+    recommendation: 'ok' | 'warn' | 'block';
+    tier: 'fast' | 'slow' | 'unsupported';
+  }>;
+  aiDownload(): Promise<void>;
+  aiCancel(): Promise<void>;
+  aiUninstall(): Promise<void>;
+  aiChat(payload: { messages: unknown[]; orgId: string; userId: string }): Promise<void>;
+  aiDirectImport(fileId: string): Promise<{ card: any }>;
+  onAiDownloadEvent(callback: (e: any) => void): () => void;
+  onAiChatEvent(callback: (e: any) => void): () => void;
 }
 
 interface Window {
