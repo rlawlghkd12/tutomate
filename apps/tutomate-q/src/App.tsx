@@ -9,6 +9,7 @@ import StudentsPage from './pages/StudentsPage';
 import CalendarPage from './pages/CalendarPage';
 import RevenueManagementPage from './pages/RevenueManagementPage';
 import SettingsPage from './pages/SettingsPage';
+import AiChatPage from './pages/ai-chat/AiChatPage';
 import { CommandPalette } from './components/CommandPalette';
 import { useEffect } from 'react';
 import { toast, Toaster } from 'sonner';
@@ -272,6 +273,7 @@ function App() {
             <Route path="/revenue" element={<RevenueManagementPage />} />
             <Route path="/members" element={<MemberManagementPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/ai-chat" element={<AiChatPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </ErrorBoundary>
