@@ -163,5 +163,15 @@ export {
 // ─── Hooks ───────────────────────────────────────────────────────
 export { useAutoLock } from './hooks/useAutoLock';
 
+// ─── Excel / Mapping (AI 임포트 도구가 사용) ───────────────────
+export * from './excel/types';
+export { parseExcel } from './excel/ExcelParser';
+export { normalizeRow } from './excel/DataNormalizer';
+export type { ColumnMapping } from './excel/DataNormalizer';
+export { SYNONYMS, normalizeHeader, findField } from './mapping/synonyms';
+export { tryRuleMapping, computeSignature } from './mapping/ColumnMapper';
+export type { MappingResult } from './mapping/ColumnMapper';
+export { loadCachedMapping, saveMappingCache } from './mapping/mappingCacheStore';
+
 // ─── Types ───────────────────────────────────────────────────────
 export * from './types/index';
