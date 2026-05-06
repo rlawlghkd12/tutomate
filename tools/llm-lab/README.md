@@ -2,16 +2,25 @@
 
 TutorMate 챗봇용 로컬 LLM 모델 비교 도구.
 
+## 사전 요구
+
+llama.cpp (brew):
+```bash
+brew install llama.cpp   # llama-server 바이너리 제공 (Gemma 4 지원)
+```
+
 ## 사용법
 
 ```bash
-# 첫 실행
 pnpm install
-pnpm --filter @tutomate/llm-lab dev
-
-# 브라우저
-http://localhost:5180
+pnpm --filter @tutomate/llm-lab dev   # → http://localhost:5180
 ```
+
+## 추론 백엔드
+
+`llama-server` (brew llama.cpp 9030+, OpenAI 호환 API).
+node-llama-cpp 3.18.1은 Gemma 4 지원이 없어 사용 안 함.
+모델별로 별도 포트(5200~)에 spawn하고 종료 시 정리.
 
 ## 흐름
 

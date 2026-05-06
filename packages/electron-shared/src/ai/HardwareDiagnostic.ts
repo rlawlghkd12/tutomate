@@ -17,20 +17,22 @@ export interface DiagnosticResult {
 }
 
 /**
- * 사양 분기 결정 — 순수 함수, 테스트 가능.
- * - 16GB+ RAM, 5GB+ disk → ok / fast (쾌적)
- * - 8GB RAM, 3GB+ disk → ok / slow ("응답 10~20초 걸릴 수 있어요")
- * - 4~7GB RAM 또는 8GB지만 disk 부족 → warn / slow
- * - 4GB 미만 또는 디스크 2GB 미만 → block / unsupported
+ * 사양 분기 결정 — Qwen 3.5 4B (Q4_K_M, 2.74GB) 기준. 순수 함수, 테스트 가능.
+ *
+ * 4B 모델 추론 시 메모리 점유: 모델 ~3GB + KV cache ~1GB + OS/앱 ~2GB → 8GB는 빡빡.
+ * - 16GB+ RAM, 4GB+ disk → ok / fast (쾌적, 응답 빠름)
+ * - 8GB RAM, 4GB+ disk → ok / slow (응답 15~30초 가능, 다른 앱 종료 권장)
+ * - 6~7GB RAM 또는 디스크 부족 → warn / slow
+ * - 6GB 미만 또는 디스크 3GB 미만 → block / unsupported
  */
 export function decideRecommendation(input: DiagnosticInput): {
   recommendation: Recommendation;
   tier: Tier;
 } {
   const { ramGB, diskGB } = input;
-  if (ramGB < 4 || diskGB < 2) return { recommendation: 'block', tier: 'unsupported' };
-  if (ramGB >= 16 && diskGB >= 5) return { recommendation: 'ok', tier: 'fast' };
-  if (ramGB >= 8 && diskGB >= 3) return { recommendation: 'ok', tier: 'slow' };
+  if (ramGB < 6 || diskGB < 3) return { recommendation: 'block', tier: 'unsupported' };
+  if (ramGB >= 16 && diskGB >= 4) return { recommendation: 'ok', tier: 'fast' };
+  if (ramGB >= 8 && diskGB >= 4) return { recommendation: 'ok', tier: 'slow' };
   return { recommendation: 'warn', tier: 'slow' };
 }
 

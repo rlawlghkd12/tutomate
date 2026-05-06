@@ -2,7 +2,7 @@ import { app, type IpcMain } from 'electron';
 import path from 'node:path';
 import {
   ModelManager,
-  QWEN_2_5_3B_Q4,
+  QWEN_3_5_4B_Q4,
   diagnose,
   createLlamaRuntime,
   type LlamaRuntime,
@@ -25,9 +25,25 @@ let abort: AbortController | null = null;
 const dispatcher = createDispatcher(ALL_TOOLS);
 const toolDefs = toToolDefinitions(ALL_TOOLS);
 
+/**
+ * 시스템 프롬프트 — 챗봇이 항상 지켜야 할 규칙.
+ * lab에서 검증된 톤. 환각 방지·도구 우선·확정 동의 절차 강조.
+ */
+const SYSTEM_PROMPT = `당신은 학원·공방·교습소 등 수강 관리 조직을 돕는 한국어 AI 어시스턴트입니다.
+
+규칙:
+1. 결제·출석·미납·학생 정보는 반드시 도구를 호출해 확인합니다. 절대 추측하거나 임의로 만들어내지 마세요.
+2. 학생 검색 시 동명이인이 있을 수 있으니 \`searchStudent\`로 먼저 후보를 확인하세요.
+3. 사용자가 엑셀 파일을 첨부하면 다음 순서로 처리합니다:
+   parseExcelHeaders → mapColumns → previewImport
+   매핑 실패(mismatch) 시 사용자에게 표준 양식 사용을 안내하고 멈춥니다.
+4. previewImport 결과를 사용자에게 요약해 보여주고 [확정] 버튼 클릭을 기다리세요.
+   사용자가 "확정", "추가해줘" 같은 명시적 동의를 했을 때만 \`confirmImport\`를 호출합니다.
+5. 답변은 간결한 한국어로. 60대 이상 사용자가 읽기 쉽도록 짧은 문장 + 줄바꿈을 사용하세요.`;
+
 export function registerAiHandlers(ipcMain: IpcMain) {
   ipcMain.handle('ai:status', () => {
-    if (!manager.isInstalled(QWEN_2_5_3B_Q4)) return 'not_installed';
+    if (!manager.isInstalled(QWEN_3_5_4B_Q4)) return 'not_installed';
     return runtime ? 'ready' : 'loading_pending';
   });
 
@@ -38,7 +54,7 @@ export function registerAiHandlers(ipcMain: IpcMain) {
     abort = new AbortController();
     try {
       await manager.download(
-        QWEN_2_5_3B_Q4,
+        QWEN_3_5_4B_Q4,
         (e) => sender.send('ai:download-event', e),
         abort.signal,
       );
@@ -61,7 +77,7 @@ export function registerAiHandlers(ipcMain: IpcMain) {
       await runtime.unload();
       runtime = null;
     }
-    await manager.uninstall(QWEN_2_5_3B_Q4);
+    await manager.uninstall(QWEN_3_5_4B_Q4);
   });
 
   ipcMain.handle(
@@ -73,7 +89,7 @@ export function registerAiHandlers(ipcMain: IpcMain) {
       const sender = event.sender;
       if (!runtime) {
         runtime = await createLlamaRuntime({
-          modelPath: manager.modelPath(QWEN_2_5_3B_Q4),
+          modelPath: manager.modelPath(QWEN_3_5_4B_Q4),
         });
         await runtime.load();
       }
@@ -87,8 +103,14 @@ export function registerAiHandlers(ipcMain: IpcMain) {
           sender.send('ai:chat-event', { type: 'card', card }),
       };
 
+      // 시스템 프롬프트가 메시지 첫 자리에 오도록 보장
+      const messagesWithSystem: ChatMessage[] =
+        payload.messages[0]?.role === 'system'
+          ? payload.messages
+          : [{ role: 'system', content: SYSTEM_PROMPT }, ...payload.messages];
+
       await runtime.chat(
-        payload.messages,
+        messagesWithSystem,
         toolDefs,
         (e) => sender.send('ai:chat-event', e),
         async (name, args) => dispatcher.dispatch(name, args, ctx),

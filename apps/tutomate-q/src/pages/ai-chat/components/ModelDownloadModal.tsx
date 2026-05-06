@@ -32,7 +32,7 @@ export function ModelDownloadModal({ onInstalled, onSkip }: Props) {
     <div className="max-w-xl mx-auto p-6 space-y-4">
       <h1 className="text-2xl font-bold">AI 어시스턴트 준비</h1>
       <p className="text-lg">
-        AI 모델 약 2GB를 한 번 다운로드하면 인터넷 없이 사용할 수 있어요.
+        AI 모델 약 2.7GB를 한 번 다운로드하면 인터넷 없이 사용할 수 있어요.
       </p>
       <HardwareDiagnosticView />
 
