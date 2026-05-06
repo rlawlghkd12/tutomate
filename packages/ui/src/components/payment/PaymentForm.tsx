@@ -72,7 +72,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     register,
     formState: { errors },
   } = useForm<PaymentFormData>({
-    resolver: zodResolver(paymentSchema) as any,
+    resolver: zodResolver(paymentSchema as any) as any,
     defaultValues: {
       paidAmount: 0,
       paidAt: dayjs().format('YYYY-MM-DD'),
