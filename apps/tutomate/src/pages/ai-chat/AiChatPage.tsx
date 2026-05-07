@@ -17,20 +17,33 @@ export default function AiChatPage() {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
 
+  const [statusError, setStatusError] = useState<string | null>(null);
+
   // 진단·상태 결정
   useEffect(() => {
     (async () => {
-      const status = (await window.electronAPI.aiStatus()) as AiState;
-      if (status === 'not_installed') {
-        const d = await window.electronAPI.aiDiagnose();
-        if (d.recommendation === 'block') {
-          setState('disabled');
+      try {
+        if (!window.electronAPI?.aiStatus) {
+          throw new Error('electronAPI.aiStatus 미정의 — preload 갱신 필요');
+        }
+        console.log('[AiChatPage] aiStatus 호출...');
+        const status = (await window.electronAPI.aiStatus()) as AiState;
+        console.log('[AiChatPage] aiStatus 응답:', status);
+        if (status === 'not_installed') {
+          const d = await window.electronAPI.aiDiagnose();
+          console.log('[AiChatPage] aiDiagnose:', d);
+          if (d.recommendation === 'block') {
+            setState('disabled');
+            return;
+          }
+          setState('not_installed');
           return;
         }
-        setState('not_installed');
-        return;
+        setState(status);
+      } catch (e: any) {
+        console.error('[AiChatPage] status check failed:', e);
+        setStatusError(e?.message ?? String(e));
       }
-      setState(status);
     })();
   }, []);
 
@@ -111,6 +124,19 @@ export default function AiChatPage() {
       { role: 'assistant', content: '취소했습니다.' },
     ]);
   }, []);
+
+  // 진단 실패 시 에러 표시 (조용히 멈추지 않게)
+  if (statusError) {
+    return (
+      <div className="p-8 max-w-2xl mx-auto">
+        <h1 className="text-xl font-bold mb-3">AI 어시스턴트 준비 실패</h1>
+        <pre className="bg-red-50 text-red-700 p-3 rounded text-sm whitespace-pre-wrap">{statusError}</pre>
+        <p className="mt-4 text-sm text-gray-600">
+          앱을 완전히 종료한 후 다시 실행해주세요. (개발 중이라면 electron 재시작 필요 — Vite 새로고침으로는 main 프로세스 변경이 반영되지 않습니다.)
+        </p>
+      </div>
+    );
+  }
 
   // unknown: 메인 프로세스 status 응답 대기 중 (initial check)
   if (state === 'unknown') {
