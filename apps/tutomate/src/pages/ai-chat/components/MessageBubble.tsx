@@ -42,14 +42,14 @@ export function MessageBubble({ message, onConfirmPreview, onCancelPreview }: Pr
       {message.content && (
         <div
           className={`rounded-2xl px-5 py-3 text-lg whitespace-pre-wrap ${
-            isUser ? 'bg-blue-600 text-white' : 'bg-gray-100'
+            isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
           }`}
         >
           {message.content}
         </div>
       )}
       {message.attachments?.map((a, i) => (
-        <div key={i} className="text-sm text-gray-500 mt-1">
+        <div key={i} className="text-sm text-muted-foreground mt-1">
           📎 {a.name}
         </div>
       ))}
