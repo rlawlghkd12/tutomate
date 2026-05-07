@@ -14,6 +14,7 @@ import { listClasses } from './tools/listClasses';
 import { getClassRoster } from './tools/getClassRoster';
 import { getMonthlySummary } from './tools/getMonthlySummary';
 import { getStudentSummary } from './tools/getStudentSummary';
+import { getOrgStats } from './tools/getOrgStats';
 import { parseExcelHeaders } from './tools/parseExcelHeaders';
 import { mapColumns } from './tools/mapColumns';
 import { previewImport } from './tools/previewImport';
@@ -31,6 +32,7 @@ export const ALL_TOOLS: AnyTool[] = [
   getClassRoster,
   getMonthlySummary,
   getStudentSummary,
+  getOrgStats,
   parseExcelHeaders,
   mapColumns,
   previewImport,
