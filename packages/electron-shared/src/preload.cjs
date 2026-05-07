@@ -46,4 +46,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('oauth-callback', handler);
     return () => ipcRenderer.removeListener('oauth-callback', handler);
   },
+
+  // 첨부 파일 임시 저장 (챗봇 도구용)
+  fileStashSave: (name, buffer) =>
+    ipcRenderer.invoke('file-stash:save', name, buffer),
+  fileStashDelete: (fileId) =>
+    ipcRenderer.invoke('file-stash:delete', fileId),
+
+  // AI 챗봇
+  aiStatus: () => ipcRenderer.invoke('ai:status'),
+  aiDiagnose: () => ipcRenderer.invoke('ai:diagnose'),
+  aiDownload: () => ipcRenderer.invoke('ai:download'),
+  aiCancel: () => ipcRenderer.invoke('ai:cancel'),
+  aiUninstall: () => ipcRenderer.invoke('ai:uninstall'),
+  aiChat: (payload) => ipcRenderer.invoke('ai:chat', payload),
+  aiDirectImport: (fileId, orgId, userId) =>
+    ipcRenderer.invoke('ai:direct-import', fileId, orgId, userId),
+  onAiDownloadEvent: (callback) => {
+    const handler = (_event, e) => callback(e);
+    ipcRenderer.on('ai:download-event', handler);
+    return () => ipcRenderer.removeListener('ai:download-event', handler);
+  },
+  onAiChatEvent: (callback) => {
+    const handler = (_event, e) => callback(e);
+    ipcRenderer.on('ai:chat-event', handler);
+    return () => ipcRenderer.removeListener('ai:chat-event', handler);
+  },
 });
