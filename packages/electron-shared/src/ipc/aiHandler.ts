@@ -87,12 +87,29 @@ export function registerAiHandlers(ipcMain: IpcMain) {
       payload: { messages: ChatMessage[]; orgId: string; userId: string },
     ) => {
       const sender = event.sender;
-      if (!runtime) {
-        runtime = await createLlamaRuntime({
-          modelPath: manager.modelPath(QWEN_3_5_4B_Q4),
+      const sendEvent = (e: unknown) => sender.send('ai:chat-event', e);
+
+      try {
+        if (!runtime) {
+          console.log('[ai:chat] LlamaRuntime 생성 시작');
+          runtime = await createLlamaRuntime({
+            modelPath: manager.modelPath(QWEN_3_5_4B_Q4),
+          });
+          console.log('[ai:chat] runtime.load() 호출');
+          await runtime.load();
+          console.log('[ai:chat] runtime 로드 완료');
+        }
+      } catch (e: any) {
+        console.error('[ai:chat] 모델 로드 실패:', e);
+        sendEvent({
+          type: 'error',
+          message: `모델 로드 실패: ${e?.message ?? String(e)}\n\n원인 가능성: node-llama-cpp(${'3.18.1'})가 Qwen 3.5 아키텍처를 인식 못 할 수 있어요. 콘솔에서 자세한 에러 확인.`,
         });
-        await runtime.load();
+        sendEvent({ type: 'done' });
+        runtime = null;
+        return;
       }
+
       abort = new AbortController();
 
       const ctx: ToolContext = {
@@ -109,13 +126,22 @@ export function registerAiHandlers(ipcMain: IpcMain) {
           ? payload.messages
           : [{ role: 'system', content: SYSTEM_PROMPT }, ...payload.messages];
 
-      await runtime.chat(
-        messagesWithSystem,
-        toolDefs,
-        (e) => sender.send('ai:chat-event', e),
-        async (name, args) => dispatcher.dispatch(name, args, ctx),
-        abort.signal,
-      );
+      try {
+        await runtime.chat(
+          messagesWithSystem,
+          toolDefs,
+          sendEvent,
+          async (name, args) => dispatcher.dispatch(name, args, ctx),
+          abort.signal,
+        );
+      } catch (e: any) {
+        console.error('[ai:chat] chat 실행 중 예외:', e);
+        sendEvent({
+          type: 'error',
+          message: `답변 생성 실패: ${e?.message ?? String(e)}`,
+        });
+        sendEvent({ type: 'done' });
+      }
 
       abort = null;
     },
