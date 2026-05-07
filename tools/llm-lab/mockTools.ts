@@ -21,12 +21,13 @@ const importTools = ALL_TOOLS.filter((t) => importToolNames.includes(t.name));
 
 const searchStudent: ToolHandler<any> = {
   name: 'searchStudent',
-  description: '이름 또는 전화번호 부분 일치로 수강생 검색 (동명이인 다건 반환)',
+  description: '수강생 검색. 이름/전화 부분 일치, 둘 다 없으면 전체 목록(최대 limit개) 반환.',
   schema: z.object({
     name: z.string().optional(),
     phone: z.string().optional(),
-  }).refine((v) => v.name || v.phone, { message: 'name 또는 phone 중 하나는 필수' }),
-  async execute(args: { name?: string; phone?: string }) {
+    limit: z.number().int().min(1).max(200).optional().default(50),
+  }),
+  async execute(args: { name?: string; phone?: string; limit?: number }) {
     return {
       students: students
         .filter((s) => {
@@ -34,7 +35,28 @@ const searchStudent: ToolHandler<any> = {
           if (args.phone && !s.phone.includes(args.phone.replace(/\D+/g, ''))) return false;
           return true;
         })
+        .slice(0, args.limit ?? 50)
         .map((s) => ({ id: s.id, name: s.name, phone: s.phone, status: s.status, is_member: s.is_member })),
+    };
+  },
+};
+
+const getOrgStats: ToolHandler<any> = {
+  name: 'getOrgStats',
+  description: '조직 전체 요약 통계 — 총 수강생/강좌/활성 등록/이번 달 매출. "총 몇 명?", "전체 통계" 같은 질문에 사용.',
+  schema: z.object({}).optional(),
+  async execute() {
+    const totalStudents = students.length;
+    const totalCourses = courses.length;
+    const activeEnrollments = enrollments.filter((e) => e.status === 'active').length;
+    const monthPayments = paymentRecords.filter((p) => p.paid_at.startsWith(THIS_MONTH));
+    return {
+      totalStudents,
+      totalCourses,
+      activeEnrollments,
+      currentMonth: THIS_MONTH,
+      currentMonthRevenue: monthPayments.reduce((s, p) => s + p.amount, 0),
+      currentMonthPaymentCount: monthPayments.length,
     };
   },
 };
@@ -244,5 +266,6 @@ export const MOCK_TOOLS: ToolHandler<any>[] = [
   getClassRoster,
   getMonthlySummary,
   getStudentSummary,
+  getOrgStats,
   ...importTools,
 ];
