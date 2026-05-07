@@ -127,6 +127,7 @@ export default function AiChatPage() {
 
   const handleSend = useCallback(
     async (text: string, attachment?: { fileId: string; name: string }) => {
+      // UI에 표시할 user 메시지는 깨끗한 원문 + 첨부 메타
       const userMsg: ChatMessage = {
         role: 'user',
         content: text,
@@ -138,18 +139,19 @@ export default function AiChatPage() {
       setMessages(next);
       setStreaming(true);
 
-      // 첨부 파일이 있을 때만 임포트 가이드 추가 (없으면 LLM이 엑셀 얘기 안 하도록)
-      const messagesForLlm = attachment
+      // LLM이 보는 user 메시지엔 fileId + 처리 순서 가이드를 직접 임베드
+      // (별도 system 메시지로 추가하면 LlamaRuntime의 find()가 첫 system만 보고 무시함)
+      const messagesForLlm: ChatMessage[] = attachment
         ? [
-            ...next,
+            ...messages,
             {
-              role: 'system' as const,
-              content: [
-                `사용자가 엑셀 파일을 첨부했습니다. fileId="${attachment.fileId}".`,
-                `다음 순서로 처리하세요: parseExcelHeaders → mapColumns → previewImport.`,
-                `매핑 실패(mismatch) 시 표준 양식 안내 후 멈춥니다.`,
+              ...userMsg,
+              content:
+                `${text}\n\n` +
+                `[첨부 엑셀: ${attachment.name} (fileId="${attachment.fileId}")]\n` +
+                `다음 순서로 처리하세요: parseExcelHeaders → mapColumns → previewImport. ` +
+                `매핑 실패 시 표준 양식 안내 후 멈춥니다. ` +
                 `previewImport 후 사용자가 "확정"이라고 명시할 때만 confirmImport를 호출하세요.`,
-              ].join(' '),
             },
           ]
         : next;
