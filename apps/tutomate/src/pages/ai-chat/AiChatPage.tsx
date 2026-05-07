@@ -72,7 +72,14 @@ export default function AiChatPage() {
           }
           return [...m, { role: 'assistant', content: '', cards: [e.card] }];
         });
-      } else if (e.type === 'done' || e.type === 'error') {
+      } else if (e.type === 'error') {
+        // 에러를 채팅에 시스템 메시지로 표시
+        setMessages((m) => [
+          ...m,
+          { role: 'assistant', content: `⚠️ ${e.message ?? '알 수 없는 오류'}` },
+        ]);
+        setStreaming(false);
+      } else if (e.type === 'done') {
         setStreaming(false);
       }
     });
