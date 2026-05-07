@@ -12,6 +12,16 @@ export const getOrgStats: ToolHandler<typeof schema> = {
   schema,
   async execute(_args, ctx) {
     if (!supabase) throw new Error('Supabase 미설정');
+    if (!ctx.orgId) {
+      return {
+        error: {
+          code: 'no_org',
+          message: '현재 로그인된 조직을 찾을 수 없습니다. 앱에 로그인되어 있는지 확인하세요.',
+        },
+      };
+    }
+
+    console.log('[getOrgStats] querying org_id=', ctx.orgId);
 
     const [studentsRes, coursesRes, enrollmentsRes] = await Promise.all([
       supabase.from('students').select('id', { count: 'exact', head: true }).eq('org_id', ctx.orgId),
@@ -23,15 +33,23 @@ export const getOrgStats: ToolHandler<typeof schema> = {
         .eq('status', 'active'),
     ]);
 
-    const month = new Date().toISOString().slice(0, 7); // YYYY-MM
-    const { data: pays } = await supabase
+    if (studentsRes.error || coursesRes.error || enrollmentsRes.error) {
+      const err = studentsRes.error ?? coursesRes.error ?? enrollmentsRes.error;
+      console.error('[getOrgStats] supabase error:', err);
+      throw new Error(err?.message ?? 'DB 조회 실패');
+    }
+
+    const month = new Date().toISOString().slice(0, 7);
+    const { data: pays, error: paysErr } = await supabase
       .from('payment_records')
       .select('amount')
       .eq('org_id', ctx.orgId)
       .gte('paid_at', `${month}-01`)
       .lte('paid_at', `${month}-31`);
+    if (paysErr) console.warn('[getOrgStats] payments query error:', paysErr);
 
-    return {
+    const result = {
+      orgId: ctx.orgId,
       totalStudents: studentsRes.count ?? 0,
       totalCourses: coursesRes.count ?? 0,
       activeEnrollments: enrollmentsRes.count ?? 0,
@@ -39,5 +57,7 @@ export const getOrgStats: ToolHandler<typeof schema> = {
       currentMonthRevenue: (pays ?? []).reduce((s, p: any) => s + (p.amount ?? 0), 0),
       currentMonthPaymentCount: pays?.length ?? 0,
     };
+    console.log('[getOrgStats] result:', result);
+    return result;
   },
 };
