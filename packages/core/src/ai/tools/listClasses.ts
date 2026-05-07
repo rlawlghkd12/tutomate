@@ -15,14 +15,14 @@ export const listClasses: ToolHandler<typeof schema> = {
         .from('enrollments')
         .select('courses!inner(id, name, instructor_name)')
         .eq('student_id', studentId)
-        .eq('org_id', ctx.orgId);
+;
       if (error) throw new Error(error.message);
       return { classes: (data ?? []).map((r: any) => r.courses) };
     }
     const { data, error } = await supabase
       .from('courses')
       .select('id, name, instructor_name')
-      .eq('org_id', ctx.orgId);
+;
     if (error) throw new Error(error.message);
     return { classes: data ?? [] };
   },

@@ -30,9 +30,9 @@ export const confirmImport: ToolHandler<typeof schema> = {
     let duplicated = 0;
 
     if (kind === 'students') {
+      // org 격리는 RLS가 처리. 컬럼은 phone으로 unique 가정 (스키마 확인 후 조정).
       const rows = valid
         .map((n) => ({
-          org_id: ctx.orgId,
           name: n.data.name as string,
           phone: n.data.phone as string | undefined,
           birth_date: n.data.birthDate as string | undefined,
@@ -40,10 +40,7 @@ export const confirmImport: ToolHandler<typeof schema> = {
         .filter((r) => r.name);
       const { data, error } = await supabase
         .from('students')
-        .upsert(rows, {
-          onConflict: 'org_id,phone',
-          ignoreDuplicates: false,
-        })
+        .upsert(rows, { onConflict: 'phone', ignoreDuplicates: false })
         .select('id');
       if (error) throw new Error(error.message);
       added = data?.length ?? 0;
@@ -56,14 +53,13 @@ export const confirmImport: ToolHandler<typeof schema> = {
         .from('students')
         .select('id, phone')
         .in('phone', phones)
-        .eq('org_id', ctx.orgId);
+;
       const phoneToId = new Map(
         (students ?? []).map((s: any) => [s.phone, s.id]),
       );
 
       const rows = valid
         .map((n) => ({
-          org_id: ctx.orgId,
           student_id: phoneToId.get(n.data.phone as string),
           paid_at: n.data.paymentDate,
           amount: n.data.amount,

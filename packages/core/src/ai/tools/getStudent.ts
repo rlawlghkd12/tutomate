@@ -14,7 +14,7 @@ export const getStudent: ToolHandler<typeof schema> = {
       .from('students')
       .select('*')
       .eq('id', studentId)
-      .eq('org_id', ctx.orgId)
+
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) {

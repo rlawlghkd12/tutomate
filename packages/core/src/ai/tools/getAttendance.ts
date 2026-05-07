@@ -17,7 +17,7 @@ export const getAttendance: ToolHandler<typeof schema> = {
       .from('attendance_records')
       .select('session_date, status')
       .eq('student_id', studentId)
-      .eq('org_id', ctx.orgId)
+
       .order('session_date', { ascending: false })
       .limit(50);
     if (period) {
