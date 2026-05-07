@@ -19,6 +19,8 @@ export interface LlamaRuntime {
     onToolCall: (name: string, args: unknown) => Promise<unknown>,
     signal?: AbortSignal,
   ): Promise<void>;
+  /** 대화 히스토리를 초기화하고 시퀀스를 새로 잡는다. */
+  resetSession(): Promise<void>;
   unload(): Promise<void>;
 }
 
@@ -37,21 +39,46 @@ export async function createLlamaRuntime(
   let llamaInst: any = null;
   let model: any = null;
   let context: any = null;
+  let sequence: any = null;
+  let session: any = null;
+  /** 마지막에 사용된 시스템 프롬프트 (변경 감지용) */
+  let lastSystemPrompt: string | undefined;
+
+  function ensureSession(systemPrompt: string | undefined) {
+    // 시스템 프롬프트가 바뀌면 세션 재생성
+    if (session && systemPrompt !== lastSystemPrompt) {
+      try { session.dispose?.(); } catch { /* ignore */ }
+      try { sequence?.dispose?.(); } catch { /* ignore */ }
+      session = null;
+      sequence = null;
+    }
+    if (!session) {
+      const { LlamaChatSession } = llamaPkg as any;
+      sequence = context.getSequence();
+      session = new LlamaChatSession({
+        contextSequence: sequence,
+        systemPrompt,
+      });
+      lastSystemPrompt = systemPrompt;
+    }
+  }
 
   return {
     async load() {
       llamaInst = await llamaPkg.getLlama();
       model = await llamaInst.loadModel({ modelPath: opts.modelPath });
-      context = await model.createContext({ contextSize: opts.contextSize ?? 4096 });
+      context = await model.createContext({
+        contextSize: opts.contextSize ?? 4096,
+        // 동시 시퀀스 슬롯 — 재사용 패턴이라 1로 충분하지만 여유분
+        sequences: 1,
+      });
     },
 
     async chat(messages, tools, onEvent, onToolCall, signal) {
       if (!context) throw new Error('LlamaRuntime: load()를 먼저 호출하세요');
 
-      const { LlamaChatSession } = llamaPkg as any;
-      const session = new LlamaChatSession({
-        contextSequence: context.getSequence(),
-      });
+      const systemMsg = messages.find((m) => m.role === 'system');
+      ensureSession(systemMsg?.content);
 
       // node-llama-cpp v3: tools를 functions로 변환
       const functions: Record<string, any> = {};
@@ -68,8 +95,9 @@ export async function createLlamaRuntime(
         };
       }
 
-      const last = messages[messages.length - 1];
-      const userText = last?.content ?? '';
+      // 최신 user 메시지만 prompt에 전달 (이전 히스토리는 session이 자체 보관)
+      const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+      const userText = lastUser?.content ?? '';
 
       try {
         await session.prompt(userText, {
@@ -89,9 +117,21 @@ export async function createLlamaRuntime(
       }
     },
 
+    async resetSession() {
+      try { await session?.dispose?.(); } catch { /* ignore */ }
+      try { await sequence?.dispose?.(); } catch { /* ignore */ }
+      session = null;
+      sequence = null;
+      lastSystemPrompt = undefined;
+    },
+
     async unload() {
+      try { await session?.dispose?.(); } catch { /* ignore */ }
+      try { await sequence?.dispose?.(); } catch { /* ignore */ }
       try { await context?.dispose?.(); } catch { /* ignore */ }
       try { await llamaInst?.dispose?.(); } catch { /* ignore */ }
+      session = null;
+      sequence = null;
       context = null;
       model = null;
       llamaInst = null;
