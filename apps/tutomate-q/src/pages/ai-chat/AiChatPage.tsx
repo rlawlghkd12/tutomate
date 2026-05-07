@@ -140,6 +140,16 @@ export default function AiChatPage() {
           }]
         : next;
 
+      console.log('[AiChatPage] aiChat 호출 — orgId:', orgId, 'userId:', userId);
+      if (!orgId) {
+        setMessages((m) => [
+          ...m,
+          { role: 'assistant', content: '⚠️ 로그인된 조직 정보를 찾을 수 없어요. 다시 로그인해주세요.' },
+        ]);
+        setStreaming(false);
+        return;
+      }
+
       await window.electronAPI.aiChat({
         messages: messagesForLlm,
         orgId,
