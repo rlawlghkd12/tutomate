@@ -13,8 +13,16 @@ export async function setSupabaseSession(
   access_token: string,
   refresh_token: string,
 ): Promise<void> {
-  if (!supabase) return;
-  await supabase.auth.setSession({ access_token, refresh_token });
+  if (!supabase) {
+    console.warn('[setSupabaseSession] supabase 클라이언트 없음 (env 미설정)');
+    return;
+  }
+  const result = await supabase.auth.setSession({ access_token, refresh_token });
+  if (result.error) {
+    console.error('[setSupabaseSession] error:', result.error);
+    throw new Error(result.error.message);
+  }
+  console.log('[setSupabaseSession] OK — userId:', result.data.session?.user?.id);
 }
 
 export const supabase: SupabaseClient | null =
