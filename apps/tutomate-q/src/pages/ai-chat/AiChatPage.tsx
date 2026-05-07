@@ -132,12 +132,20 @@ export default function AiChatPage() {
       setMessages(next);
       setStreaming(true);
 
-      // 첨부 파일이 있으면 LLM에게 fileId 힌트 추가
+      // 첨부 파일이 있을 때만 임포트 가이드 추가 (없으면 LLM이 엑셀 얘기 안 하도록)
       const messagesForLlm = attachment
-        ? [...next, {
-            role: 'system' as const,
-            content: `사용자가 엑셀 파일을 첨부했습니다. fileId="${attachment.fileId}". 적절한 도구(parseExcelHeaders, mapColumns, previewImport)를 호출해주세요.`,
-          }]
+        ? [
+            ...next,
+            {
+              role: 'system' as const,
+              content: [
+                `사용자가 엑셀 파일을 첨부했습니다. fileId="${attachment.fileId}".`,
+                `다음 순서로 처리하세요: parseExcelHeaders → mapColumns → previewImport.`,
+                `매핑 실패(mismatch) 시 표준 양식 안내 후 멈춥니다.`,
+                `previewImport 후 사용자가 "확정"이라고 명시할 때만 confirmImport를 호출하세요.`,
+              ].join(' '),
+            },
+          ]
         : next;
 
       console.log('[AiChatPage] aiChat 호출 — orgId:', orgId, 'userId:', userId);
