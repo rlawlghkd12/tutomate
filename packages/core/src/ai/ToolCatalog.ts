@@ -39,11 +39,29 @@ export const ALL_TOOLS: AnyTool[] = [
   confirmImport,
 ];
 
-/** ToolHandler[] → LLM이 이해하는 ToolDefinition[] (zod → JSONSchema 변환). */
+/**
+ * JSONSchema 압축 — 토큰 절약:
+ * - $schema URL 제거 (수십 토큰)
+ * - additionalProperties:false 제거 (큰 의미 없음)
+ * - default 값은 유지 (LLM이 알아야 함)
+ */
+function compressSchema(schema: unknown): unknown {
+  if (!schema || typeof schema !== 'object') return schema;
+  if (Array.isArray(schema)) return schema.map(compressSchema);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(schema as Record<string, unknown>)) {
+    if (k === '$schema') continue;
+    if (k === 'additionalProperties' && v === false) continue;
+    out[k] = compressSchema(v);
+  }
+  return out;
+}
+
+/** ToolHandler[] → LLM이 이해하는 ToolDefinition[] (zod → JSONSchema 변환 + 압축). */
 export function toToolDefinitions(tools: AnyTool[]): ToolDefinition[] {
   return tools.map((t) => ({
     name: t.name,
     description: t.description,
-    parameters: zodToJsonSchema(t.schema, { target: 'jsonSchema7' }),
+    parameters: compressSchema(zodToJsonSchema(t.schema, { target: 'jsonSchema7' })) as object,
   }));
 }
