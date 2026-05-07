@@ -45,7 +45,8 @@ export async function createLlamaRuntime(
       llamaInst = await llamaPkg.getLlama();
       model = await llamaInst.loadModel({ modelPath: opts.modelPath });
       context = await model.createContext({
-        contextSize: opts.contextSize ?? 4096,
+        // 도구 14개 카탈로그(JSON Schema)만 ~2~3K 토큰 차지 → 여유분 8K
+        contextSize: opts.contextSize ?? 8192,
         sequences: 1,
       });
     },
