@@ -25,12 +25,12 @@ export const getOrgStats: ToolHandler<typeof schema> = {
 
     // head:true + count 조합이 빈 응답 내는 케이스가 있어 일반 select로 카운트
     const [studentsRes, coursesRes, enrollmentsRes] = await Promise.all([
-      supabase.from('students').select('id').eq('org_id', ctx.orgId),
-      supabase.from('courses').select('id').eq('org_id', ctx.orgId),
+      supabase.from('students').select('id'),
+      supabase.from('courses').select('id'),
       supabase
         .from('enrollments')
         .select('id')
-        .eq('org_id', ctx.orgId)
+
         .eq('status', 'active'),
     ]);
 
@@ -63,7 +63,7 @@ export const getOrgStats: ToolHandler<typeof schema> = {
     const { data: pays, error: paysErr } = await supabase
       .from('payment_records')
       .select('amount')
-      .eq('org_id', ctx.orgId)
+
       .gte('paid_at', `${month}-01`)
       .lte('paid_at', `${month}-31`);
     if (paysErr) console.warn('[getOrgStats] payments query error:', paysErr);

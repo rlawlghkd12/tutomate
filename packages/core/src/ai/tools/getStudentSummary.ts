@@ -16,7 +16,7 @@ export const getStudentSummary: ToolHandler<typeof schema> = {
           .from('students')
           .select('*')
           .eq('id', studentId)
-          .eq('org_id', ctx.orgId)
+
           .maybeSingle(),
         supabase
           .from('payment_records')

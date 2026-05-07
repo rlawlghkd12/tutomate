@@ -17,7 +17,7 @@ export const getUnpaidStudents: ToolHandler<typeof schema> = {
     const { data, error } = await supabase
       .from('monthly_payments')
       .select('student_id, status, students!inner(id, name, phone)')
-      .eq('org_id', ctx.orgId)
+
       .eq('month', target)
       .in('status', ['pending', 'partial']);
     if (error) throw new Error(error.message);

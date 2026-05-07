@@ -22,7 +22,7 @@ export const getPaymentHistory: ToolHandler<typeof schema> = {
       .from('payment_records')
       .select('id, paid_at, amount, payment_method, notes')
       .eq('student_id', studentId)
-      .eq('org_id', ctx.orgId)
+
       .order('paid_at', { ascending: false })
       .limit(limit);
 

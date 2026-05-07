@@ -14,7 +14,7 @@ export const getEnrollment: ToolHandler<typeof schema> = {
       .from('enrollments')
       .select('id, course_id, status, started_at, ended_at, courses!inner(id, name)')
       .eq('student_id', studentId)
-      .eq('org_id', ctx.orgId);
+;
     if (error) throw new Error(error.message);
     return { enrollments: data ?? [] };
   },

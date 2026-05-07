@@ -17,7 +17,7 @@ export const searchStudent: ToolHandler<typeof schema> = {
     let q = supabase
       .from('students')
       .select('id, name, phone')
-      .eq('org_id', ctx.orgId)
+
       .limit(args.limit ?? 50);
     if (args.name) q = q.ilike('name', `%${args.name}%`);
     if (args.phone) q = q.ilike('phone', `%${args.phone.replace(/\D+/g, '')}%`);

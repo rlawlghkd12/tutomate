@@ -13,7 +13,7 @@ export const getMonthlySummary: ToolHandler<typeof schema> = {
     const { data: pays } = await supabase
       .from('payment_records')
       .select('amount')
-      .eq('org_id', ctx.orgId)
+
       .gte('paid_at', `${month}-01`)
       .lte('paid_at', `${month}-31`);
     const totalAmount = (pays ?? []).reduce(
@@ -24,7 +24,7 @@ export const getMonthlySummary: ToolHandler<typeof schema> = {
     const { data: enrolls } = await supabase
       .from('enrollments')
       .select('id')
-      .eq('org_id', ctx.orgId)
+
       .gte('started_at', `${month}-01`)
       .lte('started_at', `${month}-31`);
     const newEnrollments = enrolls?.length ?? 0;

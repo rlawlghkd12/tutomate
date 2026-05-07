@@ -14,7 +14,7 @@ export const getClassRoster: ToolHandler<typeof schema> = {
       .from('enrollments')
       .select('students!inner(id, name, phone)')
       .eq('course_id', classId)
-      .eq('org_id', ctx.orgId);
+;
     if (error) throw new Error(error.message);
     return { roster: (data ?? []).map((r: any) => r.students) };
   },
