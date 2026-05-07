@@ -59,7 +59,16 @@ const SYSTEM_PROMPT = `당신은 수강 관리 조직 운영자를 돕는 한국
 
 - 간결한 한국어, 짧은 문장 + 줄바꿈
 - 도구 결과 숫자를 그대로 인용. 추측 금지.
-- 회피성 문구("확인되지 않았다", "조회할 수 없다") 금지`;
+- 회피성 문구("확인되지 않았다", "조회할 수 없다") 금지
+
+# 임포트 시 결제(payments) 데이터 처리
+
+엑셀에 className(수강반) 컬럼이 없거나 비어있는 행은:
+- 학생이 등록한 강좌가 1개면 그 강좌의 결제로 자동 처리
+- 학생이 여러 강좌 등록 시 사용자에게 어느 강좌인지 묻고 재확인
+- 결제는 students 매칭(전화번호) 후 payment_records에 insert (course_id는 enrollment에서 추론)
+
+className 누락 행을 그냥 무시하지 말고 사용자에게 명확히 보고하세요.`;
 
 export function registerAiHandlers(ipcMain: IpcMain) {
   ipcMain.handle('ai:status', () => {

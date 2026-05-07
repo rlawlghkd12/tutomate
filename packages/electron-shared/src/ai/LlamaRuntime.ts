@@ -45,9 +45,9 @@ export async function createLlamaRuntime(
       llamaInst = await llamaPkg.getLlama();
       model = await llamaInst.loadModel({ modelPath: opts.modelPath });
       context = await model.createContext({
-        // 도구 14개 카탈로그(JSON Schema)만 ~2~3K 토큰 차지 → 여유분 8K
         contextSize: opts.contextSize ?? 8192,
-        sequences: 1,
+        // 시퀀스 풀 — dispose 누락/race 시 안전마진 (메모리 비용 미미)
+        sequences: 4,
       });
     },
 
@@ -65,7 +65,15 @@ export async function createLlamaRuntime(
       const userText = (lastUser?.content ?? '') + ' /no_think';
 
       const { LlamaChatSession } = llamaPkg as any;
-      const sequence = context.getSequence();
+      let sequence: any;
+      try {
+        sequence = context.getSequence();
+      } catch (e: any) {
+        // 시퀀스 풀이 다 차면 잠시 기다려 재시도 (compact 효과)
+        console.warn('[LlamaRuntime] getSequence 실패, 0.5초 대기 후 재시도:', e?.message);
+        await new Promise((r) => setTimeout(r, 500));
+        sequence = context.getSequence();
+      }
       const session = new LlamaChatSession({
         contextSequence: sequence,
         systemPrompt: systemMsg?.content,
@@ -104,8 +112,15 @@ export async function createLlamaRuntime(
           onEvent({ type: 'error', message: e?.message ?? String(e) });
         }
       } finally {
+        // node-llama-cpp v3: sequence.dispose()가 시퀀스 슬롯을 풀어줌.
+        // session.dispose는 v3에서 없을 수 있음 — try만.
         try { await session.dispose?.(); } catch { /* ignore */ }
-        try { await sequence.dispose?.(); } catch { /* ignore */ }
+        try {
+          await sequence.dispose?.();
+          console.log('[LlamaRuntime] sequence disposed');
+        } catch (e: any) {
+          console.warn('[LlamaRuntime] sequence dispose 실패:', e?.message);
+        }
       }
     },
 
