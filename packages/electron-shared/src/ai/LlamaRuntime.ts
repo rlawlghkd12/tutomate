@@ -61,7 +61,8 @@ export async function createLlamaRuntime(
 
       const systemMsg = messages.find((m) => m.role === 'system');
       const lastUser = [...messages].reverse().find((m) => m.role === 'user');
-      const userText = lastUser?.content ?? '';
+      // Qwen 3.5는 thinking 모드 기본 활성 → 빈 출력 길게. /no_think 태그로 비활성.
+      const userText = (lastUser?.content ?? '') + ' /no_think';
 
       const { LlamaChatSession } = llamaPkg as any;
       const sequence = context.getSequence();
@@ -92,7 +93,8 @@ export async function createLlamaRuntime(
           signal,
           onTextChunk: (chunk: string) =>
             onEvent({ type: 'token', token: chunk }),
-          maxTokens: 1024,
+          maxTokens: 2048,
+          temperature: 0.3,
         });
         onEvent({ type: 'done' });
       } catch (e: any) {
