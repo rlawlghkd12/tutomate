@@ -7,13 +7,13 @@ import { ModelDownloadModal } from './components/ModelDownloadModal';
 import { DirectImportFallback } from './components/DirectImportFallback';
 import type { DisplayMessage } from './components/MessageBubble';
 
-type AiState = 'not_installed' | 'loading_pending' | 'ready' | 'disabled';
+type AiState = 'unknown' | 'not_installed' | 'loading_pending' | 'ready' | 'disabled';
 
 export default function AiChatPage() {
   const orgId = useAuthStore((s) => s.organizationId ?? '');
   const userId = useAuthStore((s) => s.session?.user?.id ?? '');
 
-  const [state, setState] = useState<AiState>('loading_pending');
+  const [state, setState] = useState<AiState>('unknown');
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
 
@@ -35,8 +35,9 @@ export default function AiChatPage() {
   }, []);
 
   // chat 스트림 이벤트 수신 → messages 갱신
+  // loading_pending도 챗 UI 노출 대상 (실 chat 호출 시 lazy load됨)
   useEffect(() => {
-    if (state !== 'ready') return;
+    if (state !== 'ready' && state !== 'loading_pending') return;
     return window.electronAPI.onAiChatEvent((e: any) => {
       if (e.type === 'token') {
         setMessages((m) => {
@@ -111,7 +112,8 @@ export default function AiChatPage() {
     ]);
   }, []);
 
-  if (state === 'loading_pending') {
+  // unknown: 메인 프로세스 status 응답 대기 중 (initial check)
+  if (state === 'unknown') {
     return <div className="p-8 text-center">준비 중…</div>;
   }
   if (state === 'not_installed') {
@@ -125,6 +127,8 @@ export default function AiChatPage() {
   if (state === 'disabled') {
     return <DirectImportFallback />;
   }
+  // 'loading_pending'은 모델 설치 완료 + runtime 미로드 상태.
+  // 첫 chat 호출 시 메인이 lazy load 하므로 chat UI 노출.
 
   return (
     <div className="flex flex-col h-full">
