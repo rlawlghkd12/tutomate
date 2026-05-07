@@ -21,18 +21,19 @@ export const getMonthlySummary: ToolHandler<typeof schema> = {
       0,
     );
 
-    const { count: newEnrollments } = await supabase
+    const { data: enrolls } = await supabase
       .from('enrollments')
-      .select('id', { count: 'exact', head: true })
+      .select('id')
       .eq('org_id', ctx.orgId)
       .gte('started_at', `${month}-01`)
       .lte('started_at', `${month}-31`);
+    const newEnrollments = enrolls?.length ?? 0;
 
     return {
       month,
       totalAmount,
       paymentCount: pays?.length ?? 0,
-      newEnrollments: newEnrollments ?? 0,
+      newEnrollments,
     };
   },
 };
