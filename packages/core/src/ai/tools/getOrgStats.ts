@@ -33,10 +33,29 @@ export const getOrgStats: ToolHandler<typeof schema> = {
         .eq('status', 'active'),
     ]);
 
+    // 각 쿼리 결과 개별 출력 (어느 테이블이 막혔는지 식별)
+    console.log('[getOrgStats] students:', { count: studentsRes.count, error: studentsRes.error });
+    console.log('[getOrgStats] courses:', { count: coursesRes.count, error: coursesRes.error });
+    console.log('[getOrgStats] enrollments:', { count: enrollmentsRes.count, error: enrollmentsRes.error });
+
+    // 현재 supabase auth 상태도 같이 (인증 적용됐는지 검증용)
+    const { data: authData } = await supabase.auth.getSession();
+    console.log('[getOrgStats] auth state:', {
+      hasSession: !!authData.session,
+      userId: authData.session?.user?.id,
+      expires_at: authData.session?.expires_at,
+    });
+
     if (studentsRes.error || coursesRes.error || enrollmentsRes.error) {
       const err = studentsRes.error ?? coursesRes.error ?? enrollmentsRes.error;
-      // Supabase 에러 객체 전체 출력 (code/details/hint 포함)
-      console.error('[getOrgStats] supabase error full:', JSON.stringify(err, null, 2));
+      // Supabase Error 객체 — 모든 own prop 추출
+      const errDump: Record<string, unknown> = {};
+      if (err) {
+        for (const k of Object.getOwnPropertyNames(err)) {
+          errDump[k] = (err as any)[k];
+        }
+      }
+      console.error('[getOrgStats] supabase error own-props:', JSON.stringify(errDump, null, 2));
       throw new Error(err?.message || (err as any)?.code || 'DB 조회 실패 — RLS 또는 인증 문제 가능');
     }
 
