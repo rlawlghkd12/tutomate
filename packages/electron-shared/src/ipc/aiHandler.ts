@@ -22,8 +22,14 @@ const manager = new ModelManager(aiDir);
 let runtime: LlamaRuntime | null = null;
 let abort: AbortController | null = null;
 
+// 임포트 도구는 첨부 파일이 있을 때만 LLM에게 노출 (없으면 무관 질문에 끌려감)
+const IMPORT_TOOL_NAMES = new Set(['parseExcelHeaders', 'mapColumns', 'previewImport', 'confirmImport']);
+const QUERY_TOOLS = ALL_TOOLS.filter((t) => !IMPORT_TOOL_NAMES.has(t.name));
+const QUERY_TOOL_DEFS = toToolDefinitions(QUERY_TOOLS);
+const ALL_TOOL_DEFS = toToolDefinitions(ALL_TOOLS);
+
+// dispatcher는 항상 모든 도구를 알고 있어야 함 (실행은 가능)
 const dispatcher = createDispatcher(ALL_TOOLS);
-const toolDefs = toToolDefinitions(ALL_TOOLS);
 
 /**
  * 시스템 프롬프트 — 챗봇이 항상 지켜야 할 규칙.
@@ -101,7 +107,12 @@ export function registerAiHandlers(ipcMain: IpcMain) {
     'ai:chat',
     async (
       event,
-      payload: { messages: ChatMessage[]; orgId: string; userId: string },
+      payload: {
+        messages: ChatMessage[];
+        orgId: string;
+        userId: string;
+        hasAttachment?: boolean;
+      },
     ) => {
       const sender = event.sender;
       const sendEvent = (e: unknown) => sender.send('ai:chat-event', e);
@@ -143,10 +154,14 @@ export function registerAiHandlers(ipcMain: IpcMain) {
           ? payload.messages
           : [{ role: 'system', content: SYSTEM_PROMPT }, ...payload.messages];
 
+      // 첨부 파일 있을 때만 임포트 도구 노출
+      const activeToolDefs = payload.hasAttachment ? ALL_TOOL_DEFS : QUERY_TOOL_DEFS;
+      console.log(`[ai:chat] tools 노출: ${activeToolDefs.length}개 (hasAttachment=${!!payload.hasAttachment})`);
+
       try {
         await runtime.chat(
           messagesWithSystem,
-          toolDefs,
+          activeToolDefs,
           sendEvent,
           async (name, args) => dispatcher.dispatch(name, args, ctx),
           abort.signal,

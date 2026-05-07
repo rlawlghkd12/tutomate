@@ -162,6 +162,7 @@ export default function AiChatPage() {
         messages: messagesForLlm,
         orgId,
         userId,
+        hasAttachment: !!attachment,
       });
     },
     [messages, orgId, userId],
