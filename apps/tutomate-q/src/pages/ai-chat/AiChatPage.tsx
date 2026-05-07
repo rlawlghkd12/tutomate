@@ -35,6 +35,8 @@ function saveHistory(orgId: string, messages: DisplayMessage[]) {
 export default function AiChatPage() {
   const orgId = useAuthStore((s) => s.organizationId ?? '');
   const userId = useAuthStore((s) => s.session?.user?.id ?? '');
+  const accessToken = useAuthStore((s) => s.session?.access_token ?? '');
+  const refreshToken = useAuthStore((s) => s.session?.refresh_token ?? '');
 
   const [state, setState] = useState<AiState>('unknown');
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
@@ -163,9 +165,11 @@ export default function AiChatPage() {
         orgId,
         userId,
         hasAttachment: !!attachment,
+        accessToken,
+        refreshToken,
       });
     },
-    [messages, orgId, userId],
+    [messages, orgId, userId, accessToken, refreshToken],
   );
 
   const handleConfirmPreview = useCallback(
