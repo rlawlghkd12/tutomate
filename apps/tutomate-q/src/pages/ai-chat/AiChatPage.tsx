@@ -91,13 +91,17 @@ export default function AiChatPage() {
       if (e.type === 'token') {
         setMessages((m) => {
           const last = m[m.length - 1];
+          // 답변 앞부분의 빈 공백/줄바꿈은 무시 (Qwen 3.5 thinking 잔여물 차단)
+          const incoming = e.token as string;
           if (last?.role === 'assistant') {
-            return [
-              ...m.slice(0, -1),
-              { ...last, content: (last.content ?? '') + e.token },
-            ];
+            const prevContent = last.content ?? '';
+            const next = prevContent === '' ? incoming.replace(/^\s+/, '') : prevContent + incoming;
+            if (next === '') return m; // 여전히 공백만이면 추가 무시
+            return [...m.slice(0, -1), { ...last, content: next }];
           }
-          return [...m, { role: 'assistant', content: e.token }];
+          const trimmed = incoming.replace(/^\s+/, '');
+          if (trimmed === '') return m;
+          return [...m, { role: 'assistant', content: trimmed }];
         });
       } else if (e.type === 'card') {
         setMessages((m) => {
