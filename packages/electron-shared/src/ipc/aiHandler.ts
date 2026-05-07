@@ -11,6 +11,7 @@ import {
   ALL_TOOLS,
   createDispatcher,
   toToolDefinitions,
+  setSupabaseSession,
   type ChatMessage,
   type SmartCard,
   type ToolContext,
@@ -112,10 +113,22 @@ export function registerAiHandlers(ipcMain: IpcMain) {
         orgId: string;
         userId: string;
         hasAttachment?: boolean;
+        accessToken?: string;
+        refreshToken?: string;
       },
     ) => {
       const sender = event.sender;
       const sendEvent = (e: unknown) => sender.send('ai:chat-event', e);
+
+      // 사용자 세션 주입 — RLS 정책 통과용
+      if (payload.accessToken) {
+        try {
+          await setSupabaseSession(payload.accessToken, payload.refreshToken ?? '');
+          console.log('[ai:chat] supabase 세션 적용됨');
+        } catch (e: any) {
+          console.warn('[ai:chat] supabase 세션 적용 실패:', e?.message ?? e);
+        }
+      }
 
       try {
         if (!runtime) {

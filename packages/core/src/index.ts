@@ -3,7 +3,7 @@ export { appConfig } from './config/appConfig';
 export { THEMES, resolveTheme, getThemeMode } from './config/themes';
 export type { ThemeId, ThemeDefinition } from './config/themes';
 export { APP_NAME, useAppVersion } from './config/version';
-export { supabase, isSupabaseConfigured } from './config/supabase';
+export { supabase, isSupabaseConfigured, setSupabaseSession } from './config/supabase';
 export { PLAN_LIMITS, PlanTypeEnum } from './config/planLimits';
 export type { PlanType, PlanLimitKey } from './config/planLimits';
 export {
