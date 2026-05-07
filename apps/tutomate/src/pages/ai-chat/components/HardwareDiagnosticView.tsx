@@ -26,11 +26,11 @@ export function HardwareDiagnosticView() {
           : 'AI 챗봇을 사용할 수 없는 사양입니다. 직접 임포트만 가능합니다.';
 
   return (
-    <div className="p-4 bg-gray-50 rounded-xl">
+    <div className="p-4 bg-muted rounded-xl text-foreground">
       <div className="text-base">
         RAM: {d.ramGB}GB · 디스크 여유: {d.diskGB}GB
       </div>
-      <div className="text-base mt-1">{msg}</div>
+      <div className="text-base mt-1 text-muted-foreground">{msg}</div>
     </div>
   );
 }

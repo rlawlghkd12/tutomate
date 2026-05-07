@@ -66,7 +66,7 @@ export function ModelDownloadModal({ onInstalled, onSkip }: Props) {
         <button
           onClick={onSkip}
           disabled={downloading}
-          className="bg-gray-200 px-6 py-3 rounded-xl text-lg disabled:opacity-50"
+          className="bg-secondary text-secondary-foreground border border-border px-6 py-3 rounded-xl text-lg disabled:opacity-50 hover:bg-accent"
         >
           나중에
         </button>

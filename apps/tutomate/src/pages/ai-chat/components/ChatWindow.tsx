@@ -17,7 +17,7 @@ export function ChatWindow({ messages, onConfirmPreview, onCancelPreview }: Prop
   return (
     <div ref={ref} className="flex-1 overflow-y-auto p-4 space-y-3">
       {messages.length === 0 && (
-        <div className="text-center text-gray-500 mt-12 text-lg">
+        <div className="text-center text-muted-foreground mt-12 text-lg">
           안녕하세요. 수강생 정보를 묻거나 엑셀을 첨부해 추가해주세요.
         </div>
       )}
