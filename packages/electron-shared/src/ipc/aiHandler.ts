@@ -72,6 +72,10 @@ export function registerAiHandlers(ipcMain: IpcMain) {
     abort?.abort();
   });
 
+  ipcMain.handle('ai:reset-session', async () => {
+    if (runtime) await runtime.resetSession();
+  });
+
   ipcMain.handle('ai:uninstall', async () => {
     if (runtime) {
       await runtime.unload();
