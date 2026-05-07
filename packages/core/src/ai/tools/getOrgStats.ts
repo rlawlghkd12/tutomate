@@ -23,20 +23,20 @@ export const getOrgStats: ToolHandler<typeof schema> = {
 
     console.log('[getOrgStats] querying org_id=', ctx.orgId);
 
+    // head:true + count 조합이 빈 응답 내는 케이스가 있어 일반 select로 카운트
     const [studentsRes, coursesRes, enrollmentsRes] = await Promise.all([
-      supabase.from('students').select('id', { count: 'exact', head: true }).eq('org_id', ctx.orgId),
-      supabase.from('courses').select('id', { count: 'exact', head: true }).eq('org_id', ctx.orgId),
+      supabase.from('students').select('id').eq('org_id', ctx.orgId),
+      supabase.from('courses').select('id').eq('org_id', ctx.orgId),
       supabase
         .from('enrollments')
-        .select('id', { count: 'exact', head: true })
+        .select('id')
         .eq('org_id', ctx.orgId)
         .eq('status', 'active'),
     ]);
 
-    // 각 쿼리 결과 개별 출력 (어느 테이블이 막혔는지 식별)
-    console.log('[getOrgStats] students:', { count: studentsRes.count, error: studentsRes.error });
-    console.log('[getOrgStats] courses:', { count: coursesRes.count, error: coursesRes.error });
-    console.log('[getOrgStats] enrollments:', { count: enrollmentsRes.count, error: enrollmentsRes.error });
+    console.log('[getOrgStats] students:', { rows: studentsRes.data?.length, error: studentsRes.error });
+    console.log('[getOrgStats] courses:', { rows: coursesRes.data?.length, error: coursesRes.error });
+    console.log('[getOrgStats] enrollments:', { rows: enrollmentsRes.data?.length, error: enrollmentsRes.error });
 
     // 현재 supabase auth 상태도 같이 (인증 적용됐는지 검증용)
     const { data: authData } = await supabase.auth.getSession();
@@ -70,9 +70,9 @@ export const getOrgStats: ToolHandler<typeof schema> = {
 
     const result = {
       orgId: ctx.orgId,
-      totalStudents: studentsRes.count ?? 0,
-      totalCourses: coursesRes.count ?? 0,
-      activeEnrollments: enrollmentsRes.count ?? 0,
+      totalStudents: studentsRes.data?.length ?? 0,
+      totalCourses: coursesRes.data?.length ?? 0,
+      activeEnrollments: enrollmentsRes.data?.length ?? 0,
       currentMonth: month,
       currentMonthRevenue: (pays ?? []).reduce((s, p: any) => s + (p.amount ?? 0), 0),
       currentMonthPaymentCount: pays?.length ?? 0,
