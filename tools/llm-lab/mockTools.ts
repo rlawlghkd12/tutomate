@@ -44,7 +44,7 @@ const searchStudent: ToolHandler<any> = {
 const getOrgStats: ToolHandler<any> = {
   name: 'getOrgStats',
   description: '조직 전체 요약 통계 — 총 수강생/강좌/활성 등록/이번 달 매출. "총 몇 명?", "전체 통계" 같은 질문에 사용.',
-  schema: z.object({}).optional(),
+  schema: z.object({}),
   async execute() {
     const totalStudents = students.length;
     const totalCourses = courses.length;

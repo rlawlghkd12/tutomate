@@ -2,9 +2,10 @@ import { z } from 'zod';
 import { supabase } from '../../config/supabase';
 import type { ToolHandler } from '../types';
 
-const schema = z.object({}).optional();
+// 인자 없는 도구지만 빈 object 스키마 필요 (node-llama-cpp GBNF가 최상위 optional 거부)
+const schema = z.object({});
 
-export const getOrgStats: ToolHandler<any> = {
+export const getOrgStats: ToolHandler<typeof schema> = {
   name: 'getOrgStats',
   description:
     '조직 전체 요약 통계 — 총 수강생/강좌/활성 등록/이번 달 매출. "총 몇 명?", "전체 통계" 같은 질문에 사용.',
