@@ -159,6 +159,7 @@ export default function AiChatPage() {
     <div className="flex flex-col h-full">
       <ChatWindow
         messages={messages}
+        streaming={streaming}
         onConfirmPreview={handleConfirmPreview}
         onCancelPreview={handleCancelPreview}
       />
