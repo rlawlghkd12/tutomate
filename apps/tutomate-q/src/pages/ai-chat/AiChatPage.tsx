@@ -166,6 +166,14 @@ export default function AiChatPage() {
     ]);
   }, []);
 
+  const handleNewChat = useCallback(() => {
+    if (streaming) return;
+    if (messages.length > 0 && !confirm('대화를 새로 시작할까요? 지금까지의 내용은 사라집니다.')) return;
+    setMessages([]);
+    saveHistory(orgId, []);
+    window.electronAPI.aiResetSession?.().catch(() => undefined);
+  }, [orgId, messages.length, streaming]);
+
   // 진단 실패 시 에러 표시 (조용히 멈추지 않게)
   if (statusError) {
     return (
@@ -196,14 +204,6 @@ export default function AiChatPage() {
   }
   // 'loading_pending'은 모델 설치 완료 + runtime 미로드 상태.
   // 첫 chat 호출 시 메인이 lazy load 하므로 chat UI 노출.
-
-  const handleNewChat = useCallback(() => {
-    if (streaming) return;
-    if (messages.length > 0 && !confirm('대화를 새로 시작할까요? 지금까지의 내용은 사라집니다.')) return;
-    setMessages([]);
-    saveHistory(orgId, []);
-    window.electronAPI.aiResetSession?.().catch(() => undefined);
-  }, [orgId, messages.length, streaming]);
 
   return (
     <div className="flex flex-col h-full">
