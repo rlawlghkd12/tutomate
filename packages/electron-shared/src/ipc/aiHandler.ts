@@ -121,6 +121,12 @@ export function registerAiHandlers(ipcMain: IpcMain) {
       const sendEvent = (e: unknown) => sender.send('ai:chat-event', e);
 
       // 사용자 세션 주입 — RLS 정책 통과용
+      console.log(
+        '[ai:chat] payload — accessToken len=',
+        payload.accessToken?.length ?? 0,
+        'refreshToken len=',
+        payload.refreshToken?.length ?? 0,
+      );
       if (payload.accessToken) {
         try {
           await setSupabaseSession(payload.accessToken, payload.refreshToken ?? '');
@@ -128,6 +134,8 @@ export function registerAiHandlers(ipcMain: IpcMain) {
         } catch (e: any) {
           console.warn('[ai:chat] supabase 세션 적용 실패:', e?.message ?? e);
         }
+      } else {
+        console.warn('[ai:chat] accessToken 없음 — RLS 차단 가능성. 로그인 상태 확인 필요.');
       }
 
       try {

@@ -35,8 +35,9 @@ export const getOrgStats: ToolHandler<typeof schema> = {
 
     if (studentsRes.error || coursesRes.error || enrollmentsRes.error) {
       const err = studentsRes.error ?? coursesRes.error ?? enrollmentsRes.error;
-      console.error('[getOrgStats] supabase error:', err);
-      throw new Error(err?.message ?? 'DB 조회 실패');
+      // Supabase 에러 객체 전체 출력 (code/details/hint 포함)
+      console.error('[getOrgStats] supabase error full:', JSON.stringify(err, null, 2));
+      throw new Error(err?.message || (err as any)?.code || 'DB 조회 실패 — RLS 또는 인증 문제 가능');
     }
 
     const month = new Date().toISOString().slice(0, 7);
