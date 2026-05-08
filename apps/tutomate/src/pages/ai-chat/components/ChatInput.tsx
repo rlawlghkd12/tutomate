@@ -5,10 +5,12 @@ interface Props {
     text: string,
     attachment?: { fileId: string; name: string },
   ) => void;
-  disabled?: boolean;
+  onCancel?: () => void;
+  /** 스트리밍 중 (응답 받는 중) */
+  streaming?: boolean;
 }
 
-export function ChatInput({ onSend, disabled }: Props) {
+export function ChatInput({ onSend, onCancel, streaming }: Props) {
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState<{ fileId: string; name: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -46,7 +48,7 @@ export function ChatInput({ onSend, disabled }: Props) {
       <div className="flex gap-2">
         <button
           onClick={() => fileRef.current?.click()}
-          disabled={disabled}
+          disabled={streaming}
           className="px-4 py-3 bg-secondary text-secondary-foreground rounded-xl text-lg disabled:opacity-50 hover:bg-accent"
           aria-label="파일 첨부"
         >
@@ -64,16 +66,25 @@ export function ChatInput({ onSend, disabled }: Props) {
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
           placeholder="질문하거나 엑셀을 첨부하세요"
-          disabled={disabled}
+          disabled={streaming}
           className="flex-1 border border-border rounded-xl px-4 py-3 text-lg bg-background text-foreground placeholder:text-muted-foreground disabled:opacity-50"
         />
-        <button
-          onClick={handleSend}
-          disabled={disabled}
-          className="bg-primary text-primary-foreground px-6 py-3 rounded-xl text-lg disabled:opacity-50"
-        >
-          보내기
-        </button>
+        {streaming ? (
+          <button
+            onClick={onCancel}
+            className="bg-destructive text-destructive-foreground px-6 py-3 rounded-xl text-lg hover:opacity-90"
+            aria-label="응답 중지"
+          >
+            ■ 중지
+          </button>
+        ) : (
+          <button
+            onClick={handleSend}
+            className="bg-primary text-primary-foreground px-6 py-3 rounded-xl text-lg"
+          >
+            보내기
+          </button>
+        )}
       </div>
     </div>
   );

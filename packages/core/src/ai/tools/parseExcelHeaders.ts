@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { parseExcel } from '../../excel/ExcelParser';
+import { sanitizeRow } from '../security/sanitize';
 import type { ToolHandler } from '../types';
 
 const schema = z.object({ fileId: z.string() });
@@ -14,7 +15,8 @@ export const parseExcelHeaders: ToolHandler<typeof schema> = {
     const parsed = parseExcel(new Uint8Array(buf));
     return {
       headers: parsed.headers,
-      sample: parsed.rows.slice(0, 3),
+      // 샘플 셀 값은 LLM에 노출되므로 sanitize (prompt injection 방어)
+      sample: parsed.rows.slice(0, 3).map(sanitizeRow),
       totalRows: parsed.rows.length,
     };
   },
