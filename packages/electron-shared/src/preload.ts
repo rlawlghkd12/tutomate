@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   aiDownload: () => ipcRenderer.invoke('ai:download'),
   aiCancel: () => ipcRenderer.invoke('ai:cancel'),
   aiResetSession: () => ipcRenderer.invoke('ai:reset-session'),
+  aiDispatch: (payload: unknown) => ipcRenderer.invoke('ai:dispatch', payload),
   aiUninstall: () => ipcRenderer.invoke('ai:uninstall'),
   aiChat: (payload: { messages: unknown[]; orgId: string; userId: string }) =>
     ipcRenderer.invoke('ai:chat', payload),

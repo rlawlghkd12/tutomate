@@ -185,13 +185,27 @@ export default function AiChatPage() {
   );
 
   const handleConfirmPreview = useCallback(
-    (card: Extract<SmartCard, { type: 'importPreview' }>) => {
-      // confirmImport는 LLM에 추가 prompt로 위임 (간단·결정론)
-      handleSend(
-        `확정해주세요. fileId="${card.fileId}" mapping=${JSON.stringify(card.mapping)} kind="${card.kind}"`,
-      );
+    async (card: Extract<SmartCard, { type: 'importPreview' }>) => {
+      // 보안: LLM 우회로 confirmImport 직접 dispatch.
+      // LLM이 자동 호출 못 하게 차단됨 (시스템 프롬프트 + 화이트리스트).
+      setStreaming(true);
+      try {
+        const r = await window.electronAPI.aiDispatch({
+          toolName: 'confirmImport',
+          args: { fileId: card.fileId, mapping: card.mapping, kind: card.kind },
+          orgId, userId, accessToken, refreshToken,
+        });
+        if (r.error) {
+          setMessages((m) => [
+            ...m,
+            { role: 'assistant', content: `⚠️ 확정 실패: ${r.error?.message}` },
+          ]);
+        }
+      } finally {
+        setStreaming(false);
+      }
     },
-    [handleSend],
+    [orgId, userId, accessToken, refreshToken],
   );
 
   const handleCancelPreview = useCallback(() => {
@@ -260,7 +274,14 @@ export default function AiChatPage() {
         onConfirmPreview={handleConfirmPreview}
         onCancelPreview={handleCancelPreview}
       />
-      <ChatInput onSend={handleSend} disabled={streaming} />
+      <ChatInput
+        onSend={handleSend}
+        onCancel={() => {
+          window.electronAPI.aiCancel?.().catch(() => undefined);
+          setStreaming(false);
+        }}
+        streaming={streaming}
+      />
     </div>
   );
 }

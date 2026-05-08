@@ -47,6 +47,14 @@ interface ElectronAPI {
   aiDownload(): Promise<void>;
   aiCancel(): Promise<void>;
   aiResetSession(): Promise<void>;
+  aiDispatch(payload: {
+    toolName: string;
+    args: unknown;
+    orgId: string;
+    userId: string;
+    accessToken?: string;
+    refreshToken?: string;
+  }): Promise<{ result?: unknown; error?: { code: string; message: string } }>;
   aiUninstall(): Promise<void>;
   aiChat(payload: {
     messages: unknown[];
