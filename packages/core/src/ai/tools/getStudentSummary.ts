@@ -8,7 +8,7 @@ export const getStudentSummary: ToolHandler<typeof schema> = {
   name: 'getStudentSummary',
   description: '수강생 종합 요약 (등록 강좌, 최근 결제, 출석률 등)',
   schema,
-  async execute({ studentId }, ctx) {
+  async execute({ studentId }, _ctx) {
     if (!supabase) throw new Error('Supabase 미설정');
     const [{ data: student }, { data: payments }, { data: enrolls }] =
       await Promise.all([

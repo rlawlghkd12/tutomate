@@ -12,7 +12,7 @@ export const searchStudent: ToolHandler<typeof schema> = {
   name: 'searchStudent',
   description: '수강생 검색. 이름/전화 부분 일치, 둘 다 없으면 전체 목록 반환(최대 limit개).',
   schema,
-  async execute(args, ctx) {
+  async execute(args, _ctx) {
     if (!supabase) throw new Error('Supabase 미설정');
     let q = supabase
       .from('students')

@@ -8,7 +8,7 @@ export const getMonthlySummary: ToolHandler<typeof schema> = {
   name: 'getMonthlySummary',
   description: '해당 월의 매출/등록 요약 통계',
   schema,
-  async execute({ month }, ctx) {
+  async execute({ month }, _ctx) {
     if (!supabase) throw new Error('Supabase 미설정');
     const { data: pays } = await supabase
       .from('payment_records')

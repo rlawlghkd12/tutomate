@@ -14,8 +14,11 @@ export {
   type ModelSpec,
   type ModelEvent,
 } from './ModelManager';
+export type { LlamaRuntime, LlamaRuntimeOptions } from './LlamaRuntime';
+export { createLlamaServerRuntime } from './LlamaServerRuntime';
 export {
-  createLlamaRuntime,
-  type LlamaRuntime,
-  type LlamaRuntimeOptions,
-} from './LlamaRuntime';
+  findLlamaServerBin,
+  detectPlatformDir,
+  llamaBinDownloadUrl,
+  LLAMA_BIN_RELEASE,
+} from './llamaServerBin';

@@ -8,7 +8,7 @@ export const getClassRoster: ToolHandler<typeof schema> = {
   name: 'getClassRoster',
   description: '특정 강좌의 수강생 명단',
   schema,
-  async execute({ classId }, ctx) {
+  async execute({ classId }, _ctx) {
     if (!supabase) throw new Error('Supabase 미설정');
     const { data, error } = await supabase
       .from('enrollments')

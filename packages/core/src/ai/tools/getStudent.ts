@@ -8,7 +8,7 @@ export const getStudent: ToolHandler<typeof schema> = {
   name: 'getStudent',
   description: '특정 수강생의 상세 정보',
   schema,
-  async execute({ studentId }, ctx) {
+  async execute({ studentId }, _ctx) {
     if (!supabase) throw new Error('Supabase 미설정');
     const { data, error } = await supabase
       .from('students')

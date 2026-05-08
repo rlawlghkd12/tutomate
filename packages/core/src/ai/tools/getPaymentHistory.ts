@@ -16,7 +16,7 @@ export const getPaymentHistory: ToolHandler<typeof schema> = {
   name: 'getPaymentHistory',
   description: '수강생의 결제 이력. period로 최근 기간 필터링 가능.',
   schema,
-  async execute({ studentId, period, limit }, ctx) {
+  async execute({ studentId, period, limit }, _ctx) {
     if (!supabase) throw new Error('Supabase 미설정');
     let q = supabase
       .from('payment_records')

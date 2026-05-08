@@ -13,18 +13,17 @@ directories:
 files:
   - dist/**/*
   - dist-electron/**/*
-  - "node_modules/node-llama-cpp/**"
-  - "node_modules/@node-llama-cpp/**"
-  - "node_modules/@huggingface/**"
-  - "node_modules/@reflink/**"
   - "!node_modules/@tailwindcss/**"
   - "!node_modules/tailwindcss/**"
   - "!node_modules/lightningcss/**"
   - "!node_modules/lightningcss-*/**"
 
-asarUnpack:
-  - "node_modules/node-llama-cpp/**"
-  - "node_modules/@node-llama-cpp/**"
+# llama-server 바이너리는 build/llama-bin/ 에서 가져와 resources/llama-bin/ 에 번들
+# 첫 빌드 전에 scripts/fetch-llama-server.sh 실행 필요
+extraResources:
+  - from: build/llama-bin
+    to: llama-bin
+    filter: ["**/*"]
 
 publish:
   provider: github
