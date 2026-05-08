@@ -45,13 +45,8 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: [
-                'electron',
-                'node-llama-cpp',
-                /^@node-llama-cpp\//,
-                '@huggingface/jinja',
-                '@reflink/reflink',
-              ],
+              // electron만 externalize. node-llama-cpp 의존성 제거됨.
+              external: ['electron'],
             },
           },
           define: {
@@ -72,13 +67,6 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     chunkSizeWarningLimit: 3000,
-    rollupOptions: {
-      external: [
-        'node-llama-cpp',
-        /^@node-llama-cpp\//,
-        '@huggingface/jinja',
-      ],
-    },
   },
   server: {
     port: 5173,

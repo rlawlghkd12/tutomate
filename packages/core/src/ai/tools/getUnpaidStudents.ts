@@ -11,7 +11,7 @@ export const getUnpaidStudents: ToolHandler<typeof schema> = {
   name: 'getUnpaidStudents',
   description: '특정 월(미지정 시 이번 달)의 미납자 목록',
   schema,
-  async execute({ month }, ctx) {
+  async execute({ month }, _ctx) {
     if (!supabase) throw new Error('Supabase 미설정');
     const target = month ?? dayjs().format('YYYY-MM');
     const { data, error } = await supabase

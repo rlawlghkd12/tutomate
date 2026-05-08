@@ -8,7 +8,7 @@ export const listClasses: ToolHandler<typeof schema> = {
   name: 'listClasses',
   description: '강좌 목록. studentId 지정 시 해당 수강생이 등록한 강좌만.',
   schema,
-  async execute({ studentId }, ctx) {
+  async execute({ studentId }, _ctx) {
     if (!supabase) throw new Error('Supabase 미설정');
     if (studentId) {
       const { data, error } = await supabase

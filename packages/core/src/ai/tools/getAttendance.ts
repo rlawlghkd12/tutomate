@@ -11,7 +11,7 @@ export const getAttendance: ToolHandler<typeof schema> = {
   name: 'getAttendance',
   description: '수강생의 출석 기록 (period: YYYY-MM)',
   schema,
-  async execute({ studentId, period }, ctx) {
+  async execute({ studentId, period }, _ctx) {
     if (!supabase) throw new Error('Supabase 미설정');
     let q = supabase
       .from('attendance_records')

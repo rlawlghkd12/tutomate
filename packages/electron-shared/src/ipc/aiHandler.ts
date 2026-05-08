@@ -4,7 +4,8 @@ import {
   ModelManager,
   QWEN_3_5_4B_Q4,
   diagnose,
-  createLlamaRuntime,
+  createLlamaServerRuntime,
+  findLlamaServerBin,
   type LlamaRuntime,
 } from '../ai';
 import {
@@ -73,6 +74,9 @@ className 누락 행을 그냥 무시하지 말고 사용자에게 명확히 보
 export function registerAiHandlers(ipcMain: IpcMain) {
   ipcMain.handle('ai:status', () => {
     if (!manager.isInstalled(QWEN_3_5_4B_Q4)) return 'not_installed';
+    if (!findLlamaServerBin(app.getPath('userData'), process.resourcesPath)) {
+      return 'engine_missing';
+    }
     return runtime ? 'ready' : 'loading_pending';
   });
 
@@ -149,19 +153,20 @@ export function registerAiHandlers(ipcMain: IpcMain) {
 
       try {
         if (!runtime) {
-          console.log('[ai:chat] LlamaRuntime 생성 시작');
-          runtime = await createLlamaRuntime({
+          console.log('[ai:chat] LlamaServerRuntime 생성 시작');
+          runtime = await createLlamaServerRuntime({
             modelPath: manager.modelPath(QWEN_3_5_4B_Q4),
+            userDataDir: app.getPath('userData'),
+            resourcesPath: process.resourcesPath,
           });
-          console.log('[ai:chat] runtime.load() 호출');
           await runtime.load();
-          console.log('[ai:chat] runtime 로드 완료');
+          console.log('[ai:chat] runtime 준비 완료 (서버 spawn은 첫 chat에서 lazy)');
         }
       } catch (e: any) {
-        console.error('[ai:chat] 모델 로드 실패:', e);
+        console.error('[ai:chat] 런타임 생성 실패:', e);
         sendEvent({
           type: 'error',
-          message: `모델 로드 실패: ${e?.message ?? String(e)}\n\n원인 가능성: node-llama-cpp(${'3.18.1'})가 Qwen 3.5 아키텍처를 인식 못 할 수 있어요. 콘솔에서 자세한 에러 확인.`,
+          message: `AI 엔진 시작 실패: ${e?.message ?? String(e)}\n\nllama-server 바이너리가 설치돼있는지 확인하세요.`,
         });
         sendEvent({ type: 'done' });
         runtime = null;
