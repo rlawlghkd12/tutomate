@@ -39,6 +39,19 @@ const dispatcher = createDispatcher(ALL_TOOLS);
  */
 const SYSTEM_PROMPT = `당신은 수강 관리 조직 운영자를 돕는 한국어 AI 어시스턴트입니다.
 
+# 데이터 모델 (참고)
+
+- **students**: id, name, phone, email, address, birth_date, notes, is_member
+- **courses**: id, name, classroom, instructor_name, fee, max_students, current_students
+- **enrollments**: id, student_id, course_id, payment_status('pending'|'partial'|'completed'|'exempt'|'withdrawn'), paid_amount, remaining_amount, quarter
+  - 한 학생이 여러 강좌에 등록 가능 → 학생당 enrollment 다수
+- **payment_records**: id, **enrollment_id**, amount, paid_at, payment_method('cash'|'card'|'transfer'), notes
+  - student와 직접 연결 안 됨 → enrollment_id 통해 학생/강좌 추적
+- **monthly_payments**: id, **enrollment_id**, month(YYYY-MM), amount, status('pending'|'paid'), paid_at
+  - 미납 = status='pending'
+
+조직 격리는 RLS가 자동 처리. 도구는 org 필터 안 거니까 호출만 하면 됨.
+
 # 핵심 규칙
 
 1. 데이터 질문엔 반드시 먼저 도구를 호출하세요. 도구를 호출하지 않고 "확인되지 않았다"고 답하지 마세요.
