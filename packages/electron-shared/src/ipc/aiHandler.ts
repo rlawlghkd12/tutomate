@@ -141,6 +141,9 @@ export function registerAiHandlers(ipcMain: IpcMain) {
         hasAttachment?: boolean;
         accessToken?: string;
         refreshToken?: string;
+        orgName?: string;
+        orgPlan?: string;
+        userEmail?: string;
       },
     ) => {
       const sender = event.sender;
@@ -196,11 +199,23 @@ export function registerAiHandlers(ipcMain: IpcMain) {
           sender.send('ai:chat-event', { type: 'card', card }),
       };
 
+      // 현재 사용자/조직 컨텍스트 주입 — LLM이 도구 없이도 즉답 가능
+      const today = new Date().toISOString().slice(0, 10);
+      const contextLines = [
+        `오늘 날짜: ${today}`,
+        payload.orgName ? `현재 조직 이름: ${payload.orgName}` : null,
+        payload.orgPlan ? `조직 플랜: ${payload.orgPlan}` : null,
+        payload.userEmail ? `로그인 사용자: ${payload.userEmail}` : null,
+      ].filter(Boolean).join('\n');
+      const fullSystemPrompt = contextLines
+        ? `${SYSTEM_PROMPT}\n\n# 현재 컨텍스트\n\n${contextLines}`
+        : SYSTEM_PROMPT;
+
       // 시스템 프롬프트가 메시지 첫 자리에 오도록 보장
       const messagesWithSystem: ChatMessage[] =
         payload.messages[0]?.role === 'system'
           ? payload.messages
-          : [{ role: 'system', content: SYSTEM_PROMPT }, ...payload.messages];
+          : [{ role: 'system', content: fullSystemPrompt }, ...payload.messages];
 
       // 첨부 파일 있을 때만 임포트 도구 노출
       const activeToolDefs = payload.hasAttachment ? ALL_TOOL_DEFS : QUERY_TOOL_DEFS;

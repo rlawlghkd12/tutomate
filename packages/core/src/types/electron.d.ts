@@ -55,6 +55,9 @@ interface ElectronAPI {
     hasAttachment?: boolean;
     accessToken?: string;
     refreshToken?: string;
+    orgName?: string;
+    orgPlan?: string;
+    userEmail?: string;
   }): Promise<void>;
   aiDirectImport(fileId: string, orgId: string, userId: string): Promise<{ card: any }>;
   onAiDownloadEvent(callback: (e: any) => void): () => void;
