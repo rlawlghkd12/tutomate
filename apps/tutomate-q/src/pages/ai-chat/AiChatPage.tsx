@@ -34,7 +34,10 @@ function saveHistory(orgId: string, messages: DisplayMessage[]) {
 
 export default function AiChatPage() {
   const orgId = useAuthStore((s) => s.organizationId ?? '');
+  const orgName = useAuthStore((s) => s.organizationName ?? '');
+  const orgPlan = useAuthStore((s) => (s as any).plan ?? '');
   const userId = useAuthStore((s) => s.session?.user?.id ?? '');
+  const userEmail = useAuthStore((s) => s.session?.user?.email ?? '');
   const accessToken = useAuthStore((s) => s.session?.access_token ?? '');
   const refreshToken = useAuthStore((s) => s.session?.refresh_token ?? '');
 
@@ -173,9 +176,12 @@ export default function AiChatPage() {
         hasAttachment: !!attachment,
         accessToken,
         refreshToken,
+        orgName,
+        orgPlan,
+        userEmail,
       });
     },
-    [messages, orgId, userId, accessToken, refreshToken],
+    [messages, orgId, userId, accessToken, refreshToken, orgName, orgPlan, userEmail],
   );
 
   const handleConfirmPreview = useCallback(
