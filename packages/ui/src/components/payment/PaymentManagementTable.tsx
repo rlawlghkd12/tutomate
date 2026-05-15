@@ -200,12 +200,13 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
     return tableData.filter((d) => d.enrollment.paymentStatus === statusFilter);
   }, [tableData, statusFilter]);
 
-  // 통계
+  // 통계 (면제·포기 제외)
   const stats = useMemo(() => {
-    const nonExempt = tableData.filter((d) => d.enrollment.paymentStatus !== 'exempt');
-    const paidCount = nonExempt.filter((d) => d.enrollment.paymentStatus === 'completed').length;
-    const totalPaid = nonExempt.reduce((sum, d) => sum + d.totalPaid, 0);
-    const expectedTotal = nonExempt.reduce((sum, d) => sum + d.effectiveFee, 0);
+    const active = tableData.filter((d) =>
+      d.enrollment.paymentStatus !== 'exempt' && d.enrollment.paymentStatus !== 'withdrawn');
+    const paidCount = active.filter((d) => d.enrollment.paymentStatus === 'completed').length;
+    const totalPaid = active.reduce((sum, d) => sum + d.totalPaid, 0);
+    const expectedTotal = active.reduce((sum, d) => sum + d.effectiveFee, 0);
     return { paidCount, totalPaid, expectedTotal, totalStudents: enrollments.length };
   }, [tableData, enrollments.length]);
 
