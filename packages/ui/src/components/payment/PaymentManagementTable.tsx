@@ -155,6 +155,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showWithdrawn, setShowWithdrawn] = useState(false);
 
   const prevQuarterData = useMemo(() => {
     if (!selectedQuarter || !allEnrollments || !onImportFromQuarter) return null;
@@ -194,11 +195,21 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
     });
   }, [enrollments, records, getStudentById, courseFee]);
 
-  // Filtered data based on status filter
+  // Filtered data based on status filter + withdrawn toggle, 포기는 항상 맨 아래
   const filteredData = useMemo(() => {
-    if (statusFilter === 'all') return tableData;
-    return tableData.filter((d) => d.enrollment.paymentStatus === statusFilter);
-  }, [tableData, statusFilter]);
+    let data = tableData;
+    if (statusFilter === 'all') {
+      if (!showWithdrawn) data = data.filter((d) => d.enrollment.paymentStatus !== 'withdrawn');
+    } else {
+      data = data.filter((d) => d.enrollment.paymentStatus === statusFilter);
+    }
+    // 포기 학생은 맨 아래로
+    return [...data].sort((a, b) => {
+      const aW = a.enrollment.paymentStatus === 'withdrawn' ? 1 : 0;
+      const bW = b.enrollment.paymentStatus === 'withdrawn' ? 1 : 0;
+      return aW - bW;
+    });
+  }, [tableData, statusFilter, showWithdrawn]);
 
   // 통계 (면제·포기 제외)
   const stats = useMemo(() => {
@@ -709,6 +720,10 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               <div style={{ width: 1, height: 20, background: 'hsl(var(--border))' }} />
             </>
           )}
+          <label className="flex items-center gap-1.5 text-[0.82rem] text-muted-foreground cursor-pointer select-none">
+            <Checkbox checked={showWithdrawn} onCheckedChange={(v) => setShowWithdrawn(!!v)} />
+            포기 포함
+          </label>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger style={{ width: 100, height: 32, fontSize: '0.86rem' }}>
               <SelectValue placeholder="전체" />
