@@ -618,7 +618,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm" className="min-h-11 px-3">면제</Button>
+                <Button variant="outline" size="sm" className="min-h-11 px-3">면제</Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
