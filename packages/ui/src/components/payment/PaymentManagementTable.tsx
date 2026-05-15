@@ -722,7 +722,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           )}
           <label className="flex items-center gap-1.5 text-[0.82rem] text-muted-foreground cursor-pointer select-none">
             <Checkbox checked={showWithdrawn} onCheckedChange={(v) => setShowWithdrawn(!!v)} />
-            포기 포함
+            포기자 보기
           </label>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger style={{ width: 100, height: 32, fontSize: '0.86rem' }}>
