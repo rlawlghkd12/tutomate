@@ -65,7 +65,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 	const effectiveFee = courseFee - discountAmount;
 
 	const form = useForm<EnrollmentFormValues>({
-		resolver: zodResolver(enrollmentFormSchema),
+		resolver: zodResolver(enrollmentFormSchema as any) as any,
 		defaultValues: {
 			courseId: "",
 			discountAmount: 0,
