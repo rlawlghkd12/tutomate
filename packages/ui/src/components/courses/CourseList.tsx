@@ -123,6 +123,11 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
         // 선택된 분기 시작 전에 종료된 강좌 제외
         if (c.schedule?.endDate && c.schedule.endDate < quarterStart) return false;
         return true;
+      }).sort((a, b) => {
+        // 종료된 강좌는 맨 아래로
+        const aEnded = isCourseEnded(a) ? 1 : 0;
+        const bEnded = isCourseEnded(b) ? 1 : 0;
+        return aEnded - bEnded;
       });
     }
     return activeTab === 'active' ? activeCourses : endedCourses;

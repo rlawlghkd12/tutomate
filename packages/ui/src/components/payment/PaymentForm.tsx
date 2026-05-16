@@ -342,7 +342,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             <DialogFooter className="mt-5">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button type="button" variant="destructive" className="text-base px-6">면제</Button>
+                  <Button type="button" variant="outline" className="text-base px-6">면제</Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>

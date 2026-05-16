@@ -106,16 +106,17 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
     });
   }, [enrollments, payments, selectedMonth, getStudentById]);
 
-  // 월별 통계
+  // 월별 통계 (면제·포기 제외)
   const monthStats = useMemo(() => {
-    const nonExempt = enrollments.filter((e) => e.paymentStatus !== 'exempt');
-    const nonExemptIds = new Set(nonExempt.map((e) => e.id));
+    const active = enrollments.filter((e) =>
+      e.paymentStatus !== 'exempt' && e.paymentStatus !== 'withdrawn');
+    const activeIds = new Set(active.map((e) => e.id));
     const monthPayments = payments.filter((p) => p.month === selectedMonth);
-    // 면제 수강생의 납부 기록은 통계에서 제외
-    const coursePayments = monthPayments.filter((p) => nonExemptIds.has(p.enrollmentId));
+    // 면제·포기 수강생의 납부 기록은 통계에서 제외
+    const coursePayments = monthPayments.filter((p) => activeIds.has(p.enrollmentId));
     const paidCount = coursePayments.filter((p) => p.status === 'paid').length;
     const totalPaid = coursePayments.reduce((sum, p) => sum + p.amount, 0);
-    const expectedTotal = nonExempt.reduce((sum, e) => sum + (courseFee - (e.discountAmount ?? 0)), 0);
+    const expectedTotal = active.reduce((sum, e) => sum + (courseFee - (e.discountAmount ?? 0)), 0);
 
     return { paidCount, totalPaid, expectedTotal, totalStudents: enrollments.length };
   }, [payments, selectedMonth, enrollments, courseFee]);
