@@ -45,6 +45,7 @@ export { MonthlyRevenueChart } from './components/charts/MonthlyRevenueChart';
 export { PaymentStatusChart } from './components/charts/PaymentStatusChart';
 
 // Course components
+export { default as CourseEnrollForm } from './components/courses/CourseEnrollForm';
 export { default as CourseForm } from './components/courses/CourseForm';
 export { default as CourseList } from './components/courses/CourseList';
 
