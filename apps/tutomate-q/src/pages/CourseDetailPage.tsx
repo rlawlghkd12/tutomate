@@ -237,9 +237,10 @@ const CourseDetailPage: React.FC = () => {
 						})(),
 						colorClass: (() => {
 							const activeNonExempt = activeEnrollments.filter((e) => e.paymentStatus !== "exempt").length;
-							return activeNonExempt > 0 && completedPayments === activeNonExempt;
-							? "text-green-600 dark:text-green-400"
-							: "text-red-600 dark:text-red-400",
+							return activeNonExempt > 0 && completedPayments === activeNonExempt
+								? "text-green-600 dark:text-green-400"
+								: "text-red-600 dark:text-red-400";
+						})(),
 					},
 				].map((item) => (
 					<div
