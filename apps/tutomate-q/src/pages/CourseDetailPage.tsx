@@ -68,10 +68,13 @@ const CourseDetailPage: React.FC = () => {
 	}, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
 	const course = id ? getCourseById(id) : undefined;
+	// 분기 시스템: 해당 분기 수강생 (포기 포함 — "포기" 표시로 남김)
 	const courseEnrollments = appConfig.enableQuarterSystem
-		? enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e) && (e.quarter === selectedQuarter || !e.quarter))
-		: enrollments.filter((e) => e.courseId === id && isActiveEnrollment(e));
+		? enrollments.filter((e) => e.courseId === id && e.quarter === selectedQuarter)
+		: enrollments.filter((e) => e.courseId === id);
 
+	// active 수강생 (정원/완납률 계산용 — 포기 제외)
+	const activeEnrollments = courseEnrollments.filter((e) => isActiveEnrollment(e));
 	const nonExemptEnrollments = courseEnrollments.filter(
 		(e) => e.paymentStatus !== "exempt",
 	);
@@ -79,7 +82,7 @@ const CourseDetailPage: React.FC = () => {
 		(sum, e) => sum + e.paidAmount,
 		0,
 	);
-	const completedPayments = courseEnrollments.filter(
+	const completedPayments = activeEnrollments.filter(
 		(e) => e.paymentStatus === "completed",
 	).length;
 
@@ -224,12 +227,17 @@ const CourseDetailPage: React.FC = () => {
 					{ label: "강사", value: course.instructorName },
 					{ label: "강의실", value: course.classroom },
 					{ label: "수강료", value: `₩${course.fee.toLocaleString()}` },
-					{ label: "수강생", value: `${courseEnrollments.length}/${course.maxStudents}` },
+					{ label: "수강생", value: `${activeEnrollments.length}/${course.maxStudents}` },
 					{ label: "총 수익", value: `₩${totalRevenue.toLocaleString()}`, colorClass: "text-green-600 dark:text-green-400" },
 					{
 						label: "완납률",
-						value: `${nonExemptEnrollments.length > 0 ? ((completedPayments / nonExemptEnrollments.length) * 100).toFixed(1) : "0.0"}%`,
-						colorClass: nonExemptEnrollments.length > 0 && completedPayments === nonExemptEnrollments.length
+						value: (() => {
+							const activeNonExempt = activeEnrollments.filter((e) => e.paymentStatus !== "exempt").length;
+							return `${activeNonExempt > 0 ? ((completedPayments / activeNonExempt) * 100).toFixed(1) : "0.0"}%`;
+						})(),
+						colorClass: (() => {
+							const activeNonExempt = activeEnrollments.filter((e) => e.paymentStatus !== "exempt").length;
+							return activeNonExempt > 0 && completedPayments === activeNonExempt;
 							? "text-green-600 dark:text-green-400"
 							: "text-red-600 dark:text-red-400",
 					},
