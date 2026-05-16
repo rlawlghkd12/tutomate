@@ -10,6 +10,7 @@ import {
 	mapEnrollmentUpdateToDb,
 } from "../utils/fieldMapper";
 import { handleError, showErrorMessage } from "../utils/errors";
+import { appConfig } from "../config/appConfig";
 import { logEvent } from "../utils/eventLogger";
 import { useStudentStore } from "./studentStore";
 import { useCourseStore } from "./courseStore";
@@ -53,10 +54,16 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 	loadEnrollments: async () => {
 		const result = await helper.load();
 		if (result.status === "ok" || result.status === "cached") {
-			const enrollments = result.data.map((e) => ({
+			let enrollments = result.data.map((e) => ({
 				...e,
 				discountAmount: e.discountAmount ?? 0,
 			}));
+			// 일반 버전: quarter 없는 데이터만 / Q 버전: quarter 있는 데이터만
+			if (appConfig.enableQuarterSystem) {
+				enrollments = enrollments.filter((e) => !!e.quarter);
+			} else {
+				enrollments = enrollments.filter((e) => !e.quarter);
+			}
 			set({ enrollments });
 		}
 		if (result.status === "cached") {
