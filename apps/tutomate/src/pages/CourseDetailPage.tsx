@@ -7,10 +7,11 @@ import {
 	FileText,
 	Pencil,
 	Trash2,
+	UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import dayjs from "dayjs";
-import { CourseForm, PaymentManagementTable, PageEnter } from "@tutomate/ui";
+import { CourseEnrollForm, CourseForm, PaymentManagementTable, PageEnter } from "@tutomate/ui";
 import {
 	useCourseStore,
 	useEnrollmentStore,
@@ -52,6 +53,7 @@ const CourseDetailPage: React.FC = () => {
 	);
 
 	const [isCourseEditVisible, setIsCourseEditVisible] = useState(false);
+	const [isEnrollVisible, setIsEnrollVisible] = useState(false);
 
 	// Delete course AlertDialog state
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -175,6 +177,13 @@ const CourseDetailPage: React.FC = () => {
 					<span className="text-[15px] font-semibold">{course.name}</span>
 				</div>
 				<div className="flex items-center gap-1.5">
+					<Button
+						size="sm"
+						onClick={() => setIsEnrollVisible(true)}
+					>
+						<UserPlus className="h-3.5 w-3.5" />
+						수강생 추가
+					</Button>
 					<Button
 						variant="outline"
 						size="sm"
@@ -384,6 +393,13 @@ const CourseDetailPage: React.FC = () => {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+
+			<CourseEnrollForm
+				visible={isEnrollVisible}
+				onClose={() => setIsEnrollVisible(false)}
+				courseId={id}
+				courseFee={course.fee}
+			/>
 		</PageEnter>
 	);
 };
