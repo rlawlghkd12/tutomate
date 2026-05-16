@@ -11,6 +11,7 @@ import {
 } from "../utils/fieldMapper";
 import { handleError, showErrorMessage } from "../utils/errors";
 import { appConfig } from "../config/appConfig";
+import { getCurrentQuarter } from "../utils/quarterUtils";
 
 const helper = createDataHelper<Enrollment, EnrollmentRow>({
 	table: "enrollments",
@@ -142,9 +143,12 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 	},
 
 	getEnrollmentCountByCourseId: (courseId: string) => {
+		const currentQuarter = appConfig.enableQuarterSystem ? getCurrentQuarter() : null;
 		return get().enrollments.filter(
 			(enrollment) =>
-				enrollment.courseId === courseId && isActiveEnrollment(enrollment),
+				enrollment.courseId === courseId &&
+				isActiveEnrollment(enrollment) &&
+				(!currentQuarter || enrollment.quarter === currentQuarter),
 		).length;
 	},
 
