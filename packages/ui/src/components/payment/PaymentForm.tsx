@@ -81,7 +81,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     trigger,
     formState: { errors },
   } = useForm<PaymentFormData>({
-    resolver: zodResolver(paymentSchema) as any,
+    resolver: zodResolver(paymentSchema as any) as any,
     defaultValues: {
       paidAmount: 0,
       paidAt: new Date(),

@@ -66,7 +66,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ visible: open, onClose, course 
 
 	const [submitting, setSubmitting] = useState(false);
   const form = useForm<CourseFormValues>({
-    resolver: zodResolver(courseFormSchema),
+    resolver: zodResolver(courseFormSchema as any) as any,
     defaultValues: {
       name: '',
       classroom: '',
