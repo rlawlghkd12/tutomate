@@ -1,4 +1,4 @@
-import { Download, Pencil, Trash2, FileSpreadsheet, FileText } from "lucide-react";
+import { Download, Pencil, Trash2, FileSpreadsheet, FileText, UserPlus } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -9,7 +9,7 @@ import {
 	Dialog, DialogContent, DialogHeader, DialogTitle,
 	AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
 	AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
-	CourseForm, PaymentManagementTable, StudentForm, PageEnter,
+	CourseEnrollForm, CourseForm, PaymentManagementTable, StudentForm, PageEnter,
 } from "@tutomate/ui";
 import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
@@ -52,6 +52,7 @@ const CourseDetailPage: React.FC = () => {
 
 	const selectedQuarter = searchParams.get('q') || getCurrentQuarter();
 	const [isCourseEditVisible, setIsCourseEditVisible] = useState(false);
+	const [isEnrollVisible, setIsEnrollVisible] = useState(false);
 	const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 	const [isStudentEditVisible, setIsStudentEditVisible] = useState(false);
 
@@ -246,6 +247,13 @@ const CourseDetailPage: React.FC = () => {
 					<span className="text-base font-semibold">{course.name}</span>
 				</div>
 				<div className="flex items-center gap-1.5">
+					<Button
+						size="sm"
+						onClick={() => setIsEnrollVisible(true)}
+					>
+						<UserPlus className="h-4 w-4" />
+						수강생 추가
+					</Button>
 					<Button
 						variant="outline"
 						size="sm"
@@ -493,6 +501,14 @@ const CourseDetailPage: React.FC = () => {
 				visible={isCourseEditVisible}
 				onClose={() => setIsCourseEditVisible(false)}
 				course={course}
+			/>
+
+			<CourseEnrollForm
+				visible={isEnrollVisible}
+				onClose={() => setIsEnrollVisible(false)}
+				courseId={id}
+				courseFee={course.fee}
+				selectedQuarter={selectedQuarter}
 			/>
 		</PageEnter>
 	);
