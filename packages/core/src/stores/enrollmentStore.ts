@@ -32,7 +32,7 @@ interface EnrollmentStore {
 	deleteEnrollment: (id: string) => Promise<boolean>;
 	withdrawEnrollment: (id: string) => Promise<boolean>;
 	getEnrollmentById: (id: string) => Enrollment | undefined;
-	getEnrollmentsByCourseId: (courseId: string) => Enrollment[];
+	getEnrollmentsByCourseId: (courseId: string, quarter?: string) => Enrollment[];
 	getEnrollmentsByStudentId: (studentId: string) => Enrollment[];
 	getEnrollmentCountByCourseId: (courseId: string) => number;
 	updatePayment: (
@@ -130,9 +130,11 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 		return get().enrollments.find((enrollment) => enrollment.id === id);
 	},
 
-	getEnrollmentsByCourseId: (courseId: string) => {
+	getEnrollmentsByCourseId: (courseId: string, quarter?: string) => {
 		return get().enrollments.filter(
-			(enrollment) => enrollment.courseId === courseId,
+			(enrollment) =>
+				enrollment.courseId === courseId &&
+				(!quarter || enrollment.quarter === quarter),
 		);
 	},
 
