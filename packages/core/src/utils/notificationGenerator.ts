@@ -2,6 +2,7 @@ import type { Enrollment, Student, Course } from '../types';
 import { isActiveEnrollment } from '../types';
 import dayjs from 'dayjs';
 import { useNotificationStore } from '../stores/notificationStore';
+import { getOrgId } from '../stores/authStore';
 
 // 미납 알림 생성 (30일 이상 미납)
 export const generatePaymentOverdueNotifications = (
@@ -73,8 +74,10 @@ export const generateAllNotifications = (
   students: Student[],
   courses: Course[]
 ) => {
-  // 기존 알림이 오늘 생성되었는지 확인
-  const lastGeneratedDate = localStorage.getItem('lastNotificationGeneration');
+  // 기존 알림이 오늘 생성되었는지 확인 (org별)
+  const orgId = getOrgId();
+  const storageKey = orgId ? `lastNotificationGeneration_${orgId}` : 'lastNotificationGeneration';
+  const lastGeneratedDate = localStorage.getItem(storageKey);
   const today = dayjs().format('YYYY-MM-DD');
 
   if (lastGeneratedDate === today) {
@@ -84,5 +87,5 @@ export const generateAllNotifications = (
   generatePaymentOverdueNotifications(enrollments, students, courses);
   generatePaymentReminderNotifications(enrollments, students, courses);
 
-  localStorage.setItem('lastNotificationGeneration', today);
+  localStorage.setItem(storageKey, today);
 };

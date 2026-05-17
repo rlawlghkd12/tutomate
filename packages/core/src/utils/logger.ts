@@ -18,7 +18,7 @@ interface LogContext {
 }
 
 class Logger {
-  private isDev = import.meta.env.DEV;
+  private isDev = ((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV) ?? false;
 
   private formatMessage(level: LogLevel, message: string, context?: LogContext): string {
     const timestamp = new Date().toISOString();

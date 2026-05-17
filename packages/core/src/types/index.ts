@@ -75,7 +75,7 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatusType, string> = {
   partial: '부분납부',
   completed: '완납',
   exempt: '면제',
-  withdrawn: '철회',
+  withdrawn: '포기',
 };
 
 // 수강 신청 인터페이스
@@ -135,6 +135,28 @@ export interface PaymentRecord {
   paidAt: string; // YYYY-MM-DD
   paymentMethod?: PaymentMethod;
   notes?: string;
+  createdAt: string;
+}
+
+// 이벤트(감사) 로그
+export type EventLogEntityType = 'payment_record' | 'enrollment' | 'student' | 'course' | 'organization';
+
+export interface EventLogPayload {
+  before?: unknown;
+  after?: unknown;
+  meta?: Record<string, unknown>;
+}
+
+export interface EventLog {
+  id: string;
+  organizationId: string;
+  actorUserId: string | null;
+  actorLabel: string;
+  eventType: string; // 'payment.add', 'enrollment.withdraw' 등 namespace.action
+  entityType: EventLogEntityType;
+  entityId: string | null;
+  entityLabel: string | null;
+  payload: EventLogPayload;
   createdAt: string;
 }
 
