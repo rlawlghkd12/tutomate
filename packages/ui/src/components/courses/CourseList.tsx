@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -7,11 +7,12 @@ import {
   flexRender,
   type ColumnDef,
   type SortingState,
+  type ColumnSizingState,
 } from '@tanstack/react-table';
 import { Search } from 'lucide-react';
 import type { Course } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
-import { useEnrollmentStore, isCourseEnded, DAY_LABELS } from '@tutomate/core';
+import { useEnrollmentStore, isCourseEnded, DAY_LABELS, isActiveEnrollment, formatTime12 } from '@tutomate/core';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import {
@@ -36,23 +37,40 @@ import { Progress } from '../ui/progress';
 
 interface CourseListProps {
   actions?: React.ReactNode;
+  quarterSelector?: React.ReactNode;
+  selectedQuarter?: string;
 }
 
-const CourseList: React.FC<CourseListProps> = ({ actions }) => {
+const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selectedQuarter }) => {
   const navigate = useNavigate();
   const { courses } = useCourseStore();
-  const { getEnrollmentCountByCourseId } = useEnrollmentStore();
+  const { getEnrollmentCountByCourseId, enrollments } = useEnrollmentStore();
   const [searchText, setSearchText] = useState('');
   const [searchField, setSearchField] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<string>('active');
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => {
+    try { const s = localStorage.getItem('courseList_colSizing'); return s ? JSON.parse(s) : {}; } catch { return {}; }
+  });
+  useEffect(() => {
+    if (Object.keys(columnSizing).length > 0) localStorage.setItem('courseList_colSizing', JSON.stringify(columnSizing));
+  }, [columnSizing]);
 
   const handleView = useCallback((id: string) => {
-    navigate(`/courses/${id}`);
-  }, [navigate]);
+    const params = selectedQuarter ? `?q=${selectedQuarter}` : '';
+    navigate(`/courses/${id}${params}`);
+  }, [navigate, selectedQuarter]);
+
+  const getQuarterEnrollmentCount = useCallback((courseId: string) => {
+    if (!selectedQuarter) return undefined;
+    return enrollments.filter(
+      (e) => e.courseId === courseId && isActiveEnrollment(e) && e.quarter === selectedQuarter
+    ).length;
+  }, [enrollments, selectedQuarter]);
 
   const getStatus = useCallback((course: Course) => {
-    const currentStudents = getEnrollmentCountByCourseId(course.id);
+    const currentStudents =
+      getQuarterEnrollmentCount(course.id) ?? getEnrollmentCountByCourseId(course.id);
     if (currentStudents >= course.maxStudents) {
       return 'full';
     } else if (currentStudents >= course.maxStudents * 0.8) {
@@ -60,7 +78,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
     } else {
       return 'open';
     }
-  }, [getEnrollmentCountByCourseId]);
+  }, [getQuarterEnrollmentCount, getEnrollmentCountByCourseId]);
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
@@ -88,7 +106,32 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
 
   const activeCourses = useMemo(() => filteredCourses.filter(c => !isCourseEnded(c)), [filteredCourses]);
   const endedCourses = useMemo(() => filteredCourses.filter(c => isCourseEnded(c)), [filteredCourses, isCourseEnded]);
-  const displayedCourses = activeTab === 'active' ? activeCourses : endedCourses;
+  const displayedCourses = useMemo(() => {
+    if (quarterSelector && selectedQuarter) {
+      const [year, qStr] = selectedQuarter.split('-Q');
+      const q = Number(qStr);
+      const startMonth = (q - 1) * 3 + 1;
+      const endMonth = q * 3;
+      const quarterStart = `${year}-${String(startMonth).padStart(2, '0')}-01`;
+      // 분기 마지막 날 (Q1→03-31, Q2→06-30, Q3→09-30, Q4→12-31)
+      const lastDay = new Date(Number(year), endMonth, 0).getDate();
+      const quarterEnd = `${year}-${String(endMonth).padStart(2, '0')}-${lastDay}`;
+
+      return filteredCourses.filter((c) => {
+        // 선택된 분기 이후에 생성된 강좌 제외
+        if (c.createdAt && c.createdAt.slice(0, 10) > quarterEnd) return false;
+        // 선택된 분기 시작 전에 종료된 강좌 제외
+        if (c.schedule?.endDate && c.schedule.endDate < quarterStart) return false;
+        return true;
+      }).sort((a, b) => {
+        // 종료된 강좌는 맨 아래로
+        const aEnded = isCourseEnded(a) ? 1 : 0;
+        const bEnded = isCourseEnded(b) ? 1 : 0;
+        return aEnded - bEnded;
+      });
+    }
+    return activeTab === 'active' ? activeCourses : endedCourses;
+  }, [quarterSelector, selectedQuarter, filteredCourses, activeTab, activeCourses, endedCourses]);
 
   const columns: ColumnDef<Course>[] = useMemo(() => [
     {
@@ -134,7 +177,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
       enableSorting: false,
       cell: ({ row }) => {
         const s = row.original.schedule;
-        return s?.startTime && s?.endTime ? `${s.startTime}~${s.endTime}` : '-';
+        return s?.startTime && s?.endTime ? `${formatTime12(s.startTime)} ~ ${formatTime12(s.endTime)}` : '-';
       },
     },
     {
@@ -165,10 +208,10 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
       id: 'students',
       header: '수강 인원',
       size: 90,
-      accessorFn: (row) => getEnrollmentCountByCourseId(row.id),
+      accessorFn: (row) => getQuarterEnrollmentCount(row.id) ?? getEnrollmentCountByCourseId(row.id),
       cell: ({ row }) => {
         const course = row.original;
-        const currentStudents = getEnrollmentCountByCourseId(course.id);
+        const currentStudents = getQuarterEnrollmentCount(course.id) ?? getEnrollmentCountByCourseId(course.id);
         const percentage = (currentStudents / course.maxStudents) * 100;
         return (
           <div className="leading-tight">
@@ -191,21 +234,24 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
         if (status === 'full') {
           return <Badge variant="destructive">정원 마감</Badge>;
         } else if (status === 'almost') {
-          return <Badge className="bg-orange-500 hover:bg-orange-500/80 text-white border-transparent">마감 임박</Badge>;
+          return <Badge variant="warning">마감 임박</Badge>;
         } else {
-          return <Badge className="bg-green-500 hover:bg-green-500/80 text-white border-transparent">모집 중</Badge>;
+          return <Badge variant="success">모집 중</Badge>;
         }
       },
     },
-  ], [handleView, getEnrollmentCountByCourseId, getStatus, isCourseEnded]);
+  ], [handleView, getEnrollmentCountByCourseId, getQuarterEnrollmentCount, getStatus, isCourseEnded]);
 
   const table = useReactTable({
     data: displayedCourses,
     columns,
     state: {
       sorting,
+      columnSizing,
     },
     onSortingChange: setSorting,
+    onColumnSizingChange: setColumnSizing,
+    columnResizeMode: 'onChange',
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -213,22 +259,33 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
 
   const emptyMessage = courses.length === 0
     ? "등록된 강좌가 없습니다"
-    : activeTab === 'ended'
-      ? "종료된 강좌가 없습니다"
-      : "검색 결과가 없습니다";
+    : quarterSelector
+      ? "검색 결과가 없습니다"
+      : activeTab === 'ended'
+        ? "종료된 강좌가 없습니다"
+        : "검색 결과가 없습니다";
 
   return (
     <>
-      <Tabs value={activeTab} onValueChange={setActiveTab} style={{ marginBottom: 16 }}>
-        <TabsList>
-          <TabsTrigger value="active">
-            현재 강좌 <span style={{ marginLeft: 6, fontSize: '0.86rem', opacity: 0.7 }}>{activeCourses.length}</span>
-          </TabsTrigger>
-          <TabsTrigger value="ended">
-            종료된 강좌 <span style={{ marginLeft: 6, fontSize: '0.86rem', opacity: 0.7 }}>{endedCourses.length}</span>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {quarterSelector ? (
+        <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+          {quarterSelector}
+          <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>
+            {displayedCourses.length}개 강좌
+          </span>
+        </div>
+      ) : (
+        <Tabs value={activeTab} onValueChange={setActiveTab} style={{ marginBottom: 16 }}>
+          <TabsList>
+            <TabsTrigger value="active">
+              현재 강좌 <span style={{ marginLeft: 6, fontSize: '0.86rem', opacity: 0.7 }}>{activeCourses.length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="ended">
+              종료된 강좌 <span style={{ marginLeft: 6, fontSize: '0.86rem', opacity: 0.7 }}>{endedCourses.length}</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <Select value={searchField} onValueChange={setSearchField}>
@@ -261,29 +318,44 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
         {actions && <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', gap: 8 }}>{actions}</div>}
       </div>
 
-      <Table>
+      <div className="rounded-xl overflow-hidden bg-card [box-shadow:var(--shadow-sm)]">
+      <Table style={{ width: table.getCenterTotalSize() }}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
+                  className="relative group"
                   style={{
                     width: header.getSize(),
                     cursor: header.column.getCanSort() ? 'pointer' : undefined,
-                    userSelect: header.column.getCanSort() ? 'none' : undefined,
+                    userSelect: 'none',
                   }}
                   onClick={header.column.getToggleSortingHandler()}
                 >
                   {header.isPlaceholder ? null : (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <span className="inline-flex items-center gap-1">
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getCanSort() && (
-                        <span style={{ fontSize: '0.71rem', opacity: header.column.getIsSorted() ? 1 : 0.3 }}>
+                        <span className="text-[0.71rem]" style={{ opacity: header.column.getIsSorted() ? 1 : 0.3 }}>
                           {header.column.getIsSorted() === 'asc' ? '▲' : header.column.getIsSorted() === 'desc' ? '▼' : '⇅'}
                         </span>
                       )}
                     </span>
+                  )}
+                  {header.column.getCanResize() && (
+                    <div
+                      onMouseDown={header.getResizeHandler()}
+                      onTouchStart={header.getResizeHandler()}
+                      onClick={(e) => e.stopPropagation()}
+                      onDoubleClick={() => header.column.resetSize()}
+                      className={cn(
+                        'absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none opacity-0 group-hover:opacity-100 transition-opacity',
+                        header.column.getIsResizing() && 'opacity-100 bg-primary'
+                      )}
+                      style={{ background: header.column.getIsResizing() ? undefined : 'hsl(var(--border))' }}
+                    />
                   )}
                 </TableHead>
               ))}
@@ -302,7 +374,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
                 onClick={() => handleView(row.original.id)}
               >
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
+                  <TableCell key={cell.id} style={{ width: cell.column.getSize() }}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
@@ -319,6 +391,7 @@ const CourseList: React.FC<CourseListProps> = ({ actions }) => {
           )}
         </TableBody>
       </Table>
+      </div>
     </>
   );
 };
