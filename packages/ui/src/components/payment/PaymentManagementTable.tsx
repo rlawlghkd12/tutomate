@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -9,13 +9,14 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
-import { Trash2 } from 'lucide-react';
+import { X, Banknote, CreditCard, Building2, Pencil, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
 import { usePaymentRecordStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
-import { PAYMENT_METHOD_LABELS } from '@tutomate/core';
+import { PAYMENT_METHOD_LABELS, logEvent } from '@tutomate/core';
+import { getPreviousQuarter, getQuarterLabel, isActiveEnrollment } from '@tutomate/core';
 import type { Student, PaymentRecord } from '@tutomate/core';
 import dayjs from 'dayjs';
 
@@ -27,6 +28,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { DatePicker } from '../ui/date-picker';
 import { Checkbox } from '../ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -52,6 +54,9 @@ interface PaymentManagementTableProps {
     selectedRowKeys: React.Key[];
     onChange: (keys: React.Key[]) => void;
   };
+  selectedQuarter?: string;
+  allEnrollments?: Enrollment[];
+  onImportFromQuarter?: (studentIds: string[], quarter: string) => Promise<void>;
 }
 
 interface TableDataRow {
@@ -74,17 +79,70 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   showMemberColumn,
   quarterSelector,
   rowSelection,
+  selectedQuarter,
+  allEnrollments,
+  onImportFromQuarter,
 }) => {
   const { getStudentById } = useStudentStore();
   const { records, addPayment, deletePayment, updateRecord } = usePaymentRecordStore();
   const { updatePayment: updateEnrollmentPayment } = useEnrollmentStore();
   const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false);
   const [refundAmount, setRefundAmount] = useState(0);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importChecked, setImportChecked] = useState<Record<string, boolean>>({});
 
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<string | null>(null);
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{
+    paidAt: string;
+    amount: number;
+    paymentMethod?: PaymentMethod;
+    notes?: string;
+  } | null>(null);
+
+  const startEditRecord = useCallback((r: PaymentRecord) => {
+    setEditingRecordId(r.id);
+    setEditDraft({
+      paidAt: r.paidAt || '',
+      amount: r.amount,
+      paymentMethod: r.paymentMethod,
+      notes: r.notes,
+    });
+  }, []);
+
+  const cancelEditRecord = useCallback(() => {
+    setEditingRecordId(null);
+    setEditDraft(null);
+  }, []);
+
+  const saveEditRecord = useCallback(async () => {
+    if (!editingRecordId || !editDraft) return;
+    if (!editDraft.paidAt) {
+      toast.error('납부일을 입력해주세요');
+      return;
+    }
+    if (!Number.isFinite(editDraft.amount) || editDraft.amount <= 0) {
+      toast.error('금액은 0보다 커야 합니다');
+      return;
+    }
+    await updateRecord(editingRecordId, {
+      paidAt: editDraft.paidAt,
+      amount: editDraft.amount,
+      paymentMethod: editDraft.paymentMethod,
+      notes: editDraft.notes,
+    });
+    setEditingRecordId(null);
+    setEditDraft(null);
+    toast.success('납부 기록이 수정되었습니다');
+  }, [editingRecordId, editDraft, updateRecord]);
   const [modalDiscount, setModalDiscount] = useState(0);
+  // 중복 클릭 방지:
+  // - ref: 동기 즉시 차단 (state batching/React render 무관하게 race 차단)
+  // - state: 버튼 disabled UI 반영용
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Form state (replacing antd Form)
   const [formAmount, setFormAmount] = useState<number | undefined>(undefined);
@@ -98,6 +156,19 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showWithdrawn, setShowWithdrawn] = useState(false);
+
+  const prevQuarterData = useMemo(() => {
+    if (!selectedQuarter || !allEnrollments || !onImportFromQuarter) return null;
+    const prevQ = getPreviousQuarter(selectedQuarter);
+    const prevEnrollments = allEnrollments.filter(
+      (e) => e.courseId === _courseId && e.quarter === prevQ && isActiveEnrollment(e)
+    );
+    return { quarter: prevQ, enrollments: prevEnrollments };
+  }, [selectedQuarter, allEnrollments, _courseId, onImportFromQuarter]);
+
+  const showImportCTA = enrollments.length === 0
+    && prevQuarterData !== null
+    && prevQuarterData.enrollments.length > 0;
 
   // 수강생별 납부 현황
   const tableData = useMemo(() => {
@@ -177,6 +248,9 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
 
   // 납부 추가
   const handleAddPayment = useCallback(async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
     try {
       if (!selectedEnrollmentId) return;
       if (formAmount === undefined || formAmount < 0) return;
@@ -201,28 +275,65 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         );
       }
 
-      toast.success('납부가 기록되었습니다.');
+      const student = enrollments.find((e) => e.id === selectedEnrollmentId)
+        ? getStudentById(enrollments.find((e) => e.id === selectedEnrollmentId)!.studentId)
+        : null;
+      const amt = formAmount || 0;
+      toast.success(
+        amt > 0
+          ? `${student?.name ?? '학생'} ₩${amt.toLocaleString()} 납부 기록`
+          : `${student?.name ?? '학생'} 할인 ${newDiscount.toLocaleString()}원 적용`,
+      );
       resetForm();
       setIsPaymentModalVisible(false);
       setSelectedEnrollmentId(null);
     } catch (error) {
       console.error('Payment failed:', error);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   }, [selectedEnrollmentId, formAmount, formPaymentMethod, formPaidAt, formNotes, formDiscountAmount, addPayment, courseFee, enrollments, handleDiscountChange, resetForm]);
 
-  // 납부 삭제
+  // 납부 삭제 (Undo 지원 — 8초 내 "실행 취소" 가능)
   const handleDeletePayment = useCallback(async (recordId: string) => {
+    const backup = records.find((r) => r.id === recordId);
+    const enrollment = backup ? enrollments.find((e) => e.id === backup.enrollmentId) : null;
+    const student = enrollment ? getStudentById(enrollment.studentId) : null;
     await deletePayment(recordId, courseFee);
-    toast.success('납부 기록이 삭제되었습니다.');
-  }, [deletePayment, courseFee]);
+    toast.success(
+      backup
+        ? `${student?.name ?? '학생'} ₩${backup.amount.toLocaleString()} 납부 기록 삭제`
+        : '납부 기록이 삭제되었습니다',
+      {
+      duration: 8000,
+      action: backup
+        ? {
+            label: '실행 취소',
+            onClick: async () => {
+              await addPayment(
+                backup.enrollmentId,
+                backup.amount,
+                courseFee,
+                backup.paymentMethod,
+                backup.paidAt,
+                backup.notes ?? undefined,
+              );
+              toast.success('납부 기록이 복원되었습니다.');
+            },
+          }
+        : undefined,
+      },
+    );
+  }, [deletePayment, courseFee, records, addPayment, enrollments, getStudentById]);
 
   // 면제 처리
   const handleExempt = useCallback(async (enrollment: Enrollment) => {
     await updateEnrollmentPayment(
       enrollment.id, 0, courseFee, dayjs().format('YYYY-MM-DD'), true,
     );
-    toast.success('수강료가 면제 처리되었습니다.');
-  }, [updateEnrollmentPayment, courseFee]);
+    toast.success(`${getStudentById(enrollment.studentId)?.name ?? '학생'} 수강료 면제`);
+  }, [updateEnrollmentPayment, courseFee, getStudentById]);
 
   // 면제 취소
   const handleCancelExempt = useCallback(async (enrollment: Enrollment) => {
@@ -232,42 +343,77 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       enrollment.id, totalPaid, courseFee, undefined, false,
       undefined, enrollment.discountAmount,
     );
-    toast.success('면제가 취소되었습니다.');
-  }, [updateEnrollmentPayment, courseFee, records]);
+    await logEvent({
+      eventType: 'enrollment.unexempt',
+      entityType: 'enrollment',
+      entityId: enrollment.id,
+      meta: { restoredPaidAmount: totalPaid },
+    });
+    toast.success(`${getStudentById(enrollment.studentId)?.name ?? '학생'} 면제 취소`);
+  }, [updateEnrollmentPayment, courseFee, records, getStudentById]);
 
   // 완납 처리
   const handleFullPayment = useCallback(async (enrollment: Enrollment) => {
-    const enrollmentRecords = records.filter((r) => r.enrollmentId === enrollment.id);
-    const totalPaid = enrollmentRecords.reduce((sum, r) => sum + r.amount, 0);
-    const effectiveFee = courseFee - (enrollment.discountAmount ?? 0);
-    const remaining = effectiveFee - totalPaid;
-    if (remaining <= 0) return;
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      const enrollmentRecords = records.filter((r) => r.enrollmentId === enrollment.id);
+      const totalPaid = enrollmentRecords.reduce((sum, r) => sum + r.amount, 0);
+      const effectiveFee = courseFee - (enrollment.discountAmount ?? 0);
+      const remaining = effectiveFee - totalPaid;
+      if (remaining <= 0) return;
 
-    await addPayment(
-      enrollment.id,
-      remaining,
-      courseFee,
-      undefined,
-      dayjs().format('YYYY-MM-DD'),
-    );
-    toast.success('완납 처리되었습니다.');
-  }, [records, addPayment, courseFee]);
-
-  // 전체 완납
-  const handleBulkFullPayment = useCallback(async () => {
-    const unpaid = tableData.filter(
-      (d) => d.enrollment.paymentStatus !== 'exempt' && d.remaining > 0,
-    );
-    for (const item of unpaid) {
       await addPayment(
-        item.enrollment.id,
-        item.remaining,
+        enrollment.id,
+        remaining,
         courseFee,
         undefined,
         dayjs().format('YYYY-MM-DD'),
       );
+      toast.success(`${getStudentById(enrollment.studentId)?.name ?? '학생'} ₩${remaining.toLocaleString()} 완납`);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
-    toast.success(`${unpaid.length}명의 완납이 처리되었습니다.`);
+  }, [records, addPayment, courseFee, getStudentById]);
+
+  // 전체 완납
+  const handleBulkFullPayment = useCallback(async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      const unpaid = tableData.filter(
+        (d) => d.enrollment.paymentStatus !== 'exempt' && d.remaining > 0,
+      );
+      for (const item of unpaid) {
+        await addPayment(
+          item.enrollment.id,
+          item.remaining,
+          courseFee,
+          undefined,
+          dayjs().format('YYYY-MM-DD'),
+        );
+      }
+      if (unpaid.length > 0) {
+        await logEvent({
+          eventType: 'payment.bulk_full',
+          entityType: 'enrollment',
+          entityId: null,
+          meta: {
+            studentCount: unpaid.length,
+            totalAmount: unpaid.reduce((sum, d) => sum + d.remaining, 0),
+            courseFee,
+            enrollmentIds: unpaid.map((d) => d.enrollment.id),
+          },
+        });
+      }
+      toast.success(`${unpaid.length}명의 완납이 처리되었습니다.`);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   }, [tableData, addPayment, courseFee]);
 
   // 선택된 수강생 데이터 (납부 모달 + 이력 모달 공용)
@@ -354,10 +500,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       accessorFn: (row) => row.enrollment.paymentStatus,
       cell: ({ row }) => {
         const s = row.original.enrollment.paymentStatus;
-        if (s === 'exempt') return <Badge className="bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100">면제</Badge>;
-        if (s === 'completed') return <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">완납</Badge>;
-        if (s === 'partial') return <Badge className="bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100">부분납부</Badge>;
-        return <Badge className="bg-red-100 text-red-800 border-red-200 hover:bg-red-100">미납</Badge>;
+        if (s === 'withdrawn') return <Badge variant="secondary" className="opacity-70">포기</Badge>;
+        if (s === 'exempt') return <Badge variant="secondary">면제</Badge>;
+        if (s === 'completed') return <Badge variant="success">완납</Badge>;
+        if (s === 'partial') return <Badge variant="warning">부분납부</Badge>;
+        return <Badge variant="error">미납</Badge>;
       },
     },
     {
@@ -402,10 +549,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       cell: ({ row }) => {
         const record = row.original;
         if (record.enrollment.paymentStatus === 'exempt') return '-';
+        if (record.enrollment.paymentStatus === 'withdrawn') return <span className="text-muted-foreground">-</span>;
         return (
           <span className={cn(
             'whitespace-nowrap font-semibold',
-            record.remaining > 0 ? 'text-destructive' : 'text-green-600',
+            record.remaining > 0 ? 'text-destructive' : 'text-success',
           )}>
             {'\u20A9'}{record.remaining.toLocaleString()}
           </span>
@@ -418,12 +566,17 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       size: 200,
       cell: ({ row }) => {
         const record = row.original;
+        if (record.enrollment.paymentStatus === 'withdrawn') {
+          return (
+            <span className="text-xs text-muted-foreground">포기됨</span>
+          );
+        }
         if (record.enrollment.paymentStatus === 'exempt') {
           return (
             <div className="flex items-center gap-1">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm">면제 취소</Button>
+                  <Button variant="outline" size="sm" className="min-h-11 px-3">면제 취소</Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
@@ -441,30 +594,35 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             </div>
           );
         }
+        const isCompleted = record.enrollment.paymentStatus === 'completed';
         return (
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-primary text-primary hover:bg-primary/10"
-              onClick={() => {
-                const discount = record.enrollment.discountAmount ?? 0;
-                setSelectedEnrollmentId(record.enrollment.id);
-                setModalDiscount(discount);
-                setFormAmount(record.remaining > 0 ? record.remaining : undefined);
-                setFormPaidAt(dayjs().format('YYYY-MM-DD'));
-                setFormDiscountAmount(discount);
-                setFormPaymentMethod(undefined);
-                setFormNotes('');
-                setIsPaymentModalVisible(true);
-              }}
-            >
-              납부
-            </Button>
-            {record.remaining > 0 && (
+          <div className="flex items-center gap-1.5">
+            {!isCompleted && (
               <Button
                 variant="outline"
                 size="sm"
+                className="min-h-11 px-3 border-primary text-primary hover:bg-primary/10"
+                onClick={() => {
+                  const discount = record.enrollment.discountAmount ?? 0;
+                  setSelectedEnrollmentId(record.enrollment.id);
+                  setModalDiscount(discount);
+                  setFormAmount(record.remaining > 0 ? record.remaining : undefined);
+                  setFormPaidAt(dayjs().format('YYYY-MM-DD'));
+                  setFormDiscountAmount(discount);
+                  setFormPaymentMethod(undefined);
+                  setFormNotes('');
+                  setIsPaymentModalVisible(true);
+                }}
+              >
+                납부
+              </Button>
+            )}
+            {!isCompleted && record.remaining > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="min-h-11 px-3"
+                disabled={submitting}
                 onClick={() => handleFullPayment(record.enrollment)}
               >
                 완납
@@ -472,7 +630,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm">면제</Button>
+                <Button variant="outline" size="sm" className="min-h-11 px-3">면제</Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -520,29 +678,29 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   return (
     <div>
       {/* 통계 + 전체 완납 */}
-      <div className="mb-4 p-3 bg-muted/50 rounded-md flex items-center gap-6">
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
         {quarterSelector && <div style={{ flexShrink: 0 }}>{quarterSelector}</div>}
-        <div>
-          <span className="text-xs text-muted-foreground">완납 인원</span>
-          <div className="font-semibold">
-            <span className="text-green-600">{stats.paidCount}</span>
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">완납 인원</div>
+          <div className="text-sm font-semibold mt-0.5">
+            <span className="text-success">{stats.paidCount}</span>
             <span className="text-muted-foreground"> / {stats.totalStudents}명</span>
           </div>
         </div>
-        <div>
-          <span className="text-xs text-muted-foreground">납부 합계</span>
-          <div className="font-semibold text-green-600">{'\u20A9'}{stats.totalPaid.toLocaleString()}</div>
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">납부 합계</div>
+          <div className="text-sm font-semibold mt-0.5 text-success">{'\u20A9'}{stats.totalPaid.toLocaleString()}</div>
         </div>
-        <div>
-          <span className="text-xs text-muted-foreground">예상 합계</span>
-          <div className="font-semibold">{'\u20A9'}{stats.expectedTotal.toLocaleString()}</div>
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">예상 합계</div>
+          <div className="text-sm font-semibold mt-0.5">{'\u20A9'}{stats.expectedTotal.toLocaleString()}</div>
         </div>
-        <div>
-          <span className="text-xs text-muted-foreground">수납률</span>
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">수납률</div>
           <div className={cn(
-            'font-semibold',
+            'text-sm font-semibold mt-0.5',
             stats.expectedTotal > 0 && stats.totalPaid < stats.expectedTotal
-              ? 'text-destructive' : 'text-green-600',
+              ? 'text-destructive' : 'text-success',
           )}>
             {stats.expectedTotal > 0 ? Math.round((stats.totalPaid / stats.expectedTotal) * 100) : 0}%
           </div>
@@ -552,11 +710,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             <>
               <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>{rowSelection.selectedRowKeys.length}명 선택</span>
               {onRemoveEnrollments && (
-                <Button size="sm" variant="destructive" onClick={() => { setRefundAmount(0); setWithdrawDialogOpen(true); }}>
-                  수강 철회
+                <Button size="sm" variant="destructive" className="min-h-11 px-3" onClick={() => { setRefundAmount(0); setWithdrawDialogOpen(true); }}>
+                  수강 포기
                 </Button>
               )}
-              <Button size="sm" variant="outline" onClick={() => rowSelection.onChange([])}>
+              <Button size="sm" variant="outline" className="min-h-11 px-3" onClick={() => rowSelection.onChange([])}>
                 해제
               </Button>
               <div style={{ width: 1, height: 20, background: 'hsl(var(--border))' }} />
@@ -576,9 +734,10 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               <SelectItem value="partial">부분납부</SelectItem>
               <SelectItem value="pending">미납</SelectItem>
               <SelectItem value="exempt">면제</SelectItem>
+              <SelectItem value="withdrawn">포기</SelectItem>
             </SelectContent>
           </Select>
-          <Button size="sm" onClick={handleBulkFullPayment}>
+          <Button size="sm" className="min-h-11 px-4" disabled={submitting} onClick={handleBulkFullPayment}>
             전체 완납
           </Button>
         </div>
@@ -617,23 +776,46 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         <TableBody>
           {table.getRowModel().rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                수강생이 없습니다
+              <TableCell colSpan={columns.length} className="h-24 text-center">
+                {showImportCTA ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                    <p className="text-muted-foreground">이 분기에 등록된 수강생이 없습니다</p>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const checked: Record<string, boolean> = {};
+                        prevQuarterData!.enrollments.forEach((e) => {
+                          checked[e.studentId] = e.paymentStatus !== 'withdrawn';
+                        });
+                        setImportChecked(checked);
+                        setImportDialogOpen(true);
+                      }}
+                    >
+                      {getQuarterLabel(prevQuarterData!.quarter)} 수강생 {prevQuarterData!.enrollments.length}명 가져오기
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">수강생이 없습니다</span>
+                )}
               </TableCell>
             </TableRow>
           ) : (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={row.getIsSelected() ? 'selected' : undefined}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} style={{ width: cell.column.getSize() }}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
+            table.getRowModel().rows.map((row) => {
+              const isWithdrawn = row.original.enrollment.paymentStatus === 'withdrawn';
+              return (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() ? 'selected' : undefined}
+                  className={isWithdrawn ? 'opacity-55' : ''}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id} style={{ width: cell.column.getSize() }}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>
@@ -649,35 +831,50 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           }
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>납부 -- {selectedData?.studentName ?? ''}</DialogTitle>
+            <DialogTitle className="text-base">
+              <span className="text-primary">{selectedData?.studentName ?? ''}</span>님의 납부기록
+            </DialogTitle>
             <DialogDescription className="sr-only">납부 정보를 입력합니다</DialogDescription>
           </DialogHeader>
 
-          {/* 수강료 요약 */}
+          {/* 수강료 요약 + 할인 인라인 */}
           {selectedData && (() => {
             const modalEffectiveFee = courseFee - modalDiscount;
             const modalRemaining = Math.max(0, modalEffectiveFee - selectedData.totalPaid);
             return (
-              <div className="p-3 bg-muted/50 rounded-md space-y-1.5">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">수강료</span>
-                  <span className="font-semibold">{'\u20A9'}{courseFee.toLocaleString()}</span>
+              <div className="mt-4 rounded-xl border p-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">수강료</span>
+                  <span className="text-sm font-semibold">{'\u20A9'}{courseFee.toLocaleString()}</span>
                 </div>
-                {modalDiscount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">할인</span>
-                    <span className="text-green-600">-{'\u20A9'}{modalDiscount.toLocaleString()}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">기납부액</span>
-                  <span>{'\u20A9'}{selectedData.totalPaid.toLocaleString()}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">할인</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={courseFee}
+                    step={5000}
+                    value={formDiscountAmount || ''}
+                    onChange={(e) => {
+                      const newDiscount = Number(e.target.value) || 0;
+                      setFormDiscountAmount(newDiscount);
+                      setModalDiscount(newDiscount);
+                      const newRemaining = Math.max(0, courseFee - newDiscount - selectedData.totalPaid);
+                      setFormAmount(newRemaining);
+                    }}
+                    placeholder="0"
+                    className="h-7 w-[110px] text-right text-sm [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
                 </div>
-                <div className="flex justify-between pt-1.5 border-t font-semibold text-[15px]">
-                  <span>납부할 금액</span>
-                  <span className={modalRemaining > 0 ? 'text-destructive' : 'text-green-600'}>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">기납부액</span>
+                  <span className="text-sm font-semibold">{'\u20A9'}{selectedData.totalPaid.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t">
+                  <span className="text-sm font-semibold">납부할 금액</span>
+                  <span className={`text-base font-bold ${modalRemaining > 0 ? 'text-destructive' : 'text-success'}`}>
                     {'\u20A9'}{modalRemaining.toLocaleString()}
                   </span>
                 </div>
@@ -685,67 +882,113 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             );
           })()}
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>할인 금액</Label>
-              <Input
-                type="number"
-                min={0}
-                max={courseFee}
-                value={formDiscountAmount}
-                onChange={(e) => {
-                  const newDiscount = Number(e.target.value) || 0;
-                  setFormDiscountAmount(newDiscount);
-                  setModalDiscount(newDiscount);
-                  // 납부 금액도 새 잔액으로 자동 조정
-                  if (selectedData) {
-                    const newRemaining = Math.max(0, courseFee - newDiscount - selectedData.totalPaid);
-                    setFormAmount(newRemaining);
-                  }
-                }}
-              />
+          {/* 납부 금액 — 빠른선택 버튼 + 직접 입력 */}
+          {selectedData && (() => {
+            const modalEffectiveFee = courseFee - modalDiscount;
+            const modalRemaining = Math.max(0, modalEffectiveFee - selectedData.totalPaid);
+            const quickOptions = [
+              { label: '전액', amount: modalRemaining },
+              { label: '절반', amount: Math.floor(modalRemaining / 2) },
+              { label: '직접', amount: -1 },
+            ] as const;
+            return (
+              <div className="mt-5 space-y-2">
+                <Label>납부 금액 <span className="text-destructive">*</span></Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {quickOptions.map((opt) => {
+                    const isDirect = opt.amount === -1;
+                    const isActive = !isDirect && formAmount === opt.amount;
+                    return (
+                      <button
+                        key={opt.label}
+                        type="button"
+                        onClick={() => {
+                          if (isDirect) {
+                            setFormAmount(undefined);
+                          } else {
+                            setFormAmount(opt.amount);
+                          }
+                        }}
+                        className={`py-3 rounded-lg border text-center transition-all cursor-pointer ${
+                          isActive
+                            ? 'border-foreground bg-foreground text-background'
+                            : 'border-border hover:border-foreground/30'
+                        }`}
+                      >
+                        <div className="text-sm font-semibold">{opt.label}</div>
+                        {!isDirect && (
+                          <div className={`text-xs mt-0.5 ${isActive ? 'opacity-60' : 'text-muted-foreground'}`}>
+                            {'\u20A9'}{opt.amount.toLocaleString()}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <Input
+                  type="number"
+                  min={0}
+                  step={5000}
+                  value={formAmount ?? ''}
+                  onChange={(e) => setFormAmount(e.target.value ? Number(e.target.value) : undefined)}
+                  className="text-center text-xl font-bold h-12 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+              </div>
+            );
+          })()}
+
+          {/* 납부 방법 — 아이콘 버튼 */}
+          <div className="mt-5 space-y-2">
+            <Label>납부 방법</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { v: 'cash', l: '현금', Icon: Banknote },
+                { v: 'card', l: '카드', Icon: CreditCard },
+                { v: 'transfer', l: '계좌이체', Icon: Building2 },
+              ] as const).map((m) => {
+                const isActive = formPaymentMethod === m.v;
+                return (
+                  <button
+                    key={m.v}
+                    type="button"
+                    onClick={() => setFormPaymentMethod(m.v as PaymentMethod)}
+                    className={`flex flex-col items-center gap-1.5 py-3 rounded-lg border transition-all cursor-pointer ${
+                      isActive
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border hover:border-foreground/30'
+                    }`}
+                  >
+                    <m.Icon className={`h-6 w-6 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <span className={`text-sm font-medium ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>{m.l}</span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="space-y-2">
-              <Label>납부 금액 <span className="text-destructive">*</span></Label>
-              <Input
-                type="number"
-                min={0}
-                value={formAmount ?? ''}
-                onChange={(e) => setFormAmount(e.target.value ? Number(e.target.value) : undefined)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>납부 방법</Label>
-              <Select value={formPaymentMethod ?? ''} onValueChange={(v) => setFormPaymentMethod((v || undefined) as PaymentMethod | undefined)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="transfer">계좌이체</SelectItem>
-                  <SelectItem value="card">카드</SelectItem>
-                  <SelectItem value="cash">현금</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>납부일 <span className="text-destructive">*</span></Label>
-              <Input
-                type="date"
+          </div>
+
+          {/* 납부일 + 메모 */}
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="payment-modal-paidAt">납부일 <span className="text-destructive">*</span></Label>
+              <DatePicker
+                id="payment-modal-paidAt"
                 value={formPaidAt}
-                onChange={(e) => setFormPaidAt(e.target.value)}
+                onChange={setFormPaidAt}
+                className="w-full"
               />
             </div>
-            <div className="space-y-2">
-              <Label>메모</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="payment-modal-notes">메모</Label>
               <Input
-                placeholder="메모"
+                id="payment-modal-notes"
+                placeholder="선택 사항"
                 value={formNotes}
                 onChange={(e) => setFormNotes(e.target.value)}
               />
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="mt-5">
             <Button
               variant="outline"
               onClick={() => {
@@ -753,10 +996,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                 setSelectedEnrollmentId(null);
                 resetForm();
               }}
+              className="text-base px-6"
             >
               취소
             </Button>
-            <Button onClick={handleAddPayment}>납부 기록</Button>
+            <Button disabled={submitting} onClick={handleAddPayment} className="text-base px-6">납부 기록</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -768,12 +1012,17 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           if (!open) {
             setIsHistoryModalVisible(false);
             setSelectedEnrollmentId(null);
+            setEditingRecordId(null);
+            setEditDraft(null);
           }
         }}
       >
-        <DialogContent className="max-w-xl">
+        <DialogContent className="w-[60vw] max-w-5xl">
           <DialogHeader>
-            <DialogTitle>납부 이력 -- {selectedData?.studentName ?? ''}</DialogTitle>
+            <DialogTitle>
+              <span className="text-primary">{selectedData?.studentName ?? ''}</span>
+              <span className="text-muted-foreground font-normal ml-2">님의 납부 이력</span>
+            </DialogTitle>
             <DialogDescription className="sr-only">납부 이력을 확인합니다</DialogDescription>
           </DialogHeader>
 
@@ -782,103 +1031,183 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               납부 이력이 없습니다
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead style={{ width: 100 }}>납부일</TableHead>
-                  <TableHead style={{ width: 110 }}>금액</TableHead>
-                  <TableHead style={{ width: 70 }}>방법</TableHead>
-                  <TableHead>메모</TableHead>
-                  <TableHead style={{ width: 40 }} />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(selectedData?.records ?? []).map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell>{r.paidAt}</TableCell>
-                    <TableCell>{'\u20A9'}{r.amount.toLocaleString()}</TableCell>
-                    <TableCell>
-                      {r.paymentMethod
-                        ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS] || '-'
-                        : '-'}
-                    </TableCell>
-                    <TableCell>
+            <div className="flex flex-col divide-y max-h-[420px] overflow-y-auto">
+              {(selectedData?.records ?? []).map((r) => {
+                const isEditing = editingRecordId === r.id;
+                const methodLabel = r.paymentMethod
+                  ? PAYMENT_METHOD_LABELS[r.paymentMethod as keyof typeof PAYMENT_METHOD_LABELS]
+                  : '-';
+
+                if (isEditing && editDraft) {
+                  return (
+                    <div key={r.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1 bg-accent/30 rounded-md px-2">
+                      <DatePicker
+                        size="sm"
+                        className="w-[170px] shrink-0"
+                        value={editDraft.paidAt}
+                        onChange={(val) => setEditDraft((d) => d && { ...d, paidAt: val })}
+                      />
                       <Input
-                        className="h-7 text-sm"
-                        defaultValue={r.notes ?? ''}
-                        placeholder="메모"
-                        onBlur={(e) => {
-                          const val = e.target.value;
-                          if (val !== (r.notes ?? '')) {
-                            updateRecord(r.id, { notes: val || undefined });
+                        type="text"
+                        inputMode="numeric"
+                        className="h-8 text-sm font-semibold w-[120px] shrink-0 text-right tabular-nums"
+                        value={editDraft.amount === 0 ? '' : editDraft.amount.toLocaleString('ko-KR')}
+                        onFocus={(e) => {
+                          e.target.value = String(editDraft.amount);
+                          e.target.select();
+                        }}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/[^\d-]/g, '');
+                          const val = raw === '' ? 0 : Number(raw);
+                          if (!isNaN(val)) {
+                            setEditDraft((d) => d && { ...d, amount: val });
                           }
                         }}
                       />
-                    </TableCell>
-                    <TableCell>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>납부 기록 삭제</AlertDialogTitle>
-                            <AlertDialogDescription>삭제하시겠습니까?</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>취소</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              onClick={() => handleDeletePayment(r.id)}
-                            >
-                              삭제
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      <Select
+                        value={editDraft.paymentMethod ?? ''}
+                        onValueChange={(v) => setEditDraft((d) => d && { ...d, paymentMethod: (v || undefined) as PaymentMethod | undefined })}
+                      >
+                        <SelectTrigger className="h-8 w-[88px] text-xs shrink-0" aria-label="결제 수단 선택">
+                          <SelectValue placeholder="-" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">현금</SelectItem>
+                          <SelectItem value="card">카드</SelectItem>
+                          <SelectItem value="transfer">계좌이체</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        className="h-8 text-sm flex-1 min-w-0"
+                        value={editDraft.notes ?? ''}
+                        placeholder="메모"
+                        onChange={(e) => setEditDraft((d) => d && { ...d, notes: e.target.value || undefined })}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-3 text-sm shrink-0"
+                        onClick={cancelEditRecord}
+                      >
+                        취소
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-8 px-3 text-sm shrink-0"
+                        onClick={saveEditRecord}
+                      >
+                        <Check className="h-3.5 w-3.5 mr-1" />
+                        수정 완료
+                      </Button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={r.id} className="flex items-center gap-3 py-3 first:pt-1 last:pb-1 px-2">
+                    <span className="text-sm w-[170px] shrink-0 tabular-nums">
+                      {r.paidAt ? dayjs(r.paidAt).format('YYYY.MM.DD') : '-'}
+                    </span>
+                    <span className="text-sm font-semibold w-[120px] shrink-0 text-right tabular-nums">
+                      ₩{r.amount.toLocaleString('ko-KR')}
+                    </span>
+                    <span className="text-xs w-[88px] shrink-0 text-muted-foreground">
+                      {methodLabel}
+                    </span>
+                    <span className="text-sm flex-1 min-w-0 truncate text-muted-foreground">
+                      {r.notes || <span className="opacity-50">메모 없음</span>}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 rounded-full shrink-0 text-muted-foreground/60 hover:text-foreground hover:bg-accent"
+                      onClick={() => startEditRecord(r)}
+                      disabled={editingRecordId !== null}
+                      aria-label="납부 기록 수정"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 rounded-full shrink-0 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10"
+                          disabled={editingRecordId !== null}
+                          aria-label="납부 기록 삭제"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>납부 기록 삭제</AlertDialogTitle>
+                          <AlertDialogDescription>삭제하시겠습니까?</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>취소</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => handleDeletePayment(r.id)}
+                          >
+                            삭제
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </DialogContent>
       </Dialog>
-      {/* 수강 철회 확인 다이얼로그 */}
+      {/* 수강 포기 확인 다이얼로그 */}
       <AlertDialog open={withdrawDialogOpen} onOpenChange={setWithdrawDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>수강 철회</AlertDialogTitle>
+            <AlertDialogTitle>수강 포기</AlertDialogTitle>
             <AlertDialogDescription>
-              {rowSelection?.selectedRowKeys.length || 0}명의 수강을 철회합니다.
+              {rowSelection?.selectedRowKeys.length || 0}명의 수강을 포기합니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div style={{ padding: '0 24px 16px' }}>
             {(() => {
               const selectedIds = (rowSelection?.selectedRowKeys || []) as string[];
               const selectedRows = filteredData.filter((d) => selectedIds.includes(d.key));
-              const totalPaid = selectedRows.reduce((sum, d) => sum + d.totalPaid, 0);
+              const isMulti = selectedRows.length > 1;
+              // 개별 환불 상한 = 선택된 학생 중 최소 납부액 (아무도 과환불 안 되도록)
+              const individualMax = selectedRows.length > 0
+                ? Math.min(...selectedRows.map((r) => Math.max(0, r.totalPaid)))
+                : 0;
               return (
                 <>
                   <div style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginBottom: 8, padding: '8px 12px', background: 'hsl(var(--muted) / 0.5)', borderRadius: 6 }}>
-                    기납부 합계: <span style={{ fontWeight: 600, color: 'hsl(var(--foreground))' }}>₩{totalPaid.toLocaleString()}</span>
+                    {isMulti ? (
+                      <>선택 <span style={{ fontWeight: 600, color: 'hsl(var(--foreground))' }}>{selectedRows.length}명</span> · 1인당 최대 환불 <span style={{ fontWeight: 600, color: 'hsl(var(--foreground))' }}>₩{individualMax.toLocaleString()}</span></>
+                    ) : (
+                      <>기납부 금액 <span style={{ fontWeight: 600, color: 'hsl(var(--foreground))' }}>₩{individualMax.toLocaleString()}</span></>
+                    )}
                   </div>
-                  <Label style={{ marginBottom: 6, display: 'block' }}>환불 금액 (원)</Label>
+                  <Label style={{ marginBottom: 6, display: 'block' }}>
+                    환불 금액{isMulti ? ' (1인당)' : ''}
+                  </Label>
                   <Input
                     type="number"
+                    step={5000}
                     value={refundAmount || ''}
                     onChange={(e) => {
                       const val = Number(e.target.value) || 0;
-                      setRefundAmount(Math.min(val, totalPaid));
+                      setRefundAmount(Math.min(val, individualMax));
                     }}
                     placeholder="0 (환불 없음)"
                     min={0}
-                    max={totalPaid}
+                    max={individualMax}
                   />
                   <p style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
-                    최대 ₩{totalPaid.toLocaleString()} 환불 가능
+                    {isMulti
+                      ? `각 학생에게 동일하게 적용 · 최대 ₩${individualMax.toLocaleString()} / 명`
+                      : `최대 ₩${individualMax.toLocaleString()} 환불 가능`}
                   </p>
                 </>
               );
@@ -895,11 +1224,75 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                 setWithdrawDialogOpen(false);
               }}
             >
-              철회
+              포기
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* 이전 분기 가져오기 다이얼로그 */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{prevQuarterData ? getQuarterLabel(prevQuarterData.quarter) : ''} 수강생 가져오기</DialogTitle>
+            <DialogDescription className="sr-only">이전 분기 수강생을 가져옵니다</DialogDescription>
+          </DialogHeader>
+          <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+            {prevQuarterData?.enrollments.map((e) => {
+              const student = getStudentById(e.studentId);
+              const statusInfo: Record<string, { label: string; className: string }> = {
+                pending:   { label: '미납',    className: 'bg-error-subtle text-error border-error-subtle' },
+                partial:   { label: '부분납부', className: 'bg-warning-subtle text-warning border-warning-subtle' },
+                completed: { label: '완납',    className: 'bg-success-subtle text-success border-success-subtle' },
+                exempt:    { label: '면제',    className: '' },
+              };
+              const si = statusInfo[e.paymentStatus];
+              return (
+                <label
+                  key={e.studentId}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 4px', borderBottom: '1px solid hsl(var(--border))',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Checkbox
+                    checked={importChecked[e.studentId] ?? false}
+                    onCheckedChange={(v) => setImportChecked((prev) => ({ ...prev, [e.studentId]: !!v }))}
+                  />
+                  <span style={{ flex: 1 }}>{student?.name || '-'}</span>
+                  {si && (
+                    <Badge variant="outline" className={si.className} style={{ fontSize: '0.75rem' }}>
+                      {si.label}
+                    </Badge>
+                  )}
+                  <span style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))' }}>
+                    {student?.phone || ''}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+              취소
+            </Button>
+            <Button
+              onClick={async () => {
+                const studentIds = Object.entries(importChecked)
+                  .filter(([, v]) => v)
+                  .map(([id]) => id);
+                if (studentIds.length > 0 && onImportFromQuarter && selectedQuarter) {
+                  await onImportFromQuarter(studentIds, selectedQuarter);
+                }
+                setImportDialogOpen(false);
+              }}
+              disabled={Object.values(importChecked).filter(Boolean).length === 0}
+            >
+              {Object.values(importChecked).filter(Boolean).length}명 가져오기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
