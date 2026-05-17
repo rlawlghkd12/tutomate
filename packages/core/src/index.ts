@@ -119,6 +119,7 @@ export {
   getDayOfWeekLabel,
   formatDaysOfWeek,
   formatClassTime,
+  formatTime12,
   formatScheduleSummary,
 } from './utils/scheduleUtils';
 
