@@ -23,6 +23,7 @@ export function _resetAuthFlags() {
 interface AuthStore {
   session: Session | null;
   organizationId: string | null;
+  organizationName: string | null;
   role: OrgRoleType | null;
   plan: PlanType | null;
   isCloud: boolean;
@@ -38,6 +39,7 @@ interface AuthStore {
 export const useAuthStore = create<AuthStore>((set) => ({
   session: null,
   organizationId: null,
+  organizationName: null,
   role: null,
   plan: null,
   isCloud: false,
@@ -80,38 +82,36 @@ export const useAuthStore = create<AuthStore>((set) => ({
         return;
       }
 
-      // owner 조직 우선 선택
+      // 활성 조직 우선 → 없으면 owner → 없으면 첫 번째
+      const activeLink = orgLinks?.find((l: any) => l.is_active);
       const ownerLink = orgLinks?.find((l: any) => l.role === 'owner');
-      const orgLink = ownerLink || orgLinks?.[0] || null;
-
-      // owner 조직이 활성 상태가 아니면 is_active 토글 (DB + RLS 동기화)
-      if (ownerLink && !ownerLink.is_active) {
-        try {
-          await supabase.functions.invoke('switch-organization', {
-            body: { organization_id: ownerLink.organization_id },
-          });
-        } catch (e) {
-          logWarn('Failed to switch to owner org on init', { error: e });
-        }
-      }
+      const orgLink = activeLink || ownerLink || orgLinks?.[0] || null;
 
       if (orgLink) {
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('plan')
-          .eq('id', orgLink.organization_id)
-          .single();
+        // 항상 switch-organization Edge Function 경유 (service role → RLS 무관, is_active 동기화)
+        let orgName = 'TutorMate';
+        let orgPlan: string = 'trial';
+        try {
+          const { data } = await supabase.functions.invoke('switch-organization', {
+            body: { organization_id: orgLink.organization_id },
+          });
+          if (data?.name) orgName = data.name;
+          if (data?.plan) orgPlan = data.plan;
+        } catch (e) {
+          logWarn('Failed to fetch org via switch-organization', { error: e });
+        }
 
         set({
           session,
           organizationId: orgLink.organization_id,
+          organizationName: orgName,
           role: (orgLink.role as OrgRoleType) || 'member',
-          plan: (orgData?.plan as PlanType) || PlanTypeEnum.TRIAL,
+          plan: (orgPlan as PlanType) || PlanTypeEnum.TRIAL,
           isCloud: true,
           loading: false,
         });
         _initialized = true;
-        logInfo('Cloud session restored', { data: { orgId: orgLink.organization_id, plan: orgData?.plan } });
+        logInfo('Cloud session restored', { data: { orgId: orgLink.organization_id, name: orgName, plan: orgPlan } });
       } else {
         // 로그인됐지만 org 없음 → 자동으로 조직 생성
         logInfo('No active org found, auto-creating org');
@@ -130,6 +130,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
           set({
             session,
             organizationId,
+            organizationName: autoData.name || 'TutorMate',
             role: 'owner',
             plan,
             isCloud: true,
@@ -180,16 +181,17 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const organizationId = data.organization_id as string;
       const role = (data.role as OrgRoleType) || 'member';
       const plan = (data.plan as PlanType) || PlanTypeEnum.TRIAL;
+      const name = (data.name as string) || '';
 
       set({
         organizationId,
+        organizationName: name || 'TutorMate',
         role,
         plan,
         isCloud: true,
         loading: false,
       });
       _initialized = true;
-      const name = (data.name as string) || '';
       logInfo('Joined organization', { data: { orgId: organizationId, name, role, plan } });
       return { name };
     } catch (error) {
@@ -216,15 +218,17 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const organizationId = data.organization_id as string;
       const role = (data.role as OrgRoleType) || 'member';
       const plan = (data.plan as PlanType) || PlanTypeEnum.TRIAL;
+      const name = (data.name as string) || 'TutorMate';
 
       set({
         organizationId,
+        organizationName: name,
         role,
         plan,
         isCloud: true,
         loading: false,
       });
-      logInfo('Switched organization', { data: { orgId: organizationId, role, plan } });
+      logInfo('Switched organization', { data: { orgId: organizationId, name, role, plan } });
     } catch (error) {
       set({ loading: false });
       throw error;
@@ -240,9 +244,27 @@ export const useAuthStore = create<AuthStore>((set) => ({
       logError('Sign out error', { error });
     }
 
+    // 데이터 스토어 초기화 — 이전 사용자 데이터 제거
+    const { clearAllCache } = await import('../utils/dataHelper');
+    const { useCourseStore } = await import('./courseStore');
+    const { useStudentStore } = await import('./studentStore');
+    const { useEnrollmentStore } = await import('./enrollmentStore');
+    const { useMonthlyPaymentStore } = await import('./monthlyPaymentStore');
+    const { usePaymentRecordStore } = await import('./paymentRecordStore');
+    const { useNotificationStore } = await import('./notificationStore');
+
+    await clearAllCache();
+    useCourseStore.setState({ courses: [] });
+    useStudentStore.setState({ students: [] });
+    useEnrollmentStore.setState({ enrollments: [] });
+    useMonthlyPaymentStore.setState({ payments: [] });
+    usePaymentRecordStore.setState({ records: [] });
+    useNotificationStore.setState({ notifications: [] });
+
     set({
       session: null,
       organizationId: null,
+      organizationName: null,
       role: null,
       plan: null,
       isCloud: false,
@@ -265,7 +287,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       if (!naverClientId) { set({ loading: false }); throw new Error('VITE_NAVER_CLIENT_ID not configured'); }
       const state = crypto.randomUUID();
       const callbackUrl = `${supabaseUrl}/functions/v1/naver-auth`;
-      const naverUrl = `https://nid.naver.com/oauth2.0/authorize?client_id=${naverClientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&state=${state}`;
+      const naverUrl = `https://nid.naver.com/oauth2.0/authorize?client_id=${naverClientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&state=${state}&auth_type=reprompt`;
       logInfo('Naver OAuth URL generated', { data: { url: naverUrl } });
       if (isElectron()) {
         await window.electronAPI.openOAuthUrl(naverUrl);
@@ -273,7 +295,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
     } else {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo, skipBrowserRedirect: true },
+        options: { redirectTo, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
       });
       if (error) { set({ loading: false }); throw error; }
       logInfo('OAuth URL generated', { data: { url: data.url, redirectTo } });
@@ -315,7 +337,10 @@ if (supabase) {
     }
     if (event === 'SIGNED_IN' && session && !_initialized) {
       useAuthStore.setState({ session });
-      useAuthStore.getState().initialize();
+      // 이전 세션 데이터 초기화 후 새 데이터 로드
+      import('./reloadStores').then(({ reloadAllStores }) => {
+        useAuthStore.getState().initialize().then(() => reloadAllStores());
+      });
     }
     // TOKEN_REFRESHED, INITIAL_SESSION 등 — setState 안 함 (리렌더링 방지)
   });
@@ -324,6 +349,7 @@ if (supabase) {
 // 스토어 외부에서 사용하는 헬퍼
 export const isCloud = (): boolean => useAuthStore.getState().isCloud;
 export const getOrgId = (): string | null => useAuthStore.getState().organizationId;
+export const getOrgName = (): string | null => useAuthStore.getState().organizationName;
 export const getPlan = (): PlanType | null => useAuthStore.getState().plan;
 export const isOwner = (): boolean => useAuthStore.getState().role === OrgRole.OWNER;
 export const canManageMembers = (): boolean => {

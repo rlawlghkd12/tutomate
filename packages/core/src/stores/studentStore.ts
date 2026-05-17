@@ -9,6 +9,7 @@ import {
 	mapStudentUpdateToDb,
 } from "../utils/fieldMapper";
 import { handleError, showErrorMessage } from "../utils/errors";
+import { logEvent } from "../utils/eventLogger";
 
 const helper = createDataHelper<Student, StudentRow>({
 	table: "students",
@@ -58,10 +59,18 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
 			return null;
 		}
 		set({ students: [...get().students, newStudent] });
+		await logEvent({
+			eventType: 'student.add',
+			entityType: 'student',
+			entityId: newStudent.id,
+			entityLabel: newStudent.name,
+			after: { name: newStudent.name, phone: newStudent.phone, isMember: newStudent.isMember },
+		});
 		return newStudent;
 	},
 
 	updateStudent: async (id: string, studentData: Partial<Student>) => {
+		const before = get().students.find((s) => s.id === id);
 		const updates = { ...studentData, updatedAt: dayjs().toISOString() };
 		const error = await helper.update(id, updates);
 		if (error) {
@@ -73,16 +82,46 @@ export const useStudentStore = create<StudentStore>((set, get) => ({
 				s.id === id ? { ...s, ...updates } : s,
 			),
 		});
+		if (before) {
+			const changedKeys = (Object.keys(studentData) as (keyof Student)[])
+				.filter((k) => k !== 'updatedAt' && before[k] !== studentData[k]);
+			if (changedKeys.length > 0) {
+				const b: Partial<Student> = {};
+				const a: Partial<Student> = {};
+				for (const k of changedKeys) {
+					(b as any)[k] = before[k];
+					(a as any)[k] = studentData[k];
+				}
+				await logEvent({
+					eventType: 'student.update',
+					entityType: 'student',
+					entityId: id,
+					entityLabel: before.name,
+					before: b,
+					after: a,
+				});
+			}
+		}
 		return true;
 	},
 
 	deleteStudent: async (id: string) => {
+		const before = get().students.find((s) => s.id === id);
 		const error = await helper.remove(id);
 		if (error) {
 			handleError(error);
 			return false;
 		}
 		set({ students: get().students.filter((s) => s.id !== id) });
+		if (before) {
+			await logEvent({
+				eventType: 'student.delete',
+				entityType: 'student',
+				entityId: id,
+				entityLabel: before.name,
+				before: { name: before.name, phone: before.phone },
+			});
+		}
 		return true;
 	},
 

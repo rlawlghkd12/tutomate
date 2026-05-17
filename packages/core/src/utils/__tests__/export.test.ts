@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("../../stores/settingsStore", () => ({
-	useSettingsStore: {
+vi.mock("../../stores/authStore", () => ({
+	useAuthStore: {
 		getState: () => ({ organizationName: "테스트학원" }),
 	},
 }));
