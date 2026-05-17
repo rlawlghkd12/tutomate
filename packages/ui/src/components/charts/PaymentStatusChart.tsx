@@ -22,15 +22,23 @@ const COLORS: Record<string, string> = {
   exempt: '#a78bfa',
 };
 
+// 색맹 접근성: 상태별 텍스트 심볼 — Legend 라벨 앞에 표시해 색 외 구분 수단 제공
+const STATUS_SYMBOL: Record<string, string> = {
+  completed: '●',  // 꽉 찬 원
+  partial: '◐',    // 반원
+  pending: '○',    // 빈 원
+  exempt: '◇',     // 다이아몬드
+};
+
 const renderActiveShape = (props: any) => {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, value, percent } = props;
 
   return (
     <g>
-      <text x={cx} y={cy - 8} textAnchor="middle" style={{ fill: 'hsl(var(--foreground))', fontSize: 14, fontWeight: 600 }}>
+      <text x={cx} y={cy - 8} textAnchor="middle" style={{ fill: 'hsl(var(--foreground))', fontSize: '0.93rem', fontWeight: 600 }}>
         {payload.name}
       </text>
-      <text x={cx} y={cy + 12} textAnchor="middle" style={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+      <text x={cx} y={cy + 12} textAnchor="middle" style={{ fill: 'hsl(var(--muted-foreground))', fontSize: '0.79rem' }}>
         {value}건 ({(percent * 100).toFixed(0)}%)
       </text>
       <Sector
@@ -54,6 +62,7 @@ const renderActiveShape = (props: any) => {
     </g>
   );
 };
+
 
 export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollments }) => {
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
@@ -112,12 +121,12 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
           ))}
         </Pie>
         {activeIndex === undefined && (
-          <text x="50%" y="42%" textAnchor="middle" dominantBaseline="central" style={{ fill: 'hsl(var(--foreground))', fontSize: 20, fontWeight: 700 }}>
+          <text x="50%" y="42%" textAnchor="middle" dominantBaseline="central" style={{ fill: 'hsl(var(--foreground))', fontSize: '1.29rem', fontWeight: 700 }}>
             {totalCount}
           </text>
         )}
         {activeIndex === undefined && (
-          <text x="50%" y="52%" textAnchor="middle" dominantBaseline="central" style={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+          <text x="50%" y="52%" textAnchor="middle" dominantBaseline="central" style={{ fill: 'hsl(var(--muted-foreground))', fontSize: '0.79rem' }}>
             총 수강생
           </text>
         )}
@@ -126,7 +135,7 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
             if (!active || !payload?.length) return null;
             const data = payload[0];
             return (
-              <div style={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
+              <div style={{ background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '10px 14px', fontSize: '0.86rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: data.payload.fill }} />
                   <span style={{ fontWeight: 600 }}>{data.name}</span>
@@ -140,10 +149,17 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
         />
         <Legend
           verticalAlign="bottom"
-          wrapperStyle={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', paddingTop: 8 }}
-          formatter={(value: string) => (
-            <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>{value}</span>
-          )}
+          wrapperStyle={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', paddingTop: 8 }}
+          formatter={(value: string, entry: any) => {
+            const status = entry?.payload?.status as string | undefined;
+            const symbol = status ? STATUS_SYMBOL[status] : '';
+            return (
+              <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.86rem' }}>
+                {symbol && <span style={{ marginRight: 4 }} aria-hidden>{symbol}</span>}
+                {value}
+              </span>
+            );
+          }}
         />
       </PieChart>
     </ResponsiveContainer>

@@ -211,7 +211,7 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
               <div>
                 <span className="text-sm font-semibold">변경 사항:</span>
                 <div
-                  className="mt-2 max-h-[200px] overflow-y-auto rounded-md bg-muted p-3 text-[13px] leading-relaxed"
+                  className="mt-2 max-h-[200px] overflow-y-auto rounded-md bg-muted p-3 text-[0.87rem] leading-relaxed"
                   dangerouslySetInnerHTML={{ __html: updateInfo.body }}
                 />
               </div>

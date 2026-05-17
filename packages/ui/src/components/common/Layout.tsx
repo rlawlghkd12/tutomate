@@ -3,7 +3,6 @@ import type React from 'react';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore, supabase, reloadAllStores, getUnreadCountForOrg } from '@tutomate/core';
-import { useSettingsStore } from '@tutomate/core';
 import { NotificationCenter } from '../notification/NotificationCenter';
 import { GlobalSearch, useGlobalSearch } from '../search/GlobalSearch';
 import Navigation from './Navigation';
@@ -31,6 +30,7 @@ const PAGE_TITLES: Record<string, string> = {
 	'/revenue': '수익 관리',
 	'/members': '멤버 관리',
 	'/settings': '설정',
+	'/ai-chat': 'AI 어시스턴트',
 };
 
 const SIDEBAR_WIDTH = 220;
@@ -38,7 +38,7 @@ const SIDEBAR_WIDTH = 220;
 const Layout: React.FC<LayoutProps> = ({ children }) => {
 	const [offline, setOffline] = useState(!navigator.onLine);
 	const [offlineDismissed, setOfflineDismissed] = useState(false);
-	const settingsOrgName = useSettingsStore((s) => s.organizationName);
+	const organizationName = useAuthStore((s) => s.organizationName);
 	const plan = useAuthStore((s) => s.plan) || 'trial';
 	const isTrial = plan === 'trial';
 	const location = useLocation();
@@ -49,10 +49,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 	const [orgMenuOpen, setOrgMenuOpen] = useState(false);
 	const orgMenuRef = useRef<HTMLDivElement>(null);
 	const currentOrgId = useAuthStore((s) => s.organizationId);
-
-	// 현재 활성 조직 이름: orgs에서 가져오고, 없으면 settings fallback
-	const activeOrg = orgs.find((o) => o.id === currentOrgId);
-	const organizationName = settingsOrgName || activeOrg?.name;
 	const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 	const [inviteCode, setInviteCode] = useState('');
 	const [joining, setJoining] = useState(false);
@@ -99,10 +95,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 		try {
 			await useAuthStore.getState().switchOrganization(orgId);
-			// 전환된 조직 이름으로 설정 업데이트
-			if (targetName) {
-				useSettingsStore.getState().setOrganizationName(targetName);
-			}
+			// Edge Function 응답에 이름이 없을 수 있으므로, 드롭다운에서 알고 있는 이름으로 보장
+			if (targetName) useAuthStore.setState({ organizationName: targetName });
 			await reloadAllStores();
 			loadOrgs();
 		} catch {
@@ -133,9 +127,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 			const result = await useAuthStore.getState().joinOrganization(inviteCode.trim());
 			if (!orgName && result?.name) {
 				updateSwitchOverlayName(result.name);
-				orgName = result.name;
 			}
-			if (orgName) useSettingsStore.getState().setOrganizationName(orgName);
 			// 4. 데이터 로드
 			await reloadAllStores();
 			loadOrgs();
@@ -174,8 +166,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 					minWidth: SIDEBAR_WIDTH,
 					display: 'flex',
 					flexDirection: 'column',
-					borderRight: '1px solid hsl(var(--border))',
-					background: 'hsl(var(--muted))',
+					borderRight: '1px solid hsl(var(--border) / 0.7)',
+					background: 'hsl(var(--card))',
 				}}
 			>
 				{/* 사이드바 상단: 트래픽 라이트 + 조직명 한 줄 */}
@@ -208,7 +200,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 								onKeyDown={(e) => { if (e.key === 'Enter') setOrgMenuOpen(!orgMenuOpen); }}
 							>
 								<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-									{organizationName || 'TutorMate'}
+									{organizationName}
 								</span>
 								<ChevronDown style={{ width: 14, height: 14, opacity: 0.6, flexShrink: 0 }} />
 							</span>
@@ -254,7 +246,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 										const roleOrder: Record<string, number> = { owner: 0, admin: 1, member: 2 };
 										return (roleOrder[a.role || 'member']) - (roleOrder[b.role || 'member']);
 									})
-									: [{ id: currentOrgId || '_current', name: organizationName || 'TutorMate' }]
+									: [{ id: currentOrgId || '_current', name: organizationName || '', role: 'owner' }]
 								).map((org) => (
 									<div
 										key={org.id}
@@ -330,7 +322,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 			</aside>
 
 			{/* ── Main area ── */}
-			<div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
+			<div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative', background: 'hsl(var(--layout-bg))' }}>
 				{/* 헤더 (52px) */}
 				<header
 					style={{
@@ -339,7 +331,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 						alignItems: 'center',
 						justifyContent: 'space-between',
 						padding: '0 20px',
-						borderBottom: '1px solid hsl(var(--border))',
+						borderBottom: '1px solid hsl(var(--border) / 0.6)',
+						background: 'hsl(var(--layout-bg))',
 						WebkitAppRegion: 'drag',
 					} as React.CSSProperties}
 				>
@@ -396,7 +389,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 				)}
 
 				{/* 콘텐츠 (padding 20px) */}
-				<main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: 20 }}>
+				<main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: 20, background: 'hsl(var(--layout-bg))' }}>
 					{children}
 				</main>
 			</div>
