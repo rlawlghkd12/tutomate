@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -7,6 +7,7 @@ import {
   flexRender,
   type ColumnDef,
   type SortingState,
+  type ColumnSizingState,
 } from '@tanstack/react-table';
 import { Search, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -23,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table';
+import { cn } from '../../lib/utils';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -65,6 +67,12 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
   const [searchText, setSearchText] = useState('');
   const [searchField, setSearchField] = useState<string>('all');
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => {
+    try { const s = localStorage.getItem('studentList_colSizing'); return s ? JSON.parse(s) : {}; } catch { return {}; }
+  });
+  useEffect(() => {
+    if (Object.keys(columnSizing).length > 0) localStorage.setItem('studentList_colSizing', JSON.stringify(columnSizing));
+  }, [columnSizing]);
 
   const handleEdit = useCallback((student: Student) => {
     setSelectedStudent(student);
@@ -80,10 +88,13 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
   const studentRows = useMemo(() => {
     return students.map((student, index) => {
       const studentEnrollments = enrollments.filter((e) => e.studentId === student.id && isActiveEnrollment(e));
+      const seen = new Set<string>();
       const studentCourses = studentEnrollments
         .map((enrollment) => {
           const course = courses.find((c) => c.id === enrollment.courseId);
-          return course && !isCourseEnded(course) ? { id: course.id, name: course.name } : null;
+          if (!course || isCourseEnded(course) || seen.has(course.id)) return null;
+          seen.add(course.id);
+          return { id: course.id, name: course.name };
         })
         .filter((c): c is { id: string; name: string } => c !== null);
 
@@ -152,7 +163,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
       accessorFn: (row: StudentRow) => row.student.isMember ? 1 : 0,
       sortingFn: 'basic',
       cell: ({ row }: { row: { original: StudentRow } }) => row.original.student.isMember
-        ? <Badge>회원</Badge>
+        ? <Badge variant="info">회원</Badge>
         : <Badge variant="secondary">비회원</Badge>,
     } satisfies ColumnDef<StudentRow>] : []),
     {
@@ -223,8 +234,10 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
   const table = useReactTable({
     data: filteredRows,
     columns,
-    state: { sorting },
+    state: { sorting, columnSizing },
     onSortingChange: setSorting,
+    onColumnSizingChange: setColumnSizing,
+    columnResizeMode: 'onChange',
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -267,29 +280,44 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
           </div>
         )}
       </div>
-      <Table>
+      <div className="rounded-xl overflow-hidden bg-card [box-shadow:var(--shadow-sm)]">
+      <Table style={{ width: table.getCenterTotalSize() }}>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
                 <TableHead
                   key={header.id}
+                  className="relative group"
                   style={{
-                    width: header.getSize() !== 150 ? header.getSize() : undefined,
+                    width: header.getSize(),
                     cursor: header.column.getCanSort() ? 'pointer' : undefined,
-                    userSelect: header.column.getCanSort() ? 'none' : undefined,
+                    userSelect: 'none',
                   }}
                   onClick={header.column.getToggleSortingHandler()}
                 >
                   {header.isPlaceholder ? null : (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <span className="inline-flex items-center gap-1">
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getCanSort() && (
-                        <span style={{ fontSize: '0.71rem', opacity: header.column.getIsSorted() ? 1 : 0.3 }}>
+                        <span className="text-[0.71rem]" style={{ opacity: header.column.getIsSorted() ? 1 : 0.3 }}>
                           {header.column.getIsSorted() === 'asc' ? '▲' : header.column.getIsSorted() === 'desc' ? '▼' : '⇅'}
                         </span>
                       )}
                     </span>
+                  )}
+                  {header.column.getCanResize() && (
+                    <div
+                      onMouseDown={header.getResizeHandler()}
+                      onTouchStart={header.getResizeHandler()}
+                      onClick={(e) => e.stopPropagation()}
+                      onDoubleClick={() => header.column.resetSize()}
+                      className={cn(
+                        'absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none opacity-0 group-hover:opacity-100 transition-opacity',
+                        header.column.getIsResizing() && 'opacity-100 bg-primary'
+                      )}
+                      style={{ background: header.column.getIsResizing() ? undefined : 'hsl(var(--border))' }}
+                    />
                   )}
                 </TableHead>
               ))}
@@ -301,7 +329,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
             table.getRowModel().rows.map((row) => (
               <TableRow key={row.id}>
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
+                  <TableCell key={cell.id} style={{ width: cell.column.getSize() }}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
@@ -316,6 +344,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions }) => {
           )}
         </TableBody>
       </Table>
+      </div>
       <StudentForm
         visible={isModalVisible}
         onClose={handleCloseStudentModal}

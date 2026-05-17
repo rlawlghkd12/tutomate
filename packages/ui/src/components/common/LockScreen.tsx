@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Lock, Loader2 } from 'lucide-react';
-import { useLockStore } from '@tutomate/core';
-import { useSettingsStore } from '@tutomate/core';
+import { useLockStore, useAuthStore } from '@tutomate/core';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
@@ -11,7 +10,7 @@ const LOCKOUT_SECONDS = 30;
 
 const LockScreen: React.FC = () => {
   const unlock = useLockStore((s) => s.unlock);
-  const organizationName = useSettingsStore((s) => s.organizationName);
+  const organizationName = useAuthStore((s) => s.organizationName);
 
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');

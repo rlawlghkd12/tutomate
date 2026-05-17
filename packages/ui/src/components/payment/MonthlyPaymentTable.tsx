@@ -191,12 +191,12 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
       cell: ({ row }) => {
         const record = row.original;
         if (record.enrollment.paymentStatus === 'exempt') {
-          return <Badge className="bg-purple-500 text-white hover:bg-purple-500/80">면제</Badge>;
+          return <Badge variant="secondary">면제</Badge>;
         }
         if (!record.monthPayment || record.monthPayment.status === 'pending') {
           return <Badge variant="destructive">미납</Badge>;
         }
-        return <Badge className="bg-green-600 text-white hover:bg-green-600/80">납부</Badge>;
+        return <Badge variant="success">납부</Badge>;
       },
     },
     {
@@ -309,7 +309,7 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
         const discount = record.enrollment.discountAmount ?? 0;
         if (discount === 0) return '-';
         return (
-          <span className="text-green-600 text-[13px]">
+          <span className="text-success text-[0.87rem]">
             -{'\u20A9'}{discount.toLocaleString()}
           </span>
         );
@@ -447,33 +447,33 @@ const MonthlyPaymentTable: React.FC<MonthlyPaymentTableProps> = ({
       </div>
 
       {/* 월별 통계 */}
-      <div className="mb-4 p-3 bg-muted/50 rounded-lg flex gap-6">
-        <div>
-          <span className="text-xs text-muted-foreground">납부 인원</span>
-          <div className="font-semibold">
-            <span className="text-green-600">{monthStats.paidCount}</span>
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">납부 인원</div>
+          <div className="text-sm font-semibold mt-0.5">
+            <span className="text-success">{monthStats.paidCount}</span>
             <span className="text-muted-foreground"> / {monthStats.totalStudents}명</span>
           </div>
         </div>
-        <div>
-          <span className="text-xs text-muted-foreground">납부 합계</span>
-          <div className="font-semibold text-green-600">
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">납부 합계</div>
+          <div className="text-sm font-semibold mt-0.5 text-success">
             {'\u20A9'}{monthStats.totalPaid.toLocaleString()}
           </div>
         </div>
-        <div>
-          <span className="text-xs text-muted-foreground">예상 합계</span>
-          <div className="font-semibold">
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">예상 합계</div>
+          <div className="text-sm font-semibold mt-0.5">
             {'\u20A9'}{monthStats.expectedTotal.toLocaleString()}
           </div>
         </div>
-        <div>
-          <span className="text-xs text-muted-foreground">수납률</span>
+        <div className="px-3 py-1.5 rounded-md border">
+          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">수납률</div>
           <div className={cn(
-            'font-semibold',
+            'text-sm font-semibold mt-0.5',
             monthStats.expectedTotal > 0 && monthStats.totalPaid < monthStats.expectedTotal
               ? 'text-destructive'
-              : 'text-green-600',
+              : 'text-success',
           )}>
             {monthStats.expectedTotal > 0 ? Math.round((monthStats.totalPaid / monthStats.expectedTotal) * 100) : 0}%
           </div>
