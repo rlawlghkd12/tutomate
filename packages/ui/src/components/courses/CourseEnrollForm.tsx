@@ -56,7 +56,7 @@ const CourseEnrollForm: React.FC<CourseEnrollFormProps> = ({
 	const { getCourseById } = useCourseStore();
 	const { students } = useStudentStore();
 	const plan = useAuthStore((s) => s.plan) || 'trial';
-	const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+	const [, setSelectedStudentId] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 	const [step, setStep] = useState(1);
 	const [studentSearch, setStudentSearch] = useState("");

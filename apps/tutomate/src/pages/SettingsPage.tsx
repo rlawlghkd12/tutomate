@@ -38,13 +38,12 @@ const SettingsPage: React.FC = () => {
     theme: appTheme,
     fontSize,
     notificationsEnabled,
-    organizationName,
     setTheme,
     setFontSize,
     setNotificationsEnabled,
-    setOrganizationName,
     loadSettings,
   } = useSettingsStore();
+  const organizationName = useAuthStore((s) => s.organizationName) || '';
 
   const {
     isEnabled: lockEnabled,
@@ -253,13 +252,13 @@ const SettingsPage: React.FC = () => {
       <div className="max-w-[1000px]">
 
           {/* ── 섹션 1: 계정 ── */}
-          <div style={{ marginTop: 0, marginBottom: 16 }}>
-            <h3 style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}><KeyRound style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />계정</h3>
-            <p style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>로그인 및 조직 관리</p>
+          <div className="mb-4">
+            <h3 className="text-base font-bold flex items-center gap-1.5"><KeyRound className="h-4 w-4 shrink-0" />계정</h3>
+            <p className="text-sm text-muted-foreground mt-1">로그인 및 조직 관리</p>
           </div>
-          <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
+          <div className="border rounded-xl px-5 py-1 mb-2">
             {/* 로그인 계정 */}
-            <div className="flex justify-between items-center" style={{ borderBottom: '1px solid hsl(var(--border))', padding: '16px 0' }}>
+            <div className="flex justify-between items-center border-b py-4">
               <div>
                 <div className="flex items-center gap-2">
                   <p className="font-semibold text-sm">로그인 계정</p>
@@ -279,7 +278,7 @@ const SettingsPage: React.FC = () => {
             </div>
 
             {/* 현재 플랜 */}
-            <div className="flex justify-between items-center" style={{ borderBottom: '1px solid hsl(var(--border))', padding: '16px 0' }}>
+            <div className="flex justify-between items-center border-b py-4">
               <div>
                 <p className="font-semibold text-sm">현재 플랜</p>
                 <p className="text-muted-foreground text-[0.85em]">
@@ -288,7 +287,7 @@ const SettingsPage: React.FC = () => {
                     : '모든 기능을 제한 없이 사용 가능'}
                 </p>
               </div>
-              <Badge variant={planBadgeVariant} className="text-[13px] px-2.5 py-0.5">
+              <Badge variant={planBadgeVariant}>
                 {currentPlan === 'trial' ? '체험판' : currentPlan === 'admin' ? 'Admin' : 'Basic'}
               </Badge>
             </div>
@@ -308,11 +307,11 @@ const SettingsPage: React.FC = () => {
           </div>
 
           {/* ── 섹션 2: 워크스페이스 ── */}
-          <div style={{ marginTop: 32, marginBottom: 16 }}>
-            <h3 style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}><Building2 style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />워크스페이스</h3>
-            <p style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>사이드바와 헤더에 표시되는 이름</p>
+          <div className="mt-8 mb-4">
+            <h3 className="text-base font-bold flex items-center gap-1.5"><Building2 className="h-4 w-4 shrink-0" />워크스페이스</h3>
+            <p className="text-sm text-muted-foreground mt-1">사이드바와 헤더에 표시되는 이름</p>
           </div>
-          <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
+          <div className="border rounded-xl px-5 py-1 mb-2">
             {/* 이름 */}
             <div className="flex justify-between items-center" style={{ padding: '16px 0' }}>
               <div className="flex-1 mr-6">
@@ -332,17 +331,14 @@ const SettingsPage: React.FC = () => {
                   size="sm"
                   disabled={orgNameInput === organizationName}
                   onClick={async () => {
-                    const prevName = organizationName;
-                    setOrganizationName(orgNameInput);
                     const orgId = useAuthStore.getState().organizationId;
-                    if (supabase && orgId) {
-                      const { error } = await supabase.from('organizations').update({ name: orgNameInput }).eq('id', orgId);
-                      if (error) {
-                        setOrganizationName(prevName);
-                        toast.error('이름 저장에 실패했습니다.');
-                        return;
-                      }
+                    if (!supabase || !orgId) return;
+                    const { error } = await supabase.from('organizations').update({ name: orgNameInput }).eq('id', orgId);
+                    if (error) {
+                      toast.error('이름 저장에 실패했습니다.');
+                      return;
                     }
+                    useAuthStore.setState({ organizationName: orgNameInput });
                     toast.success('이름이 저장되었습니다.');
                   }}
                 >
@@ -354,13 +350,13 @@ const SettingsPage: React.FC = () => {
           </div>
 
           {/* ── 섹션 3: 화면 설정 ── */}
-          <div style={{ marginTop: 32, marginBottom: 16 }}>
-            <h3 style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}><Palette style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />화면 설정</h3>
-            <p style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>앱 모양 변경</p>
+          <div className="mt-8 mb-4">
+            <h3 className="text-base font-bold flex items-center gap-1.5"><Palette className="h-4 w-4 shrink-0" />화면 설정</h3>
+            <p className="text-sm text-muted-foreground mt-1">앱 모양 변경</p>
           </div>
-          <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
+          <div className="border rounded-xl px-5 py-1 mb-2">
             {/* 다크 모드 */}
-            <div className="flex justify-between items-center" style={{ borderBottom: '1px solid hsl(var(--border))', padding: '16px 0' }}>
+            <div className="flex justify-between items-center border-b py-4">
               <div>
                 <p className="font-semibold text-sm">다크 모드</p>
                 <p className="text-muted-foreground text-[0.85em]">앱의 테마를 변경합니다</p>
@@ -372,49 +368,29 @@ const SettingsPage: React.FC = () => {
             </div>
 
             {/* 텍스트 크기 */}
-            <div style={{ padding: '16px 0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <div>
-                  <p className="font-semibold text-sm">텍스트 크기</p>
-                  <p className="text-muted-foreground text-[0.85em]">앱 전체의 텍스트 크기를 조절합니다</p>
-                </div>
-                <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>
-                  {fontSizeOptions.find(o => o.value === fontSize)?.label} ({
-                    fontSizeOptions.find(o => o.value === fontSize)?.px
-                  }px)
-                </span>
+            <div className="flex items-center" style={{ padding: '16px 0' }}>
+              <div style={{ flexShrink: 0, marginRight: 16 }}>
+                <p className="font-semibold text-sm">텍스트 크기</p>
+                <p className="text-muted-foreground text-[0.85em]">
+                  {fontSizeOptions.find(o => o.value === fontSize)?.label} ({fontSizeOptions.find(o => o.value === fontSize)?.px}px)
+                </p>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, marginLeft: 'auto', maxWidth: 280 }}>
                 <span style={{ fontSize: '0.79rem', color: 'hsl(var(--muted-foreground))' }}>가</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={6}
-                  step="any"
-                  value={sliderValue}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    setSliderValue(val);
-                    const idx = Math.round(val);
-                    if (fontSizeOptions[idx]) setFontSize(fontSizeOptions[idx].value);
-                  }}
-                  onPointerUp={() => setSliderValue(Math.round(sliderValue))}
-                  onTouchEnd={() => setSliderValue(Math.round(sliderValue))}
-                  style={{ flex: 1 }}
-                />
+                <input type="range" min={0} max={6} step="any" value={sliderValue} onChange={(e) => { const val = Number(e.target.value); setSliderValue(val); const idx = Math.round(val); if (fontSizeOptions[idx]) setFontSize(fontSizeOptions[idx].value); }} onPointerUp={() => setSliderValue(Math.round(sliderValue))} onTouchEnd={() => setSliderValue(Math.round(sliderValue))} style={{ flex: 1 }} />
                 <span style={{ fontSize: '1.29rem', fontWeight: 700, color: 'hsl(var(--muted-foreground))' }}>가</span>
               </div>
             </div>
           </div>
 
           {/* ── 섹션 4: 알림 / 보안 ── */}
-          <div style={{ marginTop: 32, marginBottom: 16 }}>
-            <h3 style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}><Bell style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />알림 / 보안</h3>
-            <p style={{ fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>알림과 잠금 설정</p>
+          <div className="mt-8 mb-4">
+            <h3 className="text-base font-bold flex items-center gap-1.5"><Bell className="h-4 w-4 shrink-0" />알림 / 보안</h3>
+            <p className="text-sm text-muted-foreground mt-1">알림과 잠금 설정</p>
           </div>
-          <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
+          <div className="border rounded-xl px-5 py-1 mb-2">
             {/* 알림 */}
-            <div className="flex justify-between items-center" style={{ borderBottom: '1px solid hsl(var(--border))', padding: '16px 0' }}>
+            <div className="flex justify-between items-center border-b py-4">
               <div>
                 <p className="font-semibold text-sm">알림</p>
                 <p className="text-muted-foreground text-[0.85em]">
@@ -527,10 +503,10 @@ const SettingsPage: React.FC = () => {
           </Dialog>
 
           {/* ── 섹션 5: 앱 정보 ── */}
-          <div style={{ marginTop: 32, marginBottom: 16 }}>
-            <h3 style={{ fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))' }}><Info style={{ width: 16, height: 16, display: "inline", verticalAlign: "middle", marginRight: 6 }} />앱 정보</h3>
+          <div className="mt-8 mb-4">
+            <h3 className="text-base font-bold flex items-center gap-1.5"><Info className="h-4 w-4 shrink-0" />앱 정보</h3>
           </div>
-          <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 12, padding: '4px 20px', marginBottom: 8 }}>
+          <div className="border rounded-xl px-5 py-1 mb-2">
             {/* 버전 + 업데이트 확인 */}
             <div className="flex justify-between items-center" style={{ padding: '16px 0' }}>
               <div>
@@ -553,7 +529,7 @@ const SettingsPage: React.FC = () => {
                     <Badge variant="success">새 버전</Badge>
                     <span className="font-semibold">v{updateAvailable.version}</span>
                   </div>
-                  <div className="text-[13px] text-muted-foreground" dangerouslySetInnerHTML={{ __html: updateAvailable.body }} />
+                  <div className="text-[0.87rem] text-muted-foreground" dangerouslySetInnerHTML={{ __html: updateAvailable.body }} />
                   {downloading ? (
                     <div className="space-y-1">
                       <Progress value={downloadProgress} />
@@ -565,6 +541,12 @@ const SettingsPage: React.FC = () => {
                 </div>
               </div>
             )}
+            {/* 이용약관 / 개인정보 처리방침 */}
+            <div className="flex items-center gap-3 text-xs text-muted-foreground" style={{ borderTop: '1px solid hsl(var(--border))', padding: '16px 0' }}>
+              <a href="https://taktonlabs.com/terms" target="_blank" rel="noopener noreferrer" className="hover:underline">이용약관</a>
+              <span>·</span>
+              <a href="https://taktonlabs.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline">개인정보 처리방침</a>
+            </div>
           </div>
 
       </div>
@@ -622,7 +604,6 @@ const SettingsPage: React.FC = () => {
                 if (ownerOrg) {
                   showSwitchOverlay(ownerOrg.name);
                   await useAuthStore.getState().switchOrganization(ownerOrg.id);
-                  if (ownerOrg.name) useSettingsStore.getState().setOrganizationName(ownerOrg.name);
                   const { reloadAllStores } = await import('@tutomate/core');
                   await reloadAllStores();
                 }
