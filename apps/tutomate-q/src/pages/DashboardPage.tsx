@@ -9,13 +9,13 @@ import {
 	Card, CardContent, CardHeader, CardTitle, Progress, PageEnter,
 } from "@tutomate/ui";
 import {
-	EXEMPT_COLOR,
 	useCourseStore,
 	useEnrollmentStore,
 	useMonthlyPaymentStore,
 	useStudentStore,
 	generateAllNotifications,
 	isActiveEnrollment,
+	getCurrentQuarter,
 } from "@tutomate/core";
 
 const DashboardPage: React.FC = () => {
@@ -31,11 +31,14 @@ const DashboardPage: React.FC = () => {
 			setLoading(false);
 		};
 		loadData().then(async () => {
-			const { enrollments, students, courses } = {
-				enrollments: useEnrollmentStore.getState().enrollments,
-				students: useStudentStore.getState().students,
-				courses: useCourseStore.getState().courses,
-			};
+			const allEnrollments = useEnrollmentStore.getState().enrollments;
+			const students = useStudentStore.getState().students;
+			const courses = useCourseStore.getState().courses;
+			// 현재 분기 enrollment만 알림 생성
+			const q = getCurrentQuarter();
+			const enrollments = allEnrollments.filter(
+				(e) => isActiveEnrollment(e) && (e.quarter === q || !e.quarter),
+			);
 			if (enrollments.length > 0 && students.length > 0 && courses.length > 0) {
 				generateAllNotifications(enrollments, students, courses);
 			}
@@ -64,28 +67,37 @@ const DashboardPage: React.FC = () => {
 		});
 	}, [loadCourses, loadStudents, loadEnrollments]);
 
+	const currentQuarter = getCurrentQuarter();
+	// 분기 전체 (withdrawn 포함 — 환불이 수익에 차감되어야 함)
+	const quarterAll = enrollments.filter(
+		(e) => e.quarter === currentQuarter || !e.quarter,
+	);
+	// 수익 집계용 (exempt 제외, withdrawn 포함하여 환불 차감 반영)
+	const quarterRevenue = quarterAll.filter((e) => e.paymentStatus !== "exempt");
+	// 활성 수강생 (완납/미납 카운트 및 예상수익/차트용)
+	const quarterActive = quarterRevenue.filter((e) => e.paymentStatus !== "withdrawn");
+
 	const totalCourses = courses.length;
 	const totalStudents = students.length;
 
-	const completedPayments = enrollments.filter(
-		(e) => isActiveEnrollment(e) && e.paymentStatus === "completed",
+	const completedPayments = quarterActive.filter(
+		(e) => e.paymentStatus === "completed",
 	).length;
-	const pendingPayments = enrollments.filter(
-		(e) => isActiveEnrollment(e) && e.paymentStatus === "pending",
+	const pendingPayments = quarterActive.filter(
+		(e) => e.paymentStatus === "pending",
 	).length;
 
-	const totalRevenue = enrollments
-		.filter((e) => isActiveEnrollment(e) && e.paymentStatus !== "exempt")
-		.reduce((sum, enrollment) => {
-			return sum + enrollment.paidAmount;
-		}, 0);
+	// 총 수익: withdrawn 포함 — 환불 금액(음수 paidAmount) 차감됨
+	const totalRevenue = quarterRevenue.reduce(
+		(sum, enrollment) => sum + enrollment.paidAmount,
+		0,
+	);
 
-	const expectedRevenue = enrollments
-		.filter((e) => isActiveEnrollment(e) && e.paymentStatus !== "exempt")
-		.reduce((sum, enrollment) => {
-			const course = courses.find((c) => c.id === enrollment.courseId);
-			return sum + (course?.fee || 0);
-		}, 0);
+	// 예상수익: active만 (포기 학생은 기대 수익에서 제외)
+	const expectedRevenue = quarterActive.reduce((sum, enrollment) => {
+		const course = courses.find((c) => c.id === enrollment.courseId);
+		return sum + (course?.fee || 0);
+	}, 0);
 
 	const paymentRate =
 		expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0;
@@ -114,42 +126,55 @@ const DashboardPage: React.FC = () => {
 		<PageEnter>
 			{/* 상단 통계 */}
 			<div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-				<Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/courses")}>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">강좌</p>
-						<p className="text-xl font-bold text-primary">{totalCourses}</p>
+				<Card className="cursor-pointer card-interactive" onClick={() => navigate("/courses")}>
+					<CardContent className="p-4">
+						<p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">강좌</p>
+						<p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>{totalCourses}</p>
 					</CardContent>
 				</Card>
-				<Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/students")}>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">수강생</p>
-						<p className="text-xl font-bold text-green-600 dark:text-green-400">{totalStudents}</p>
+				<Card className="cursor-pointer card-interactive" onClick={() => navigate("/students")}>
+					<CardContent className="p-4">
+						<p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수강생</p>
+						{totalStudents === 0 ? (
+							<div className="flex items-center gap-1.5 text-sm text-primary font-medium mt-1">
+								<Plus className="h-4 w-4" />
+								<span>등록하기</span>
+							</div>
+						) : (
+							<p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>{totalStudents}</p>
+						)}
 					</CardContent>
 				</Card>
-				<Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/revenue")}>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">납부</p>
-						<p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>{totalRevenue.toLocaleString()}원</p>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">납부율</p>
-						<p className={`text-xl font-bold ${paymentRate >= 80 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
-							{paymentRate.toFixed(0)}%
+				<Card className="cursor-pointer card-interactive" onClick={() => navigate("/revenue")}>
+					<CardContent className="p-4">
+						<p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">납부</p>
+						<p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
+							{totalRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
 						</p>
 					</CardContent>
 				</Card>
 				<Card>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">완납</p>
-						<p className="text-xl font-bold text-green-600 dark:text-green-400">{completedPayments}건</p>
+					<CardContent className="p-4">
+						<p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">납부율</p>
+						<p className={`text-3xl font-bold tabular-nums ${paymentRate >= 80 ? 'text-success' : 'text-warning'}`} style={{ letterSpacing: '-0.02em' }}>
+							{paymentRate.toFixed(0)}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
+						</p>
 					</CardContent>
 				</Card>
 				<Card>
-					<CardContent className="p-3">
-						<p className="text-xs text-muted-foreground">미납</p>
-						<p className="text-xl font-bold text-red-600 dark:text-red-400">{pendingPayments}건</p>
+					<CardContent className="p-4">
+						<p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
+						<p className="text-3xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
+							{completedPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
+						</p>
+					</CardContent>
+				</Card>
+				<Card>
+					<CardContent className="p-4">
+						<p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납</p>
+						<p className="text-3xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
+							{pendingPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
+						</p>
 					</CardContent>
 				</Card>
 			</div>
@@ -157,7 +182,7 @@ const DashboardPage: React.FC = () => {
 			{/* 전체 강좌 */}
 			<Card className="mt-4">
 				<CardHeader className="p-4 pb-2">
-					<CardTitle className="text-sm font-semibold">전체 강좌 ({totalCourses})</CardTitle>
+					<CardTitle className="text-sm">전체 강좌 ({totalCourses})</CardTitle>
 				</CardHeader>
 				<CardContent className="p-4 pt-2">
 					{courses.length === 0 ? (
@@ -171,8 +196,9 @@ const DashboardPage: React.FC = () => {
 					) : (
 						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
 							{courses.map((course) => {
+								// 정원 표시는 strict 분기 매칭 (null-quarter legacy 제외)
 								const currentStudents = enrollments.filter(
-									(e) => e.courseId === course.id && isActiveEnrollment(e),
+									(e) => isActiveEnrollment(e) && e.courseId === course.id && e.quarter === currentQuarter,
 								).length;
 								const percentage = (currentStudents / course.maxStudents) * 100;
 								return (
@@ -182,7 +208,7 @@ const DashboardPage: React.FC = () => {
 										onClick={() => navigate(`/courses/${course.id}`)}
 									>
 										<CardContent className="p-3">
-											<div className="font-semibold text-sm mb-1 truncate">
+											<div className="font-semibold text-sm mb-1">
 												{course.name}
 											</div>
 											<div className="text-xs text-muted-foreground mb-2">
@@ -191,7 +217,7 @@ const DashboardPage: React.FC = () => {
 											<div className="flex items-center gap-2">
 												<Progress
 													value={Math.min(percentage, 100)}
-													className={`flex-1 h-2 ${percentage >= 100 ? '[&>div]:bg-destructive' : ''}`}
+													className="flex-1 h-1.5"
 												/>
 												<span className="text-xs text-muted-foreground whitespace-nowrap">
 													{currentStudents}/{course.maxStudents}
@@ -210,18 +236,18 @@ const DashboardPage: React.FC = () => {
 			<div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3 mt-4">
 				<Card>
 					<CardHeader className="p-4 pb-2">
-						<CardTitle className="text-sm font-semibold">강좌별 수익</CardTitle>
+						<CardTitle className="text-sm">강좌별 수익</CardTitle>
 					</CardHeader>
 					<CardContent className="p-4 pt-2">
-						<CourseRevenueChart enrollments={enrollments} courses={courses} />
+						<CourseRevenueChart enrollments={quarterRevenue} courses={courses} />
 					</CardContent>
 				</Card>
 				<Card>
 					<CardHeader className="p-4 pb-2">
-						<CardTitle className="text-sm font-semibold">납부 상태</CardTitle>
+						<CardTitle className="text-sm">납부 상태</CardTitle>
 					</CardHeader>
 					<CardContent className="p-4 pt-2">
-						<PaymentStatusChart enrollments={enrollments} />
+						<PaymentStatusChart enrollments={quarterActive} />
 					</CardContent>
 				</Card>
 			</div>
