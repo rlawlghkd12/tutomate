@@ -1,7 +1,9 @@
 // ─── Config ──────────────────────────────────────────────────────
 export { appConfig } from './config/appConfig';
+export { THEMES, resolveTheme, getThemeMode } from './config/themes';
+export type { ThemeId, ThemeDefinition } from './config/themes';
 export { APP_NAME, useAppVersion } from './config/version';
-export { supabase, isSupabaseConfigured } from './config/supabase';
+export { supabase, isSupabaseConfigured, setSupabaseSession } from './config/supabase';
 export { PLAN_LIMITS, PlanTypeEnum } from './config/planLimits';
 export type { PlanType, PlanLimitKey } from './config/planLimits';
 export {
@@ -20,7 +22,7 @@ export type { OAuthProvider, OAuthProviderConfig, OAuthCallbackResult, OAuthCall
 // ─── Stores ──────────────────────────────────────────────────────
 export { useSettingsStore } from './stores/settingsStore';
 export type { FontSize, Theme } from './stores/settingsStore';
-export { useAuthStore, isCloud, getOrgId, getPlan, isOwner, canManageMembers, getAuthProvider, getAuthProviderLabel, getAuthProviderColor } from './stores/authStore';
+export { useAuthStore, isCloud, getOrgId, getOrgName, getPlan, isOwner, canManageMembers, getAuthProvider, getAuthProviderLabel, getAuthProviderColor } from './stores/authStore';
 export { useCourseStore } from './stores/courseStore';
 export { useStudentStore } from './stores/studentStore';
 export { useEnrollmentStore } from './stores/enrollmentStore';
@@ -29,10 +31,15 @@ export { usePaymentRecordStore } from './stores/paymentRecordStore';
 export { reloadAllStores } from './stores/reloadStores';
 export { useLockStore } from './stores/lockStore';
 export { useNotificationStore, getUnreadCountForOrg } from './stores/notificationStore';
+export { useEventLogStore } from './stores/eventLogStore';
+export type { EventLogFilters } from './stores/eventLogStore';
 
 // ─── Utils ───────────────────────────────────────────────────────
 export { createDataHelper, clearAllCache } from './utils/dataHelper';
 export type { DataHelper, LoadResult } from './utils/dataHelper';
+
+export { logEvent, diffChanges } from './utils/eventLogger';
+export type { LogEventArgs } from './utils/eventLogger';
 
 export { default as dayjs } from './utils/dayjs';
 
@@ -155,6 +162,19 @@ export {
 
 // ─── Hooks ───────────────────────────────────────────────────────
 export { useAutoLock } from './hooks/useAutoLock';
+
+// ─── Excel / Mapping (AI 임포트 도구가 사용) ───────────────────
+export * from './excel/types';
+export { parseExcel } from './excel/ExcelParser';
+export { normalizeRow } from './excel/DataNormalizer';
+export type { ColumnMapping } from './excel/DataNormalizer';
+export { SYNONYMS, normalizeHeader, findField } from './mapping/synonyms';
+export { tryRuleMapping, computeSignature } from './mapping/ColumnMapper';
+export type { MappingResult } from './mapping/ColumnMapper';
+export { loadCachedMapping, saveMappingCache } from './mapping/mappingCacheStore';
+
+// ─── AI (Tool catalog + dispatcher + types) ────────────────────
+export * from './ai';
 
 // ─── Types ───────────────────────────────────────────────────────
 export * from './types/index';
