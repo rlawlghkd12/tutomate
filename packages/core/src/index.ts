@@ -150,6 +150,7 @@ export {
   getQuarterOptions,
   getQuarterMonths,
   quarterMonthToYYYYMM,
+  getPreviousQuarter,
 } from './utils/quarterUtils';
 
 // ─── Hooks ───────────────────────────────────────────────────────
