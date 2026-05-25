@@ -83,6 +83,7 @@ const StudentsPage: React.FC = () => {
   return (
     <PageEnter>
       <StudentList
+        enrollments={quarterEnrollments}
         actions={
           <div className="flex gap-2">
             <Button

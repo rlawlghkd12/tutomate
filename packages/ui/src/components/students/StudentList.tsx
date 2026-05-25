@@ -11,7 +11,7 @@ import {
 } from '@tanstack/react-table';
 import { Search, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import type { Student } from '@tutomate/core';
+import type { Student, Enrollment } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
 import { appConfig, isActiveEnrollment, isCourseEnded } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
@@ -54,12 +54,15 @@ interface StudentRow {
 
 interface StudentListProps {
   actions?: React.ReactNode;
+  /** 외부에서 필터링한 enrollments (예: 현재 분기). 미지정 시 store 전체 사용. */
+  enrollments?: Enrollment[];
 }
 
-const StudentList: React.FC<StudentListProps> = ({ actions }) => {
+const StudentList: React.FC<StudentListProps> = ({ actions, enrollments: enrollmentsProp }) => {
   const navigate = useNavigate();
   const { students } = useStudentStore();
-  const { enrollments } = useEnrollmentStore();
+  const { enrollments: enrollmentsFromStore } = useEnrollmentStore();
+  const enrollments = enrollmentsProp ?? enrollmentsFromStore;
   const { courses } = useCourseStore();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
