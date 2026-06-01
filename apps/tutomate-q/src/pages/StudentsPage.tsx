@@ -12,7 +12,7 @@ import {
 import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
-import { exportStudentsToExcel, exportStudentsToCSV, STUDENT_EXPORT_FIELDS, getCurrentQuarter, isActiveEnrollment } from '@tutomate/core';
+import { exportStudentsToExcel, exportStudentsToCSV, STUDENT_EXPORT_FIELDS, useQuarterStore, isActiveEnrollment } from '@tutomate/core';
 
 const DEFAULT_EXPORT_FIELDS = ['name', 'phone', 'enrolledCourses', 'totalPaid', 'totalRemaining'];
 
@@ -29,7 +29,7 @@ const StudentsPage: React.FC = () => {
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
   const { courses, loadCourses } = useCourseStore();
-  const currentQuarter = getCurrentQuarter();
+  const currentQuarter = useQuarterStore((s) => s.selectedQuarter);
   const quarterEnrollments = useMemo(
     () => enrollments.filter((e) => isActiveEnrollment(e) && (e.quarter === currentQuarter || !e.quarter)),
     [enrollments, currentQuarter],

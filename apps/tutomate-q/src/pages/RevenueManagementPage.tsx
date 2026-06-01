@@ -9,7 +9,6 @@ import {
   Button, Dialog, DialogContent, DialogHeader, DialogTitle,
   Card, CardContent, Badge,
   Tabs, TabsContent, TabsList, TabsTrigger,
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
   PageEnter,
 } from '@tutomate/ui';
@@ -18,7 +17,7 @@ import { useCourseStore } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { usePaymentRecordStore } from '@tutomate/core';
-import { getCurrentQuarter, getQuarterOptions } from '@tutomate/core';
+import { useQuarterStore, getQuarterLabel } from '@tutomate/core';
 import { PaymentForm, StudentForm } from '@tutomate/ui';
 import type { Enrollment, Student } from '@tutomate/core';
 import { PAYMENT_METHOD_LABELS } from '@tutomate/core';
@@ -46,7 +45,7 @@ const RevenueManagementPage: React.FC = () => {
   const [filterMode, setFilterMode] = useState<'quarter' | 'date'>('quarter');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
 
-  const [selectedQuarter, setSelectedQuarter] = useState<string>(getCurrentQuarter());
+  const selectedQuarter = useQuarterStore((s) => s.selectedQuarter);
 
   useEffect(() => {
     loadCourses();
@@ -321,17 +320,10 @@ const RevenueManagementPage: React.FC = () => {
 
               {/* 모드별 필터 값 */}
               {filterMode === 'quarter' ? (
-                <>
-                  <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-                    <SelectTrigger className="w-[170px] h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {getQuarterOptions().map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" size="sm" onClick={() => setSelectedQuarter(getCurrentQuarter())}>이번 분기</Button>
-                </>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-3 py-1.5 text-sm font-semibold text-foreground">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  {getQuarterLabel(selectedQuarter)}
+                </span>
               ) : (
                 <>
                   <div className="flex items-center gap-1.5">

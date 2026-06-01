@@ -14,6 +14,7 @@ import { showSwitchOverlay, hideSwitchOverlay, updateSwitchOverlayName } from '.
 
 interface LayoutProps {
 	children: React.ReactNode;
+	headerExtra?: React.ReactNode;
 }
 
 interface OrgItem {
@@ -35,7 +36,7 @@ const PAGE_TITLES: Record<string, string> = {
 
 const SIDEBAR_WIDTH = 220;
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Layout: React.FC<LayoutProps> = ({ children, headerExtra }) => {
 	const [offline, setOffline] = useState(!navigator.onLine);
 	const [offlineDismissed, setOfflineDismissed] = useState(false);
 	const organizationName = useAuthStore((s) => s.organizationName);
@@ -343,11 +344,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 							fontWeight: 700,
 							color: 'hsl(var(--foreground))',
 							WebkitAppRegion: 'no-drag',
+							minWidth: 0,
+							overflow: 'hidden',
+							textOverflow: 'ellipsis',
+							whiteSpace: 'nowrap',
 						} as React.CSSProperties}
 					>
 						{pageTitle}
 					</h2>
-					<div style={{ display: 'flex', alignItems: 'center', gap: 4, WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+					<div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+						{headerExtra}
+						{headerExtra && (
+							<div style={{ width: 1, height: 32, background: 'hsl(var(--border) / 0.7)' }} />
+						)}
 						<Button
 							variant="ghost"
 							size="icon"

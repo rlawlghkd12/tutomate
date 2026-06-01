@@ -9,21 +9,20 @@ import {
 	Dialog, DialogContent, DialogHeader, DialogTitle,
 	AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
 	AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
-	Checkbox, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+	Checkbox,
 	CourseEnrollForm, CourseForm, PaymentManagementTable, StudentForm, PageEnter,
 } from "@tutomate/ui";
 import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
 import { usePaymentRecordStore } from "@tutomate/core";
 import { useStudentStore } from "@tutomate/core";
+import { useQuarterStore } from "@tutomate/core";
 import { appConfig, isActiveEnrollment } from "@tutomate/core";
 import type { Enrollment, Student } from "@tutomate/core";
 import {
 	COURSE_STUDENT_EXPORT_FIELDS,
 	exportCourseStudentsToCSV,
 	exportCourseStudentsToExcel,
-	getCurrentQuarter,
-	getQuarterOptions,
 } from "@tutomate/core";
 
 const DEFAULT_EXPORT_FIELDS = [
@@ -50,7 +49,7 @@ const CourseDetailPage: React.FC = () => {
 		DEFAULT_EXPORT_FIELDS,
 	);
 
-	const [selectedQuarter, setSelectedQuarter] = useState<string>(getCurrentQuarter());
+	const selectedQuarter = useQuarterStore((s) => s.selectedQuarter);
 	const [isCourseEditVisible, setIsCourseEditVisible] = useState(false);
 	const [isEnrollVisible, setIsEnrollVisible] = useState(false);
 	const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -284,18 +283,6 @@ const CourseDetailPage: React.FC = () => {
 				courseFee={course.fee}
 				enrollments={courseEnrollments}
 				showMemberColumn
-				quarterSelector={appConfig.enableQuarterSystem ? (
-					<Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-						<SelectTrigger className="w-[180px]">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{getQuarterOptions().map((opt) => (
-								<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				) : undefined}
 				onStudentClick={(studentId) => {
 					const student = getStudentById(studentId);
 					if (student) {
