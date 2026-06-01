@@ -13,17 +13,21 @@ import {
 	useStudentStore,
 	generateAllNotifications,
 	isActiveEnrollment,
+	getCurrentQuarter,
+	getQuarterLabel,
 } from "@tutomate/core";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Progress } from "../components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 
 const DashboardPage: React.FC = () => {
 	const navigate = useNavigate();
 	const { courses, loadCourses } = useCourseStore();
-	const { students, loadStudents } = useStudentStore();
+	const { loadStudents } = useStudentStore();
 	const { enrollments, loadEnrollments } = useEnrollmentStore();
 	const [loading, setLoading] = useState(true);
+	const [selectedQuarter, setSelectedQuarter] = useState<string>(getCurrentQuarter());
 
 	useEffect(() => {
 		const loadData = async () => {
@@ -65,24 +69,42 @@ const DashboardPage: React.FC = () => {
 	}, [loadCourses, loadStudents, loadEnrollments]);
 
 	const totalCourses = courses.length;
-	const totalStudents = students.length;
+
+	// 실제 데이터가 있는 분기 + 현재 분기만 옵션으로 (빈 분기 제외)
+	const quarterOptions = useMemo(() => {
+		const set = new Set<string>();
+		for (const e of enrollments) {
+			if (e.quarter && /^\d{4}-Q[1-4]$/.test(e.quarter)) set.add(e.quarter);
+		}
+		set.add(getCurrentQuarter());
+		return Array.from(set)
+			.sort((a, b) => a.localeCompare(b))
+			.map((value) => ({ value, label: getQuarterLabel(value) }));
+	}, [enrollments]);
+
+	// 선택된 분기의 활성 수강신청만 집계
+	const quarterActive = useMemo(
+		() => enrollments.filter((e) => isActiveEnrollment(e) && e.quarter === selectedQuarter),
+		[enrollments, selectedQuarter],
+	);
+
+	const totalStudents = useMemo(
+		() => new Set(quarterActive.map((e) => e.studentId)).size,
+		[quarterActive],
+	);
 
 	const { completedPayments, pendingPayments, totalRevenue, paymentRate } = useMemo(() => {
-		const completed = enrollments.filter(
-			(e) => isActiveEnrollment(e) && e.paymentStatus === "completed",
-		).length;
-		const pending = enrollments.filter(
-			(e) => isActiveEnrollment(e) && e.paymentStatus === "pending",
-		).length;
+		const completed = quarterActive.filter((e) => e.paymentStatus === "completed").length;
+		const pending = quarterActive.filter((e) => e.paymentStatus === "pending").length;
 
-		const revenue = enrollments
-			.filter((e) => isActiveEnrollment(e) && e.paymentStatus !== "exempt")
+		const revenue = quarterActive
+			.filter((e) => e.paymentStatus !== "exempt")
 			.reduce((sum, enrollment) => {
 				return sum + enrollment.paidAmount;
 			}, 0);
 
-		const expected = enrollments
-			.filter((e) => isActiveEnrollment(e) && e.paymentStatus !== "exempt")
+		const expected = quarterActive
+			.filter((e) => e.paymentStatus !== "exempt")
 			.reduce((sum, enrollment) => {
 				const course = courses.find((c) => c.id === enrollment.courseId);
 				return sum + (course?.fee || 0);
@@ -97,16 +119,15 @@ const DashboardPage: React.FC = () => {
 			expectedRevenue: expected,
 			paymentRate: rate,
 		};
-	}, [enrollments, courses]);
+	}, [quarterActive, courses]);
 
 	const enrollmentCountMap = useMemo(() => {
 		const map = new Map<string, number>();
-		for (const e of enrollments) {
-			if (!isActiveEnrollment(e)) continue;
+		for (const e of quarterActive) {
 			map.set(e.courseId, (map.get(e.courseId) || 0) + 1);
 		}
 		return map;
-	}, [enrollments]);
+	}, [quarterActive]);
 
 	if (loading) {
 		return (
@@ -130,6 +151,29 @@ const DashboardPage: React.FC = () => {
 
 	return (
 		<PageEnter>
+			{/* 분기 선택 */}
+			<div className="flex items-center gap-2 mb-4">
+				<Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+					<SelectTrigger className="w-[140px]">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						{quarterOptions.map((opt) => (
+							<SelectItem key={opt.value} value={opt.value}>
+								{opt.label}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+				<Button
+					variant="outline"
+					size="sm"
+					onClick={() => setSelectedQuarter(getCurrentQuarter())}
+				>
+					이번 분기
+				</Button>
+			</div>
+
 			{/* 상단 통계 - 한 줄 */}
 			<div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
 				<Card
@@ -245,7 +289,7 @@ const DashboardPage: React.FC = () => {
 						<CardTitle className="text-sm">강좌별 수익</CardTitle>
 					</CardHeader>
 					<CardContent className="p-4 pt-2">
-						<CourseRevenueChart enrollments={enrollments} courses={courses} />
+						<CourseRevenueChart enrollments={quarterActive} courses={courses} />
 					</CardContent>
 				</Card>
 				<Card>
@@ -253,7 +297,7 @@ const DashboardPage: React.FC = () => {
 						<CardTitle className="text-sm">납부 상태</CardTitle>
 					</CardHeader>
 					<CardContent className="p-4 pt-2">
-						<PaymentStatusChart enrollments={enrollments} />
+						<PaymentStatusChart enrollments={quarterActive} />
 					</CardContent>
 				</Card>
 			</div>

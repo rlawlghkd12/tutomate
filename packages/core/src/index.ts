@@ -30,6 +30,7 @@ export { useMonthlyPaymentStore } from './stores/monthlyPaymentStore';
 export { usePaymentRecordStore } from './stores/paymentRecordStore';
 export { reloadAllStores } from './stores/reloadStores';
 export { useLockStore } from './stores/lockStore';
+export { useQuarterStore } from './stores/quarterStore';
 export { useNotificationStore, getUnreadCountForOrg } from './stores/notificationStore';
 export { useEventLogStore } from './stores/eventLogStore';
 export type { EventLogFilters } from './stores/eventLogStore';

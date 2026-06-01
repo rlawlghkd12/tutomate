@@ -13,6 +13,7 @@ import {
 	useEnrollmentStore,
 	useMonthlyPaymentStore,
 	useStudentStore,
+	useQuarterStore,
 	generateAllNotifications,
 	isActiveEnrollment,
 	getCurrentQuarter,
@@ -21,9 +22,10 @@ import {
 const DashboardPage: React.FC = () => {
 	const navigate = useNavigate();
 	const { courses, loadCourses } = useCourseStore();
-	const { students, loadStudents } = useStudentStore();
+	const { loadStudents } = useStudentStore();
 	const { enrollments, loadEnrollments } = useEnrollmentStore();
 	const [loading, setLoading] = useState(true);
+	const selectedQuarter = useQuarterStore((s) => s.selectedQuarter);
 
 	useEffect(() => {
 		const loadData = async () => {
@@ -67,10 +69,9 @@ const DashboardPage: React.FC = () => {
 		});
 	}, [loadCourses, loadStudents, loadEnrollments]);
 
-	const currentQuarter = getCurrentQuarter();
 	// 분기 전체 (withdrawn 포함 — 환불이 수익에 차감되어야 함)
 	const quarterAll = enrollments.filter(
-		(e) => e.quarter === currentQuarter || !e.quarter,
+		(e) => e.quarter === selectedQuarter || !e.quarter,
 	);
 	// 수익 집계용 (exempt 제외, withdrawn 포함하여 환불 차감 반영)
 	const quarterRevenue = quarterAll.filter((e) => e.paymentStatus !== "exempt");
@@ -78,7 +79,7 @@ const DashboardPage: React.FC = () => {
 	const quarterActive = quarterRevenue.filter((e) => e.paymentStatus !== "withdrawn");
 
 	const totalCourses = courses.length;
-	const totalStudents = students.length;
+	const totalStudents = new Set(quarterActive.map((e) => e.studentId)).size;
 
 	const completedPayments = quarterActive.filter(
 		(e) => e.paymentStatus === "completed",
@@ -198,7 +199,7 @@ const DashboardPage: React.FC = () => {
 							{courses.map((course) => {
 								// 정원 표시는 strict 분기 매칭 (null-quarter legacy 제외)
 								const currentStudents = enrollments.filter(
-									(e) => isActiveEnrollment(e) && e.courseId === course.id && e.quarter === currentQuarter,
+									(e) => isActiveEnrollment(e) && e.courseId === course.id && e.quarter === selectedQuarter,
 								).length;
 								const percentage = (currentStudents / course.maxStudents) * 100;
 								return (
