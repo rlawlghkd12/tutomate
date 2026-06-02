@@ -107,7 +107,7 @@ const DashboardPage: React.FC = () => {
 			.filter((e) => e.paymentStatus !== "exempt")
 			.reduce((sum, enrollment) => {
 				const course = courses.find((c) => c.id === enrollment.courseId);
-				return sum + (course?.fee || 0);
+				return sum + Math.max(0, (course?.fee || 0) - (enrollment.discountAmount ?? 0));
 			}, 0);
 
 		const rate = expected > 0 ? (revenue / expected) * 100 : 0;
@@ -132,7 +132,7 @@ const DashboardPage: React.FC = () => {
 	if (loading) {
 		return (
 			<PageEnter>
-				<div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+				<div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
 					{Array.from({ length: 6 }).map((_, i) => (
 						<div key={i} style={{ borderRadius: 8, border: '1px solid hsl(var(--border))', padding: 12 }}>
 							<div style={{ height: 12, width: '50%', borderRadius: 4, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite', marginBottom: 8 }} />
@@ -140,7 +140,7 @@ const DashboardPage: React.FC = () => {
 						</div>
 					))}
 				</div>
-				<div className="grid md:grid-cols-[2fr_1fr] gap-4" style={{ marginTop: 16 }}>
+				<div className="grid md:grid-cols-[2fr_1fr] gap-2" style={{ marginTop: 16 }}>
 					<div style={{ height: 250, borderRadius: 8, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
 					<div style={{ height: 250, borderRadius: 8, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
 				</div>
@@ -152,7 +152,7 @@ const DashboardPage: React.FC = () => {
 	return (
 		<PageEnter>
 			{/* 분기 선택 */}
-			<div className="flex items-center gap-2 mb-4">
+			<div className="flex items-center gap-2 mb-2">
 				<Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
 					<SelectTrigger className="w-[140px]">
 						<SelectValue />
@@ -174,8 +174,8 @@ const DashboardPage: React.FC = () => {
 				</Button>
 			</div>
 
-			{/* 상단 통계 - 한 줄 */}
-			<div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+			{/* 상단 통계 - 한 줄 (납부는 금액이라 더 넓게) */}
+			<div className="grid grid-cols-3 sm:grid-cols-[1fr_1fr_1.6fr_1fr_1fr_1fr] gap-2">
 				<Card
 					className="cursor-pointer hover:shadow-md transition-shadow"
 					onClick={() => navigate("/courses")}
@@ -200,7 +200,7 @@ const DashboardPage: React.FC = () => {
 				>
 					<CardContent className="p-3">
 						<p className="text-xs text-muted-foreground">납부</p>
-						<p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>
+						<p className="text-xl font-bold whitespace-nowrap" style={{ color: EXEMPT_COLOR }}>
 							{totalRevenue.toLocaleString()}<span className="text-sm font-normal">원</span>
 						</p>
 					</CardContent>
@@ -208,7 +208,7 @@ const DashboardPage: React.FC = () => {
 				<Card>
 					<CardContent className="p-3">
 						<p className="text-xs text-muted-foreground">납부율</p>
-						<p className={`text-xl font-bold ${paymentRate >= 80 ? 'text-success' : 'text-warning'}`}>
+						<p className={`text-xl font-bold whitespace-nowrap ${paymentRate >= 80 ? 'text-success' : 'text-warning'}`}>
 							{paymentRate.toFixed(0)}<span className="text-sm font-normal">%</span>
 						</p>
 					</CardContent>
@@ -216,7 +216,7 @@ const DashboardPage: React.FC = () => {
 				<Card>
 					<CardContent className="p-3">
 						<p className="text-xs text-muted-foreground">완납</p>
-						<p className="text-xl font-bold text-success">
+						<p className="text-xl font-bold text-success whitespace-nowrap">
 							{completedPayments}<span className="text-sm font-normal">건</span>
 						</p>
 					</CardContent>
@@ -224,7 +224,7 @@ const DashboardPage: React.FC = () => {
 				<Card>
 					<CardContent className="p-3">
 						<p className="text-xs text-muted-foreground">미납</p>
-						<p className="text-xl font-bold text-error">
+						<p className="text-xl font-bold text-error whitespace-nowrap">
 							{pendingPayments}<span className="text-sm font-normal">건</span>
 						</p>
 					</CardContent>
@@ -232,14 +232,14 @@ const DashboardPage: React.FC = () => {
 			</div>
 
 			{/* 전체 강좌 */}
-			<Card className="mt-4">
+			<Card className="mt-2">
 				<CardHeader className="p-4 pb-2">
 					<CardTitle className="text-sm">전체 강좌 ({totalCourses})</CardTitle>
 				</CardHeader>
 				<CardContent className="p-4 pt-2">
 					{courses.length === 0 ? (
 						<div className="text-center py-8 text-muted-foreground">
-							<p className="mb-4">등록된 강좌가 없습니다</p>
+							<p className="mb-2">등록된 강좌가 없습니다</p>
 							<Button onClick={() => navigate("/courses")}>
 								<Plus className="h-4 w-4" />
 								강좌 등록하기
@@ -283,7 +283,7 @@ const DashboardPage: React.FC = () => {
 			</Card>
 
 			{/* 차트 */}
-			<div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3 mt-4">
+			<div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-2 mt-2">
 				<Card>
 					<CardHeader className="p-4 pb-2">
 						<CardTitle className="text-sm">강좌별 수익</CardTitle>

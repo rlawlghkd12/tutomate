@@ -100,10 +100,10 @@ const DashboardPage: React.FC = () => {
 		0,
 	);
 
-	// 예상수익: active만 (포기 학생은 기대 수익에서 제외)
+	// 예상수익: active만 (포기 학생은 기대 수익에서 제외), 할인 반영
 	const expectedRevenue = quarterActive.reduce((sum, enrollment) => {
 		const course = courses.find((c) => c.id === enrollment.courseId);
-		return sum + (course?.fee || 0);
+		return sum + Math.max(0, (course?.fee || 0) - (enrollment.discountAmount ?? 0));
 	}, 0);
 
 	const paymentRate =
@@ -112,7 +112,7 @@ const DashboardPage: React.FC = () => {
 	if (loading) {
 		return (
 			<PageEnter>
-				<div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+				<div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
 					{Array.from({ length: 6 }).map((_, i) => (
 						<div key={i} style={{ borderRadius: 8, border: '1px solid hsl(var(--border))', padding: 12 }}>
 							<div style={{ height: 12, width: '50%', borderRadius: 4, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite', marginBottom: 8 }} />
@@ -120,7 +120,7 @@ const DashboardPage: React.FC = () => {
 						</div>
 					))}
 				</div>
-				<div className="grid md:grid-cols-[2fr_1fr] gap-4" style={{ marginTop: 16 }}>
+				<div className="grid md:grid-cols-[2fr_1fr] gap-2" style={{ marginTop: 16 }}>
 					<div style={{ height: 250, borderRadius: 8, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
 					<div style={{ height: 250, borderRadius: 8, background: 'hsl(var(--muted))', animation: 'skeleton-pulse 1.5s ease-in-out infinite' }} />
 				</div>
@@ -131,8 +131,8 @@ const DashboardPage: React.FC = () => {
 
 	return (
 		<PageEnter>
-			{/* 상단 통계 — 핵심 3개 */}
-			<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+			{/* 상단 통계 — 핵심 3개 (가운데 납부액은 금액이라 더 넓게) */}
+			<div className="grid grid-cols-1 sm:grid-cols-[1fr_1.6fr_1fr] gap-2">
 				<Card className="cursor-pointer card-interactive" onClick={() => navigate("/students")}>
 					<CardContent className="p-4">
 						<p className="text-sm font-semibold text-muted-foreground mb-1">수강생</p>
@@ -142,7 +142,7 @@ const DashboardPage: React.FC = () => {
 								<span>등록하기</span>
 							</div>
 						) : (
-							<p className="text-[2.1rem] leading-none font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.03em' }}>
+							<p className="text-[2.1rem] leading-none font-bold tabular-nums text-foreground whitespace-nowrap" style={{ letterSpacing: '-0.03em' }}>
 								{totalStudents}<span className="text-lg font-medium text-muted-foreground ml-1">명</span>
 							</p>
 						)}
@@ -151,7 +151,7 @@ const DashboardPage: React.FC = () => {
 				<Card className="cursor-pointer card-interactive" onClick={() => navigate("/revenue")}>
 					<CardContent className="p-4">
 						<p className="text-sm font-semibold text-muted-foreground mb-1">이번 분기 납부액</p>
-						<p className="text-[2.1rem] leading-none font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.03em' }}>
+						<p className="text-[2.1rem] leading-none font-bold tabular-nums text-foreground whitespace-nowrap" style={{ letterSpacing: '-0.03em' }}>
 							{totalRevenue.toLocaleString()}<span className="text-lg font-medium text-muted-foreground ml-1">원</span>
 						</p>
 					</CardContent>
@@ -159,7 +159,7 @@ const DashboardPage: React.FC = () => {
 				<Card>
 					<CardContent className="p-4">
 						<p className="text-sm font-semibold text-muted-foreground mb-1">납부율</p>
-						<p className="text-[2.1rem] leading-none font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.03em' }}>
+						<p className="text-[2.1rem] leading-none font-bold tabular-nums text-foreground whitespace-nowrap" style={{ letterSpacing: '-0.03em' }}>
 							{paymentRate.toFixed(0)}<span className="text-lg font-medium text-muted-foreground ml-1">%</span>
 						</p>
 					</CardContent>
@@ -167,36 +167,36 @@ const DashboardPage: React.FC = () => {
 			</div>
 
 			{/* 보조 지표 — 한 줄 */}
-			<Card className="mt-4">
+			<Card className="mt-2">
 				<CardContent className="flex items-stretch divide-x divide-border p-0">
 					<button type="button" onClick={() => navigate("/courses")} className="flex-1 px-6 py-3.5 text-left transition-colors hover:bg-accent">
 						<p className="text-sm font-semibold text-muted-foreground mb-1.5">강좌</p>
-						<p className="text-xl font-bold tabular-nums text-foreground">{totalCourses}<span className="text-base font-medium text-muted-foreground ml-1">개</span></p>
+						<p className="text-xl font-bold tabular-nums text-foreground whitespace-nowrap">{totalCourses}<span className="text-base font-medium text-muted-foreground ml-1">개</span></p>
 					</button>
 					<div className="flex-1 px-6 py-3.5">
 						<p className="text-sm font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
 							<span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: 'hsl(142 64% 30%)' }} />완납
 						</p>
-						<p className="text-xl font-bold tabular-nums text-foreground">{completedPayments}<span className="text-base font-medium text-muted-foreground ml-1">건</span></p>
+						<p className="text-xl font-bold tabular-nums text-foreground whitespace-nowrap">{completedPayments}<span className="text-base font-medium text-muted-foreground ml-1">건</span></p>
 					</div>
 					<div className="flex-1 px-6 py-3.5">
 						<p className="text-sm font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
 							<span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: 'hsl(0 72% 45%)' }} />미납
 						</p>
-						<p className="text-xl font-bold tabular-nums text-foreground">{pendingPayments}<span className="text-base font-medium text-muted-foreground ml-1">건</span></p>
+						<p className="text-xl font-bold tabular-nums text-foreground whitespace-nowrap">{pendingPayments}<span className="text-base font-medium text-muted-foreground ml-1">건</span></p>
 					</div>
 				</CardContent>
 			</Card>
 
 			{/* 전체 강좌 */}
-			<Card className="mt-4">
+			<Card className="mt-2">
 				<CardHeader className="p-4 pb-2">
 					<CardTitle className="text-base">전체 강좌 ({totalCourses})</CardTitle>
 				</CardHeader>
 				<CardContent className="p-4 pt-2">
 					{courses.length === 0 ? (
 						<div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-							<p className="mb-4">등록된 강좌가 없습니다</p>
+							<p className="mb-2">등록된 강좌가 없습니다</p>
 							<Button onClick={() => navigate("/courses")}>
 								<Plus className="h-4 w-4" />
 								강좌 등록하기
@@ -257,7 +257,7 @@ const DashboardPage: React.FC = () => {
 			</Card>
 
 			{/* 차트 */}
-			<div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3 mt-4">
+			<div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-2 mt-2">
 				<Card>
 					<CardHeader className="p-4 pb-2">
 						<CardTitle className="text-base">강좌별 수익</CardTitle>
