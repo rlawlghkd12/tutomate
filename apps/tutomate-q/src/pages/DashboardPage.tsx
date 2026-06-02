@@ -81,9 +81,11 @@ const DashboardPage: React.FC = () => {
 	const quarterRevenue = quarterAll.filter((e) => e.paymentStatus !== "exempt");
 	// 활성 수강생 (완납/미납 카운트 및 예상수익/차트용)
 	const quarterActive = quarterRevenue.filter((e) => e.paymentStatus !== "withdrawn");
+	// 수강생 수 = 면제 포함, 포기(withdrawn)만 제외 (면제는 수강비만 면제일 뿐 엄연한 수강생)
+	const quarterEnrolled = quarterAll.filter((e) => e.paymentStatus !== "withdrawn");
 
 	const totalCourses = courses.length;
-	const totalStudents = new Set(quarterActive.map((e) => e.studentId)).size;
+	const totalStudents = new Set(quarterEnrolled.map((e) => e.studentId)).size;
 
 	const completedPayments = quarterActive.filter(
 		(e) => e.paymentStatus === "completed",
