@@ -26,7 +26,7 @@ import {
   isActiveEnrollment,
 } from '@tutomate/core';
 import type { Enrollment } from '@tutomate/core';
-import { PaymentForm, PageEnter } from '@tutomate/ui';
+import { PaymentForm, PageEnter, ExportQuarterScope, EXPORT_SCOPE_ALL, CourseCombobox } from '@tutomate/ui';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -49,6 +49,31 @@ const RevenueManagementPage: React.FC = () => {
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
 
   const [selectedQuarter, setSelectedQuarter] = useState<string>(getCurrentQuarter());
+  const [exportScope, setExportScope] = useState<string>(getCurrentQuarter());
+  const [exportCourse, setExportCourse] = useState<string>(EXPORT_SCOPE_ALL);
+
+  const exportQuarterOptions = useMemo(
+    () => getQuarterOptions(enrollments.map((e) => e.quarter).filter(Boolean) as string[]),
+    [enrollments],
+  );
+  const exportEnrollments = useMemo(
+    () => {
+      const byQuarter =
+        exportScope === EXPORT_SCOPE_ALL
+          ? enrollments.filter((e) => isActiveEnrollment(e))
+          : enrollments.filter((e) => isActiveEnrollment(e) && (e.quarter === exportScope || !e.quarter));
+      return exportCourse === EXPORT_SCOPE_ALL
+        ? byQuarter
+        : byQuarter.filter((e) => e.courseId === exportCourse);
+    },
+    [exportScope, exportCourse, enrollments],
+  );
+  const exportQuarterTag = useMemo(() => {
+    const quarterTag = exportScope === EXPORT_SCOPE_ALL ? '전체분기' : exportScope;
+    if (exportCourse === EXPORT_SCOPE_ALL) return quarterTag;
+    const courseName = courses.find((c) => c.id === exportCourse)?.name;
+    return courseName ? `${quarterTag}_${courseName}` : quarterTag;
+  }, [exportScope, exportCourse, courses]);
 
   useEffect(() => {
     loadCourses();
@@ -202,17 +227,17 @@ const RevenueManagementPage: React.FC = () => {
       return;
     }
 
-    if (enrollments.length === 0) {
+    if (exportEnrollments.length === 0) {
       toast.warning('내보낼 수익 데이터가 없습니다');
       return;
     }
 
     try {
       if (type === 'excel') {
-        exportRevenueToExcel(enrollments, students, courses, selectedExportFields);
+        exportRevenueToExcel(exportEnrollments, students, courses, selectedExportFields, exportQuarterTag);
         toast.success('Excel 파일이 다운로드되었습니다');
       } else {
-        exportRevenueToCSV(enrollments, students, courses, 'utf-8', selectedExportFields);
+        exportRevenueToCSV(exportEnrollments, students, courses, 'utf-8', selectedExportFields, exportQuarterTag);
         toast.success('CSV 파일이 다운로드되었습니다');
       }
       setIsExportModalVisible(false);
@@ -595,11 +620,29 @@ const RevenueManagementPage: React.FC = () => {
       )}
 
       <Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
-        <DialogContent className="max-w-[320px]">
+        <DialogContent className="max-w-[480px]">
           <DialogHeader>
             <DialogTitle>수익 현황 내보내기</DialogTitle>
             <DialogDescription className="sr-only">내보낼 필드를 선택하세요</DialogDescription>
           </DialogHeader>
+
+          <ExportQuarterScope
+            value={exportScope}
+            onChange={setExportScope}
+            quarters={exportQuarterOptions}
+            noun="수익 정보"
+          />
+
+          <div className="mb-3">
+            <span className="text-sm font-medium">강좌</span>
+            <CourseCombobox
+              className="mt-1.5"
+              value={exportCourse}
+              onChange={setExportCourse}
+              courses={courses}
+              allValue={EXPORT_SCOPE_ALL}
+            />
+          </div>
 
           <div className="flex justify-between items-center py-1 pb-2 border-b border-border mb-3">
             <label className="flex items-center gap-2 text-sm cursor-pointer">

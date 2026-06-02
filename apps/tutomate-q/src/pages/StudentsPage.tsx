@@ -7,7 +7,7 @@ import {
   StudentList, StudentForm, EnrollmentForm,
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
-  PageEnter,
+  PageEnter, ExportQuarterScope, EXPORT_SCOPE_ALL,
 } from '@tutomate/ui';
 import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
@@ -30,10 +30,16 @@ const StudentsPage: React.FC = () => {
   const { enrollments, loadEnrollments } = useEnrollmentStore();
   const { courses, loadCourses } = useCourseStore();
   const currentQuarter = useQuarterStore((s) => s.selectedQuarter);
+  const [exportAll, setExportAll] = useState(false);
   const quarterEnrollments = useMemo(
     () => enrollments.filter((e) => isActiveEnrollment(e) && (e.quarter === currentQuarter || !e.quarter)),
     [enrollments, currentQuarter],
   );
+  const exportEnrollments = useMemo(
+    () => (exportAll ? enrollments.filter((e) => isActiveEnrollment(e)) : quarterEnrollments),
+    [exportAll, enrollments, quarterEnrollments],
+  );
+  const exportQuarterTag = exportAll ? '전체분기' : currentQuarter;
 
   useEffect(() => {
     loadStudents();
@@ -65,10 +71,10 @@ const StudentsPage: React.FC = () => {
 
     try {
       if (type === 'excel') {
-        exportStudentsToExcel(students, quarterEnrollments, courses, selectedExportFields);
+        exportStudentsToExcel(students, exportEnrollments, courses, selectedExportFields, exportQuarterTag);
         toast.success('Excel 파일이 다운로드되었습니다');
       } else {
-        exportStudentsToCSV(students, quarterEnrollments, courses, 'utf-8', selectedExportFields);
+        exportStudentsToCSV(students, exportEnrollments, courses, 'utf-8', selectedExportFields, exportQuarterTag);
         toast.success('CSV 파일이 다운로드되었습니다');
       }
       setIsExportModalVisible(false);
@@ -115,10 +121,16 @@ const StudentsPage: React.FC = () => {
       />
 
       <Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
-        <DialogContent className="max-w-[680px]">
+        <DialogContent className="max-w-[820px]">
           <DialogHeader>
             <DialogTitle>수강생 내보내기</DialogTitle>
           </DialogHeader>
+
+          <ExportQuarterScope
+            value={exportAll ? EXPORT_SCOPE_ALL : currentQuarter}
+            onChange={(v) => setExportAll(v === EXPORT_SCOPE_ALL)}
+            currentQuarter={currentQuarter}
+          />
 
           <div style={{ marginTop: 8 }}>
             <div className="flex justify-between items-center mb-3">
@@ -220,7 +232,7 @@ const StudentsPage: React.FC = () => {
                         <tr key={student.id} className="border-b last:border-0">
                           {selectedExportFields.map((key) => {
                             const field = STUDENT_EXPORT_FIELDS.find((f) => f.key === key);
-                            const value = field ? field.getValue(student, quarterEnrollments, courses) : '';
+                            const value = field ? field.getValue(student, exportEnrollments, courses) : '';
                             return <td key={key} className="px-3 py-2 whitespace-nowrap truncate max-w-[150px]">{value || '-'}</td>;
                           })}
                         </tr>

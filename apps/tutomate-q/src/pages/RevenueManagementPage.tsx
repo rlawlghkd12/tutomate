@@ -10,9 +10,9 @@ import {
   Card, CardContent, Badge,
   Tabs, TabsContent, TabsList, TabsTrigger,
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  CourseCombobox,
   PageEnter,
 } from '@tutomate/ui';
-import { EXEMPT_COLOR } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
@@ -38,6 +38,7 @@ const RevenueManagementPage: React.FC = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState<string[]>(['courseName', 'studentName', 'fee', 'paidAmount', 'remainingAmount', 'paymentStatus']);
+  const [exportCourse, setExportCourse] = useState<string>('all');
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [dateRange, setDateRange] = useState<[string, string]>(['', '']);
@@ -252,21 +253,35 @@ const RevenueManagementPage: React.FC = () => {
     }
   };
 
+  const exportEnrollments = useMemo(
+    () => (exportCourse === 'all'
+      ? filteredEnrollments
+      : filteredEnrollments.filter((e) => e.courseId === exportCourse)),
+    [filteredEnrollments, exportCourse],
+  );
+
+  const exportQuarterTag = useMemo(() => {
+    const base = filterMode === 'quarter' ? selectedQuarter : '기간지정';
+    if (exportCourse === 'all') return base;
+    const courseName = courses.find((c) => c.id === exportCourse)?.name;
+    return courseName ? `${base}_${courseName}` : base;
+  }, [filterMode, selectedQuarter, exportCourse, courses]);
+
   const handleExport = (type: 'excel' | 'csv') => {
     if (selectedExportFields.length === 0) {
       toast.warning('내보낼 필드를 1개 이상 선택해주세요.');
       return;
     }
-    if (enrollments.length === 0) {
+    if (exportEnrollments.length === 0) {
       toast.warning('내보낼 수익 데이터가 없습니다');
       return;
     }
     try {
       if (type === 'excel') {
-        exportRevenueToExcel(enrollments, students, courses, selectedExportFields);
+        exportRevenueToExcel(exportEnrollments, students, courses, selectedExportFields, exportQuarterTag);
         toast.success('Excel 파일이 다운로드되었습니다');
       } else {
-        exportRevenueToCSV(enrollments, students, courses, 'utf-8', selectedExportFields);
+        exportRevenueToCSV(exportEnrollments, students, courses, 'utf-8', selectedExportFields, exportQuarterTag);
         toast.success('CSV 파일이 다운로드되었습니다');
       }
       setIsExportModalVisible(false);
@@ -402,119 +417,74 @@ const RevenueManagementPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* 수익 통계 — 1줄: 금액 */}
-      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
+      {/* 수익 통계 — 핵심 3개 */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
         <RevenueBreakdownTooltip enrollments={revenueEnrollments} records={records}>
           <Card>
-            <CardContent className="p-4">
-              <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">총 수익</p>
-              <p className="text-2xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
-                {totalRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
+            <CardContent className="p-6">
+              <p className="text-sm font-semibold text-muted-foreground mb-2">총 수익</p>
+              <p className="text-[2rem] leading-none font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.03em' }}>
+                {totalRevenue.toLocaleString()}<span className="text-base font-medium text-muted-foreground ml-1">원</span>
               </p>
+              <p className="text-sm text-muted-foreground mt-2">예상 {expectedRevenue.toLocaleString()}원</p>
             </CardContent>
           </Card>
         </RevenueBreakdownTooltip>
         <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">예상 수익</p>
-            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
-              {expectedRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
+          <CardContent className="p-6">
+            <p className="text-sm font-semibold text-muted-foreground mb-2">미수금</p>
+            <p className="text-[2rem] leading-none font-bold tabular-nums" style={{ letterSpacing: '-0.03em', color: totalUnpaid > 0 ? 'hsl(0 72% 45%)' : undefined }}>
+              {totalUnpaid.toLocaleString()}<span className="text-base font-medium text-muted-foreground ml-1">원</span>
             </p>
+            <p className="text-sm text-muted-foreground mt-2">미납률 {expectedRevenue > 0 ? ((totalUnpaid / expectedRevenue) * 100).toFixed(1) : '0.0'}%</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미수금</p>
-            <p className="text-2xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
-              {totalUnpaid.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
+        <Card title="총수익 ÷ 예상수익 — 미환불이 있으면 100%를 넘을 수 있음">
+          <CardContent className="p-6">
+            <p className="text-sm font-semibold text-muted-foreground mb-2">수익률</p>
+            <p className="text-[2rem] leading-none font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.03em' }}>
+              {expectedRevenue > 0 ? ((totalRevenue / expectedRevenue) * 100).toFixed(1) : '0.0'}<span className="text-base font-medium text-muted-foreground ml-1">%</span>
             </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">현금</p>
-            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
-              {totalCash.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">계좌이체</p>
-            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
-              {totalTransfer.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">카드</p>
-            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
-              {totalCard.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
-            </p>
+            <p className="text-sm text-muted-foreground mt-2">목표 대비 납부 비율</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* 수익 통계 — 2줄: 상태 */}
-      <div className="grid grid-cols-7 gap-3 mb-4">
-        <Card title="총수익 ÷ 예상수익 — 미환불이 있으면 100%를 넘을 수 있음">
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수익률</p>
-            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
-              {expectedRevenue > 0 ? ((totalRevenue / expectedRevenue) * 100).toFixed(1) : '0.0'}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card title="미수금 ÷ 예상수익 — 수강 중 학생 기준">
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납률</p>
-            <p className={`text-2xl font-bold tabular-nums ${totalUnpaid > 0 ? 'text-error' : 'text-success'}`} style={{ letterSpacing: '-0.02em' }}>
-              {expectedRevenue > 0 ? ((totalUnpaid / expectedRevenue) * 100).toFixed(1) : '0.0'}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
-            <p className="text-2xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
-              {completedPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">부분납부</p>
-            <p className="text-2xl font-bold tabular-nums text-warning" style={{ letterSpacing: '-0.02em' }}>
-              {partialPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납</p>
-            <p className="text-2xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
-              {pendingPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">면제</p>
-            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em', color: EXEMPT_COLOR }}>
-              {exemptPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">포기</p>
-            <p className="text-2xl font-bold tabular-nums text-muted-foreground" style={{ letterSpacing: '-0.02em' }}>
-              {withdrawnPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* 결제 수단 */}
+      <Card className="mb-4">
+        <CardContent className="flex items-stretch divide-x divide-border p-0">
+          {[
+            { label: '현금', value: totalCash },
+            { label: '계좌이체', value: totalTransfer },
+            { label: '카드', value: totalCard },
+          ].map((m) => (
+            <div key={m.label} className="flex-1 px-6 py-5">
+              <p className="text-sm font-semibold text-muted-foreground mb-1.5">{m.label}</p>
+              <p className="text-xl font-bold tabular-nums text-foreground">{m.value.toLocaleString()}<span className="text-sm font-medium text-muted-foreground ml-1">원</span></p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* 납부 상태 건수 */}
+      <Card className="mb-4">
+        <CardContent className="flex items-stretch divide-x divide-border p-0">
+          {[
+            { label: '완납', value: completedPayments, dot: 'hsl(142 64% 30%)' },
+            { label: '부분납부', value: partialPayments, dot: 'hsl(33 90% 40%)' },
+            { label: '미납', value: pendingPayments, dot: 'hsl(0 72% 45%)' },
+            { label: '면제', value: exemptPayments, dot: 'hsl(240 4% 60%)' },
+            { label: '포기', value: withdrawnPayments, dot: 'hsl(240 4% 75%)' },
+          ].map((s) => (
+            <div key={s.label} className="flex-1 px-6 py-5">
+              <p className="text-sm font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: s.dot }} />{s.label}
+              </p>
+              <p className="text-xl font-bold tabular-nums text-foreground">{s.value}<span className="text-sm font-medium text-muted-foreground ml-1">건</span></p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {/* Tabs */}
       <Tabs defaultValue="monthly">
@@ -719,7 +689,7 @@ const RevenueManagementPage: React.FC = () => {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-success">{row.paidCount}명</TableCell>
+                    <TableCell className="text-foreground tabular-nums">{row.paidCount}명</TableCell>
                     <TableCell className={row.unpaidCount > 0 ? 'text-error' : 'text-success'}>
                       {row.unpaidCount}명
                     </TableCell>
@@ -729,7 +699,7 @@ const RevenueManagementPage: React.FC = () => {
                       </RevenueBreakdownTooltip>
                     </TableCell>
                     <TableCell>{'\u20A9'}{row.quarterExpected.toLocaleString()}</TableCell>
-                    <TableCell className={row.collectionRate >= 100 ? 'text-success' : row.collectionRate >= 50 ? 'text-warning' : 'text-error'}>
+                    <TableCell className="text-foreground font-semibold tabular-nums">
                       {row.collectionRate.toFixed(1)}%
                     </TableCell>
                   </TableRow>
@@ -762,10 +732,31 @@ const RevenueManagementPage: React.FC = () => {
 
       {/* 내보내기 모달 */}
       <Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
-        <DialogContent className="max-w-[680px]">
+        <DialogContent className="max-w-[820px]">
           <DialogHeader>
             <DialogTitle>수익 현황 내보내기</DialogTitle>
           </DialogHeader>
+
+          <div className="mb-1 flex items-center gap-1.5 rounded-lg border border-border bg-muted/30 p-3 text-sm font-medium text-foreground">
+            <Calendar className="h-4 w-4 text-primary" />
+            {filterMode === 'quarter' ? (
+              <span>{getQuarterLabel(selectedQuarter)} 수익 {exportEnrollments.length}건을 내보냅니다.</span>
+            ) : dateRange[0] && dateRange[1] ? (
+              <span>{dayjs(dateRange[0]).format('YYYY.M.D')} ~ {dayjs(dateRange[1]).format('YYYY.M.D')} 수익 {exportEnrollments.length}건을 내보냅니다.</span>
+            ) : (
+              <span>전체 기간 수익 {exportEnrollments.length}건을 내보냅니다.</span>
+            )}
+          </div>
+
+          <div className="mt-3 mb-1">
+            <span className="text-sm font-medium">강좌</span>
+            <CourseCombobox
+              className="mt-1.5"
+              value={exportCourse}
+              onChange={setExportCourse}
+              courses={courses}
+            />
+          </div>
 
           <div style={{ marginTop: 8 }}>
             <div className="flex justify-between items-center mb-3">
@@ -815,7 +806,7 @@ const RevenueManagementPage: React.FC = () => {
               </div>
             )}
 
-            {selectedExportFields.length > 0 && filteredEnrollments.length > 0 && (
+            {selectedExportFields.length > 0 && exportEnrollments.length > 0 && (
               <div className="rounded-lg border overflow-hidden mb-4">
                 <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 bg-muted/30">미리보기</div>
                 <div className="overflow-x-auto">
@@ -824,7 +815,7 @@ const RevenueManagementPage: React.FC = () => {
                       {selectedExportFields.map((key) => { const f = REVENUE_EXPORT_FIELDS.find((x) => x.key === key); return <th key={key} className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap">{f?.label}</th>; })}
                     </tr></thead>
                     <tbody>
-                      {filteredEnrollments.slice(0, 3).map((enrollment) => (
+                      {exportEnrollments.slice(0, 3).map((enrollment) => (
                         <tr key={enrollment.id} className="border-b last:border-0">
                           {selectedExportFields.map((key) => { const f = REVENUE_EXPORT_FIELDS.find((x) => x.key === key); const val = f ? f.getValue(enrollment, students, courses) : ''; return <td key={key} className="px-3 py-2 whitespace-nowrap truncate max-w-[150px]">{val || '-'}</td>; })}
                         </tr>

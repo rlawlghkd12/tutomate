@@ -7,6 +7,8 @@ interface Props {
   children: ReactNode;
   fallback?: ReactNode;
   onReset?: () => void;
+  /** 값이 바뀌면 에러 상태를 자동으로 초기화한다 (예: 라우트 경로). 다른 페이지로 이동했을 때 에러 화면에 갇히지 않게 한다. */
+  resetKey?: unknown;
 }
 
 interface State {
@@ -30,6 +32,12 @@ export class ErrorBoundary extends Component<Props, State> {
       hasError: true,
       error,
     };
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: null, errorInfo: null });
+    }
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {

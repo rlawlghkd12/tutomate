@@ -15,6 +15,8 @@ import { showSwitchOverlay, hideSwitchOverlay, updateSwitchOverlayName } from '.
 interface LayoutProps {
 	children: React.ReactNode;
 	headerExtra?: React.ReactNode;
+	/** 사이드바 타이틀 아래에 표시되는 전역 컨트롤 슬롯 (예: 분기 선택기). 모든 화면에 영향을 주는 컨트롤을 navigation 위 고정 위치에 둔다. */
+	sidebarExtra?: React.ReactNode;
 }
 
 interface OrgItem {
@@ -36,7 +38,7 @@ const PAGE_TITLES: Record<string, string> = {
 
 const SIDEBAR_WIDTH = 220;
 
-const Layout: React.FC<LayoutProps> = ({ children, headerExtra }) => {
+const Layout: React.FC<LayoutProps> = ({ children, headerExtra, sidebarExtra }) => {
 	const [offline, setOffline] = useState(!navigator.onLine);
 	const [offlineDismissed, setOfflineDismissed] = useState(false);
 	const organizationName = useAuthStore((s) => s.organizationName);
@@ -181,26 +183,26 @@ const Layout: React.FC<LayoutProps> = ({ children, headerExtra }) => {
 						WebkitAppRegion: 'drag',
 					} as React.CSSProperties}
 				>
-					<div ref={orgMenuRef} style={{ display: 'flex', alignItems: 'center', gap: 8, WebkitAppRegion: 'no-drag', position: 'relative' } as React.CSSProperties}>
+					<div ref={orgMenuRef} style={{ display: 'flex', alignItems: 'center', gap: 8, WebkitAppRegion: 'no-drag', position: 'relative', flex: 1, minWidth: 0 } as React.CSSProperties}>
 						<img
 							src="./app-icon.png"
 							alt=""
 							style={{ width: 28, height: 28, borderRadius: 6, flexShrink: 0 }}
 						/>
-						<div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
 							<span
 								style={{
 									fontSize: '1.07rem', fontWeight: 700, color: 'hsl(var(--foreground))',
 									cursor: 'pointer',
 									display: 'flex', alignItems: 'center', gap: 4,
-									maxWidth: '100%',
+									minWidth: 0, maxWidth: '100%',
 								}}
 								onClick={() => setOrgMenuOpen(!orgMenuOpen)}
 								role="button"
 								tabIndex={0}
 								onKeyDown={(e) => { if (e.key === 'Enter') setOrgMenuOpen(!orgMenuOpen); }}
 							>
-								<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+								<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
 									{organizationName}
 								</span>
 								<ChevronDown style={{ width: 14, height: 14, opacity: 0.6, flexShrink: 0 }} />
@@ -318,6 +320,13 @@ const Layout: React.FC<LayoutProps> = ({ children, headerExtra }) => {
 					</div>
 				</div>
 
+				{/* 타이틀 아래 전역 컨트롤 (분기 선택기 등) */}
+				{sidebarExtra && (
+					<div style={{ padding: '4px 12px 10px', borderBottom: '1px solid hsl(var(--border) / 0.6)', marginBottom: 4 }}>
+						{sidebarExtra}
+					</div>
+				)}
+
 				{/* 네비게이션 */}
 				<Navigation />
 			</aside>
@@ -398,8 +407,10 @@ const Layout: React.FC<LayoutProps> = ({ children, headerExtra }) => {
 				)}
 
 				{/* 콘텐츠 (padding 20px) */}
-				<main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: 20, background: 'hsl(var(--layout-bg))' }}>
-					{children}
+				<main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: 24, background: 'hsl(var(--layout-bg))' }}>
+					<div style={{ maxWidth: 1320, margin: '0 auto' }}>
+						{children}
+					</div>
 				</main>
 			</div>
 		</div>

@@ -181,7 +181,7 @@ describe("REVENUE_EXPORT_FIELDS", () => {
 	});
 
 	it("할인금액 — undefined → 0", () => {
-		expect(getField("discountAmount").getValue({ ...enrollment, discountAmount: undefined }, [], [])).toBe(0);
+		expect(getField("discountAmount").getValue({ ...enrollment, discountAmount: undefined } as typeof enrollment, [], [])).toBe(0);
 	});
 
 	it("납부금액", () => {
@@ -362,7 +362,7 @@ describe("COURSE_STUDENT_EXPORT_FIELDS", () => {
 	});
 
 	it("할인 금액 — discountAmount undefined → 0", () => {
-		expect(getField("discountAmount").getValue(student, { ...enrollment, discountAmount: undefined })).toBe(0);
+		expect(getField("discountAmount").getValue(student, { ...enrollment, discountAmount: undefined } as typeof enrollment)).toBe(0);
 	});
 });
 
@@ -395,6 +395,27 @@ describe('export 함수 — DOM 다운로드', () => {
 
 	it('exportRevenueToExcel — 빈 배열 → 에러 없이 완료', async () => {
 		await expect(exportRevenueToExcel([], [], [])).resolves.toBeUndefined();
+	});
+
+	it('exportRevenueToExcel — 헤더에 필터(autofilter) 설정, 합계행은 범위에서 제외', async () => {
+		const XLSX = await import('xlsx');
+		const spy = vi.spyOn(XLSX.utils, 'book_append_sheet');
+		await exportRevenueToExcel([enrollment], [student], [course]);
+		const ws = spy.mock.calls[0][1] as Record<string, unknown>;
+		const autofilter = ws['!autofilter'] as { ref: string } | undefined;
+		expect(autofilter).toBeDefined();
+		// 헤더(1행) + 데이터(1행)만 필터 범위, 합계행(3행)은 제외 → 끝 행이 2
+		expect(autofilter!.ref).toMatch(/^A1:[A-Z]+2$/);
+		spy.mockRestore();
+	});
+
+	it('exportStudentsToExcel — 데이터 없으면 필터 미설정', async () => {
+		const XLSX = await import('xlsx');
+		const spy = vi.spyOn(XLSX.utils, 'book_append_sheet');
+		await exportStudentsToExcel([], [], []);
+		const ws = spy.mock.calls[0][1] as Record<string, unknown>;
+		expect(ws['!autofilter']).toBeUndefined();
+		spy.mockRestore();
 	});
 
 	it('exportStudentsToCSV — 수강생 있으면 에러 없이 완료', () => {
@@ -516,6 +537,81 @@ describe('export — 특수 문자 처리', () => {
 	it('메모에 줄바꿈 포함해도 Excel 에러 없음', async () => {
 		const specialStudent: Student = { ...student, notes: '줄바꿈\n포함' };
 		await expect(exportStudentsToExcel([specialStudent], [], [])).resolves.toBeUndefined();
+	});
+});
+
+// ─── 분기 태그 → 파일명 반영 ───
+
+describe('export — 분기 태그(quarterTag) 파일명 반영', () => {
+	let mockLink: { href: string; download: string; click: ReturnType<typeof vi.fn> };
+
+	beforeEach(() => {
+		vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fake-url');
+		vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined);
+		mockLink = { href: '', download: '', click: vi.fn() };
+		vi.spyOn(document, 'createElement').mockReturnValue(mockLink as unknown as HTMLElement);
+	});
+
+	it('exportStudentsToCSV — quarterTag가 파일명에 들어간다', () => {
+		exportStudentsToCSV([student], [enrollment], [course], 'utf-8', ['name'], '2026-Q2');
+		expect(mockLink.download).toMatch(/^수강생_명단_2026-Q2_\d{8}_\d{6}\.csv$/);
+	});
+
+	it('exportStudentsToCSV — quarterTag 없으면 분기 없이 파일명', () => {
+		exportStudentsToCSV([student], [enrollment], [course], 'utf-8', ['name']);
+		expect(mockLink.download).toMatch(/^수강생_명단_\d{8}_\d{6}\.csv$/);
+	});
+
+	it('exportRevenueToCSV — 전체분기 태그가 파일명에 들어간다', () => {
+		exportRevenueToCSV([enrollment], [student], [course], 'utf-8', ['courseName'], '전체분기');
+		expect(mockLink.download).toMatch(/^수익_현황_전체분기_\d{8}_\d{6}\.csv$/);
+	});
+
+	it('exportCourseStudentsToCSV — 강좌명_수강생_분기 형식', () => {
+		exportCourseStudentsToCSV(course, [{ student, enrollment }], ['name'], 'utf-8', '2026-Q3');
+		expect(mockLink.download).toMatch(/^수학반_수강생_2026-Q3_\d{8}_\d{6}\.csv$/);
+	});
+
+	it('exportStudentsToExcel — quarterTag가 파일명에 들어간다', async () => {
+		await exportStudentsToExcel([student], [enrollment], [course], ['name'], '2026-Q2');
+		expect(mockLink.download).toMatch(/^수강생_명단_2026-Q2_\d{8}_\d{6}\.xlsx$/);
+	});
+
+	it('exportRevenueToExcel — quarterTag가 파일명에 들어간다', async () => {
+		await exportRevenueToExcel([enrollment], [student], [course], ['courseName'], '2026-Q1');
+		expect(mockLink.download).toMatch(/^수익_현황_2026-Q1_\d{8}_\d{6}\.xlsx$/);
+	});
+
+	// 페이지가 적용하는 분기 필터 predicate를 그대로 재현해, 선택 분기 + legacy(분기 없음)만
+	// 실제 내보낸 CSV 본문에 포함되는지 검증한다 (목표의 핵심 동작).
+	it('선택한 분기 + legacy enrollment만 CSV 본문에 포함된다', async () => {
+		let capturedBlob: Blob | null = null;
+		(URL.createObjectURL as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+			(b: Blob) => {
+				capturedBlob = b;
+				return 'blob:fake-url';
+			},
+		);
+
+		const sA: Student = { ...student, id: 'sA', name: '학생A' };
+		const sB: Student = { ...student, id: 'sB', name: '학생B' };
+		const sC: Student = { ...student, id: 'sC', name: '학생C' };
+		const eA: Enrollment = { ...enrollment, id: 'eA', studentId: 'sA', quarter: '2026-Q2' };
+		const eB: Enrollment = { ...enrollment, id: 'eB', studentId: 'sB', quarter: '2026-Q1' };
+		const eC: Enrollment = { ...enrollment, id: 'eC', studentId: 'sC', quarter: undefined };
+
+		const targetQuarter = '2026-Q2';
+		const filtered = [eA, eB, eC].filter(
+			(e) => e.paymentStatus !== 'withdrawn' && (e.quarter === targetQuarter || !e.quarter),
+		);
+
+		exportRevenueToCSV(filtered, [sA, sB, sC], [course], 'utf-8', ['studentName'], targetQuarter);
+
+		expect(capturedBlob).not.toBeNull();
+		const text = await (capturedBlob as unknown as Blob).text();
+		expect(text).toContain('학생A'); // 선택 분기
+		expect(text).toContain('학생C'); // legacy (분기 없음)
+		expect(text).not.toContain('학생B'); // 다른 분기 → 제외
 	});
 });
 

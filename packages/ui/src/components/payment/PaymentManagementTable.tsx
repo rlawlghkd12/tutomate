@@ -552,8 +552,8 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         if (record.enrollment.paymentStatus === 'withdrawn') return <span className="text-muted-foreground">-</span>;
         return (
           <span className={cn(
-            'whitespace-nowrap font-semibold',
-            record.remaining > 0 ? 'text-destructive' : 'text-success',
+            'whitespace-nowrap font-semibold tabular-nums',
+            record.remaining > 0 ? 'text-foreground' : 'text-muted-foreground',
           )}>
             {'\u20A9'}{record.remaining.toLocaleString()}
           </span>
@@ -599,9 +599,8 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           <div className="flex items-center gap-1.5">
             {!isCompleted && (
               <Button
-                variant="outline"
                 size="sm"
-                className="min-h-11 px-3 border-primary text-primary hover:bg-primary/10"
+                className="min-h-11 px-4 font-semibold"
                 onClick={() => {
                   const discount = record.enrollment.discountAmount ?? 0;
                   setSelectedEnrollmentId(record.enrollment.id);
@@ -678,68 +677,67 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   return (
     <div>
       {/* 통계 + 전체 완납 */}
-      <div className="mb-3 flex items-center gap-2 flex-wrap">
-        {quarterSelector && <div style={{ flexShrink: 0 }}>{quarterSelector}</div>}
-        <div className="px-3 py-1.5 rounded-md border">
-          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">완납 인원</div>
-          <div className="text-sm font-semibold mt-0.5">
-            <span className="text-success">{stats.paidCount}</span>
-            <span className="text-muted-foreground"> / {stats.totalStudents}명</span>
+      <div className="mb-3 space-y-2.5">
+        {quarterSelector && <div className="flex">{quarterSelector}</div>}
+        <div className="grid grid-cols-12 gap-2.5">
+        <div className="col-span-6 sm:col-span-3 px-3.5 py-2.5 rounded-lg border bg-card">
+          <div className="text-xs font-medium text-muted-foreground">완납 인원</div>
+          <div className="text-base font-bold tabular-nums mt-1 text-foreground">
+            {stats.paidCount}<span className="text-muted-foreground font-normal"> / {stats.totalStudents}명</span>
           </div>
         </div>
-        <div className="px-3 py-1.5 rounded-md border">
-          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">납부 합계</div>
-          <div className="text-sm font-semibold mt-0.5 text-success">{'\u20A9'}{stats.totalPaid.toLocaleString()}</div>
+        <div className="col-span-6 sm:col-span-3 px-3.5 py-2.5 rounded-lg border bg-card">
+          <div className="text-xs font-medium text-muted-foreground">납부 합계</div>
+          <div className="text-base font-bold tabular-nums mt-1 text-foreground">{'\u20A9'}{stats.totalPaid.toLocaleString()}</div>
         </div>
-        <div className="px-3 py-1.5 rounded-md border">
-          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">예상 합계</div>
-          <div className="text-sm font-semibold mt-0.5">{'\u20A9'}{stats.expectedTotal.toLocaleString()}</div>
+        <div className="col-span-6 sm:col-span-3 px-3.5 py-2.5 rounded-lg border bg-card">
+          <div className="text-xs font-medium text-muted-foreground">예상 합계</div>
+          <div className="text-base font-bold tabular-nums mt-1 text-foreground">{'\u20A9'}{stats.expectedTotal.toLocaleString()}</div>
         </div>
-        <div className="px-3 py-1.5 rounded-md border">
-          <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">수납률</div>
-          <div className={cn(
-            'text-sm font-semibold mt-0.5',
-            stats.expectedTotal > 0 && stats.totalPaid < stats.expectedTotal
-              ? 'text-destructive' : 'text-success',
-          )}>
+        <div className="col-span-6 sm:col-span-3 px-3.5 py-2.5 rounded-lg border bg-card">
+          <div className="text-xs font-medium text-muted-foreground">수납률</div>
+          <div className="text-base font-bold tabular-nums mt-1 text-foreground">
             {stats.expectedTotal > 0 ? Math.round((stats.totalPaid / stats.expectedTotal) * 100) : 0}%
           </div>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          {rowSelection && rowSelection.selectedRowKeys.length > 0 && (
-            <>
-              <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>{rowSelection.selectedRowKeys.length}명 선택</span>
-              {onRemoveEnrollments && (
-                <Button size="sm" variant="destructive" className="min-h-11 px-3" onClick={() => { setRefundAmount(0); setWithdrawDialogOpen(true); }}>
-                  수강 포기
-                </Button>
-              )}
-              <Button size="sm" variant="outline" className="min-h-11 px-3" onClick={() => rowSelection.onChange([])}>
-                해제
-              </Button>
-              <div style={{ width: 1, height: 20, background: 'hsl(var(--border))' }} />
-            </>
-          )}
+        </div>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <label className="flex items-center gap-1.5 text-[0.82rem] text-muted-foreground cursor-pointer select-none">
             <Checkbox checked={showWithdrawn} onCheckedChange={(v) => setShowWithdrawn(!!v)} />
             수강 포기생 포함
           </label>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger style={{ width: 100, height: 32, fontSize: '0.86rem' }}>
-              <SelectValue placeholder="전체" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">전체</SelectItem>
-              <SelectItem value="completed">완납</SelectItem>
-              <SelectItem value="partial">부분납부</SelectItem>
-              <SelectItem value="pending">미납</SelectItem>
-              <SelectItem value="exempt">면제</SelectItem>
-              <SelectItem value="withdrawn">포기</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button size="sm" className="min-h-11 px-4" disabled={submitting} onClick={handleBulkFullPayment}>
-            전체 완납
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {rowSelection && rowSelection.selectedRowKeys.length > 0 && (
+              <>
+                <span style={{ fontSize: '0.93rem', color: 'hsl(var(--muted-foreground))' }}>{rowSelection.selectedRowKeys.length}명 선택</span>
+                {onRemoveEnrollments && (
+                  <Button size="sm" variant="destructive" className="min-h-11 px-3" onClick={() => { setRefundAmount(0); setWithdrawDialogOpen(true); }}>
+                    수강 포기
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" className="min-h-11 px-3" onClick={() => rowSelection.onChange([])}>
+                  해제
+                </Button>
+                <div style={{ width: 1, height: 20, background: 'hsl(var(--border))' }} />
+              </>
+            )}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger style={{ width: 100, height: 32, fontSize: '0.86rem' }}>
+                <SelectValue placeholder="전체" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체</SelectItem>
+                <SelectItem value="completed">완납</SelectItem>
+                <SelectItem value="partial">부분납부</SelectItem>
+                <SelectItem value="pending">미납</SelectItem>
+                <SelectItem value="exempt">면제</SelectItem>
+                <SelectItem value="withdrawn">포기</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button size="sm" className="min-h-11 px-4" disabled={submitting} onClick={handleBulkFullPayment}>
+              전체 완납
+            </Button>
+          </div>
         </div>
       </div>
 

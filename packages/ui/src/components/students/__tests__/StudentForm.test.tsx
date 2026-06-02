@@ -17,6 +17,16 @@ vi.mock('@tutomate/core', () => ({
     updateStudent: mockUpdateStudent,
     deleteStudent: mockDeleteStudent,
   }),
+  useEnrollmentStore: () => ({ enrollments: [] }),
+  useCourseStore: () => ({ courses: [] }),
+  isCourseEnded: () => false,
+  PaymentStatus: {
+    PENDING: 'pending',
+    PARTIAL: 'partial',
+    COMPLETED: 'completed',
+    EXEMPT: 'exempt',
+    WITHDRAWN: 'withdrawn',
+  },
   appConfig: {
     enableMemberFeature: false,
     hideAddressField: false,
@@ -72,7 +82,7 @@ describe('StudentForm', () => {
 
     expect(screen.getByText('수강생 등록')).toBeInTheDocument();
     // phone field should be empty
-    const phoneInput = screen.getByPlaceholderText('01012341234');
+    const phoneInput = screen.getByPlaceholderText('01000000000');
     expect(phoneInput).toHaveValue('');
   });
 
@@ -83,11 +93,11 @@ describe('StudentForm', () => {
     expect(screen.getByText('수강생 정보 수정')).toBeInTheDocument();
 
     // name input should have value
-    const nameInput = screen.getByPlaceholderText('김철수');
+    const nameInput = screen.getByPlaceholderText('이름');
     expect(nameInput).toHaveValue('홍길동');
 
     // phone should show formatted value
-    const phoneInput = screen.getByPlaceholderText('01012341234');
+    const phoneInput = screen.getByPlaceholderText('01000000000');
     expect(phoneInput).toHaveValue('010-1234-5678');
   });
 
@@ -106,17 +116,12 @@ describe('StudentForm', () => {
   it('submit button calls addStudent for new student', async () => {
     render(<StudentForm visible={true} onClose={onClose} />);
 
-    // Fill the name via the combobox — type into the command input
-    // In new-student mode the name field is a Combobox/Popover button.
-    // We click it to open, then type.
-    const comboboxBtn = screen.getByRole('combobox');
-    fireEvent.click(comboboxBtn);
-
-    const nameSearchInput = screen.getByPlaceholderText('이름 검색...');
-    fireEvent.change(nameSearchInput, { target: { value: '새학생' } });
+    // In new-student mode the name field is a plain input with an autocomplete dropdown.
+    const nameInput = screen.getByPlaceholderText('이름');
+    fireEvent.change(nameInput, { target: { value: '새학생' } });
 
     // Fill phone
-    const phoneInput = screen.getByPlaceholderText('01012341234');
+    const phoneInput = screen.getByPlaceholderText('01000000000');
     fireEvent.change(phoneInput, { target: { value: '010-5555-6666' } });
 
     // Submit
@@ -133,7 +138,7 @@ describe('StudentForm', () => {
     render(<StudentForm visible={true} onClose={onClose} student={student} />);
 
     // Change phone
-    const phoneInput = screen.getByPlaceholderText('01012341234');
+    const phoneInput = screen.getByPlaceholderText('01000000000');
     fireEvent.change(phoneInput, { target: { value: '010-9999-8888' } });
 
     const submitBtn = screen.getByRole('button', { name: '수정' });

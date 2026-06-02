@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import dayjs from "dayjs";
-import { CourseEnrollForm, CourseForm, PaymentManagementTable, PageEnter } from "@tutomate/ui";
+import { CourseEnrollForm, CourseForm, PaymentManagementTable, PageEnter, ExportQuarterScope, EXPORT_SCOPE_ALL } from "@tutomate/ui";
 import {
 	useCourseStore,
 	useEnrollmentStore,
@@ -21,6 +21,8 @@ import {
 	exportCourseStudentsToCSV,
 	exportCourseStudentsToExcel,
 	isActiveEnrollment,
+	getCurrentQuarter,
+	getQuarterOptions,
 } from "@tutomate/core";
 import type { Enrollment } from "@tutomate/core";
 import { Button } from "../components/ui/button";
@@ -51,6 +53,7 @@ const CourseDetailPage: React.FC = () => {
 	const [selectedExportFields, setSelectedExportFields] = useState<string[]>(
 		DEFAULT_EXPORT_FIELDS,
 	);
+	const [exportScope, setExportScope] = useState<string>(getCurrentQuarter());
 
 	const [isCourseEditVisible, setIsCourseEditVisible] = useState(false);
 	const [isEnrollVisible, setIsEnrollVisible] = useState(false);
@@ -82,6 +85,11 @@ const CourseDetailPage: React.FC = () => {
 			};
 		});
 	}, [courseEnrollments, getStudentById]);
+
+	const courseQuarterOptions = useMemo(
+		() => getQuarterOptions(courseEnrollments.map((e) => e.quarter).filter(Boolean) as string[]),
+		[courseEnrollments],
+	);
 
 	const { nonExemptEnrollments, totalRevenue, completedPayments } = useMemo(() => {
 		const nonExempt = courseEnrollments.filter(
@@ -129,7 +137,13 @@ const CourseDetailPage: React.FC = () => {
 			return;
 		}
 
-		const data = enrolledStudents
+		const scoped =
+			exportScope === EXPORT_SCOPE_ALL
+				? enrolledStudents
+				: enrolledStudents.filter((es) => es.quarter === exportScope || !es.quarter);
+		const exportQuarterTag = exportScope === EXPORT_SCOPE_ALL ? "전체분기" : exportScope;
+
+		const data = scoped
 			.filter((es) => es.student)
 			.map((es) => ({ student: es.student!, enrollment: es as Enrollment }));
 
@@ -141,10 +155,10 @@ const CourseDetailPage: React.FC = () => {
 		if (!course) return;
 		try {
 			if (type === "excel") {
-				exportCourseStudentsToExcel(course, data, selectedExportFields);
+				exportCourseStudentsToExcel(course, data, selectedExportFields, exportQuarterTag);
 				toast.success("Excel 파일이 다운로드되었습니다.");
 			} else {
-				exportCourseStudentsToCSV(course, data, selectedExportFields);
+				exportCourseStudentsToCSV(course, data, selectedExportFields, "utf-8", exportQuarterTag);
 				toast.success("CSV 파일이 다운로드되었습니다.");
 			}
 			setIsExportModalVisible(false);
@@ -266,6 +280,12 @@ const CourseDetailPage: React.FC = () => {
 						<DialogTitle>수강생 내보내기</DialogTitle>
 						<DialogDescription className="sr-only">내보낼 필드를 선택하세요</DialogDescription>
 					</DialogHeader>
+
+					<ExportQuarterScope
+						value={exportScope}
+						onChange={setExportScope}
+						quarters={courseQuarterOptions}
+					/>
 
 					<div className="flex justify-between items-center py-1 pb-2 border-b border-border mb-3">
 						<label className="flex items-center gap-2 text-sm cursor-pointer">

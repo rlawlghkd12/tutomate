@@ -1,4 +1,4 @@
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Layout, ErrorBoundary, UpdateChecker, GlobalSearch, useGlobalSearch, LockScreen, MemberManagementPage, QuarterSelect } from '@tutomate/ui';
 import { useSettingsStore, useLockStore, useAutoLock, useAuthStore, appConfig, isElectron, OAUTH_PROVIDERS } from '@tutomate/core';
 import type { OAuthProvider } from '@tutomate/core';
@@ -11,6 +11,25 @@ import RevenueManagementPage from './pages/RevenueManagementPage';
 import SettingsPage from './pages/SettingsPage';
 import { useEffect } from 'react';
 import { toast, Toaster } from 'sonner';
+
+function RoutedContent() {
+  const { pathname } = useLocation();
+  return (
+    <ErrorBoundary resetKey={pathname}>
+      <Routes>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/courses" element={<CoursesPage />} />
+        <Route path="/courses/:id" element={<CourseDetailPage />} />
+        <Route path="/students" element={<StudentsPage />} />
+        <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/revenue" element={<RevenueManagementPage />} />
+        <Route path="/members" element={<MemberManagementPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </ErrorBoundary>
+  );
+}
 
 function App() {
   const { visible, close } = useGlobalSearch();
@@ -81,17 +100,26 @@ function App() {
   if (!session) {
     return (
       <ErrorBoundary>
-        <div className="flex h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-200">
-          <div className="w-full max-w-[380px] rounded-2xl bg-white p-12 text-center shadow-lg">
+        <div
+          className="relative flex h-screen items-center justify-center overflow-hidden px-6"
+          style={{ background: 'hsl(36 33% 96%)' }}
+        >
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ background: 'radial-gradient(58% 50% at 50% 32%, hsl(40 45% 99%), transparent 72%)' }}
+          />
+          <div className="relative w-full max-w-[400px] rounded-3xl border border-border/60 bg-card px-10 py-12 text-center [box-shadow:var(--shadow-lg)]">
             <img
               src="icon.png"
               alt="TutorMate"
-              className="mx-auto mb-4 h-16 w-16 rounded-xl"
+              className="mx-auto mb-6 h-20 w-20 rounded-2xl [box-shadow:var(--shadow-sm)]"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
-            <h3 className="mb-1 text-xl font-semibold">{appConfig.welcomeTitle}</h3>
-            <p className="mb-7 text-sm text-muted-foreground">
-              소셜 계정으로 로그인하세요
+            <h1 className="mb-2 break-keep text-[1.7rem] font-bold leading-snug text-foreground" style={{ letterSpacing: '-0.02em' }}>
+              {appConfig.welcomeTitle}
+            </h1>
+            <p className="mb-9 text-base text-muted-foreground">
+              소셜 계정으로 간편하게 시작하세요
             </p>
             <div className="flex flex-col gap-3">
               {(Object.keys(OAUTH_PROVIDERS) as OAuthProvider[]).map((provider) => {
@@ -101,7 +129,7 @@ function App() {
                   <button
                     key={provider}
                     onClick={() => handleOAuthLogin(provider)}
-                    className="flex h-12 w-full items-center justify-center gap-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
+                    className="flex h-[52px] w-full items-center justify-center gap-2.5 rounded-xl text-base font-semibold shadow-sm transition-transform duration-150 ease-out hover:-translate-y-0.5 active:translate-y-0"
                     style={{
                       background: cfg.background, color: cfg.color, border: cfg.border,
                     }}
@@ -112,8 +140,8 @@ function App() {
                 );
               })}
             </div>
-            <p className="mt-6 text-xs text-muted-foreground">
-              문의: {appConfig.contactInfo}
+            <p className="mt-9 text-sm text-muted-foreground">
+              문의 {appConfig.contactInfo}
             </p>
           </div>
         </div>
@@ -127,20 +155,8 @@ function App() {
       <UpdateChecker autoCheck={true} checkInterval={60} />
       <Router>
         <GlobalSearch visible={visible} onClose={close} />
-        <Layout headerExtra={<QuarterSelect />}>
-          <ErrorBoundary>
-          <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/courses" element={<CoursesPage />} />
-            <Route path="/courses/:id" element={<CourseDetailPage />} />
-            <Route path="/students" element={<StudentsPage />} />
-            <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/revenue" element={<RevenueManagementPage />} />
-            <Route path="/members" element={<MemberManagementPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          </ErrorBoundary>
+        <Layout sidebarExtra={<QuarterSelect />}>
+          <RoutedContent />
         </Layout>
       </Router>
       {isLocked && lockEnabled && <LockScreen />}
