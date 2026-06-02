@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
-import { StudentList, StudentForm, EnrollmentForm, PageEnter } from '@tutomate/ui';
+import { StudentList, StudentForm, EnrollmentForm, PageEnter, ExportQuarterScope, EXPORT_SCOPE_ALL } from '@tutomate/ui';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '../components/ui/alert-dialog';
 import {
   useStudentStore,
@@ -14,6 +14,9 @@ import {
   exportStudentsToExcel,
   exportStudentsToCSV,
   STUDENT_EXPORT_FIELDS,
+  isActiveEnrollment,
+  getCurrentQuarter,
+  getQuarterOptions,
 } from '@tutomate/core';
 
 const DEFAULT_EXPORT_FIELDS = ['name', 'phone', 'enrolledCourses', 'totalPaid', 'totalRemaining'];
@@ -26,9 +29,23 @@ const StudentsPage: React.FC = () => {
   const [askEnrollStudent, setAskEnrollStudent] = useState<any>(null);
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState<string[]>(DEFAULT_EXPORT_FIELDS);
+  const [exportScope, setExportScope] = useState<string>(getCurrentQuarter());
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
   const { courses, loadCourses } = useCourseStore();
+
+  const quarterOptions = useMemo(
+    () => getQuarterOptions(enrollments.map((e) => e.quarter).filter(Boolean) as string[]),
+    [enrollments],
+  );
+  const exportEnrollments = useMemo(
+    () =>
+      exportScope === EXPORT_SCOPE_ALL
+        ? enrollments
+        : enrollments.filter((e) => isActiveEnrollment(e) && (e.quarter === exportScope || !e.quarter)),
+    [exportScope, enrollments],
+  );
+  const exportQuarterTag = exportScope === EXPORT_SCOPE_ALL ? '전체분기' : exportScope;
 
   useEffect(() => {
     loadStudents();
@@ -61,10 +78,10 @@ const StudentsPage: React.FC = () => {
 
     try {
       if (type === 'excel') {
-        exportStudentsToExcel(students, enrollments, courses, selectedExportFields);
+        exportStudentsToExcel(students, exportEnrollments, courses, selectedExportFields, exportQuarterTag);
         toast.success('Excel 파일이 다운로드되었습니다');
       } else {
-        exportStudentsToCSV(students, enrollments, courses, 'utf-8', selectedExportFields);
+        exportStudentsToCSV(students, exportEnrollments, courses, 'utf-8', selectedExportFields, exportQuarterTag);
         toast.success('CSV 파일이 다운로드되었습니다');
       }
       setIsExportModalVisible(false);
@@ -115,6 +132,12 @@ const StudentsPage: React.FC = () => {
             <DialogTitle>수강생 내보내기</DialogTitle>
             <DialogDescription className="sr-only">내보낼 필드를 선택하세요</DialogDescription>
           </DialogHeader>
+
+          <ExportQuarterScope
+            value={exportScope}
+            onChange={setExportScope}
+            quarters={quarterOptions}
+          />
 
           <div className="flex justify-between items-center py-1 pb-2 border-b border-border mb-3">
             <label className="flex items-center gap-2 text-sm cursor-pointer">

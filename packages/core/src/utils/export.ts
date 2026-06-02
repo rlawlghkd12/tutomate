@@ -8,6 +8,9 @@ import { useAuthStore } from '../stores/authStore';
 
 const getOrgName = () => useAuthStore.getState().organizationName || '';
 
+// 분기 태그를 파일명 뒤에 붙인다 (예: 수강생_명단_2026-Q2)
+const withTag = (base: string, tag?: string) => (tag ? `${base}_${tag}` : base);
+
 // 다운로드 링크 클릭 후 충분한 시간 뒤에 URL을 해제하는 헬퍼
 const triggerDownload = (url: string, filename: string) => {
   const link = document.createElement('a');
@@ -58,6 +61,24 @@ const createSheetWithHeader = (
   return ws;
 };
 
+// 헤더 행에 엑셀 필터(드롭다운)를 건다. 합계 행이 있으면 필터 범위에서 빼서 항상 하단에 남긴다.
+const applyAutoFilter = (
+  XLSX: typeof XLSXType,
+  ws: XLSXType.WorkSheet,
+  excludeLastRow: boolean
+): void => {
+  if (!ws['!ref']) return;
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  const endRow = excludeLastRow ? range.e.r - 1 : range.e.r;
+  if (endRow <= range.s.r) return; // 헤더만 있고 데이터가 없으면 건너뜀
+  ws['!autofilter'] = {
+    ref: XLSX.utils.encode_range({
+      s: { r: range.s.r, c: range.s.c },
+      e: { r: endRow, c: range.e.c },
+    }),
+  };
+};
+
 // CSV 생성 (테이블만, 제목 행 없음)
 const buildCSVWithHeader = (_headerLines: string[], csvHeaders: string[], rows: string[][]): string => {
   return [csvHeaders.join(','), ...rows.map((row) => row.join(','))].join('\n');
@@ -68,7 +89,8 @@ export const exportStudentsToExcel = async (
   students: Student[],
   enrollments: Enrollment[],
   courses: Course[],
-  selectedFields?: string[]
+  selectedFields?: string[],
+  quarterTag?: string
 ) => {
   const XLSX = await import('xlsx');
   const fields = selectedFields
@@ -105,10 +127,11 @@ export const exportStudentsToExcel = async (
   const colWidths = fields.map((f) => ({ wch: f.wch }));
   const headerLines = [getOrgName(), `수강생 명단 (${dayjs().format('YYYY-MM-DD')} 기준)`];
   const worksheet = createSheetWithHeader(XLSX, headerLines, rows, colWidths);
+  applyAutoFilter(XLSX, worksheet, hasSummable);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, '수강생 명단');
 
-  downloadExcel(XLSX, workbook, '수강생_명단');
+  downloadExcel(XLSX, workbook, withTag('수강생_명단', quarterTag));
 };
 
 // 수익 현황 필드 정의
@@ -142,7 +165,8 @@ export const exportRevenueToExcel = async (
   enrollments: Enrollment[],
   students: Student[],
   courses: Course[],
-  selectedFields?: string[]
+  selectedFields?: string[],
+  quarterTag?: string
 ) => {
   const XLSX = await import('xlsx');
   const fields = selectedFields
@@ -179,10 +203,11 @@ export const exportRevenueToExcel = async (
   const colWidths = fields.map((f) => ({ wch: f.wch }));
   const headerLines = [getOrgName(), `수익 현황 (${dayjs().format('YYYY-MM-DD')} 기준)`];
   const worksheet = createSheetWithHeader(XLSX, headerLines, rows, colWidths);
+  applyAutoFilter(XLSX, worksheet, hasSummable);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, '수익 현황');
 
-  downloadExcel(XLSX, workbook, '수익_현황');
+  downloadExcel(XLSX, workbook, withTag('수익_현황', quarterTag));
 };
 
 // CSV 내보내기 - 수강생 명단
@@ -191,7 +216,8 @@ export const exportStudentsToCSV = (
   enrollments: Enrollment[],
   courses: Course[],
   encoding: 'utf-8' | 'euc-kr' = 'utf-8',
-  selectedFields?: string[]
+  selectedFields?: string[],
+  quarterTag?: string
 ) => {
   const fields = selectedFields
     ? STUDENT_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key))
@@ -221,7 +247,7 @@ export const exportStudentsToCSV = (
 
   const headerLines = [getOrgName(), `수강생 명단 (${dayjs().format('YYYY-MM-DD')} 기준)`];
   const csv = buildCSVWithHeader(headerLines, csvHeaders, rows);
-  downloadCSV(csv, '수강생_명단', encoding);
+  downloadCSV(csv, withTag('수강생_명단', quarterTag), encoding);
 };
 
 // CSV 내보내기 - 수익 현황
@@ -230,7 +256,8 @@ export const exportRevenueToCSV = (
   students: Student[],
   courses: Course[],
   encoding: 'utf-8' | 'euc-kr' = 'utf-8',
-  selectedFields?: string[]
+  selectedFields?: string[],
+  quarterTag?: string
 ) => {
   const fields = selectedFields
     ? REVENUE_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key))
@@ -260,7 +287,7 @@ export const exportRevenueToCSV = (
 
   const headerLines = [getOrgName(), `수익 현황 (${dayjs().format('YYYY-MM-DD')} 기준)`];
   const csv = buildCSVWithHeader(headerLines, csvHeaders, rows);
-  downloadCSV(csv, '수익_현황', encoding);
+  downloadCSV(csv, withTag('수익_현황', quarterTag), encoding);
 };
 
 // 합계 대상 필드
@@ -331,7 +358,8 @@ export const COURSE_STUDENT_EXPORT_FIELDS: CourseStudentExportField[] = [
 export const exportCourseStudentsToExcel = async (
   course: Course,
   data: { student: Student; enrollment: Enrollment }[],
-  selectedFields: string[]
+  selectedFields: string[],
+  quarterTag?: string
 ) => {
   const XLSX = await import('xlsx');
   const fields = COURSE_STUDENT_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key));
@@ -371,10 +399,11 @@ export const exportCourseStudentsToExcel = async (
 
   const colWidths = fields.map((f) => ({ wch: Math.max(f.label.length * 2, 12) }));
   const worksheet = createSheetWithHeader(XLSX, headerLines, rows, colWidths);
+  applyAutoFilter(XLSX, worksheet, hasSummable);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, '수강생');
 
-  downloadExcel(XLSX, workbook, `${course.name}_수강생`);
+  downloadExcel(XLSX, workbook, withTag(`${course.name}_수강생`, quarterTag));
 };
 
 // 강좌별 수강생 CSV 내보내기
@@ -382,7 +411,8 @@ export const exportCourseStudentsToCSV = (
   course: Course,
   data: { student: Student; enrollment: Enrollment }[],
   selectedFields: string[],
-  encoding: 'utf-8' | 'euc-kr' = 'utf-8'
+  encoding: 'utf-8' | 'euc-kr' = 'utf-8',
+  quarterTag?: string
 ) => {
   const fields = COURSE_STUDENT_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key));
   const csvHeaders = fields.map((f) => f.label);
@@ -413,5 +443,5 @@ export const exportCourseStudentsToCSV = (
     `강사: ${course.instructorName} | 강의실: ${course.classroom} | 수강료: ₩${course.fee.toLocaleString()} | 출력일: ${dayjs().format('YYYY-MM-DD')}`,
   ];
   const csv = buildCSVWithHeader(headerLines, csvHeaders, rows);
-  downloadCSV(csv, `${course.name}_수강생`, encoding);
+  downloadCSV(csv, withTag(`${course.name}_수강생`, quarterTag), encoding);
 };

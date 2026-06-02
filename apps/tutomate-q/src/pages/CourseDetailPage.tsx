@@ -11,6 +11,7 @@ import {
 	AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
 	Checkbox,
 	CourseEnrollForm, CourseForm, PaymentManagementTable, StudentForm, PageEnter,
+	ExportQuarterScope, EXPORT_SCOPE_ALL,
 } from "@tutomate/ui";
 import { useCourseStore } from "@tutomate/core";
 import { useEnrollmentStore } from "@tutomate/core";
@@ -48,6 +49,7 @@ const CourseDetailPage: React.FC = () => {
 	const [selectedExportFields, setSelectedExportFields] = useState<string[]>(
 		DEFAULT_EXPORT_FIELDS,
 	);
+	const [exportAll, setExportAll] = useState(false);
 
 	const selectedQuarter = useQuarterStore((s) => s.selectedQuarter);
 	const [isCourseEditVisible, setIsCourseEditVisible] = useState(false);
@@ -67,10 +69,11 @@ const CourseDetailPage: React.FC = () => {
 	}, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
 	const course = id ? getCourseById(id) : undefined;
+	const allCourseEnrollments = enrollments.filter((e) => e.courseId === id);
 	// 분기 시스템: 해당 분기 수강생 (포기 포함 — "포기" 표시로 남김)
 	const courseEnrollments = appConfig.enableQuarterSystem
 		? enrollments.filter((e) => e.courseId === id && e.quarter === selectedQuarter)
-		: enrollments.filter((e) => e.courseId === id);
+		: allCourseEnrollments;
 
 	// active 수강생 (정원/완납률 계산용 — 포기 제외)
 	const activeEnrollments = courseEnrollments.filter((e) => isActiveEnrollment(e));
@@ -112,7 +115,10 @@ const CourseDetailPage: React.FC = () => {
 			return;
 		}
 
-		const data = courseEnrollments
+		const exportSource = exportAll ? allCourseEnrollments : courseEnrollments;
+		const exportQuarterTag = exportAll ? "전체분기" : selectedQuarter;
+
+		const data = exportSource
 			.map((e) => ({ student: getStudentById(e.studentId), enrollment: e }))
 			.filter((es): es is { student: NonNullable<typeof es.student>; enrollment: Enrollment } => !!es.student);
 
@@ -124,10 +130,10 @@ const CourseDetailPage: React.FC = () => {
 		if (!course) return;
 		try {
 			if (type === "excel") {
-				exportCourseStudentsToExcel(course, data, selectedExportFields);
+				exportCourseStudentsToExcel(course, data, selectedExportFields, exportQuarterTag);
 				toast.success("Excel 파일이 다운로드되었습니다.");
 			} else {
-				exportCourseStudentsToCSV(course, data, selectedExportFields);
+				exportCourseStudentsToCSV(course, data, selectedExportFields, "utf-8", exportQuarterTag);
 				toast.success("CSV 파일이 다운로드되었습니다.");
 			}
 			setIsExportModalVisible(false);
@@ -171,7 +177,7 @@ const CourseDetailPage: React.FC = () => {
 						variant="outline"
 						size="sm"
 						onClick={() => setIsExportModalVisible(true)}
-						disabled={courseEnrollments.length === 0}
+						disabled={allCourseEnrollments.length === 0}
 					>
 						<Download className="h-4 w-4" />
 						내보내기
@@ -221,35 +227,29 @@ const CourseDetailPage: React.FC = () => {
 			</AlertDialog>
 
 			{/* 부가 정보 + 통계 */}
-			<div className="flex gap-2.5 mb-3">
+			<div className="grid grid-cols-12 gap-2.5 mb-3">
 				{[
 					{ label: "강사", value: course.instructorName },
 					{ label: "강의실", value: course.classroom },
 					{ label: "수강료", value: `₩${course.fee.toLocaleString()}` },
 					{ label: "수강생", value: `${activeEnrollments.length}/${course.maxStudents}` },
-					{ label: "총 수익", value: `₩${totalRevenue.toLocaleString()}`, colorClass: "text-green-600 dark:text-green-400" },
+					{ label: "총 수익", value: `₩${totalRevenue.toLocaleString()}` },
 					{
 						label: "완납률",
 						value: (() => {
 							const activeNonExempt = activeEnrollments.filter((e) => e.paymentStatus !== "exempt").length;
 							return `${activeNonExempt > 0 ? ((completedPayments / activeNonExempt) * 100).toFixed(1) : "0.0"}%`;
 						})(),
-						colorClass: (() => {
-							const activeNonExempt = activeEnrollments.filter((e) => e.paymentStatus !== "exempt").length;
-							return activeNonExempt > 0 && completedPayments === activeNonExempt
-								? "text-green-600 dark:text-green-400"
-								: "text-red-600 dark:text-red-400";
-						})(),
 					},
 				].map((item) => (
 					<div
 						key={item.label}
-						className="flex-1 px-3 py-1.5 rounded-md border"
+						className="col-span-4 sm:col-span-2 px-3.5 py-2.5 rounded-lg border bg-card"
 					>
-						<div className="text-[11px] text-muted-foreground">
+						<div className="text-xs font-medium text-muted-foreground">
 							{item.label}
 						</div>
-						<div className={`text-sm font-semibold mt-0.5 ${(item as any).colorClass || ''}`}>
+						<div className="text-base font-bold tabular-nums text-foreground mt-1">
 							{item.value}
 						</div>
 					</div>
@@ -303,6 +303,12 @@ const CourseDetailPage: React.FC = () => {
 					<DialogHeader>
 						<DialogTitle>수강생 내보내기</DialogTitle>
 					</DialogHeader>
+
+					<ExportQuarterScope
+						value={exportAll ? EXPORT_SCOPE_ALL : selectedQuarter}
+						onChange={(v) => setExportAll(v === EXPORT_SCOPE_ALL)}
+						currentQuarter={selectedQuarter}
+					/>
 
 					<div className="flex justify-between items-center py-1 pb-2 border-b mb-3">
 						<div className="flex items-center gap-2">

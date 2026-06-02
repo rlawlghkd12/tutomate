@@ -62,6 +62,17 @@ vi.mock('@tutomate/core', () => ({
     enableQuarterSystem: false,
   },
   getCurrentQuarter: () => '2026-Q2',
+  isActiveEnrollment: (e: { paymentStatus: string }) => e.paymentStatus !== 'withdrawn',
+  isCourseEnded: () => false,
+  PaymentStatus: {
+    PENDING: 'pending',
+    PARTIAL: 'partial',
+    COMPLETED: 'completed',
+    EXEMPT: 'exempt',
+    WITHDRAWN: 'withdrawn',
+  },
+  DAY_LABELS: ['일', '월', '화', '수', '목', '금', '토'],
+  formatTime12: (time: string) => time,
 }));
 
 vi.mock('sonner', () => ({
@@ -92,26 +103,15 @@ function renderForm(visible = true) {
 }
 
 /**
- * Helper: Open the course Select and pick an item by label substring.
- * Radix Select renders both a hidden native <option> and a visible <span>,
- * so we need to find the option role element to avoid duplicate-text errors.
+ * Helper: pick a course from the step-1 button list, then advance to the
+ * payment step (step 2) via the "다음 →" button.
  */
-async function selectCourse(labelSubstring: string) {
-  // Click the select trigger to open the dropdown
-  const trigger = screen.getByRole('combobox');
-  fireEvent.click(trigger);
-
+async function selectCourse(courseName: string) {
+  fireEvent.click(screen.getByRole('button', { name: new RegExp(courseName) }));
+  fireEvent.click(screen.getByRole('button', { name: /다음/ }));
   await waitFor(() => {
-    const options = screen.getAllByRole('option');
-    expect(options.length).toBeGreaterThan(0);
+    expect(screen.getByText('납부 방법')).toBeInTheDocument();
   });
-
-  const options = screen.getAllByRole('option');
-  const target = options.find((opt) =>
-    opt.textContent?.includes(labelSubstring),
-  );
-  expect(target).toBeTruthy();
-  fireEvent.click(target!);
 }
 
 /* ------------------------------------------------------------------ */
@@ -140,11 +140,12 @@ describe('EnrollmentForm', () => {
     });
   });
 
-  it('renders course select dropdown', () => {
+  it('renders the course selection step', () => {
     renderForm();
 
     expect(screen.getByText('강좌 선택')).toBeInTheDocument();
-    expect(screen.getByText('강좌를 선택하세요')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('강좌명 검색...')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /수학 기초/ })).toBeInTheDocument();
   });
 
   it('selecting a course shows payment section', async () => {
@@ -159,38 +160,24 @@ describe('EnrollmentForm', () => {
     expect(screen.getByText('납부 방법')).toBeInTheDocument();
   });
 
-  it('"할인 적용" button toggles discount input', async () => {
+  it('discount row is available in the payment step', async () => {
     renderForm();
     await selectCourse('수학 기초');
 
-    const discountBtn = await screen.findByRole('button', { name: '할인 적용' });
-    fireEvent.click(discountBtn);
-
-    await waitFor(() => {
-      expect(screen.getByLabelText('할인 금액 (원)')).toBeInTheDocument();
-    });
-
-    // Toggle off
-    fireEvent.click(discountBtn);
-    await waitFor(() => {
-      expect(screen.queryByLabelText('할인 금액 (원)')).not.toBeInTheDocument();
-    });
+    // Discount is an inline summary row (no toggle button anymore).
+    expect(screen.getByText('할인')).toBeInTheDocument();
   });
 
-  it('"면제 처리" button disables payment fields', async () => {
+  it('"면제 처리" button hides payment fields', async () => {
     renderForm();
     await selectCourse('수학 기초');
 
-    const exemptBtn = await screen.findByRole('button', { name: '면제 처리' });
-    fireEvent.click(exemptBtn);
+    fireEvent.click(screen.getByRole('button', { name: '면제 처리' }));
 
     await waitFor(() => {
-      const paidInput = screen.getByLabelText('납부 금액');
-      expect(paidInput).toBeDisabled();
+      expect(screen.getByRole('button', { name: '면제 해제' })).toBeInTheDocument();
     });
-
-    // "면제 처리됩니다" notice should appear
-    expect(screen.getByText(/면제 처리됩니다/)).toBeInTheDocument();
+    expect(screen.queryByText('납부 방법')).not.toBeInTheDocument();
   });
 
   it('payment method buttons (현금/카드/계좌이체) are selectable', async () => {
@@ -210,14 +197,11 @@ describe('EnrollmentForm', () => {
     expect(screen.getByRole('button', { name: '카드' })).toBeInTheDocument();
   });
 
-  it('submit is disabled while submitting (double-click prevention)', async () => {
+  it('submit button (신청) is enabled on the payment step', async () => {
     renderForm();
+    await selectCourse('수학 기초');
 
     const submitBtn = screen.getByRole('button', { name: '신청' });
     expect(submitBtn).not.toBeDisabled();
-
-    // Simulate form submission by clicking submit without a course selected
-    // (form validation will prevent actual submission, but we verify the button exists and is initially enabled)
-    expect(submitBtn).toBeInTheDocument();
   });
 });

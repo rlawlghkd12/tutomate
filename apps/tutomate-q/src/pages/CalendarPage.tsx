@@ -43,6 +43,7 @@ const CalendarPage: React.FC = () => {
         if (!course.schedule) return false;
 
         const { startDate, endDate, daysOfWeek, holidays } = course.schedule;
+        if (!startDate || !Array.isArray(daysOfWeek)) return false;
         const dateStr = date.format('YYYY-MM-DD');
 
         if (dateStr < startDate) return false;
