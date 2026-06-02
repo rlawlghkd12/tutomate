@@ -147,7 +147,7 @@ const StudentsPage: React.FC = () => {
             </div>
 
             {/* 선택 가능한 필드 */}
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex flex-wrap gap-2 mb-2">
               {STUDENT_EXPORT_FIELDS.map((field) => {
                 const isChecked = selectedExportFields.includes(field.key);
                 return (
@@ -173,7 +173,7 @@ const StudentsPage: React.FC = () => {
 
             {/* 선택된 컬럼 순서 (드래그) */}
             {selectedExportFields.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-4 p-3 rounded-lg bg-muted/30 border border-dashed border-border">
+              <div className="flex flex-wrap gap-1.5 mb-2 p-3 rounded-lg bg-muted/30 border border-dashed border-border">
                 {selectedExportFields.map((key, idx) => {
                   const field = STUDENT_EXPORT_FIELDS.find((f) => f.key === key);
                   if (!field) return null;
@@ -215,7 +215,7 @@ const StudentsPage: React.FC = () => {
 
             {/* 미리보기 */}
             {selectedExportFields.length > 0 && students.length > 0 && (
-              <div className="rounded-lg border overflow-hidden mb-4">
+              <div className="rounded-lg border overflow-hidden mb-2">
                 <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 bg-muted/30">미리보기</div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">

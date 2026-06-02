@@ -116,7 +116,7 @@ const RevenueManagementPage: React.FC = () => {
     return {
       totalRevenue: revenue,
       expectedRevenue: expected,
-      totalUnpaid: expected - revenue,
+      totalUnpaid: Math.max(0, expected - revenue),
       completedPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'completed').length,
       partialPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'partial').length,
       pendingPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'pending').length,
@@ -130,7 +130,7 @@ const RevenueManagementPage: React.FC = () => {
     const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
     const revenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
     const expected = nonExemptEnrollments.length * course.fee;
-    const unpaid = expected - revenue;
+    const unpaid = Math.max(0, expected - revenue);
     const completed = courseEnrollments.filter((e) => e.paymentStatus === 'completed').length;
 
     return {
@@ -259,11 +259,11 @@ const RevenueManagementPage: React.FC = () => {
   return (
     <PageEnter>
       {/* 필터 섹션 */}
-      <Card className="mb-6">
+      <Card className="mb-2">
         <CardContent className="p-4 space-y-4">
           {/* 날짜 범위 필터 */}
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-medium text-sm">기간 선택:</span>
               <div className="flex items-center gap-2">
                 <input
@@ -305,7 +305,7 @@ const RevenueManagementPage: React.FC = () => {
           </div>
 
           {/* 결제 상태 필터 */}
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-sm">결제 상태:</span>
             <div className="flex gap-1 flex-wrap">
               {[
@@ -360,12 +360,12 @@ const RevenueManagementPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* 상단 통계 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+      {/* 상단 통계 (총수익·예상·미수금은 금액이라 더 넓게, 수익률은 좁게) */}
+      <div className="grid grid-cols-2 sm:grid-cols-[1.25fr_1.25fr_1.25fr_1fr] gap-2 mb-2">
         <Card>
           <CardContent className="p-3">
             <p className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> 총 수익</p>
-            <p className="text-xl font-bold text-success">
+            <p className="text-xl font-bold text-success whitespace-nowrap">
               {totalRevenue.toLocaleString()}<span className="text-sm font-normal">원</span>
             </p>
           </CardContent>
@@ -373,7 +373,7 @@ const RevenueManagementPage: React.FC = () => {
         <Card>
           <CardContent className="p-3">
             <p className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> 예상 총 수익</p>
-            <p className="text-xl font-bold text-primary">
+            <p className="text-xl font-bold text-primary whitespace-nowrap">
               {expectedRevenue.toLocaleString()}<span className="text-sm font-normal">원</span>
             </p>
           </CardContent>
@@ -381,7 +381,7 @@ const RevenueManagementPage: React.FC = () => {
         <Card>
           <CardContent className="p-3">
             <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> 총 미수금</p>
-            <p className="text-xl font-bold text-error">
+            <p className="text-xl font-bold text-error whitespace-nowrap">
               {totalUnpaid.toLocaleString()}<span className="text-sm font-normal">원</span>
             </p>
           </CardContent>
@@ -389,14 +389,14 @@ const RevenueManagementPage: React.FC = () => {
         <Card>
           <CardContent className="p-3">
             <p className="text-xs text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3" /> 수익률</p>
-            <p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>
+            <p className="text-xl font-bold whitespace-nowrap" style={{ color: EXEMPT_COLOR }}>
               {(expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0).toFixed(1)}<span className="text-sm font-normal">%</span>
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
         <Card>
           <CardContent className="p-3">
             <p className="text-xs text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3" /> 완납</p>
@@ -531,7 +531,7 @@ const RevenueManagementPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="3">
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
                 <SelectTrigger className="w-[140px]">
@@ -657,7 +657,7 @@ const RevenueManagementPage: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex flex-col gap-0.5 mb-4">
+          <div className="flex flex-col gap-0.5 mb-2">
             {REVENUE_EXPORT_FIELDS.map((field) => {
               const isChecked = selectedExportFields.includes(field.key);
               return (

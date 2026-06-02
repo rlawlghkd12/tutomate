@@ -53,8 +53,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   const paymentSchema = z.object({
     paidAmount: z
       .number({ message: '납부 금액을 입력하세요' })
-      .min(0)
-      .max(courseFee - discountAmount, '수강료를 초과할 수 없습니다'),
+      .min(0),
     paidAt: z.string().min(1, '납부일을 선택하세요'),
     paymentMethod: z.enum(['transfer', 'card', 'cash'] as const, { message: '납부 방법을 선택하세요' }),
     discountAmount: z.number().min(0).max(courseFee).default(0),
@@ -267,7 +266,6 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                   <Input
                     type="number"
                     min={0}
-                    max={effectiveFee}
                     step={5000}
                     value={field.value}
                     onChange={(e) => field.onChange(Number(e.target.value) || 0)}

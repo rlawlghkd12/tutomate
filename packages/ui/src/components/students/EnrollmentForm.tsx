@@ -162,7 +162,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 			await updateEnrollment(withdrawnEnrollment.id, {
 				paymentStatus,
 				paidAmount,
-				remainingAmount: effFee - paidAmount,
+				remainingAmount: Math.max(0, effFee - paidAmount),
 				paidAt: paidAmount > 0 || isExempt ? formPaidAt : undefined,
 				paymentMethod: values.paymentMethod,
 				discountAmount: discount,
@@ -474,8 +474,8 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 										const raw = e.target.value.replace(/[^\d]/g, '');
 										const val = raw === '' ? 0 : Number(raw);
 										if (!isNaN(val)) {
-											const clamped = Math.min(val, effectiveFee);
-											field.onChange(clamped);
+											// 직접입력은 상한 없음 (초과 납부 허용)
+											field.onChange(val);
 										}
 									}}
 									disabled={!customAmountMode}

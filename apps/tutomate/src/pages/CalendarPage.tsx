@@ -82,7 +82,7 @@ const CalendarPage: React.FC = () => {
 
   return (
     <PageEnter>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2">
         <h2 className="text-2xl font-bold m-0">강좌 캘린더</h2>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleToday}>오늘</Button>
@@ -102,7 +102,7 @@ const CalendarPage: React.FC = () => {
 
       <Card>
         <CardContent className="p-4">
-          <div className="mb-4 flex gap-4">
+          <div className="mb-2 flex gap-2">
             <div className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
               <span className="text-sm">수업 있음</span>

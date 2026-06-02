@@ -152,7 +152,7 @@ const StudentsPage: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex flex-col gap-0.5 mb-4">
+          <div className="flex flex-col gap-0.5 mb-2">
             {STUDENT_EXPORT_FIELDS.map((field) => {
               const isChecked = selectedExportFields.includes(field.key);
               return (
