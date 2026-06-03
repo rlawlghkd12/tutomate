@@ -14,6 +14,7 @@ import { appConfig } from "../config/appConfig";
 import { logEvent } from "../utils/eventLogger";
 import { useStudentStore } from "./studentStore";
 import { useCourseStore } from "./courseStore";
+import { prunePaidPaymentNotifications } from "../utils/notificationGenerator";
 
 const helper = createDataHelper<Enrollment, EnrollmentRow>({
 	table: "enrollments",
@@ -259,6 +260,8 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 					meta: { previousStatus: prevStatus },
 				});
 			}
+			// 면제 처리 → 더 이상 미납 아님: 묵은 납부 알림 즉시 정리
+			prunePaidPaymentNotifications(get().enrollments);
 			return;
 		}
 
@@ -282,5 +285,7 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 			...(paymentMethod !== undefined && { paymentMethod }),
 			...(discountAmount !== undefined && { discountAmount }),
 		});
+		// 완납 등으로 미납이 해소된 경우 묵은 납부 알림 즉시 정리
+		prunePaidPaymentNotifications(get().enrollments);
 	},
 }));

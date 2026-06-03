@@ -68,12 +68,43 @@ export const generatePaymentReminderNotifications = (
   });
 };
 
+// 납부 완료/면제로 더 이상 미납이 아닌 학생의 묵은 납부 알림 정리.
+// 알림 relatedId는 studentId이므로, '활성 + 미납(pending/partial)' 수강 건이
+// 하나도 없는 학생의 payment 알림을 제거한다. (납부 경로와 무관하게 self-healing)
+export const prunePaidPaymentNotifications = (enrollments: Enrollment[]) => {
+  const { notifications, deleteNotification } = useNotificationStore.getState();
+
+  const studentHasUnpaid = new Set<string>();
+  enrollments.forEach((enrollment) => {
+    if (
+      isActiveEnrollment(enrollment) &&
+      (enrollment.paymentStatus === 'pending' ||
+        enrollment.paymentStatus === 'partial')
+    ) {
+      studentHasUnpaid.add(enrollment.studentId);
+    }
+  });
+
+  notifications
+    .filter(
+      (n) =>
+        (n.type === 'payment_overdue' || n.type === 'payment_reminder') &&
+        n.relatedType === 'student' &&
+        n.relatedId !== undefined &&
+        !studentHasUnpaid.has(n.relatedId)
+    )
+    .forEach((n) => deleteNotification(n.id));
+};
+
 // 모든 알림 생성 (하루에 한 번 실행)
 export const generateAllNotifications = (
   enrollments: Enrollment[],
   students: Student[],
   courses: Course[]
 ) => {
+  // 납부 완료된 항목의 묵은 알림은 매 호출마다 정리 (하루 1회 가드와 무관)
+  prunePaidPaymentNotifications(enrollments);
+
   // 기존 알림이 오늘 생성되었는지 확인 (org별)
   const orgId = getOrgId();
   const storageKey = orgId ? `lastNotificationGeneration_${orgId}` : 'lastNotificationGeneration';
