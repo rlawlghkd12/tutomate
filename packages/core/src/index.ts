@@ -115,6 +115,7 @@ export {
   generatePaymentOverdueNotifications,
   generatePaymentReminderNotifications,
   generateAllNotifications,
+  prunePaidPaymentNotifications,
 } from './utils/notificationGenerator';
 
 export {

@@ -1,12 +1,23 @@
 import dayjs from "dayjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock notificationStore
+// Mock notificationStore — 묵은 알림 정리(prune) 검증을 위해 stateful 하게 구성
+let mockNotifications: Array<{
+	id: string;
+	type: string;
+	relatedType?: string;
+	relatedId?: string;
+}> = [];
 const mockAddNotification = vi.fn();
+const mockDeleteNotification = vi.fn((id: string) => {
+	mockNotifications = mockNotifications.filter((n) => n.id !== id);
+});
 vi.mock("../../stores/notificationStore", () => ({
 	useNotificationStore: {
 		getState: () => ({
 			addNotification: mockAddNotification,
+			deleteNotification: mockDeleteNotification,
+			notifications: mockNotifications,
 		}),
 	},
 }));
@@ -16,6 +27,7 @@ import {
 	generateAllNotifications,
 	generatePaymentOverdueNotifications,
 	generatePaymentReminderNotifications,
+	prunePaidPaymentNotifications,
 } from "../notificationGenerator";
 
 // ─── 테스트 데이터 ───
@@ -59,6 +71,7 @@ describe("notificationGenerator", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		localStorage.clear();
+		mockNotifications = [];
 	});
 
 	// ── generatePaymentOverdueNotifications ──
@@ -310,6 +323,62 @@ describe("notificationGenerator", () => {
 			expect(localStorage.getItem("lastNotificationGeneration")).toBe(
 				dayjs().format("YYYY-MM-DD"),
 			);
+		});
+	});
+
+	// ── prunePaidPaymentNotifications ──
+
+	describe("prunePaidPaymentNotifications", () => {
+		it("완납된 학생의 묵은 납부 알림 삭제", () => {
+			mockNotifications = [
+				{ id: "n1", type: "payment_overdue", relatedType: "student", relatedId: "s1" },
+			];
+			const paid = makeEnrollment({ paymentStatus: "completed" });
+			prunePaidPaymentNotifications([paid]);
+			expect(mockDeleteNotification).toHaveBeenCalledWith("n1");
+		});
+
+		it("면제 학생의 납부 알림 삭제", () => {
+			mockNotifications = [
+				{ id: "n1", type: "payment_reminder", relatedType: "student", relatedId: "s1" },
+			];
+			prunePaidPaymentNotifications([makeEnrollment({ paymentStatus: "exempt" })]);
+			expect(mockDeleteNotification).toHaveBeenCalledWith("n1");
+		});
+
+		it("아직 미납인 학생의 알림은 유지", () => {
+			mockNotifications = [
+				{ id: "n1", type: "payment_overdue", relatedType: "student", relatedId: "s1" },
+			];
+			prunePaidPaymentNotifications([makeEnrollment({ paymentStatus: "pending" })]);
+			expect(mockDeleteNotification).not.toHaveBeenCalled();
+		});
+
+		it("부분 납부(partial)는 아직 미납이므로 유지", () => {
+			mockNotifications = [
+				{ id: "n1", type: "payment_overdue", relatedType: "student", relatedId: "s1" },
+			];
+			prunePaidPaymentNotifications([makeEnrollment({ paymentStatus: "partial" })]);
+			expect(mockDeleteNotification).not.toHaveBeenCalled();
+		});
+
+		it("같은 학생이 수강 2개 중 1개라도 미납이면 유지", () => {
+			mockNotifications = [
+				{ id: "n1", type: "payment_overdue", relatedType: "student", relatedId: "s1" },
+			];
+			prunePaidPaymentNotifications([
+				makeEnrollment({ id: "e1", paymentStatus: "completed" }),
+				makeEnrollment({ id: "e2", paymentStatus: "pending" }),
+			]);
+			expect(mockDeleteNotification).not.toHaveBeenCalled();
+		});
+
+		it("납부 외(info) 알림은 건드리지 않음", () => {
+			mockNotifications = [
+				{ id: "n1", type: "info", relatedType: "student", relatedId: "s1" },
+			];
+			prunePaidPaymentNotifications([makeEnrollment({ paymentStatus: "completed" })]);
+			expect(mockDeleteNotification).not.toHaveBeenCalled();
 		});
 	});
 
