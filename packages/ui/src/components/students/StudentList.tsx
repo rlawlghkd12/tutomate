@@ -56,9 +56,11 @@ interface StudentListProps {
   actions?: React.ReactNode;
   /** 외부에서 필터링한 enrollments (예: 현재 분기). 미지정 시 store 전체 사용. */
   enrollments?: Enrollment[];
+  /** true면 enrollments에 등록된 학생만 표시 (이번 분기 수강생만 보기) */
+  quarterOnly?: boolean;
 }
 
-const StudentList: React.FC<StudentListProps> = ({ actions, enrollments: enrollmentsProp }) => {
+const StudentList: React.FC<StudentListProps> = ({ actions, enrollments: enrollmentsProp, quarterOnly = false }) => {
   const navigate = useNavigate();
   const { students } = useStudentStore();
   const { enrollments: enrollmentsFromStore } = useEnrollmentStore();
@@ -110,9 +112,16 @@ const StudentList: React.FC<StudentListProps> = ({ actions, enrollments: enrollm
     });
   }, [students, enrollments, courses]);
 
+  // 이번 분기 등록 학생 ID (quarterOnly 토글용)
+  const quarterStudentIds = useMemo(
+    () => new Set(enrollments.filter(isActiveEnrollment).map((e) => e.studentId)),
+    [enrollments],
+  );
+
   // 필터링
   const filteredRows = useMemo(() => {
     const filtered = studentRows.filter((row) => {
+      if (quarterOnly && !quarterStudentIds.has(row.student.id)) return false;
       if (!searchText) return true;
       const searchLower = searchText.toLowerCase();
       switch (searchField) {
@@ -136,7 +145,7 @@ const StudentList: React.FC<StudentListProps> = ({ actions, enrollments: enrollm
 
     // 필터링 후 인덱스 재부여
     return filtered.map((row, idx) => ({ ...row, index: idx + 1 }));
-  }, [studentRows, searchText, searchField]);
+  }, [studentRows, searchText, searchField, quarterOnly, quarterStudentIds]);
 
   const columns = useMemo<ColumnDef<StudentRow>[]>(() => [
     {

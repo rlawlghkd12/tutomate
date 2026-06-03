@@ -90,6 +90,9 @@ const DashboardPage: React.FC = () => {
 	const completedPayments = quarterActive.filter(
 		(e) => e.paymentStatus === "completed",
 	).length;
+	const partialPayments = quarterActive.filter(
+		(e) => e.paymentStatus === "partial",
+	).length;
 	const pendingPayments = quarterActive.filter(
 		(e) => e.paymentStatus === "pending",
 	).length;
@@ -178,6 +181,12 @@ const DashboardPage: React.FC = () => {
 							<span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: 'hsl(142 64% 30%)' }} />완납
 						</p>
 						<p className="text-xl font-bold tabular-nums text-foreground whitespace-nowrap">{completedPayments}<span className="text-base font-medium text-muted-foreground ml-1">건</span></p>
+					</div>
+					<div className="flex-1 px-6 py-3.5">
+						<p className="text-sm font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+							<span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: 'hsl(35 88% 35%)' }} />부분납부
+						</p>
+						<p className="text-xl font-bold tabular-nums text-foreground whitespace-nowrap">{partialPayments}<span className="text-base font-medium text-muted-foreground ml-1">건</span></p>
 					</div>
 					<div className="flex-1 px-6 py-3.5">
 						<p className="text-sm font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
