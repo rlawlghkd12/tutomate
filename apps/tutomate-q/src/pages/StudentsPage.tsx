@@ -3,7 +3,7 @@ import { Plus, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
-  Button, Dialog, DialogContent, DialogHeader, DialogTitle,
+  Button, Checkbox, Dialog, DialogContent, DialogHeader, DialogTitle,
   StudentList, StudentForm, EnrollmentForm,
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
@@ -31,6 +31,7 @@ const StudentsPage: React.FC = () => {
   const { courses, loadCourses } = useCourseStore();
   const currentQuarter = useQuarterStore((s) => s.selectedQuarter);
   const [exportAll, setExportAll] = useState(false);
+  const [quarterOnly, setQuarterOnly] = useState(false);
   const quarterEnrollments = useMemo(
     () => enrollments.filter((e) => isActiveEnrollment(e) && (e.quarter === currentQuarter || !e.quarter)),
     [enrollments, currentQuarter],
@@ -90,8 +91,17 @@ const StudentsPage: React.FC = () => {
     <PageEnter>
       <StudentList
         enrollments={quarterEnrollments}
+        quarterOnly={quarterOnly}
         actions={
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 px-3 py-2 mr-1 cursor-pointer select-none rounded-md border border-border text-base font-medium whitespace-nowrap hover:bg-accent">
+              <Checkbox
+                checked={quarterOnly}
+                onCheckedChange={(v) => setQuarterOnly(!!v)}
+                aria-label="이번 분기 수강생만 보기"
+              />
+              이번 분기 수강생만 보기
+            </label>
             <Button
               variant="outline"
               onClick={() => setIsExportModalVisible(true)}

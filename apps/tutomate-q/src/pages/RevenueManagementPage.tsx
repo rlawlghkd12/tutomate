@@ -20,7 +20,8 @@ import { usePaymentRecordStore } from '@tutomate/core';
 import { useQuarterStore, getQuarterLabel } from '@tutomate/core';
 import { PaymentForm, StudentForm } from '@tutomate/ui';
 import type { Enrollment, Student } from '@tutomate/core';
-import { PAYMENT_METHOD_LABELS } from '@tutomate/core';
+import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from '@tutomate/core';
+import type { PaymentStatusType } from '@tutomate/core';
 import { exportRevenueToExcel, exportRevenueToCSV, REVENUE_EXPORT_FIELDS } from '@tutomate/core';
 import { RevenueBreakdownTooltip, DatePicker } from '@tutomate/ui';
 
@@ -45,6 +46,7 @@ const RevenueManagementPage: React.FC = () => {
   // 기간 필터 모드: 'quarter' | 'date' — 상호 배타
   const [filterMode, setFilterMode] = useState<'quarter' | 'date'>('quarter');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
+  const [statusModal, setStatusModal] = useState<PaymentStatusType | null>(null);
 
   const selectedQuarter = useQuarterStore((s) => s.selectedQuarter);
 
@@ -180,6 +182,26 @@ const RevenueManagementPage: React.FC = () => {
         discountAmount: enrollment.discountAmount ?? 0,
       };
     }), [filteredEnrollments, getStudentById, getCourseById]);
+
+  // 상태별 명단 모달 데이터
+  const statusModalList = useMemo(() => {
+    if (!statusModal) return [];
+    return filteredEnrollments
+      .filter((e) => e.paymentStatus === statusModal)
+      .map((e) => {
+        const student = getStudentById(e.studentId);
+        const course = getCourseById(e.courseId);
+        return {
+          id: e.id,
+          studentName: student?.name || '-',
+          isMember: !!student?.isMember,
+          phone: student?.phone || '-',
+          courseName: course?.name || '-',
+          paidAmount: e.paidAmount,
+        };
+      })
+      .sort((a, b) => a.studentName.localeCompare(b.studentName, 'ko'));
+  }, [statusModal, filteredEnrollments, getStudentById, getCourseById]);
 
   // 분기별 수익 현황 (강좌별)
   // - 분기 매칭된 모든 enrollment(withdrawn 포함)에서 환불 net 수익 합산
@@ -471,21 +493,63 @@ const RevenueManagementPage: React.FC = () => {
       <Card className="mb-2">
         <CardContent className="flex items-stretch divide-x divide-border p-0">
           {[
-            { label: '완납', value: completedPayments, dot: 'hsl(142 64% 30%)' },
-            { label: '부분납부', value: partialPayments, dot: 'hsl(33 90% 40%)' },
-            { label: '미납', value: pendingPayments, dot: 'hsl(0 72% 45%)' },
-            { label: '면제', value: exemptPayments, dot: 'hsl(240 4% 60%)' },
-            { label: '포기', value: withdrawnPayments, dot: 'hsl(240 4% 75%)' },
+            { label: '완납', value: completedPayments, dot: 'hsl(142 64% 30%)', status: 'completed' as PaymentStatusType },
+            { label: '부분납부', value: partialPayments, dot: 'hsl(33 90% 40%)', status: 'partial' as PaymentStatusType },
+            { label: '미납', value: pendingPayments, dot: 'hsl(0 72% 45%)', status: 'pending' as PaymentStatusType },
+            { label: '면제', value: exemptPayments, dot: 'hsl(240 4% 60%)', status: 'exempt' as PaymentStatusType },
+            { label: '포기', value: withdrawnPayments, dot: 'hsl(240 4% 75%)', status: 'withdrawn' as PaymentStatusType },
           ].map((s) => (
-            <div key={s.label} className="flex-1 px-6 py-4">
+            <button
+              key={s.label}
+              type="button"
+              onClick={() => s.value > 0 && setStatusModal(s.status)}
+              disabled={s.value === 0}
+              className="flex-1 px-6 py-4 text-left transition-colors hover:bg-accent disabled:cursor-default disabled:hover:bg-transparent"
+            >
               <p className="text-sm font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
                 <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: s.dot }} />{s.label}
               </p>
               <p className="text-xl font-bold tabular-nums text-foreground whitespace-nowrap">{s.value}<span className="text-sm font-medium text-muted-foreground ml-1">건</span></p>
-            </div>
+            </button>
           ))}
         </CardContent>
       </Card>
+
+      {/* 상태별 명단 모달 */}
+      <Dialog open={!!statusModal} onOpenChange={(o) => !o && setStatusModal(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {statusModal ? PAYMENT_STATUS_LABELS[statusModal] : ''} 명단 ({statusModalList.length}건)
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>이름</TableHead>
+                  <TableHead>전화번호</TableHead>
+                  <TableHead>강좌</TableHead>
+                  <TableHead className="text-right">납부액</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {statusModalList.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="whitespace-nowrap font-medium">
+                      {r.studentName}
+                      {r.isMember && <Badge variant="info" className="ml-1.5">회원</Badge>}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{r.phone}</TableCell>
+                    <TableCell>{r.courseName}</TableCell>
+                    <TableCell className="text-right tabular-nums whitespace-nowrap">{r.paidAmount.toLocaleString()}원</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Tabs */}
       <Tabs defaultValue="monthly">
