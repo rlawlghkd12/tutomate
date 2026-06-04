@@ -21,7 +21,7 @@ import { useQuarterStore, getQuarterLabel } from '@tutomate/core';
 import { PaymentForm, StudentForm } from '@tutomate/ui';
 import type { Enrollment, Student } from '@tutomate/core';
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from '@tutomate/core';
-import type { PaymentStatusType } from '@tutomate/core';
+import type { PaymentStatusType, PaymentMethod } from '@tutomate/core';
 import { exportRevenueToExcel, exportRevenueToCSV, REVENUE_EXPORT_FIELDS } from '@tutomate/core';
 import { RevenueBreakdownTooltip, DatePicker } from '@tutomate/ui';
 
@@ -31,7 +31,7 @@ const RevenueManagementPage: React.FC = () => {
     navigate(`/courses/${courseId}?q=${encodeURIComponent(selectedQuarter)}`);
   const { courses, loadCourses, getCourseById } = useCourseStore();
   const { students, loadStudents, getStudentById } = useStudentStore();
-  const { enrollments, loadEnrollments } = useEnrollmentStore();
+  const { enrollments, loadEnrollments, updateEnrollment } = useEnrollmentStore();
   const { loadRecords, records } = usePaymentRecordStore();
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
@@ -47,6 +47,7 @@ const RevenueManagementPage: React.FC = () => {
   const [filterMode, setFilterMode] = useState<'quarter' | 'date'>('quarter');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
   const [statusModal, setStatusModal] = useState<PaymentStatusType | null>(null);
+  const [methodModal, setMethodModal] = useState<PaymentMethod | 'unspecified' | null>(null);
 
   const selectedQuarter = useQuarterStore((s) => s.selectedQuarter);
 
@@ -109,6 +110,8 @@ const RevenueManagementPage: React.FC = () => {
   const totalCash = revenueEnrollments.filter((e) => e.paymentMethod === 'cash').reduce((sum, e) => sum + e.paidAmount, 0);
   const totalTransfer = revenueEnrollments.filter((e) => e.paymentMethod === 'transfer').reduce((sum, e) => sum + e.paidAmount, 0);
   const totalCard = revenueEnrollments.filter((e) => e.paymentMethod === 'card').reduce((sum, e) => sum + e.paidAmount, 0);
+  // 결제수단 미지정 납부액: 총수익 - 3개 수단 합 (paymentMethod가 비어있는 건)
+  const totalUnspecified = totalRevenue - (totalCash + totalTransfer + totalCard);
 
   // 상태별 건수
   const completedPayments = filteredEnrollments.filter((e) => e.paymentStatus === 'completed').length;
@@ -195,13 +198,38 @@ const RevenueManagementPage: React.FC = () => {
           id: e.id,
           studentName: student?.name || '-',
           isMember: !!student?.isMember,
-          phone: student?.phone || '-',
           courseName: course?.name || '-',
           paidAmount: e.paidAmount,
         };
       })
       .sort((a, b) => a.studentName.localeCompare(b.studentName, 'ko'));
   }, [statusModal, filteredEnrollments, getStudentById, getCourseById]);
+
+  // 결제수단별 명단 모달 데이터 (미지정 = paymentMethod 비어있고 납부액 있는 건)
+  const methodModalList = useMemo(() => {
+    if (!methodModal) return [];
+    const methods: PaymentMethod[] = ['cash', 'card', 'transfer'];
+    return revenueEnrollments
+      .filter((e) => {
+        if (e.paidAmount === 0) return false;
+        if (methodModal === 'unspecified') {
+          return !e.paymentMethod || !methods.includes(e.paymentMethod);
+        }
+        return e.paymentMethod === methodModal;
+      })
+      .map((e) => {
+        const student = getStudentById(e.studentId);
+        const course = getCourseById(e.courseId);
+        return {
+          id: e.id,
+          studentName: student?.name || '-',
+          isMember: !!student?.isMember,
+          courseName: course?.name || '-',
+          paidAmount: e.paidAmount,
+        };
+      })
+      .sort((a, b) => a.studentName.localeCompare(b.studentName, 'ko'));
+  }, [methodModal, revenueEnrollments, getStudentById, getCourseById]);
 
   // 분기별 수익 현황 (강좌별)
   // - 분기 매칭된 모든 enrollment(withdrawn 포함)에서 환불 net 수익 합산
@@ -253,6 +281,11 @@ const RevenueManagementPage: React.FC = () => {
       };
     }).filter((d) => d.studentCount > 0 || d.withdrawnCount > 0 || d.exemptCount > 0);
   }, [courses, enrollments, selectedQuarter, records]);
+
+  const handleAssignMethod = async (enrollmentId: string, method: PaymentMethod) => {
+    await updateEnrollment(enrollmentId, { paymentMethod: method });
+    toast.success(`결제수단을 ${PAYMENT_METHOD_LABELS[method]}(으)로 지정했습니다`);
+  };
 
   const handlePaymentEdit = (enrollment: Enrollment) => {
     setSelectedEnrollment(enrollment);
@@ -329,6 +362,62 @@ const RevenueManagementPage: React.FC = () => {
     if (type === 'last-month') return dateRange[0] === dayjs().subtract(1, 'month').startOf('month').format('YYYY-MM-DD') && dateRange[1] === dayjs().subtract(1, 'month').endOf('month').format('YYYY-MM-DD');
     if (type === 'this-year') return dateRange[0] === dayjs().startOf('year').format('YYYY-MM-DD') && dateRange[1] === dayjs().endOf('year').format('YYYY-MM-DD');
     return false;
+  };
+
+  // 강좌별 그룹 + 스티키 헤더로 명단 렌더 (이름·납부액, 미지정이면 지정버튼)
+  type PaymentListItem = { id: string; studentName: string; isMember: boolean; courseName: string; paidAmount: number };
+  const renderGroupedList = (list: PaymentListItem[], withAssign: boolean) => {
+    const groupMap = new Map<string, PaymentListItem[]>();
+    for (const r of list) {
+      if (!groupMap.has(r.courseName)) groupMap.set(r.courseName, []);
+      groupMap.get(r.courseName)!.push(r);
+    }
+    const groups = Array.from(groupMap.entries())
+      .map(([courseName, items]) => ({ courseName, items, total: items.reduce((s, x) => s + x.paidAmount, 0) }))
+      .sort((a, b) => a.courseName.localeCompare(b.courseName, 'ko'));
+    return (
+      <div className="max-h-[60vh] overflow-y-auto rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <tbody>
+            {groups.map((group) => (
+              <React.Fragment key={group.courseName}>
+                <tr>
+                  <th colSpan={withAssign ? 3 : 2} className="sticky top-0 z-10 bg-muted px-4 py-2 text-left font-semibold border-b border-border">
+                    {group.courseName}
+                    <span className="ml-2 font-normal text-muted-foreground">{group.items.length}건 · {group.total.toLocaleString()}원</span>
+                  </th>
+                </tr>
+                {group.items.map((r) => (
+                  <tr key={r.id} className="border-b border-border/50">
+                    <td className="px-4 py-2 font-medium whitespace-nowrap">
+                      {r.studentName}
+                      {r.isMember && <Badge variant="info" className="ml-1.5">회원</Badge>}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums whitespace-nowrap">{r.paidAmount.toLocaleString()}원</td>
+                    {withAssign && (
+                      <td className="px-4 py-2">
+                        <div className="flex gap-2 justify-end">
+                          {(['cash', 'transfer', 'card'] as PaymentMethod[]).map((method) => (
+                            <Button
+                              key={method}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAssignMethod(r.id, method)}
+                            >
+                              {PAYMENT_METHOD_LABELS[method]}
+                            </Button>
+                          ))}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
   };
 
   return (
@@ -477,14 +566,21 @@ const RevenueManagementPage: React.FC = () => {
       <Card className="mb-2">
         <CardContent className="flex items-stretch divide-x divide-border p-0">
           {[
-            { label: '현금', value: totalCash },
-            { label: '계좌이체', value: totalTransfer },
-            { label: '카드', value: totalCard },
+            { label: '현금', value: totalCash, method: 'cash' as const },
+            { label: '계좌이체', value: totalTransfer, method: 'transfer' as const },
+            { label: '카드', value: totalCard, method: 'card' as const },
+            ...(totalUnspecified !== 0 ? [{ label: '미지정', value: totalUnspecified, method: 'unspecified' as const }] : []),
           ].map((m) => (
-            <div key={m.label} className="flex-1 px-6 py-4">
+            <button
+              key={m.label}
+              type="button"
+              onClick={() => m.value !== 0 && setMethodModal(m.method)}
+              disabled={m.value === 0}
+              className="flex-1 px-6 py-4 text-left transition-colors hover:bg-accent disabled:cursor-default disabled:hover:bg-transparent"
+            >
               <p className="text-sm font-semibold text-muted-foreground mb-1.5">{m.label}</p>
               <p className="text-xl font-bold tabular-nums text-foreground whitespace-nowrap">{m.value.toLocaleString()}<span className="text-sm font-medium text-muted-foreground ml-1">원</span></p>
-            </div>
+            </button>
           ))}
         </CardContent>
       </Card>
@@ -517,37 +613,28 @@ const RevenueManagementPage: React.FC = () => {
 
       {/* 상태별 명단 모달 */}
       <Dialog open={!!statusModal} onOpenChange={(o) => !o && setStatusModal(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>
               {statusModal ? PAYMENT_STATUS_LABELS[statusModal] : ''} 명단 ({statusModalList.length}건)
             </DialogTitle>
           </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>이름</TableHead>
-                  <TableHead>전화번호</TableHead>
-                  <TableHead>강좌</TableHead>
-                  <TableHead className="text-right">납부액</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {statusModalList.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="whitespace-nowrap font-medium">
-                      {r.studentName}
-                      {r.isMember && <Badge variant="info" className="ml-1.5">회원</Badge>}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">{r.phone}</TableCell>
-                    <TableCell>{r.courseName}</TableCell>
-                    <TableCell className="text-right tabular-nums whitespace-nowrap">{r.paidAmount.toLocaleString()}원</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          {renderGroupedList(statusModalList, false)}
+        </DialogContent>
+      </Dialog>
+
+      {/* 결제수단별 명단 모달 */}
+      <Dialog open={!!methodModal} onOpenChange={(o) => !o && setMethodModal(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {methodModal === 'unspecified' ? '미지정' : methodModal ? PAYMENT_METHOD_LABELS[methodModal] : ''} 납부 명단 ({methodModalList.length}건)
+            </DialogTitle>
+          </DialogHeader>
+          {methodModal === 'unspecified' && (
+            <p className="text-sm text-muted-foreground -mt-1">납부 기록은 있으나 결제수단이 지정되지 않은 건입니다. 수강생별 납부 기록에서 결제수단을 지정해 주세요.</p>
+          )}
+          {renderGroupedList(methodModalList, methodModal === 'unspecified')}
         </DialogContent>
       </Dialog>
 
