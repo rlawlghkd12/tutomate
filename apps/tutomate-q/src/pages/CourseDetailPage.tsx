@@ -115,7 +115,8 @@ const CourseDetailPage: React.FC = () => {
 			return;
 		}
 
-		const exportSource = exportAll ? allCourseEnrollments : courseEnrollments;
+		// 내보내기에서는 등록취소(포기) 인원 제외
+		const exportSource = (exportAll ? allCourseEnrollments : courseEnrollments).filter(isActiveEnrollment);
 		const exportQuarterTag = exportAll ? "전체분기" : selectedQuarter;
 
 		const data = exportSource

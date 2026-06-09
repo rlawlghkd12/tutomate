@@ -42,8 +42,9 @@ vi.mock("../../utils/errors", async (importOriginal) => {
 	};
 });
 
-import type { Enrollment, PaymentRecord } from "../../types";
+import type { Course, Enrollment, PaymentRecord } from "../../types";
 import { useEnrollmentStore } from "../enrollmentStore";
+import { useCourseStore } from "../courseStore";
 import { usePaymentRecordStore } from "../paymentRecordStore";
 import { handleError } from "../../utils/errors";
 
@@ -56,6 +57,22 @@ function makeRecord(overrides: Partial<PaymentRecord> = {}): PaymentRecord {
 		paymentMethod: "card",
 		notes: undefined,
 		createdAt: "2026-03-01T00:00:00Z",
+		...overrides,
+	};
+}
+
+function makeCourse(overrides: Partial<Course> = {}): Course {
+	return {
+		id: "c1",
+		name: "테스트 강좌",
+		classroom: "101호",
+		instructorName: "강사",
+		instructorPhone: "010-0000-0000",
+		fee: 300000,
+		maxStudents: 20,
+		currentStudents: 1,
+		createdAt: "2026-01-01T00:00:00Z",
+		updatedAt: "2026-01-01T00:00:00Z",
 		...overrides,
 	};
 }
@@ -78,6 +95,7 @@ describe("paymentRecordStore", () => {
 	beforeEach(() => {
 		usePaymentRecordStore.setState({ records: [] });
 		useEnrollmentStore.setState({ enrollments: [] });
+		useCourseStore.setState({ courses: [] });
 		vi.mocked(handleError).mockClear();
 	});
 
@@ -505,6 +523,39 @@ describe("paymentRecordStore", () => {
 
 		const result = usePaymentRecordStore.getState().getRecordsByEnrollmentId("e1");
 		expect(result).toHaveLength(2);
+	});
+
+	it("updateRecord — 결제수단 수정 시 enrollment.paymentMethod 동기화", async () => {
+		const record = makeRecord({ id: "pr1", amount: 100000, paymentMethod: "card" });
+		usePaymentRecordStore.setState({ records: [record] });
+		useEnrollmentStore.setState({
+			enrollments: [makeEnrollment({ paidAmount: 100000, paymentStatus: "partial", paymentMethod: "card" })],
+		});
+		useCourseStore.setState({ courses: [makeCourse()] });
+
+		await usePaymentRecordStore
+			.getState()
+			.updateRecord("pr1", { paymentMethod: "transfer" });
+
+		const enrollment = useEnrollmentStore.getState().getEnrollmentById("e1");
+		expect(enrollment?.paymentMethod).toBe("transfer");
+	});
+
+	it("updateRecord — 금액 수정 시 enrollment.paidAmount 동기화", async () => {
+		const record = makeRecord({ id: "pr1", amount: 100000 });
+		usePaymentRecordStore.setState({ records: [record] });
+		useEnrollmentStore.setState({
+			enrollments: [makeEnrollment({ paidAmount: 100000, paymentStatus: "partial" })],
+		});
+		useCourseStore.setState({ courses: [makeCourse()] });
+
+		await usePaymentRecordStore
+			.getState()
+			.updateRecord("pr1", { amount: 300000 });
+
+		const enrollment = useEnrollmentStore.getState().getEnrollmentById("e1");
+		expect(enrollment?.paidAmount).toBe(300000);
+		expect(enrollment?.paymentStatus).toBe("completed");
 	});
 
 	// ── syncEnrollmentTotal — discount 처리 ──

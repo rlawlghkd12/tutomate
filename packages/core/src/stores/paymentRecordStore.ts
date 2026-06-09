@@ -121,6 +121,11 @@ export const usePaymentRecordStore = create<PaymentRecordStore>(
         records: get().records.map((r) => r.id === id ? { ...r, ...updates } : r),
       });
       if (before) {
+        const enrollment = useEnrollmentStore.getState().getEnrollmentById(before.enrollmentId);
+        const course = enrollment ? useCourseStore.getState().getCourseById(enrollment.courseId) : undefined;
+        if (course) {
+          await syncEnrollmentTotal(before.enrollmentId, course.fee, get().records);
+        }
         await logEvent({
           eventType: 'payment.update',
           entityType: 'payment_record',

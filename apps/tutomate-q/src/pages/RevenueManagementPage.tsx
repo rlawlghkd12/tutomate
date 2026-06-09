@@ -283,8 +283,8 @@ const RevenueManagementPage: React.FC = () => {
   }, [courses, enrollments, selectedQuarter, records]);
 
   const handleAssignMethod = async (enrollmentId: string, method: PaymentMethod) => {
-    await updateEnrollment(enrollmentId, { paymentMethod: method });
-    toast.success(`결제수단을 ${PAYMENT_METHOD_LABELS[method]}(으)로 지정했습니다`);
+    const ok = await updateEnrollment(enrollmentId, { paymentMethod: method });
+    if (ok) toast.success(`결제수단을 ${PAYMENT_METHOD_LABELS[method]}(으)로 지정했습니다`);
   };
 
   const handlePaymentEdit = (enrollment: Enrollment) => {
