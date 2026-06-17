@@ -1,5 +1,5 @@
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Layout, ErrorBoundary, UpdateChecker, GlobalSearch, useGlobalSearch, LockScreen, MemberManagementPage } from '@tutomate/ui';
+import { Layout, ErrorBoundary, UpdateChecker, GlobalSearch, useGlobalSearch, LockScreen, MemberManagementPage, QuarterSelect } from '@tutomate/ui';
 import { useSettingsStore, useLockStore, useAutoLock, useAuthStore, appConfig, isElectron, OAUTH_PROVIDERS, getThemeMode } from '@tutomate/core';
 import type { OAuthProvider } from '@tutomate/core';
 import DashboardPage from './pages/DashboardPage';
@@ -262,7 +262,7 @@ function App() {
       <Router>
         <GlobalSearch visible={visible} onClose={close} />
         <CommandPalette />
-        <Layout>
+        <Layout sidebarExtra={<QuarterSelect />}>
           <ErrorBoundary>
           <Routes>
             <Route path="/" element={<DashboardPage />} />

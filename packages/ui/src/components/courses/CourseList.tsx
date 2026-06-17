@@ -207,18 +207,18 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
     {
       id: 'students',
       header: '수강 인원',
-      size: 90,
+      size: 130,
       accessorFn: (row) => getQuarterEnrollmentCount(row.id) ?? getEnrollmentCountByCourseId(row.id),
       cell: ({ row }) => {
         const course = row.original;
         const currentStudents = getQuarterEnrollmentCount(course.id) ?? getEnrollmentCountByCourseId(course.id);
         const percentage = (currentStudents / course.maxStudents) * 100;
         return (
-          <div className="leading-tight">
-            <span>{currentStudents} / {course.maxStudents}</span>
+          <div className="leading-tight pr-3">
+            <span className="text-sm font-semibold tabular-nums">{currentStudents}<span className="text-muted-foreground font-normal"> / {course.maxStudents}명</span></span>
             <Progress
               value={Math.min(percentage, 100)}
-              className={cn("mt-0.5 h-1.5", percentage >= 100 && "[&>div]:bg-destructive")}
+              className="mt-1.5 h-2"
             />
           </div>
         );

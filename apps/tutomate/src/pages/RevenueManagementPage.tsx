@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
+  DollarSign,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
   Download,
   FileSpreadsheet,
   FileText,
@@ -20,34 +23,57 @@ import {
   REVENUE_EXPORT_FIELDS,
   getCurrentQuarter,
   getQuarterOptions,
+  isActiveEnrollment,
 } from '@tutomate/core';
 import type { Enrollment } from '@tutomate/core';
-import { PaymentForm, PageEnter, RevenueBreakdownTooltip, DatePicker } from '@tutomate/ui';
+import { PaymentForm, PageEnter, ExportQuarterScope, EXPORT_SCOPE_ALL, CourseCombobox } from '@tutomate/ui';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import { Checkbox } from '../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 
 const RevenueManagementPage: React.FC = () => {
-  const navigate = useNavigate();
   const { courses, loadCourses, getCourseById } = useCourseStore();
-  const { students, loadStudents } = useStudentStore();
+  const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
-  const { loadRecords, records } = usePaymentRecordStore();
+  const { loadRecords } = usePaymentRecordStore();
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState<string[]>(['courseName', 'studentName', 'fee', 'paidAmount', 'remainingAmount', 'paymentStatus']);
   const [dateRange, setDateRange] = useState<[string, string]>(['', '']);
-  const [filterMode, setFilterMode] = useState<'quarter' | 'date'>('quarter');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
 
   const [selectedQuarter, setSelectedQuarter] = useState<string>(getCurrentQuarter());
-  const goToCourse = (courseId: string) =>
-    navigate(`/courses/${courseId}?q=${encodeURIComponent(selectedQuarter)}`);
+  const [exportScope, setExportScope] = useState<string>(getCurrentQuarter());
+  const [exportCourse, setExportCourse] = useState<string>(EXPORT_SCOPE_ALL);
+
+  const exportQuarterOptions = useMemo(
+    () => getQuarterOptions(enrollments.map((e) => e.quarter).filter(Boolean) as string[]),
+    [enrollments],
+  );
+  const exportEnrollments = useMemo(
+    () => {
+      const byQuarter =
+        exportScope === EXPORT_SCOPE_ALL
+          ? enrollments.filter((e) => isActiveEnrollment(e))
+          : enrollments.filter((e) => isActiveEnrollment(e) && (e.quarter === exportScope || !e.quarter));
+      return exportCourse === EXPORT_SCOPE_ALL
+        ? byQuarter
+        : byQuarter.filter((e) => e.courseId === exportCourse);
+    },
+    [exportScope, exportCourse, enrollments],
+  );
+  const exportQuarterTag = useMemo(() => {
+    const quarterTag = exportScope === EXPORT_SCOPE_ALL ? '전체분기' : exportScope;
+    if (exportCourse === EXPORT_SCOPE_ALL) return quarterTag;
+    const courseName = courses.find((c) => c.id === exportCourse)?.name;
+    return courseName ? `${quarterTag}_${courseName}` : quarterTag;
+  }, [exportScope, exportCourse, courses]);
 
   useEffect(() => {
     loadCourses();
@@ -56,23 +82,18 @@ const RevenueManagementPage: React.FC = () => {
     loadRecords();
   }, [loadCourses, loadStudents, loadEnrollments, loadRecords]);
 
-  // 필터링된 수강 신청 — filterMode에 따라 분기 OR 날짜 상호 배타
+  // 날짜 범위 및 결제 상태에 따라 필터링된 수강 신청 목록
   const filteredEnrollments = useMemo(() => {
-    // withdrawn 포함 — 환불 금액이 수익에 반영되어야 함
-    let filtered: typeof enrollments;
+    let filtered = enrollments.filter((e) => isActiveEnrollment(e));
 
-    if (filterMode === 'quarter') {
-      filtered = enrollments.filter((e) => (e.quarter === selectedQuarter || !e.quarter));
-    } else {
-      filtered = [...enrollments];
-      if (dateRange[0] && dateRange[1]) {
-        const startDate = dayjs(dateRange[0]).startOf('day');
-        const endDate = dayjs(dateRange[1]).endOf('day');
-        filtered = filtered.filter((enrollment) => {
-          const enrollDate = dayjs(enrollment.enrolledAt);
-          return !enrollDate.isBefore(startDate) && !enrollDate.isAfter(endDate);
-        });
-      }
+    if (dateRange[0] && dateRange[1]) {
+      const startDate = dayjs(dateRange[0]).startOf('day');
+      const endDate = dayjs(dateRange[1]).endOf('day');
+
+      filtered = filtered.filter((enrollment) => {
+        const enrollDate = dayjs(enrollment.enrolledAt);
+        return enrollDate.isAfter(startDate) && enrollDate.isBefore(endDate);
+      });
     }
 
     if (paymentStatusFilter.length > 0) {
@@ -82,87 +103,53 @@ const RevenueManagementPage: React.FC = () => {
     }
 
     return filtered;
-  }, [enrollments, filterMode, dateRange, paymentStatusFilter, selectedQuarter]);
+  }, [enrollments, dateRange, paymentStatusFilter]);
 
-  // 수익 집계 대상: exempt 제외
   const revenueEnrollments = useMemo(() => filteredEnrollments.filter((e) => e.paymentStatus !== 'exempt'), [filteredEnrollments]);
 
-  const courseMap = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses]);
-  const studentMap = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
-
-  const { totalRevenue, expectedRevenue, totalUnpaid, completedPayments, partialPayments, pendingPayments, exemptPayments, withdrawnPayments } = useMemo(() => {
-    // active = withdrawn 제외 → 예상수익/미수금 계산용
-    const active = revenueEnrollments.filter((e) => e.paymentStatus !== 'withdrawn');
-    // 총수익: active + withdrawn(환불 net) 모두
+  const { totalRevenue, expectedRevenue, totalUnpaid, completedPayments, partialPayments, pendingPayments, exemptPayments } = useMemo(() => {
     const revenue = revenueEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-    // 예상수익: active만, 할인 반영
-    const expected = active.reduce((sum, e) => {
-      const fee = courseMap.get(e.courseId)?.fee ?? 0;
-      return sum + Math.max(0, fee - (e.discountAmount ?? 0));
+    const expected = revenueEnrollments.reduce((sum, e) => {
+      const course = getCourseById(e.courseId);
+      return sum + (course?.fee || 0);
     }, 0);
-    const activeRevenueTotal = active.reduce((sum, e) => sum + e.paidAmount, 0);
     return {
       totalRevenue: revenue,
       expectedRevenue: expected,
-      totalUnpaid: Math.max(0, expected - activeRevenueTotal),
+      totalUnpaid: Math.max(0, expected - revenue),
       completedPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'completed').length,
       partialPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'partial').length,
       pendingPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'pending').length,
       exemptPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'exempt').length,
-      withdrawnPayments: filteredEnrollments.filter((e) => e.paymentStatus === 'withdrawn').length,
     };
-  }, [revenueEnrollments, filteredEnrollments, courseMap]);
+  }, [revenueEnrollments, filteredEnrollments, getCourseById]);
 
   // 강좌별 수익 테이블 데이터
   const courseRevenueData = useMemo(() => courses.map((course) => {
     const courseEnrollments = filteredEnrollments.filter((e) => e.courseId === course.id);
     const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
-    const activeEnrollments = nonExemptEnrollments.filter((e) => e.paymentStatus !== 'withdrawn');
-    // 수익: 환불 net 포함
     const revenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-    // 예상수익: active의 effectiveFee
-    const expected = activeEnrollments.reduce(
-      (sum, e) => sum + Math.max(0, course.fee - (e.discountAmount ?? 0)),
-      0,
-    );
-    const activeRevenueLocal = activeEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
-    const unpaid = Math.max(0, expected - activeRevenueLocal);
+    const expected = nonExemptEnrollments.length * course.fee;
+    const unpaid = Math.max(0, expected - revenue);
     const completed = courseEnrollments.filter((e) => e.paymentStatus === 'completed').length;
-    // 활성 수강생 기준 완납률
-    const completionRate = activeEnrollments.length > 0 ? (completed / activeEnrollments.length) * 100 : 0;
 
-    const withdrawnCount = courseEnrollments.filter((e) => e.paymentStatus === 'withdrawn').length;
-    const enrollmentIds = new Set(courseEnrollments.map((e) => e.id));
-    const courseRecords = records.filter((r) => enrollmentIds.has(r.enrollmentId));
-    const refundTotal = Math.abs(courseRecords.filter((r) => r.amount < 0).reduce((sum, r) => sum + r.amount, 0));
-    const withdrawnKept = courseEnrollments
-      .filter((e) => e.paymentStatus === 'withdrawn')
-      .reduce((sum, e) => sum + e.paidAmount, 0);
     return {
       courseId: course.id,
       courseName: course.name,
-      studentCount: activeEnrollments.length,
-      totalEnrollments: courseEnrollments.length,
-      withdrawnCount,
+      studentCount: courseEnrollments.length,
       revenue,
-      refundTotal,
-      withdrawnKept,
       expected,
       unpaid,
-      completionRate,
-      completedCount: completed,
-      activeCount: activeEnrollments.length,
-      revenueEnrollments: nonExemptEnrollments,
-      courseRecords,
+      completionRate: nonExemptEnrollments.length > 0 ? (completed / nonExemptEnrollments.length) * 100 : 0,
     };
-  }), [courses, filteredEnrollments, records]);
+  }), [courses, filteredEnrollments]);
 
-  // 미납자 목록 (면제/완납/포기 제외 → pending/partial만)
+  // 미납자 목록 (면제 제외)
   const unpaidList = useMemo(() => filteredEnrollments
-    .filter((e) => e.paymentStatus === 'pending' || e.paymentStatus === 'partial')
+    .filter((e) => e.paymentStatus !== 'completed' && e.paymentStatus !== 'exempt')
     .map((enrollment) => {
-      const student = studentMap.get(enrollment.studentId);
-      const course = courseMap.get(enrollment.courseId);
+      const student = getStudentById(enrollment.studentId);
+      const course = getCourseById(enrollment.courseId);
 
       return {
         ...enrollment,
@@ -173,52 +160,29 @@ const RevenueManagementPage: React.FC = () => {
         paymentMethod: enrollment.paymentMethod,
         discountAmount: enrollment.discountAmount ?? 0,
       };
-    }), [filteredEnrollments, studentMap, courseMap]);
+    }), [filteredEnrollments, getStudentById, getCourseById]);
 
   // 분기별 수익 현황 (강좌별)
-  // - 분기 매칭된 모든 enrollment(withdrawn 포함)에서 환불 net 수익 합산
-  // - 예상수익은 활성(active) + 할인 반영
   const quarterRevenueData = useMemo(() => {
     return courses.map((course) => {
-      const quarterAll = enrollments.filter(
-        (e) => e.courseId === course.id && e.quarter === selectedQuarter,
-      );
-      const nonExempt = quarterAll.filter((e) => e.paymentStatus !== 'exempt');
-      const active = nonExempt.filter((e) => e.paymentStatus !== 'withdrawn');
-      const quarterRevenue = nonExempt.reduce((sum, e) => sum + e.paidAmount, 0);
-      const quarterExpected = active.reduce(
-        (sum, e) => sum + Math.max(0, course.fee - (e.discountAmount ?? 0)),
-        0,
-      );
-      const activeRevenueLocal = active.reduce((sum, e) => sum + e.paidAmount, 0);
-      const paidCount = active.filter((e) => e.paymentStatus === 'completed').length;
-      const unpaidCount = active.length - paidCount;
-      const collectionRate = quarterExpected > 0 ? (activeRevenueLocal / quarterExpected) * 100 : 0;
+      const courseEnrollments = enrollments.filter((e) => isActiveEnrollment(e) && e.courseId === course.id && e.quarter === selectedQuarter);
+      const nonExemptEnrollments = courseEnrollments.filter((e) => e.paymentStatus !== 'exempt');
+      const quarterRevenue = nonExemptEnrollments.reduce((sum, e) => sum + e.paidAmount, 0);
+      const quarterExpected = nonExemptEnrollments.length * course.fee;
+      const paidCount = courseEnrollments.filter((e) => e.paymentStatus === 'completed').length;
 
-      const withdrawnCount = quarterAll.filter((e) => e.paymentStatus === 'withdrawn').length;
-      const enrollmentIds = new Set(quarterAll.map((e) => e.id));
-      const courseRecords = records.filter((r) => enrollmentIds.has(r.enrollmentId));
-      const refundTotal = Math.abs(courseRecords.filter((r) => r.amount < 0).reduce((sum, r) => sum + r.amount, 0));
-      const withdrawnKept = quarterAll
-        .filter((e) => e.paymentStatus === 'withdrawn')
-        .reduce((sum, e) => sum + e.paidAmount, 0);
       return {
         courseId: course.id,
         courseName: course.name,
-        studentCount: active.length,
-        withdrawnCount,
+        studentCount: courseEnrollments.length,
         paidCount,
-        unpaidCount,
+        unpaidCount: nonExemptEnrollments.length - paidCount,
         quarterRevenue,
         quarterExpected,
-        refundTotal,
-        withdrawnKept,
-        collectionRate,
-        revenueEnrollments: nonExempt,
-        courseRecords,
+        collectionRate: quarterExpected > 0 ? (quarterRevenue / quarterExpected) * 100 : 0,
       };
-    }).filter((d) => d.studentCount > 0 || d.withdrawnCount > 0);
-  }, [courses, enrollments, selectedQuarter, records]);
+    }).filter((d) => d.studentCount > 0);
+  }, [courses, enrollments, selectedQuarter]);
 
   const quarterTotalRevenue = useMemo(() => quarterRevenueData.reduce((sum, d) => sum + d.quarterRevenue, 0), [quarterRevenueData]);
   const quarterTotalExpected = useMemo(() => quarterRevenueData.reduce((sum, d) => sum + d.quarterExpected, 0), [quarterRevenueData]);
@@ -263,17 +227,17 @@ const RevenueManagementPage: React.FC = () => {
       return;
     }
 
-    if (enrollments.length === 0) {
+    if (exportEnrollments.length === 0) {
       toast.warning('내보낼 수익 데이터가 없습니다');
       return;
     }
 
     try {
       if (type === 'excel') {
-        exportRevenueToExcel(enrollments, students, courses, selectedExportFields);
+        exportRevenueToExcel(exportEnrollments, students, courses, selectedExportFields, exportQuarterTag);
         toast.success('Excel 파일이 다운로드되었습니다');
       } else {
-        exportRevenueToCSV(enrollments, students, courses, 'utf-8', selectedExportFields);
+        exportRevenueToCSV(exportEnrollments, students, courses, 'utf-8', selectedExportFields, exportQuarterTag);
         toast.success('CSV 파일이 다운로드되었습니다');
       }
       setIsExportModalVisible(false);
@@ -294,101 +258,80 @@ const RevenueManagementPage: React.FC = () => {
 
   return (
     <PageEnter>
-      {/* 필터 섹션 — 한 줄 통합 */}
-      <Card className="mb-6">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3 flex-wrap">
-              {/* 기간 모드 토글 */}
-              <div className="inline-flex rounded-md border p-0.5 bg-muted/30">
-                <button
-                  type="button"
-                  onClick={() => { setFilterMode('quarter'); setDateRange(['', '']); }}
-                  className={`px-3 py-1 text-sm rounded transition-colors ${filterMode === 'quarter' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  분기
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterMode('date')}
-                  className={`px-3 py-1 text-sm rounded transition-colors ${filterMode === 'date' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  날짜 지정
-                </button>
+      {/* 필터 섹션 */}
+      <Card className="mb-2">
+        <CardContent className="p-4 space-y-4">
+          {/* 날짜 범위 필터 */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-medium text-sm">기간 선택:</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={dateRange[0]}
+                  onChange={(e) => setDateRange([e.target.value, dateRange[1]])}
+                  className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                />
+                <span className="text-muted-foreground">~</span>
+                <input
+                  type="date"
+                  value={dateRange[1]}
+                  onChange={(e) => setDateRange([dateRange[0], e.target.value])}
+                  className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                />
               </div>
-
-              {filterMode === 'quarter' ? (
-                <>
-                  <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-                    <SelectTrigger className="w-[170px] h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {getQuarterOptions().map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" size="sm" onClick={() => setSelectedQuarter(getCurrentQuarter())}>
-                    이번 분기
+              <div className="flex gap-1">
+                {([
+                  { type: 'all' as const, label: '전체' },
+                  { type: 'this-month' as const, label: '이번 달' },
+                  { type: 'last-month' as const, label: '지난 달' },
+                  { type: 'this-year' as const, label: '올해' },
+                ] as const).map(({ type, label }) => (
+                  <Button
+                    key={type}
+                    size="sm"
+                    variant={isQuickRange(type) ? 'default' : 'outline'}
+                    onClick={() => setQuickDateRange(type)}
+                  >
+                    {label}
                   </Button>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-1.5">
-                    <DatePicker size="sm" className="w-[170px]"
-                      value={dateRange[0]}
-                      onChange={(v) => setDateRange([v, dateRange[1]])} />
-                    <span className="text-muted-foreground">~</span>
-                    <DatePicker size="sm" className="w-[170px]"
-                      value={dateRange[1]}
-                      onChange={(v) => setDateRange([dateRange[0], v])} />
-                  </div>
-                  <div className="flex gap-1">
-                    {([
-                      { type: 'this-month' as const, label: '이번 달' },
-                      { type: 'last-month' as const, label: '지난 달' },
-                      { type: 'this-year' as const, label: '올해' },
-                    ] as const).map(({ type, label }) => (
-                      <Button key={type} size="sm"
-                        variant={isQuickRange(type) ? 'default' : 'outline'}
-                        onClick={() => setQuickDateRange(type)}>
-                        {label}
-                      </Button>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              <div className="h-6 w-px bg-border" aria-hidden />
-
-              {/* 결제 상태 */}
-              <div className="flex gap-1 flex-wrap">
-                {[
-                  { value: [] as string[], label: '전체' },
-                  { value: ['pending'], label: '미납' },
-                  { value: ['pending', 'partial'], label: '미완납' },
-                  { value: ['completed'], label: '완납' },
-                  { value: ['withdrawn'], label: '포기' },
-                ].map((opt) => {
-                  const isActive = JSON.stringify([...paymentStatusFilter].sort()) === JSON.stringify([...opt.value].sort());
-                  return (
-                    <Button key={opt.label} size="sm"
-                      variant={isActive ? 'default' : 'outline'}
-                      onClick={() => setPaymentStatusFilter(opt.value)}>
-                      {opt.label}
-                    </Button>
-                  );
-                })}
+                ))}
               </div>
             </div>
-
             <Button variant="outline" onClick={() => setIsExportModalVisible(true)}>
-              <Download className="h-4 w-4" />내보내기
+              <Download className="h-4 w-4" />
+              내보내기
             </Button>
+          </div>
+
+          {/* 결제 상태 필터 */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium text-sm">결제 상태:</span>
+            <div className="flex gap-1 flex-wrap">
+              {[
+                { value: [], label: '전체' },
+                { value: ['pending'], label: '미납만' },
+                { value: ['pending', 'partial'], label: '미완납' },
+                { value: ['completed'], label: '완납만' },
+              ].map((opt) => {
+                const isActive = JSON.stringify([...paymentStatusFilter].sort()) === JSON.stringify([...opt.value].sort());
+                return (
+                  <Button
+                    key={opt.label}
+                    size="sm"
+                    variant={isActive ? 'default' : 'outline'}
+                    onClick={() => setPaymentStatusFilter(opt.value)}
+                  >
+                    {opt.label}
+                  </Button>
+                );
+              })}
+            </div>
           </div>
 
           {/* 필터 요약 */}
           {(dateRange[0] || dateRange[1] || paymentStatusFilter.length > 0) && (
-            <p className="text-muted-foreground text-[0.87rem]">
+            <p className="text-muted-foreground text-[13px]">
               {dateRange[0] && dateRange[1] && (
                 <>
                   {dayjs(dateRange[0]).format('YYYY년 M월 D일')} ~ {dayjs(dateRange[1]).format('YYYY년 M월 D일')}
@@ -404,8 +347,6 @@ const RevenueManagementPage: React.FC = () => {
                         pending: '미납',
                         partial: '부분납부',
                         completed: '완납',
-                        withdrawn: '포기',
-                        exempt: '면제',
                       };
                       return map[s];
                     })
@@ -419,90 +360,72 @@ const RevenueManagementPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* 상단 통계 */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
-        <RevenueBreakdownTooltip enrollments={revenueEnrollments} records={records}>
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">총 수익</p>
-              <p className="text-2xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
-                {totalRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
-              </p>
-            </CardContent>
-          </Card>
-        </RevenueBreakdownTooltip>
+      {/* 상단 통계 (총수익·예상·미수금은 금액이라 더 넓게, 수익률은 좁게) */}
+      <div className="grid grid-cols-2 sm:grid-cols-[1.25fr_1.25fr_1.25fr_1fr] gap-2 mb-2">
         <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">예상 수익</p>
-            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
-              {expectedRevenue.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> 총 수익</p>
+            <p className="text-xl font-bold text-success whitespace-nowrap">
+              {totalRevenue.toLocaleString()}<span className="text-sm font-normal">원</span>
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미수금</p>
-            <p className="text-2xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
-              {totalUnpaid.toLocaleString()}<span className="text-sm font-normal text-muted-foreground ml-0.5">원</span>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> 예상 총 수익</p>
+            <p className="text-xl font-bold text-primary whitespace-nowrap">
+              {expectedRevenue.toLocaleString()}<span className="text-sm font-normal">원</span>
             </p>
           </CardContent>
         </Card>
-        <Card title="총수익 ÷ 예상수익 — 미환불이 있으면 100%를 넘을 수 있음">
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">수익률</p>
-            <p className="text-2xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em' }}>
-              {(expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0).toFixed(1)}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> 총 미수금</p>
+            <p className="text-xl font-bold text-error whitespace-nowrap">
+              {totalUnpaid.toLocaleString()}<span className="text-sm font-normal">원</span>
             </p>
           </CardContent>
         </Card>
-        <Card title="미수금 ÷ 예상수익 — 수강 중 학생 기준">
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납률</p>
-            <p className={`text-2xl font-bold tabular-nums ${totalUnpaid > 0 ? 'text-error' : 'text-success'}`} style={{ letterSpacing: '-0.02em' }}>
-              {(expectedRevenue > 0 ? (totalUnpaid / expectedRevenue) * 100 : 0).toFixed(1)}<span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3" /> 수익률</p>
+            <p className="text-xl font-bold whitespace-nowrap" style={{ color: EXEMPT_COLOR }}>
+              {(expectedRevenue > 0 ? (totalRevenue / expectedRevenue) * 100 : 0).toFixed(1)}<span className="text-sm font-normal">%</span>
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
         <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">완납</p>
-            <p className="text-3xl font-bold tabular-nums text-success" style={{ letterSpacing: '-0.02em' }}>
-              {completedPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><CheckCircle className="h-3 w-3" /> 완납</p>
+            <p className="text-xl font-bold text-success">
+              {completedPayments}<span className="text-sm font-normal">건</span>
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">부분납부</p>
-            <p className="text-3xl font-bold tabular-nums text-warning" style={{ letterSpacing: '-0.02em' }}>
-              {partialPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> 부분납부</p>
+            <p className="text-xl font-bold text-warning">
+              {partialPayments}<span className="text-sm font-normal">건</span>
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">미납</p>
-            <p className="text-3xl font-bold tabular-nums text-error" style={{ letterSpacing: '-0.02em' }}>
-              {pendingPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> 미납</p>
+            <p className="text-xl font-bold text-error">
+              {pendingPayments}<span className="text-sm font-normal">건</span>
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">면제</p>
-            <p className="text-3xl font-bold tabular-nums text-foreground" style={{ letterSpacing: '-0.02em', color: EXEMPT_COLOR }}>
-              {exemptPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest mb-1">포기</p>
-            <p className="text-3xl font-bold tabular-nums text-muted-foreground" style={{ letterSpacing: '-0.02em' }}>
-              {withdrawnPayments}<span className="text-sm font-normal text-muted-foreground ml-0.5">건</span>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground">면제</p>
+            <p className="text-xl font-bold" style={{ color: EXEMPT_COLOR }}>
+              {exemptPayments}<span className="text-sm font-normal">건</span>
             </p>
           </CardContent>
         </Card>
@@ -519,55 +442,33 @@ const RevenueManagementPage: React.FC = () => {
         </TabsList>
 
         <TabsContent value="1">
-          <div className="rounded-xl overflow-hidden bg-card [box-shadow:var(--shadow-sm)]">
+          <div className="border rounded-md overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b">
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">강좌명</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">수강생 수</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">수익</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">예상 수익</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">미수금</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">완납률</th>
+                <tr className="border-b bg-muted/50">
+                  <th className="p-2 text-left font-medium">강좌명</th>
+                  <th className="p-2 text-left font-medium">수강생 수</th>
+                  <th className="p-2 text-left font-medium">수익</th>
+                  <th className="p-2 text-left font-medium">예상 수익</th>
+                  <th className="p-2 text-left font-medium">미수금</th>
+                  <th className="p-2 text-left font-medium">완납률</th>
                 </tr>
               </thead>
               <tbody>
                 {courseRevenueData.map((row) => (
                   <tr key={row.courseId} className="border-b hover:bg-muted/30">
-                    <td className="px-3 py-3.5">
-                      <button
-                        type="button"
-                        className="text-primary hover:underline text-left"
-                        onClick={() => goToCourse(row.courseId)}
-                      >
-                        {row.courseName}
-                      </button>
-                    </td>
-                    <td className="px-3 py-3.5">
-                      <span className="tabular-nums">{row.studentCount}</span>
-                      {row.withdrawnCount > 0 && (
-                        <span className="text-muted-foreground ml-1.5 text-[0.82rem]" title="환불 없이 포기한 수강생 수">
-                          (포기 {row.withdrawnCount})
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-3.5">
-                      <RevenueBreakdownTooltip enrollments={row.revenueEnrollments} records={row.courseRecords}>
-                        <span className="tabular-nums">{'\u20A9'}{row.revenue.toLocaleString()}</span>
-                      </RevenueBreakdownTooltip>
-                    </td>
-                    <td className="px-3 py-3.5">{'\u20A9'}{row.expected.toLocaleString()}</td>
-                    <td className={`px-3 py-3.5 ${row.unpaid > 0 ? 'text-error' : 'text-success'}`}>
+                    <td className="p-2">{row.courseName}</td>
+                    <td className="p-2">{row.studentCount}</td>
+                    <td className="p-2">{'\u20A9'}{row.revenue.toLocaleString()}</td>
+                    <td className="p-2">{'\u20A9'}{row.expected.toLocaleString()}</td>
+                    <td className={`p-2 ${row.unpaid > 0 ? 'text-error' : 'text-success'}`}>
                       {'\u20A9'}{row.unpaid.toLocaleString()}
                     </td>
-                    <td className="px-3 py-3.5">
-                      <span className="tabular-nums">{row.completedCount}/{row.activeCount}</span>
-                      <span className="text-muted-foreground ml-1.5 text-[0.86rem]">({row.completionRate.toFixed(0)}%)</span>
-                    </td>
+                    <td className="p-2">{row.completionRate.toFixed(1)}%</td>
                   </tr>
                 ))}
                 {courseRevenueData.length === 0 && (
-                  <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">데이터가 없습니다</td></tr>
+                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">데이터가 없습니다</td></tr>
                 )}
               </tbody>
             </table>
@@ -575,21 +476,21 @@ const RevenueManagementPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="2">
-          <div className="rounded-xl overflow-auto bg-card [box-shadow:var(--shadow-sm)]">
+          <div className="border rounded-md overflow-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b">
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">수강생</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">전화번호</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">강좌</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">수강료</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">납부 상태</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">납부 금액</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">납부일</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">납부 방법</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">할인</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">잔여 금액</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">작업</th>
+                <tr className="border-b bg-muted/50">
+                  <th className="p-2 text-left font-medium">수강생</th>
+                  <th className="p-2 text-left font-medium">전화번호</th>
+                  <th className="p-2 text-left font-medium">강좌</th>
+                  <th className="p-2 text-left font-medium">수강료</th>
+                  <th className="p-2 text-left font-medium">납부 상태</th>
+                  <th className="p-2 text-left font-medium">납부 금액</th>
+                  <th className="p-2 text-left font-medium">납부일</th>
+                  <th className="p-2 text-left font-medium">납부 방법</th>
+                  <th className="p-2 text-left font-medium">할인</th>
+                  <th className="p-2 text-left font-medium">잔여 금액</th>
+                  <th className="p-2 text-left font-medium">작업</th>
                 </tr>
               </thead>
               <tbody>
@@ -597,31 +498,23 @@ const RevenueManagementPage: React.FC = () => {
                   const s = statusMap[row.paymentStatus] || { label: row.paymentStatus, variant: 'secondary' as const };
                   return (
                     <tr key={row.id} className="border-b hover:bg-muted/30">
-                      <td className="px-3 py-3.5">{row.studentName}</td>
-                      <td className="px-3 py-3.5">{row.studentPhone}</td>
-                      <td className="px-3 py-3.5">
-                        <button
-                          type="button"
-                          className="text-primary hover:underline text-left"
-                          onClick={() => goToCourse(row.courseId)}
-                        >
-                          {row.courseName}
-                        </button>
-                      </td>
-                      <td className="px-3 py-3.5">{'\u20A9'}{row.courseFee.toLocaleString()}</td>
-                      <td className="px-3 py-3.5"><Badge variant={s.variant}>{s.label}</Badge></td>
-                      <td className="px-3 py-3.5">{'\u20A9'}{row.paidAmount.toLocaleString()}</td>
-                      <td className="px-3 py-3.5">{row.paidAt || '-'}</td>
-                      <td className="px-3 py-3.5">{row.paymentMethod ? PAYMENT_METHOD_LABELS[row.paymentMethod] : '-'}</td>
-                      <td className="px-3 py-3.5">
+                      <td className="p-2">{row.studentName}</td>
+                      <td className="p-2">{row.studentPhone}</td>
+                      <td className="p-2">{row.courseName}</td>
+                      <td className="p-2">{'\u20A9'}{row.courseFee.toLocaleString()}</td>
+                      <td className="p-2"><Badge variant={s.variant}>{s.label}</Badge></td>
+                      <td className="p-2">{'\u20A9'}{row.paidAmount.toLocaleString()}</td>
+                      <td className="p-2">{row.paidAt || '-'}</td>
+                      <td className="p-2">{row.paymentMethod ? PAYMENT_METHOD_LABELS[row.paymentMethod] : '-'}</td>
+                      <td className="p-2">
                         {row.discountAmount > 0 ? (
                           <span className="text-success">-{'\u20A9'}{row.discountAmount.toLocaleString()}</span>
                         ) : '-'}
                       </td>
-                      <td className="px-3 py-3.5">
+                      <td className="p-2">
                         <span className="text-error font-bold">{'\u20A9'}{row.remainingAmount.toLocaleString()}</span>
                       </td>
-                      <td className="px-3 py-3.5">
+                      <td className="p-2">
                         <Button variant="link" size="sm" className="h-auto p-0" onClick={() => handlePaymentEdit(row)}>
                           납부 처리
                         </Button>
@@ -630,7 +523,7 @@ const RevenueManagementPage: React.FC = () => {
                   );
                 })}
                 {unpaidList.length === 0 && (
-                  <tr><td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">미납자가 없습니다</td></tr>
+                  <tr><td colSpan={11} className="p-8 text-center text-muted-foreground">미납자가 없습니다</td></tr>
                 )}
               </tbody>
             </table>
@@ -638,75 +531,75 @@ const RevenueManagementPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="3">
-          <div className="flex items-center justify-end mb-4 flex-wrap gap-3">
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <RevenueBreakdownTooltip enrollments={quarterRevenueData.flatMap((d) => d.revenueEnrollments)} records={quarterRevenueData.flatMap((d) => d.courseRecords)}>
-                <div className="px-3 py-1.5 rounded-md border">
-                  <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">분기 수익</div>
-                  <div className="text-sm font-semibold mt-0.5 text-success">{'\u20A9'}{quarterTotalRevenue.toLocaleString()}</div>
-                </div>
-              </RevenueBreakdownTooltip>
-              <div className="px-3 py-1.5 rounded-md border">
-                <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">예상 합계</div>
-                <div className="text-sm font-semibold mt-0.5">{'\u20A9'}{quarterTotalExpected.toLocaleString()}</div>
+              <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {getQuarterOptions().map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedQuarter(getCurrentQuarter())}
+              >
+                이번 분기
+              </Button>
+            </div>
+            <div className="flex items-center gap-6 text-sm">
+              <div>
+                <span className="text-xs text-muted-foreground">분기 수익: </span>
+                <span className="font-semibold text-success">{'\u20A9'}{quarterTotalRevenue.toLocaleString()}</span>
               </div>
-              <div className="px-3 py-1.5 rounded-md border">
-                <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-widest">수납률</div>
-                <div className={`text-sm font-semibold mt-0.5 ${quarterTotalExpected > 0 && quarterTotalRevenue < quarterTotalExpected ? 'text-error' : 'text-success'}`}>
+              <div>
+                <span className="text-xs text-muted-foreground">예상: </span>
+                <span className="font-semibold">{'\u20A9'}{quarterTotalExpected.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">수납률: </span>
+                <span className={`font-semibold ${quarterTotalExpected > 0 && quarterTotalRevenue < quarterTotalExpected ? 'text-error' : 'text-success'}`}>
                   {quarterTotalExpected > 0 ? Math.round((quarterTotalRevenue / quarterTotalExpected) * 100) : 0}%
-                </div>
+                </span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl overflow-hidden bg-card [box-shadow:var(--shadow-sm)]">
+          <div className="border rounded-md overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b">
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">강좌명</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase w-20">수강생</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase w-[70px]">납부</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase w-[70px]">미납</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">분기 수익</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">예상 수익</th>
-                  <th className="h-10 px-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase">수납률</th>
+                <tr className="border-b bg-muted/50">
+                  <th className="p-2 text-left font-medium">강좌명</th>
+                  <th className="p-2 text-left font-medium w-20">수강생</th>
+                  <th className="p-2 text-left font-medium w-[70px]">납부</th>
+                  <th className="p-2 text-left font-medium w-[70px]">미납</th>
+                  <th className="p-2 text-left font-medium">분기 수익</th>
+                  <th className="p-2 text-left font-medium">예상 수익</th>
+                  <th className="p-2 text-left font-medium">수납률</th>
                 </tr>
               </thead>
               <tbody>
                 {quarterRevenueData.map((row) => (
                   <tr key={row.courseId} className="border-b hover:bg-muted/30">
-                    <td className="px-3 py-3.5">
-                      <button
-                        type="button"
-                        className="text-primary hover:underline text-left"
-                        onClick={() => goToCourse(row.courseId)}
-                      >
-                        {row.courseName}
-                      </button>
-                    </td>
-                    <td className="px-3 py-3.5">
-                      <span className="tabular-nums">{row.studentCount}</span>
-                      {row.withdrawnCount > 0 && (
-                        <span className="text-muted-foreground ml-1.5 text-[0.82rem]" title="환불 없이 포기한 수강생 수">
-                          (포기 {row.withdrawnCount})
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-3.5 text-success">{row.paidCount}명</td>
-                    <td className={`px-3 py-3.5 ${row.unpaidCount > 0 ? 'text-error' : 'text-success'}`}>{row.unpaidCount}명</td>
-                    <td className="px-3 py-3.5">
-                      <RevenueBreakdownTooltip enrollments={row.revenueEnrollments} records={row.courseRecords}>
-                        <span className="tabular-nums">{'\u20A9'}{row.quarterRevenue.toLocaleString()}</span>
-                      </RevenueBreakdownTooltip>
-                    </td>
-                    <td className="px-3 py-3.5">{'\u20A9'}{row.quarterExpected.toLocaleString()}</td>
-                    <td className={`px-3 py-3.5 ${row.collectionRate >= 100 ? 'text-success' : row.collectionRate >= 50 ? 'text-warning' : 'text-error'}`}>
+                    <td className="p-2">{row.courseName}</td>
+                    <td className="p-2">{row.studentCount}</td>
+                    <td className="p-2 text-success">{row.paidCount}명</td>
+                    <td className={`p-2 ${row.unpaidCount > 0 ? 'text-error' : 'text-success'}`}>{row.unpaidCount}명</td>
+                    <td className="p-2">{'\u20A9'}{row.quarterRevenue.toLocaleString()}</td>
+                    <td className="p-2">{'\u20A9'}{row.quarterExpected.toLocaleString()}</td>
+                    <td className={`p-2 ${row.collectionRate >= 100 ? 'text-success' : row.collectionRate >= 50 ? 'text-warning' : 'text-error'}`}>
                       {row.collectionRate.toFixed(1)}%
                     </td>
                   </tr>
                 ))}
                 {quarterRevenueData.length === 0 && (
-                  <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">데이터가 없습니다</td></tr>
+                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">데이터가 없습니다</td></tr>
                 )}
               </tbody>
             </table>
@@ -727,56 +620,69 @@ const RevenueManagementPage: React.FC = () => {
       )}
 
       <Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
-        <DialogContent className="max-w-[360px]">
+        <DialogContent className="max-w-[480px]">
           <DialogHeader>
             <DialogTitle>수익 현황 내보내기</DialogTitle>
             <DialogDescription className="sr-only">내보낼 필드를 선택하세요</DialogDescription>
           </DialogHeader>
 
-          <div style={{ marginTop: 8 }}>
-            <div className="flex justify-between items-center mb-3">
-              <button
-                type="button"
-                className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-                onClick={() => setSelectedExportFields(isAllRevenueSelected ? [] : allRevenueFieldKeys)}
-              >
-                {isAllRevenueSelected ? '선택 해제' : '전체 선택'}
-              </button>
-              <span className="text-xs text-muted-foreground">
-                {selectedExportFields.length}개 선택
-              </span>
-            </div>
+          <ExportQuarterScope
+            value={exportScope}
+            onChange={setExportScope}
+            quarters={exportQuarterOptions}
+            noun="수익 정보"
+          />
 
-            <div className="flex flex-wrap gap-2 mb-6">
-              {REVENUE_EXPORT_FIELDS.map((field) => {
-                const isChecked = selectedExportFields.includes(field.key);
-                return (
-                  <button
-                    key={field.key}
-                    type="button"
-                    onClick={() => {
-                      setSelectedExportFields((prev) =>
-                        isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
-                      );
-                    }}
-                    className={`px-3 py-1.5 rounded-full text-[0.87rem] font-medium border transition-colors cursor-pointer ${
-                      isChecked
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-transparent text-muted-foreground border-border hover:border-foreground/30'
-                    }`}
-                  >
-                    {field.label}
-                  </button>
-                );
-              })}
-            </div>
+          <div className="mb-3">
+            <span className="text-sm font-medium">강좌</span>
+            <CourseCombobox
+              className="mt-1.5"
+              value={exportCourse}
+              onChange={setExportCourse}
+              courses={courses}
+              allValue={EXPORT_SCOPE_ALL}
+            />
+          </div>
+
+          <div className="flex justify-between items-center py-1 pb-2 border-b border-border mb-3">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Checkbox
+                checked={isAllRevenueSelected ? true : selectedExportFields.length > 0 ? "indeterminate" : false}
+                onCheckedChange={(checked) => setSelectedExportFields(checked ? allRevenueFieldKeys : [])}
+              />
+              전체 선택
+            </label>
+            <span className="text-xs text-muted-foreground">
+              {selectedExportFields.length}/{allRevenueFieldKeys.length}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-0.5 mb-2">
+            {REVENUE_EXPORT_FIELDS.map((field) => {
+              const isChecked = selectedExportFields.includes(field.key);
+              return (
+                <div
+                  key={field.key}
+                  onClick={() => {
+                    setSelectedExportFields((prev) =>
+                      isChecked ? prev.filter((k) => k !== field.key) : [...prev, field.key]
+                    );
+                  }}
+                  className={`flex items-center gap-2 py-1.5 px-2 rounded cursor-pointer ${
+                    isChecked ? 'bg-primary/10' : 'hover:bg-muted'
+                  }`}
+                >
+                  <Checkbox checked={isChecked} />
+                  <span className="text-[13px]">{field.label}</span>
+                </div>
+              );
+            })}
           </div>
 
           <div className="flex gap-2">
             <Button
               className="flex-1"
               onClick={() => handleExport('excel')}
-              disabled={selectedExportFields.length === 0}
             >
               <FileSpreadsheet className="h-4 w-4" />
               Excel
@@ -785,7 +691,6 @@ const RevenueManagementPage: React.FC = () => {
               variant="outline"
               className="flex-1"
               onClick={() => handleExport('csv')}
-              disabled={selectedExportFields.length === 0}
             >
               <FileText className="h-4 w-4" />
               CSV

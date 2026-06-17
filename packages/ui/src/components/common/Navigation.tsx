@@ -1,23 +1,16 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, BookOpen, Users, Calendar, DollarSign, Settings, UserCog, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
-import { canManageMembers, useAuthStore } from '@tutomate/core';
+import { canManageMembers } from '@tutomate/core';
 
-// AI 어시스턴트를 노출할 조직 (파일럿 한정)
-const AI_ENABLED_ORG_IDS = new Set([
-  '85a37f47-7c4e-4c70-842d-379fd184d8a5',
-  'c41c7046-5698-4a46-a407-f638d3301b5e',
-]);
-
-const baseMainItems = [
+const mainItems = [
   { key: '/', icon: LayoutDashboard, label: '대시보드' },
   { key: '/courses', icon: BookOpen, label: '강좌 관리' },
   { key: '/students', icon: Users, label: '수강생 관리' },
   { key: '/calendar', icon: Calendar, label: '캘린더' },
   { key: '/revenue', icon: DollarSign, label: '수익 관리' },
+  { key: '/ai-chat', icon: Sparkles, label: 'AI 어시스턴트' },
 ];
-
-const aiItem = { key: '/ai-chat', icon: Sparkles, label: 'AI 어시스턴트' };
 
 const bottomItems = [
   { key: '/settings', icon: Settings, label: '설정' },
@@ -26,11 +19,6 @@ const bottomItems = [
 const Navigation: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-
-  const organizationId = useAuthStore((s) => s.organizationId);
-  const mainItems = organizationId && AI_ENABLED_ORG_IDS.has(organizationId)
-    ? [...baseMainItems, aiItem]
-    : baseMainItems;
 
   const ownerItems = canManageMembers()
     ? [{ key: '/members', icon: UserCog, label: '멤버 관리' }]
