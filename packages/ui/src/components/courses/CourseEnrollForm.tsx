@@ -56,7 +56,6 @@ const CourseEnrollForm: React.FC<CourseEnrollFormProps> = ({
 	const { getCourseById } = useCourseStore();
 	const { students } = useStudentStore();
 	const plan = useAuthStore((s) => s.plan) || 'trial';
-	const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 	const [step, setStep] = useState(1);
 	const [studentSearch, setStudentSearch] = useState("");
@@ -88,7 +87,6 @@ const CourseEnrollForm: React.FC<CourseEnrollFormProps> = ({
 				paymentMethod: "cash",
 				notes: "",
 			});
-			setSelectedStudentId(null);
 			setDiscountAmount(0);
 			setIsExempt(false);
 			setCustomAmountMode(false);
@@ -208,7 +206,6 @@ const CourseEnrollForm: React.FC<CourseEnrollFormProps> = ({
 
 			toast.success("수강 신청이 완료되었습니다.");
 			form.reset();
-			setSelectedStudentId(null);
 			setDiscountAmount(0);
 			setIsExempt(false);
 			onClose();
@@ -218,7 +215,6 @@ const CourseEnrollForm: React.FC<CourseEnrollFormProps> = ({
 	};
 
 	const handleStudentSelect = (studentId: string) => {
-		setSelectedStudentId(studentId);
 		form.setValue("studentId", studentId);
 		const student = students.find((s) => s.id === studentId);
 		const memberExempt = !!student?.isMember;
