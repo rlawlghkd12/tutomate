@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, Users, Calendar, DollarSign, Settings, UserCog } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Users, Calendar, DollarSign, Settings, UserCog, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 import { canManageMembers } from '@tutomate/core';
 
@@ -9,6 +9,7 @@ const mainItems = [
   { key: '/students', icon: Users, label: '수강생 관리' },
   { key: '/calendar', icon: Calendar, label: '캘린더' },
   { key: '/revenue', icon: DollarSign, label: '수익 관리' },
+  { key: '/ai-chat', icon: Sparkles, label: 'AI 어시스턴트' },
 ];
 
 const bottomItems = [

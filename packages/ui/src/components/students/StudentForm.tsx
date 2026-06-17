@@ -62,7 +62,7 @@ const StudentForm: React.FC<StudentFormProps> = ({
 }) => {
 	const [submitting, setSubmitting] = useState(false);
 	const form = useForm<StudentFormValues>({
-		resolver: zodResolver(studentFormSchema),
+		resolver: zodResolver(studentFormSchema as any),
 		defaultValues: {
 			name: "",
 			phone: "",

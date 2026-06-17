@@ -218,7 +218,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
     const paidCount = active.filter((d) => d.enrollment.paymentStatus === 'completed').length;
     const totalPaid = active.reduce((sum, d) => sum + d.totalPaid, 0);
     const expectedTotal = active.reduce((sum, d) => sum + d.effectiveFee, 0);
-    return { paidCount, totalPaid, expectedTotal, totalStudents: enrollments.length };
+    return { paidCount, totalPaid, expectedTotal, totalStudents: active.length };
   }, [tableData, enrollments.length]);
 
   // 할인 금액 수정

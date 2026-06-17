@@ -18,6 +18,13 @@ files:
   - "!node_modules/lightningcss/**"
   - "!node_modules/lightningcss-*/**"
 
+# llama-server 바이너리는 build/llama-bin/ 에서 가져와 resources/llama-bin/ 에 번들
+# 첫 빌드 전에 scripts/fetch-llama-server.sh 실행 필요
+extraResources:
+  - from: build/llama-bin
+    to: llama-bin
+    filter: ["**/*"]
+
 publish:
   provider: github
   owner: rlawlghkd12

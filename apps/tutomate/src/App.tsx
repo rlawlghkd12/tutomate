@@ -11,6 +11,7 @@ const StudentsPage = React.lazy(() => import('./pages/StudentsPage'));
 const CalendarPage = React.lazy(() => import('./pages/CalendarPage'));
 const RevenueManagementPage = React.lazy(() => import('./pages/RevenueManagementPage'));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
+const AiChatPage = React.lazy(() => import('./pages/ai-chat/AiChatPage'));
 import { toast, Toaster } from 'sonner';
 
 function App() {
@@ -264,6 +265,7 @@ function App() {
               <Route path="/revenue" element={<RevenueManagementPage />} />
               <Route path="/members" element={<MemberManagementPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/ai-chat" element={<AiChatPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
