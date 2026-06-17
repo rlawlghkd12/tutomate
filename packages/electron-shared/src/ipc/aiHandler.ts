@@ -102,6 +102,9 @@ const SYSTEM_PROMPT = `당신은 수강 관리 조직 운영자를 돕는 한국
 className 누락 행을 그냥 무시하지 말고 사용자에게 명확히 보고하세요.`;
 
 export function registerAiHandlers(ipcMain: IpcMain) {
+  // 새 모델이 이미 설치돼 있으면 구버전 모델 orphan 정리 (앱 시작 시 1회)
+  if (manager.isInstalled(QWEN_3_5_4B_Q4)) manager.cleanupLegacy();
+
   ipcMain.handle('ai:status', () => {
     if (!manager.isInstalled(QWEN_3_5_4B_Q4)) return 'not_installed';
     if (!findLlamaServerBin(app.getPath('userData'), process.resourcesPath)) {
