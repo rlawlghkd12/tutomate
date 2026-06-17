@@ -106,10 +106,28 @@ export class ModelManager {
       }
     }
     await fs.promises.rename(tmp, dest);
+    this.cleanupLegacy(); // 새 모델 설치 완료 후 구버전 orphan 제거
     onEvent({ type: 'done' });
   }
 
   async uninstall(spec: ModelSpec): Promise<void> {
     await fs.promises.rm(this.modelPath(spec), { force: true });
+  }
+
+  /** 파일명 변경으로 남은 구버전 모델 orphan 정리. */
+  private static readonly LEGACY_FILENAMES = ['qwen3.5-4b-q4_k_m.gguf'];
+
+  cleanupLegacy(): void {
+    for (const name of ModelManager.LEGACY_FILENAMES) {
+      const p = path.join(this.baseDir, name);
+      try {
+        if (fs.existsSync(p)) {
+          fs.rmSync(p, { force: true });
+          console.log('[ModelManager] 구버전 모델 삭제:', name);
+        }
+      } catch (e) {
+        console.warn('[ModelManager] 구버전 삭제 실패:', name, e);
+      }
+    }
   }
 }
