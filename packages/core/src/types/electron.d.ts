@@ -47,6 +47,10 @@ interface ElectronAPI {
   aiDownload(): Promise<void>;
   aiCancel(): Promise<void>;
   aiResetSession(): Promise<void>;
+  aiSummarize(payload: {
+    prevSummary?: string;
+    messages: { role: string; content: string }[];
+  }): Promise<{ summary: string }>;
   aiDispatch(payload: {
     toolName: string;
     args: unknown;
@@ -66,6 +70,7 @@ interface ElectronAPI {
     orgName?: string;
     orgPlan?: string;
     userEmail?: string;
+    summary?: string;
   }): Promise<void>;
   aiDirectImport(fileId: string, orgId: string, userId: string): Promise<{ card: any }>;
   onAiDownloadEvent(callback: (e: any) => void): () => void;
