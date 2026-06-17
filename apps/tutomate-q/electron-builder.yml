@@ -14,6 +14,11 @@ files:
   - "!node_modules/lightningcss/**"
   - "!node_modules/lightningcss-*/**"
 
+extraResources:
+  - from: build/llama-bin
+    to: llama-bin
+    filter: ["**/*"]
+
 publish:
   provider: github
   owner: rlawlghkd12

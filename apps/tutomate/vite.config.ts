@@ -45,6 +45,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
+              // electron만 externalize. node-llama-cpp 의존성 제거됨.
               external: ['electron'],
             },
           },

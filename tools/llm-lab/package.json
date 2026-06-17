@@ -1,0 +1,16 @@
+{
+  "name": "@tutomate/llm-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts"
+  },
+  "dependencies": {
+    "@tutomate/core": "workspace:*",
+    "@tutomate/electron-shared": "workspace:*",
+    "tsx": "^4.20.6",
+    "xlsx": "^0.18.5",
+    "zod": "^3.25.76"
+  }
+}
