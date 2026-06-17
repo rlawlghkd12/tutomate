@@ -21,6 +21,9 @@ vi.mock('@tutomate/core', () => ({
   useEnrollmentStore: () => ({
     getEnrollmentCountByCourseId: mockGetEnrollmentCountByCourseId,
   }),
+  isCourseEnded: (course: import('@tutomate/core').Course) =>
+    !!course.schedule?.endDate &&
+    course.schedule.endDate < new Date().toISOString().slice(0, 10),
   appConfig: {
     enableMemberFeature: false,
     hideAddressField: false,

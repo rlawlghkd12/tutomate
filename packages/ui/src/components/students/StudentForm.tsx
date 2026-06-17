@@ -523,8 +523,20 @@ function EnrollmentHistory({ studentId }: { studentId: string }) {
 									{course?.name || '삭제된 강좌'}
 									{ended && <span style={{ fontSize: '0.71rem', color: 'hsl(var(--muted-foreground))', marginLeft: 4 }}>종료</span>}
 								</div>
-								<div style={{ fontSize: '0.71rem', color: 'hsl(var(--muted-foreground))' }}>
-									{e.enrolledAt?.slice(0, 10) || '-'}
+								<div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+									{e.paidAt && (
+										<span style={{ fontSize: '0.79rem', fontWeight: 600, color: 'hsl(var(--foreground))' }}>
+											납부일 {e.paidAt.slice(0, 10)}
+										</span>
+									)}
+									<span style={{
+										display: 'inline-flex', alignItems: 'center', gap: 3,
+										fontSize: '0.66rem', color: 'hsl(var(--muted-foreground))',
+										background: 'hsl(var(--muted))', padding: '1px 7px', borderRadius: 8,
+									}}>
+										<span style={{ opacity: 0.7 }}>등록</span>
+										{e.enrolledAt?.slice(0, 10) || '-'}
+									</span>
 								</div>
 							</div>
 							<div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

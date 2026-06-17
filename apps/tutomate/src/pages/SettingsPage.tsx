@@ -252,7 +252,7 @@ const SettingsPage: React.FC = () => {
       <div className="max-w-[1000px]">
 
           {/* ── 섹션 1: 계정 ── */}
-          <div className="mb-4">
+          <div className="mb-2">
             <h3 className="text-base font-bold flex items-center gap-1.5"><KeyRound className="h-4 w-4 shrink-0" />계정</h3>
             <p className="text-sm text-muted-foreground mt-1">로그인 및 조직 관리</p>
           </div>
@@ -307,7 +307,7 @@ const SettingsPage: React.FC = () => {
           </div>
 
           {/* ── 섹션 2: 워크스페이스 ── */}
-          <div className="mt-8 mb-4">
+          <div className="mt-8 mb-2">
             <h3 className="text-base font-bold flex items-center gap-1.5"><Building2 className="h-4 w-4 shrink-0" />워크스페이스</h3>
             <p className="text-sm text-muted-foreground mt-1">사이드바와 헤더에 표시되는 이름</p>
           </div>
@@ -350,7 +350,7 @@ const SettingsPage: React.FC = () => {
           </div>
 
           {/* ── 섹션 3: 화면 설정 ── */}
-          <div className="mt-8 mb-4">
+          <div className="mt-8 mb-2">
             <h3 className="text-base font-bold flex items-center gap-1.5"><Palette className="h-4 w-4 shrink-0" />화면 설정</h3>
             <p className="text-sm text-muted-foreground mt-1">앱 모양 변경</p>
           </div>
@@ -384,7 +384,7 @@ const SettingsPage: React.FC = () => {
           </div>
 
           {/* ── 섹션 4: 알림 / 보안 ── */}
-          <div className="mt-8 mb-4">
+          <div className="mt-8 mb-2">
             <h3 className="text-base font-bold flex items-center gap-1.5"><Bell className="h-4 w-4 shrink-0" />알림 / 보안</h3>
             <p className="text-sm text-muted-foreground mt-1">알림과 잠금 설정</p>
           </div>
@@ -478,7 +478,7 @@ const SettingsPage: React.FC = () => {
                 <DialogDescription className="sr-only">PIN을 설정합니다</DialogDescription>
               </DialogHeader>
               <div className="text-center py-4">
-                <p className="text-muted-foreground mb-4 text-sm">
+                <p className="text-muted-foreground mb-2 text-sm">
                   {pinStep === 'verify' ? '기존 PIN을 입력하세요' : pinStep === 'new' ? '새 PIN을 입력하세요 (4~6자리 숫자)' : '새 PIN을 다시 입력하세요'}
                 </p>
                 <Input
@@ -503,7 +503,7 @@ const SettingsPage: React.FC = () => {
           </Dialog>
 
           {/* ── 섹션 5: 앱 정보 ── */}
-          <div className="mt-8 mb-4">
+          <div className="mt-8 mb-2">
             <h3 className="text-base font-bold flex items-center gap-1.5"><Info className="h-4 w-4 shrink-0" />앱 정보</h3>
           </div>
           <div className="border rounded-xl px-5 py-1 mb-2">
@@ -542,7 +542,7 @@ const SettingsPage: React.FC = () => {
               </div>
             )}
             {/* 이용약관 / 개인정보 처리방침 */}
-            <div className="flex items-center gap-3 text-xs text-muted-foreground" style={{ borderTop: '1px solid hsl(var(--border))', padding: '16px 0' }}>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground" style={{ borderTop: '1px solid hsl(var(--border))', padding: '16px 0' }}>
               <a href="https://taktonlabs.com/terms" target="_blank" rel="noopener noreferrer" className="hover:underline">이용약관</a>
               <span>·</span>
               <a href="https://taktonlabs.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline">개인정보 처리방침</a>

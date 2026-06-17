@@ -43,6 +43,7 @@ const CalendarPage: React.FC = () => {
         if (!course.schedule) return false;
 
         const { startDate, endDate, daysOfWeek, holidays } = course.schedule;
+        if (!startDate || !Array.isArray(daysOfWeek)) return false;
         const dateStr = date.format('YYYY-MM-DD');
 
         if (dateStr < startDate) return false;
@@ -100,7 +101,7 @@ const CalendarPage: React.FC = () => {
 
   return (
     <PageEnter>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2">
         <h2 className="text-2xl font-bold m-0">강좌 캘린더</h2>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleToday}>오늘</Button>
@@ -120,7 +121,7 @@ const CalendarPage: React.FC = () => {
 
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center gap-4 mb-4">
+          <div className="flex items-center gap-2 mb-2">
             <div className="flex items-center gap-1.5">
               <div style={{ width: 12, height: 12, borderRadius: '50%', background: 'hsl(var(--info))' }} />
               <span className="text-sm">수업 있음</span>
@@ -225,7 +226,7 @@ const CalendarPage: React.FC = () => {
                     setIsModalVisible(false);
                     navigate(`/courses/${course.id}`);
                   }}
-                  className="w-[calc(100%+3rem)] -mx-6 px-6 flex items-center gap-4 py-3 hover:bg-accent text-left transition-colors"
+                  className="w-[calc(100%+3rem)] -mx-6 px-6 flex items-center gap-2 py-3 hover:bg-accent text-left transition-colors"
                 >
                   {/* 시간 */}
                   <div className="flex flex-col items-center min-w-[80px] tabular-nums">

@@ -44,22 +44,28 @@ export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollme
     );
   }
 
+  const barHeight = 30;
+  const chartHeight = Math.max(180, courseData.length * (barHeight + 16) + 44);
+  // 강좌가 많아지면 카드가 끝없이 길어지는 것을 막는다: 일정 높이 이상이면 내부 스크롤.
+  const MAX_HEIGHT = 320;
+
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={courseData}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+    <div style={{ maxHeight: MAX_HEIGHT, overflowY: chartHeight > MAX_HEIGHT ? 'auto' : 'visible' }}>
+    <ResponsiveContainer width="100%" height={chartHeight}>
+      <BarChart data={courseData} layout="vertical" margin={{ top: 8, right: 24, bottom: 8, left: 8 }} barCategoryGap={20}>
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
         <XAxis
-          dataKey="name"
-          angle={-45}
-          textAnchor="end"
-          height={100}
+          type="number"
+          tickFormatter={formatManWon}
           tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: '0.79rem' }}
-          axisLine={{ stroke: 'hsl(var(--border))' }}
+          axisLine={false}
           tickLine={false}
         />
         <YAxis
-          tickFormatter={formatManWon}
-          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: '0.79rem' }}
+          type="category"
+          dataKey="name"
+          width={120}
+          tick={{ fill: 'hsl(var(--foreground))', fontSize: '0.86rem', fontWeight: 600 }}
           axisLine={false}
           tickLine={false}
         />
@@ -82,12 +88,20 @@ export const CourseRevenueChart: React.FC<CourseRevenueChartProps> = ({ enrollme
           }}
         />
         <Legend
-          verticalAlign="bottom"
-          wrapperStyle={{ paddingTop: 12, fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))' }}
+          verticalAlign="top"
+          align="right"
+          iconType="square"
+          wrapperStyle={{ paddingBottom: 12, fontSize: '0.86rem', color: 'hsl(var(--muted-foreground))' }}
+          formatter={(value: string) => (
+            <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.86rem' }}>
+              {value === '수익' ? '실제 납부' : '예상(목표)'}
+            </span>
+          )}
         />
-        <Bar dataKey="수익" fill="#6366f1" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="예상수익" fill="#a5b4fc" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="예상수익" fill="hsl(240 6% 84%)" radius={[0, 6, 6, 0]} barSize={barHeight} />
+        <Bar dataKey="수익" fill="hsl(var(--foreground))" radius={[0, 6, 6, 0]} barSize={barHeight} />
       </BarChart>
     </ResponsiveContainer>
+    </div>
   );
 };

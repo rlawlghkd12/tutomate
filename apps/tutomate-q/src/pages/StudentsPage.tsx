@@ -3,16 +3,16 @@ import { Plus, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
-  Button, Dialog, DialogContent, DialogHeader, DialogTitle,
+  Button, Checkbox, Dialog, DialogContent, DialogHeader, DialogTitle,
   StudentList, StudentForm, EnrollmentForm,
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel,
-  PageEnter,
+  PageEnter, ExportQuarterScope, EXPORT_SCOPE_ALL,
 } from '@tutomate/ui';
 import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
-import { exportStudentsToExcel, exportStudentsToCSV, STUDENT_EXPORT_FIELDS, getCurrentQuarter, isActiveEnrollment } from '@tutomate/core';
+import { exportStudentsToExcel, exportStudentsToCSV, STUDENT_EXPORT_FIELDS, useQuarterStore, isActiveEnrollment } from '@tutomate/core';
 
 const DEFAULT_EXPORT_FIELDS = ['name', 'phone', 'enrolledCourses', 'totalPaid', 'totalRemaining'];
 
@@ -29,11 +29,18 @@ const StudentsPage: React.FC = () => {
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
   const { courses, loadCourses } = useCourseStore();
-  const currentQuarter = getCurrentQuarter();
+  const currentQuarter = useQuarterStore((s) => s.selectedQuarter);
+  const [exportAll, setExportAll] = useState(false);
+  const [quarterOnly, setQuarterOnly] = useState(false);
   const quarterEnrollments = useMemo(
     () => enrollments.filter((e) => isActiveEnrollment(e) && (e.quarter === currentQuarter || !e.quarter)),
     [enrollments, currentQuarter],
   );
+  const exportEnrollments = useMemo(
+    () => (exportAll ? enrollments.filter((e) => isActiveEnrollment(e)) : quarterEnrollments),
+    [exportAll, enrollments, quarterEnrollments],
+  );
+  const exportQuarterTag = exportAll ? '전체분기' : currentQuarter;
 
   useEffect(() => {
     loadStudents();
@@ -65,10 +72,10 @@ const StudentsPage: React.FC = () => {
 
     try {
       if (type === 'excel') {
-        exportStudentsToExcel(students, quarterEnrollments, courses, selectedExportFields);
+        exportStudentsToExcel(students, exportEnrollments, courses, selectedExportFields, exportQuarterTag);
         toast.success('Excel 파일이 다운로드되었습니다');
       } else {
-        exportStudentsToCSV(students, quarterEnrollments, courses, 'utf-8', selectedExportFields);
+        exportStudentsToCSV(students, exportEnrollments, courses, 'utf-8', selectedExportFields, exportQuarterTag);
         toast.success('CSV 파일이 다운로드되었습니다');
       }
       setIsExportModalVisible(false);
@@ -83,8 +90,18 @@ const StudentsPage: React.FC = () => {
   return (
     <PageEnter>
       <StudentList
+        enrollments={quarterEnrollments}
+        quarterOnly={quarterOnly}
         actions={
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 px-3 py-2 mr-1 cursor-pointer select-none rounded-md border border-border text-base font-medium whitespace-nowrap hover:bg-accent">
+              <Checkbox
+                checked={quarterOnly}
+                onCheckedChange={(v) => setQuarterOnly(!!v)}
+                aria-label="이번 분기 수강생만 보기"
+              />
+              이번 분기 수강생만 보기
+            </label>
             <Button
               variant="outline"
               onClick={() => setIsExportModalVisible(true)}
@@ -114,10 +131,16 @@ const StudentsPage: React.FC = () => {
       />
 
       <Dialog open={isExportModalVisible} onOpenChange={setIsExportModalVisible}>
-        <DialogContent className="max-w-[680px]">
+        <DialogContent className="max-w-[820px]">
           <DialogHeader>
             <DialogTitle>수강생 내보내기</DialogTitle>
           </DialogHeader>
+
+          <ExportQuarterScope
+            value={exportAll ? EXPORT_SCOPE_ALL : currentQuarter}
+            onChange={(v) => setExportAll(v === EXPORT_SCOPE_ALL)}
+            currentQuarter={currentQuarter}
+          />
 
           <div style={{ marginTop: 8 }}>
             <div className="flex justify-between items-center mb-3">
@@ -134,7 +157,7 @@ const StudentsPage: React.FC = () => {
             </div>
 
             {/* 선택 가능한 필드 */}
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex flex-wrap gap-2 mb-2">
               {STUDENT_EXPORT_FIELDS.map((field) => {
                 const isChecked = selectedExportFields.includes(field.key);
                 return (
@@ -160,7 +183,7 @@ const StudentsPage: React.FC = () => {
 
             {/* 선택된 컬럼 순서 (드래그) */}
             {selectedExportFields.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-4 p-3 rounded-lg bg-muted/30 border border-dashed border-border">
+              <div className="flex flex-wrap gap-1.5 mb-2 p-3 rounded-lg bg-muted/30 border border-dashed border-border">
                 {selectedExportFields.map((key, idx) => {
                   const field = STUDENT_EXPORT_FIELDS.find((f) => f.key === key);
                   if (!field) return null;
@@ -202,7 +225,7 @@ const StudentsPage: React.FC = () => {
 
             {/* 미리보기 */}
             {selectedExportFields.length > 0 && students.length > 0 && (
-              <div className="rounded-lg border overflow-hidden mb-4">
+              <div className="rounded-lg border overflow-hidden mb-2">
                 <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 bg-muted/30">미리보기</div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -219,7 +242,7 @@ const StudentsPage: React.FC = () => {
                         <tr key={student.id} className="border-b last:border-0">
                           {selectedExportFields.map((key) => {
                             const field = STUDENT_EXPORT_FIELDS.find((f) => f.key === key);
-                            const value = field ? field.getValue(student, quarterEnrollments, courses) : '';
+                            const value = field ? field.getValue(student, exportEnrollments, courses) : '';
                             return <td key={key} className="px-3 py-2 whitespace-nowrap truncate max-w-[150px]">{value || '-'}</td>;
                           })}
                         </tr>

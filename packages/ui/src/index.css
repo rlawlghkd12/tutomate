@@ -27,19 +27,19 @@
     --secondary: 0 0% 96%;
     --secondary-foreground: 240 2% 11%;
     --muted: 0 0% 96%;
-    --muted-foreground: 240 1% 40%;
+    --muted-foreground: 240 3% 32%;
     --accent: 0 0% 94%;
     --accent-foreground: 240 2% 11%;
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 88%;
     --input: 0 0% 96%;
-    --layout-bg: 30 4% 98%;
+    --layout-bg: 36 12% 97%;
     --ring: 240 2% 11%;
-    --success: 142 76% 36%;
-    --warning: 38 92% 50%;
-    --info: 217 91% 60%;
-    --error: 0 84% 60%;
+    --success: 142 64% 30%;
+    --warning: 33 90% 40%;
+    --info: 217 70% 42%;
+    --error: 0 72% 45%;
 
     /* Apple-style elevation shadows */
     --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);

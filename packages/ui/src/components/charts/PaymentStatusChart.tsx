@@ -16,10 +16,10 @@ const STATUS_LABELS = {
 };
 
 const COLORS: Record<string, string> = {
-  completed: '#34d399',
-  partial: '#fbbf24',
-  pending: '#f87171',
-  exempt: '#a78bfa',
+  completed: 'hsl(142 64% 30%)',
+  partial: 'hsl(35 88% 35%)',
+  pending: 'hsl(0 72% 45%)',
+  exempt: 'hsl(240 4% 60%)',
 };
 
 // 색맹 접근성: 상태별 텍스트 심볼 — Legend 라벨 앞에 표시해 색 외 구분 수단 제공
@@ -100,7 +100,7 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
   }
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
+    <ResponsiveContainer width="100%" height={260}>
       <PieChart>
         <Pie
           data={statusData}
@@ -127,7 +127,7 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
         )}
         {activeIndex === undefined && (
           <text x="50%" y="52%" textAnchor="middle" dominantBaseline="central" style={{ fill: 'hsl(var(--muted-foreground))', fontSize: '0.79rem' }}>
-            총 수강생
+            총 납부 건수
           </text>
         )}
         <Tooltip
@@ -153,10 +153,11 @@ export const PaymentStatusChart: React.FC<PaymentStatusChartProps> = ({ enrollme
           formatter={(value: string, entry: any) => {
             const status = entry?.payload?.status as string | undefined;
             const symbol = status ? STATUS_SYMBOL[status] : '';
+            const count = entry?.payload?.value;
             return (
               <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.86rem' }}>
                 {symbol && <span style={{ marginRight: 4 }} aria-hidden>{symbol}</span>}
-                {value}
+                {value} <span style={{ fontWeight: 600, color: 'hsl(var(--foreground))' }}>{count}</span>
               </span>
             );
           }}

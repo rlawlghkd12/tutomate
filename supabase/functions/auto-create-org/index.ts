@@ -43,13 +43,12 @@ Deno.serve(async (req) => {
       const activeLink = existingLinks[0];
       const { data: orgData } = await adminClient
         .from('organizations')
-        .select('plan, name')
+        .select('plan')
         .eq('id', activeLink.organization_id)
         .single();
 
       return new Response(JSON.stringify({
         organization_id: activeLink.organization_id,
-        name: orgData?.name || '',
         plan: orgData?.plan || 'trial',
         role: activeLink.role || 'owner',
         is_new_org: false,
@@ -60,7 +59,7 @@ Deno.serve(async (req) => {
 
     const { data: newOrg, error: orgError } = await adminClient
       .from('organizations')
-      .insert({ name: 'TutorMate', plan: 'trial', max_seats: 5 })
+      .insert({ name: '내 학원', plan: 'trial', max_seats: 5 })
       .select('id')
       .single();
 
@@ -87,7 +86,6 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       organization_id: newOrg.id,
-      name: 'TutorMate',
       plan: 'trial',
       role: 'owner',
       is_new_org: true,

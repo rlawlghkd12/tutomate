@@ -45,7 +45,7 @@ gh release create "v$VERSION" --title "v$VERSION" --latest \
   --notes "$RELEASE_BODY" \
   --repo rlawlghkd12/tutomate
 
-gh release create "q-v$VERSION" --title "Q v$VERSION" \
+gh release create "q-v$VERSION" --title "Q v$VERSION" --latest=false \
   --notes "$RELEASE_BODY" \
   --repo rlawlghkd12/tutomate
 
