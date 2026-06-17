@@ -14,18 +14,20 @@ export interface ModelSpec {
 }
 
 /**
- * Qwen 3.5 4B Instruct (Q4_K_M).
+ * Qwen 3.5 4B Instruct — Unsloth Dynamic Q4_K_XL.
  * 선정 근거: TAU2 agentic 27 (도구 호출 정확도 — 동급 대비 4배 안정).
  * 한국어 자연스러움 ★★★★, 함수 호출 chat template fix 적용된 빌드.
+ * UD-Q4_K_XL: 중요 레이어를 높은 정밀도로 유지하는 dynamic quant —
+ * 표준 Q4_K_M(2.74GB) 대비 +0.17GB로 양자화 손실 감소.
  *
- * 첫 다운로드 후 sha256 측정해 갱신.
+ * sha256은 HuggingFace LFS oid 기준 — 다운로드 무결성 검증에 사용.
  */
 export const QWEN_3_5_4B_Q4: ModelSpec = {
-  id: 'qwen-3.5-4b-instruct-q4',
-  filename: 'qwen3.5-4b-q4_k_m.gguf',
-  url: 'https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf',
-  sha256: 'TBD-FILL-AFTER-FIRST-DOWNLOAD',
-  sizeBytes: 2_740_937_888, // ~2.74GB
+  id: 'qwen-3.5-4b-instruct-ud-q4kxl',
+  filename: 'qwen3.5-4b-ud-q4_k_xl.gguf',
+  url: 'https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-UD-Q4_K_XL.gguf',
+  sha256: 'b252c5610a42ca82d20fe2a12813e9d069eed89292907e26c783eeb0bc961bc7',
+  sizeBytes: 2_912_109_728, // ~2.91GB (Unsloth Dynamic Q4_K_XL)
 };
 
 /** @deprecated v0.7.0부터 QWEN_3_5_4B_Q4 사용. 호환성 위해 alias 유지. */

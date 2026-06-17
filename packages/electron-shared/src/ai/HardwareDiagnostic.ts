@@ -17,7 +17,7 @@ export interface DiagnosticResult {
 }
 
 /**
- * 사양 분기 결정 — Qwen 3.5 4B (Q4_K_M, 2.74GB) 기준. 순수 함수, 테스트 가능.
+ * 사양 분기 결정 — Qwen 3.5 4B (UD-Q4_K_XL, 2.91GB) 기준. 순수 함수, 테스트 가능.
  *
  * 4B 모델 추론 시 메모리 점유: 모델 ~3GB + KV cache ~1GB + OS/앱 ~2GB → 8GB는 빡빡.
  * - 16GB+ RAM, 4GB+ disk → ok / fast (쾌적, 응답 빠름)
