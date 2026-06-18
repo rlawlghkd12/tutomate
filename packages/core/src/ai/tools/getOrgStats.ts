@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import dayjs from 'dayjs';
 import { supabase } from '../../config/supabase';
+import { getCurrentQuarter } from '../../utils/quarterUtils';
 import type { ToolHandler } from '../types';
 
 // 인자 없는 도구지만 빈 object 스키마 필요 (node-llama-cpp GBNF가 최상위 optional 거부)
@@ -9,7 +9,7 @@ const schema = z.object({});
 export const getOrgStats: ToolHandler<typeof schema> = {
   name: 'getOrgStats',
   description:
-    '조직 전체 요약 통계 — 총 수강생/강좌/활성 등록/이번 달 매출. "총 몇 명?", "전체 통계" 같은 질문에 사용.',
+    '조직 전체 요약 통계 — 총 수강생/강좌/활성 등록/이번 분기 매출(수익 관리 페이지 기준). "총 몇 명?", "전체 통계" 같은 질문에 사용.',
   schema,
   async execute(_args, ctx) {
     if (!supabase) throw new Error('Supabase 미설정');
@@ -60,24 +60,25 @@ export const getOrgStats: ToolHandler<typeof schema> = {
       throw new Error(err?.message || (err as any)?.code || 'DB 조회 실패 — RLS 또는 인증 문제 가능');
     }
 
-    const month = new Date().toISOString().slice(0, 7);
-    const monthStart = `${month}-01`;
-    const nextMonthStart = dayjs(monthStart).add(1, 'month').format('YYYY-MM-DD');
-    const { data: pays, error: paysErr } = await supabase
-      .from('payment_records')
-      .select('amount')
-      .gte('paid_at', monthStart)
-      .lt('paid_at', nextMonthStart);
-    if (paysErr) console.warn('[getOrgStats] payments query error:', paysErr);
+    // 매출은 수익 관리 페이지와 동일 기준: 현재 분기, 탈퇴/면제 제외 등록의 paid_amount 합
+    const quarter = getCurrentQuarter();
+    const { data: revEnrolls, error: revErr } = await supabase
+      .from('enrollments')
+      .select('paid_amount')
+      .neq('payment_status', 'withdrawn')
+      .neq('payment_status', 'exempt')
+      .eq('quarter', quarter);
+    if (revErr) console.warn('[getOrgStats] revenue query error:', revErr);
+    const currentQuarterRevenue = (revEnrolls ?? []).reduce((s, e: any) => s + (e.paid_amount ?? 0), 0);
 
     const result = {
       orgId: ctx.orgId,
       totalStudents: studentsRes.data?.length ?? 0,
       totalCourses: coursesRes.data?.length ?? 0,
       activeEnrollments: enrollmentsRes.data?.length ?? 0,
-      currentMonth: month,
-      currentMonthRevenue: (pays ?? []).reduce((s, p: any) => s + (p.amount ?? 0), 0),
-      currentMonthPaymentCount: pays?.length ?? 0,
+      // 수익 관리 페이지와 동일 기준 매출 (등록 누적 납부액)
+      currentQuarter: quarter,
+      currentQuarterRevenue,
     };
     console.log('[getOrgStats] result:', result);
     return result;

@@ -1,5 +1,6 @@
 import type { ChatMessage, SmartCard } from '@tutomate/core';
-import { Check, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Check, Loader2, Paperclip } from 'lucide-react';
 import { MappingErrorCard } from './SmartCard/MappingErrorCard';
 import { ImportPreviewCard } from './SmartCard/ImportPreviewCard';
 import { ImportResultCard } from './SmartCard/ImportResultCard';
@@ -15,11 +16,13 @@ export type DisplayMessage = ChatMessage & {
 
 // 도구 이름 → 사용자에게 보일 한글 라벨 (AI가 무슨 작업을 하는지 직관적으로)
 const TOOL_LABELS: Record<string, string> = {
-  getMonthlySummary: '월별 수익 조회',
+  getMonthlySummary: '월별 결제 현황 조회',
+  getRevenue: '매출 조회',
   getOrgStats: '전체 통계 조회',
   getClassRoster: '수강생 명단 조회',
   getEnrollment: '수강 등록 조회',
   getPaymentHistory: '결제 내역 조회',
+  getCoursePayments: '강좌 결제 내역 조회',
   getStudent: '학생 정보 조회',
   getStudentSummary: '학생 요약 조회',
   getUnpaidStudents: '미납자 조회',
@@ -32,6 +35,17 @@ const TOOL_LABELS: Record<string, string> = {
 };
 
 const toolLabel = (name: string) => TOOL_LABELS[name] ?? name;
+
+// 진행 중 표시: . → .. → … 반복 애니메이션
+function LoadingDots() {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setN((v) => (v + 1) % 3), 450);
+    return () => clearInterval(id);
+  }, []);
+  // 폭 고정으로 글자 흔들림 방지
+  return <span className="inline-block w-[1.5em] text-left">{'.'.repeat(n + 1)}</span>;
+}
 
 interface Props {
   message: DisplayMessage;
@@ -65,7 +79,7 @@ function renderCard(
 export function MessageBubble({ message, onConfirmPreview, onCancelPreview }: Props) {
   const isUser = message.role === 'user';
   return (
-    <div className={`max-w-2xl ${isUser ? 'ml-auto' : ''}`}>
+    <div className={`max-w-2xl w-fit ${isUser ? 'ml-auto' : ''}`}>
       {!isUser && message.tools && message.tools.length > 0 && (
         <div className="mb-1.5 flex flex-col gap-1">
           {message.tools.map((t, i) => (
@@ -77,7 +91,14 @@ export function MessageBubble({ message, onConfirmPreview, onCancelPreview }: Pr
               )}
               <span>
                 {toolLabel(t.name)}
-                {t.status === 'running' ? ' 중…' : ' 완료'}
+                {t.status === 'running' ? (
+                  <>
+                    {' 중'}
+                    <LoadingDots />
+                  </>
+                ) : (
+                  ' 완료'
+                )}
               </span>
             </div>
           ))}
@@ -85,18 +106,21 @@ export function MessageBubble({ message, onConfirmPreview, onCancelPreview }: Pr
       )}
       {message.content && (
         <div
-          className={`rounded-2xl px-5 py-3 text-lg ${
+          className={`rounded-2xl px-5 py-3 ${
             isUser
               ? 'whitespace-pre-wrap bg-primary text-primary-foreground'
-              : 'bg-muted text-foreground'
+              : 'text-lg bg-muted text-foreground'
           }`}
+          // 사용자 말풍선은 설정 글자 크기에 따라 커지도록 (기본 대비 1.2배)
+          style={isUser ? { fontSize: 'calc(var(--font-size-base-value, 14px) * 1.2)', lineHeight: 1.5 } : undefined}
         >
           {isUser ? message.content : <Markdown>{message.content}</Markdown>}
         </div>
       )}
       {message.attachments?.map((a, i) => (
-        <div key={i} className="text-sm text-muted-foreground mt-1">
-          📎 {a.name}
+        <div key={i} className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+          <Paperclip className="h-3.5 w-3.5 shrink-0" />
+          {a.name}
         </div>
       ))}
       {message.cards?.map((c, i) => (

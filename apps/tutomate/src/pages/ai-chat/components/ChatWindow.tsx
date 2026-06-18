@@ -6,8 +6,32 @@ import { MessageBubble, type DisplayMessage } from './MessageBubble';
 interface Props {
   messages: DisplayMessage[];
   streaming?: boolean;
+  summarizing?: boolean;
   onConfirmPreview: (card: Extract<SmartCard, { type: 'importPreview' }>) => void;
   onCancelPreview: () => void;
+}
+
+/** 대화가 길어져 이전 내용을 요약(압축)하는 동안 보여줄 인디케이터 */
+function SummarizingIndicator() {
+  return (
+    <div className="max-w-2xl">
+      <div className="rounded-2xl px-5 py-3 bg-muted text-foreground inline-flex items-center gap-2">
+        <span className="text-base text-muted-foreground">이전 대화 요약 중</span>
+        <span className="inline-flex gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground typing-dot" />
+          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground typing-dot" style={{ animationDelay: '0.15s' }} />
+          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground typing-dot" style={{ animationDelay: '0.3s' }} />
+        </span>
+      </div>
+      <style>{`
+        @keyframes typing-bounce {
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+          30% { transform: translateY(-3px); opacity: 1; }
+        }
+        .typing-dot { animation: typing-bounce 1s infinite; display: inline-block; }
+      `}</style>
+    </div>
+  );
 }
 
 /** 스트림 시작 후 첫 토큰까지 보여줄 타이핑 인디케이터 */
@@ -33,7 +57,7 @@ function TypingIndicator() {
   );
 }
 
-export function ChatWindow({ messages, streaming, onConfirmPreview, onCancelPreview }: Props) {
+export function ChatWindow({ messages, streaming, summarizing, onConfirmPreview, onCancelPreview }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
 
@@ -53,7 +77,7 @@ export function ChatWindow({ messages, streaming, onConfirmPreview, onCancelPrev
   useEffect(() => {
     if (atBottom) scrollToBottom('smooth');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, streaming]);
+  }, [messages, streaming, summarizing]);
 
   const handleScroll = () => {
     const el = ref.current;
@@ -78,7 +102,9 @@ export function ChatWindow({ messages, streaming, onConfirmPreview, onCancelPrev
             onCancelPreview={onCancelPreview}
           />
         ))}
+        {summarizing && <SummarizingIndicator />}
         {streaming &&
+          !summarizing &&
           (() => {
             const last = messages[messages.length - 1];
             const showTyping =

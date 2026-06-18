@@ -8,7 +8,19 @@ export type AiState = 'unknown' | 'not_installed' | 'loading_pending' | 'ready' 
 const HISTORY_LIMIT = 400; // 표시용 메시지 최대 보존 수 (컨텍스트 압축은 별도)
 const COMPRESS_TRIGGER = 3200; // 요약 안 된 활성 대화가 이 추정 토큰을 넘으면 압축
 const TAIL_TOKEN_BUDGET = 2400; // 최근 메시지를 원문으로 유지할 예산
-const estTokens = (s?: string) => Math.ceil((s?.length ?? 0) / 2);
+// 토큰 추정 — 과소평가 시 프롬프트가 n_ctx를 넘겨 답변이 잘리므로 보수적으로(많게) 잡는다.
+// 한글은 글자당 1토큰 이상인 경우가 많아 1.3배, ASCII는 3글자/토큰으로 가정.
+const estTokens = (s?: string) => {
+  if (!s) return 0;
+  let cjk = 0;
+  let other = 0;
+  for (const ch of s) {
+    const c = ch.codePointAt(0) ?? 0;
+    if ((c >= 0x3000 && c <= 0x9fff) || (c >= 0xac00 && c <= 0xd7af)) cjk++;
+    else other++;
+  }
+  return Math.ceil(cjk * 1.3 + other / 3);
+};
 
 const historyKey = (orgId: string) => `ai-chat-history:${orgId || 'default'}`;
 
@@ -63,6 +75,7 @@ interface AiChatStore {
   statusError: string | null;
   messages: DisplayMessage[];
   streaming: boolean;
+  summarizing: boolean;
   summary: string;
   summarizedCount: number;
   loadedOrgId: string | null;
@@ -97,6 +110,7 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
   statusError: null,
   messages: [],
   streaming: false,
+  summarizing: false,
   summary: '',
   summarizedCount: 0,
   loadedOrgId: null,
@@ -164,7 +178,7 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
         scheduleSave();
       } else if (e.type === 'error') {
         set((state) => ({
-          messages: [...state.messages, { role: 'assistant', content: `⚠️ ${e.message ?? '알 수 없는 오류'}` }],
+          messages: [...state.messages, { role: 'assistant', content: e.message ?? '알 수 없는 오류가 생겼어요.' }],
           streaming: false,
         }));
         scheduleSave();
@@ -221,7 +235,7 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
 
     if (!ctx.orgId) {
       set((state) => ({
-        messages: [...state.messages, { role: 'assistant', content: '⚠️ 로그인된 조직 정보를 찾을 수 없어요. 다시 로그인해주세요.' }],
+        messages: [...state.messages, { role: 'assistant', content: '로그인된 조직 정보를 찾을 수 없어요. 다시 로그인해주세요.' }],
         streaming: false,
       }));
       return;
@@ -244,6 +258,7 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
       }
       if (keepStart > curCount) {
         const toFold = messages.slice(curCount, keepStart);
+        set({ summarizing: true });
         try {
           const res = await window.electronAPI.aiSummarize({
             prevSummary: curSummary,
@@ -256,6 +271,8 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
           }
         } catch (e) {
           console.warn('[aiChatStore] 컨텍스트 압축 실패, 원문으로 진행:', e);
+        } finally {
+          set({ summarizing: false });
         }
       }
     }
@@ -303,7 +320,7 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
       });
       if (r.error) {
         set((state) => ({
-          messages: [...state.messages, { role: 'assistant', content: `⚠️ 확정 실패: ${r.error?.message}` }],
+          messages: [...state.messages, { role: 'assistant', content: `확정 실패: ${r.error?.message}` }],
         }));
       }
     } finally {
