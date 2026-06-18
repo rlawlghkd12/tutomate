@@ -1,5 +1,5 @@
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Layout, ErrorBoundary, UpdateChecker, LockScreen, MemberManagementPage } from '@tutomate/ui';
+import { Layout, ErrorBoundary, UpdateChecker, LockScreen, MemberManagementPage, AiChatGate } from '@tutomate/ui';
 import { useSettingsStore, useLockStore, useAutoLock, useAuthStore, appConfig, isElectron, OAUTH_PROVIDERS, getThemeMode } from '@tutomate/core';
 import type { OAuthProvider } from '@tutomate/core';
 import React, { Suspense, useEffect } from 'react';
@@ -265,7 +265,7 @@ function App() {
               <Route path="/revenue" element={<RevenueManagementPage />} />
               <Route path="/members" element={<MemberManagementPage />} />
               <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/ai-chat" element={<AiChatPage />} />
+              <Route path="/ai-chat" element={<AiChatGate><AiChatPage /></AiChatGate>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

@@ -1,5 +1,5 @@
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Layout, ErrorBoundary, UpdateChecker, GlobalSearch, useGlobalSearch, LockScreen, MemberManagementPage, QuarterSelect } from '@tutomate/ui';
+import { Layout, ErrorBoundary, UpdateChecker, GlobalSearch, useGlobalSearch, LockScreen, MemberManagementPage, QuarterSelect, AiChatGate } from '@tutomate/ui';
 import { useSettingsStore, useLockStore, useAutoLock, useAuthStore, appConfig, isElectron, OAUTH_PROVIDERS, getThemeMode } from '@tutomate/core';
 import type { OAuthProvider } from '@tutomate/core';
 import DashboardPage from './pages/DashboardPage';
@@ -273,7 +273,7 @@ function App() {
             <Route path="/revenue" element={<RevenueManagementPage />} />
             <Route path="/members" element={<MemberManagementPage />} />
             <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/ai-chat" element={<AiChatPage />} />
+            <Route path="/ai-chat" element={<AiChatGate><AiChatPage /></AiChatGate>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </ErrorBoundary>
