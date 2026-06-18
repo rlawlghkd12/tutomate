@@ -23,6 +23,30 @@ import { findLlamaServerBin } from './llamaServerBin';
 const MAX_TOOL_ROUNDS = 5;
 /** 서버 health check 타임아웃 */
 const READY_TIMEOUT_MS = 90_000;
+/** 응답에 예약할 출력 토큰 */
+const MAX_OUTPUT_TOKENS = 2048;
+/** 컨텍스트 추정 오차/템플릿 오버헤드용 여유분 */
+const CONTEXT_SAFETY_TOKENS = 512;
+/** 단일 도구 결과를 컨텍스트에 넣을 때 최대 글자수 (초과 시 잘라냄) */
+const MAX_TOOL_RESULT_CHARS = 4000;
+/** 트림 시 도구 결과를 잘라낼 최소 보존 글자수 */
+const MIN_TOOL_RESULT_CHARS = 400;
+
+/**
+ * 토큰 수 추정 (한국어 ≈ 1토큰/글자, ASCII ≈ 3.5글자/토큰).
+ * 정확한 토크나이저 대신 컨텍스트 트림 판단용 보수적 추정.
+ */
+function estimateTokens(s?: string): number {
+  if (!s) return 0;
+  let cjk = 0;
+  let other = 0;
+  for (const ch of s) {
+    const code = ch.codePointAt(0) ?? 0;
+    if ((code >= 0x3000 && code <= 0x9fff) || (code >= 0xac00 && code <= 0xd7af)) cjk++;
+    else other++;
+  }
+  return Math.ceil(cjk + other / 3.5);
+}
 
 interface ServerOptions extends LlamaRuntimeOptions {
   /** llama-server 실행 파일 직접 지정 (없으면 자동 탐색) */
@@ -140,7 +164,46 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
         content: m.content,
       }));
 
+      // ── 컨텍스트 예산 ──
+      // 시스템 프롬프트 + 도구 정의는 못 줄이므로(도구 호출에 필수), 초과 시 대화/도구 결과를 트림한다.
+      const ctxSize = opts.contextSize ?? 8192;
+      const toolsTokens = estimateTokens(JSON.stringify(oaiTools));
+      const inputBudget = ctxSize - MAX_OUTPUT_TOKENS - CONTEXT_SAFETY_TOKENS - toolsTokens;
+
+      const msgTokens = (m: any) =>
+        estimateTokens(typeof m.content === 'string' ? m.content : JSON.stringify(m.content ?? '')) + 4;
+      const totalTokens = () => oaiMessages.reduce((n, m) => n + msgTokens(m), 0);
+
+      /** 모델 전송 직전, 예산 초과 시 도구 결과 → 오래된 대화 순으로 잘라낸다. */
+      const fitContext = () => {
+        if (totalTokens() <= inputBudget) return;
+        // 1) 큰 도구 결과부터 잘라냄 (가장 긴 것 우선)
+        const toolIdxByLen = oaiMessages
+          .map((m, i) => ({ i, len: typeof m.content === 'string' ? m.content.length : 0, role: m.role }))
+          .filter((x) => x.role === 'tool' && x.len > MIN_TOOL_RESULT_CHARS)
+          .sort((a, b) => b.len - a.len);
+        for (const { i } of toolIdxByLen) {
+          if (totalTokens() <= inputBudget) break;
+          const content = oaiMessages[i].content as string;
+          oaiMessages[i].content =
+            content.slice(0, MIN_TOOL_RESULT_CHARS) + '\n…(결과가 많아 일부 생략 — 컨텍스트 한도)';
+        }
+        // 2) 그래도 초과면 오래된 대화부터 제거 (system[0]·마지막 메시지 보존, tool_call 쌍 유지)
+        while (totalTokens() > inputBudget && oaiMessages.length > 2) {
+          const idx = oaiMessages[0]?.role === 'system' ? 1 : 0;
+          if (idx >= oaiMessages.length - 1) break; // 마지막 메시지는 보존
+          const removed = oaiMessages.splice(idx, 1)[0];
+          // assistant(tool_calls) 제거 시 짝지어진 tool 메시지도 함께 제거
+          if (removed?.tool_calls) {
+            while (oaiMessages[idx]?.role === 'tool') oaiMessages.splice(idx, 1);
+          }
+        }
+        console.warn(`[LlamaServerRuntime] 컨텍스트 트림 적용 — 예상 ${totalTokens()}/${inputBudget} 토큰`);
+      };
+
       for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+        fitContext();
+
         let assistantText = '';
         const toolCalls: { id: string; name: string; args: string }[] = [];
         let finishReason: string | null = null;
@@ -241,10 +304,16 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
           });
           const result = await onToolCall(tc.name, parsedArgs);
           onEvent({ type: 'tool_result', toolResult: result });
+          let resultStr = JSON.stringify(result);
+          if (resultStr.length > MAX_TOOL_RESULT_CHARS) {
+            resultStr =
+              resultStr.slice(0, MAX_TOOL_RESULT_CHARS) +
+              '\n…(결과가 너무 많아 일부만 표시됨. 이름·전화 등으로 더 좁혀서 검색하세요)';
+          }
           oaiMessages.push({
             role: 'tool',
             tool_call_id: tc.id,
-            content: JSON.stringify(result),
+            content: resultStr,
           });
         }
       }

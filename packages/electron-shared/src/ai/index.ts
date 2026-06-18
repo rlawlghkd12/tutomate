@@ -1,5 +1,6 @@
 export {
   decideRecommendation,
+  decideContextSize,
   diagnose,
   type Recommendation,
   type Tier,

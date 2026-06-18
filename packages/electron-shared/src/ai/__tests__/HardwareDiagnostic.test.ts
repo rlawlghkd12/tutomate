@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decideRecommendation } from '../HardwareDiagnostic';
+import { decideRecommendation, decideContextSize } from '../HardwareDiagnostic';
 
 describe('decideRecommendation (Qwen 3.5 4B 기준)', () => {
   it('16GB+ RAM, 4GB+ disk → ok / fast', () => {
@@ -29,5 +29,25 @@ describe('decideRecommendation (Qwen 3.5 4B 기준)', () => {
     expect(decideRecommendation({ ramGB: 5, diskGB: 4 }).recommendation).toBe('block');
     expect(decideRecommendation({ ramGB: 16, diskGB: 2 }).recommendation).toBe('block');
     expect(decideRecommendation({ ramGB: 8, diskGB: 2.5 }).recommendation).toBe('block');
+  });
+});
+
+describe('decideContextSize (RAM 기반 동적 컨텍스트)', () => {
+  it('32GB 이상 → 32768', () => {
+    expect(decideContextSize(32)).toBe(32768);
+    expect(decideContextSize(64)).toBe(32768);
+  });
+
+  it('16~31GB → 16384', () => {
+    expect(decideContextSize(16)).toBe(16384);
+    expect(decideContextSize(24)).toBe(16384);
+    expect(decideContextSize(31.9)).toBe(16384);
+  });
+
+  it('16GB 미만 → 8192 (기본)', () => {
+    expect(decideContextSize(8)).toBe(8192);
+    expect(decideContextSize(12)).toBe(8192);
+    expect(decideContextSize(15.9)).toBe(8192);
+    expect(decideContextSize(4)).toBe(8192);
   });
 });

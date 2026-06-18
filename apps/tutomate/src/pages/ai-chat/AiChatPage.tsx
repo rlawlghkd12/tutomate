@@ -135,6 +135,30 @@ export default function AiChatPage() {
           if (trimmed === '') return m;
           return [...m, { role: 'assistant', content: trimmed }];
         });
+      } else if (e.type === 'tool_call') {
+        const name = (e.toolCall?.name as string) ?? '';
+        if (!name) return;
+        setMessages((m) => {
+          const last = m[m.length - 1];
+          if (last?.role === 'assistant') {
+            const tools = [...(last.tools ?? []), { name, status: 'running' as const }];
+            return [...m.slice(0, -1), { ...last, tools }];
+          }
+          return [...m, { role: 'assistant', content: '', tools: [{ name, status: 'running' as const }] }];
+        });
+      } else if (e.type === 'tool_result') {
+        setMessages((m) => {
+          const last = m[m.length - 1];
+          if (last?.role !== 'assistant' || !last.tools?.length) return m;
+          const tools = [...last.tools];
+          for (let i = tools.length - 1; i >= 0; i--) {
+            if (tools[i].status === 'running') {
+              tools[i] = { ...tools[i], status: 'done' };
+              break;
+            }
+          }
+          return [...m.slice(0, -1), { ...last, tools }];
+        });
       } else if (e.type === 'card') {
         setMessages((m) => {
           const last = m[m.length - 1];

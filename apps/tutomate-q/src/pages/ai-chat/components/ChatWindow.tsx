@@ -44,7 +44,10 @@ export function ChatWindow({ messages, streaming, onConfirmPreview, onCancelPrev
   const showTyping = streaming && (
     !last ||
     last.role === 'user' ||
-    (last.role === 'assistant' && !last.content && !(last.cards && last.cards.length))
+    (last.role === 'assistant' &&
+      !last.content &&
+      !(last.cards && last.cards.length) &&
+      !(last.tools && last.tools.length))
   );
 
   return (

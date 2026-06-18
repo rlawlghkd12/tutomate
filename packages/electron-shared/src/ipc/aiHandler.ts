@@ -4,6 +4,7 @@ import {
   ModelManager,
   QWEN_3_5_4B_Q4,
   diagnose,
+  decideContextSize,
   createLlamaServerRuntime,
   findLlamaServerBin,
   type LlamaRuntime,
@@ -27,10 +28,15 @@ let abort: AbortController | null = null;
 /** llama-server 런타임 보장 (없으면 생성). ai:chat·ai:summarize 공용. */
 async function ensureRuntime(): Promise<LlamaRuntime> {
   if (!runtime) {
+    // 기기 RAM에 따라 컨텍스트 크기 결정 — 넉넉하면 더 키워 긴 대화/큰 결과 수용
+    const { ramGB } = await diagnose(aiDir);
+    const contextSize = decideContextSize(ramGB);
+    console.log(`[ai] RAM ${ramGB}GB → contextSize ${contextSize}`);
     runtime = await createLlamaServerRuntime({
       modelPath: manager.modelPath(QWEN_3_5_4B_Q4),
       userDataDir: app.getPath('userData'),
       resourcesPath: process.resourcesPath,
+      contextSize,
     });
     await runtime.load();
   }
