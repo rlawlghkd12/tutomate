@@ -217,6 +217,9 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
           Math.min(MAX_OUTPUT_TOKENS, ctxSize - promptTokens - CONTEXT_SAFETY_TOKENS),
         );
 
+        // 컨텍스트 사용량을 UI에 보고 (대화가 얼마나 찼는지 퍼센트 표시용)
+        onEvent({ type: 'usage', usage: { promptTokens, ctxSize } });
+
         const resp = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

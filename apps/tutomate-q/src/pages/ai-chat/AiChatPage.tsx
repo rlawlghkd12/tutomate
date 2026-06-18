@@ -21,7 +21,7 @@ export default function AiChatPage() {
   const messages = useAiChatStore((s) => s.messages);
   const streaming = useAiChatStore((s) => s.streaming);
   const summarizing = useAiChatStore((s) => s.summarizing);
-  const summary = useAiChatStore((s) => s.summary);
+  const contextPercent = useAiChatStore((s) => s.contextPercent);
   const init = useAiChatStore((s) => s.init);
   const loadForOrg = useAiChatStore((s) => s.loadForOrg);
   const setStatus = useAiChatStore((s) => s.setStatus);
@@ -53,7 +53,7 @@ export default function AiChatPage() {
 
   const handleResetChat = () => {
     if (streaming) return;
-    if (messages.length > 0 && !confirm('대화를 초기화할까요? 지금까지의 내용이 모두 사라집니다.')) return;
+    if (messages.length > 0 && !confirm('새 대화를 시작할까요? 지금까지의 대화 내용이 모두 사라집니다.')) return;
     reset(orgId);
   };
 
@@ -85,21 +85,38 @@ export default function AiChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background shrink-0">
-        <div className="text-sm text-muted-foreground">
-          {messages.length > 0
-            ? `대화 ${messages.length}개${summary ? ' · 이전 내용 요약됨' : ''}`
-            : '대화 없음'}
+    <div className="relative flex flex-col h-full min-h-0">
+      {messages.length > 0 && (
+        <div className="absolute top-2 right-3 z-10 flex items-center gap-3">
+          {contextPercent > 0 && (
+            <div
+              className="flex items-center gap-2 rounded-full border border-border bg-background/90 px-3 py-1.5 text-sm text-muted-foreground shadow-sm backdrop-blur"
+              title="현재 대화가 AI의 기억 공간을 차지한 정도예요. 꽉 차면 오래된 대화를 자동으로 요약해 정리합니다."
+            >
+              <span>기억</span>
+              <div className="h-2.5 w-24 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    contextPercent >= 90
+                      ? 'bg-red-500'
+                      : contextPercent >= 75
+                        ? 'bg-amber-500'
+                        : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${contextPercent}%` }}
+                />
+              </div>
+            </div>
+          )}
+          <button
+            onClick={handleResetChat}
+            disabled={streaming}
+            className="rounded-full border border-border bg-background/90 px-3 py-1.5 text-sm shadow-sm backdrop-blur hover:bg-accent disabled:opacity-50"
+          >
+            새 대화 시작
+          </button>
         </div>
-        <button
-          onClick={handleResetChat}
-          disabled={streaming || messages.length === 0}
-          className="text-sm px-3 py-1 rounded border border-border hover:bg-accent disabled:opacity-50"
-        >
-          대화 초기화
-        </button>
-      </div>
+      )}
       <ChatWindow
         messages={messages}
         streaming={streaming}

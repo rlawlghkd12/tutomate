@@ -38,20 +38,25 @@ function SummarizingIndicator() {
 function TypingIndicator() {
   return (
     <div className="max-w-2xl">
-      <div className="rounded-2xl px-5 py-3 bg-muted text-foreground inline-flex items-center gap-2">
-        <span className="text-base text-muted-foreground">답변 중</span>
-        <span className="inline-flex gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground typing-dot" />
-          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground typing-dot" style={{ animationDelay: '0.15s' }} />
-          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground typing-dot" style={{ animationDelay: '0.3s' }} />
+      <div className="typing-bubble inline-flex items-center gap-2 rounded-2xl bg-muted px-5 py-3 text-foreground">
+        <span className="text-base font-medium text-foreground">답변 중</span>
+        <span className="inline-flex gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-primary typing-dot" />
+          <span className="h-2 w-2 rounded-full bg-primary typing-dot" style={{ animationDelay: '0.2s' }} />
+          <span className="h-2 w-2 rounded-full bg-primary typing-dot" style={{ animationDelay: '0.4s' }} />
         </span>
       </div>
       <style>{`
         @keyframes typing-bounce {
-          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-          30% { transform: translateY(-3px); opacity: 1; }
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+          30% { transform: translateY(-4px); opacity: 1; }
         }
-        .typing-dot { animation: typing-bounce 1s infinite; display: inline-block; }
+        .typing-dot { animation: typing-bounce 1.1s infinite; display: inline-block; }
+        @keyframes typing-pulse {
+          0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(99,102,241,0.35); }
+          50% { opacity: 0.75; box-shadow: 0 0 0 4px rgba(99,102,241,0); }
+        }
+        .typing-bubble { animation: typing-pulse 1.4s ease-in-out infinite; }
       `}</style>
     </div>
   );

@@ -76,6 +76,7 @@ interface AiChatStore {
   messages: DisplayMessage[];
   streaming: boolean;
   summarizing: boolean;
+  contextPercent: number;
   summary: string;
   summarizedCount: number;
   loadedOrgId: string | null;
@@ -111,6 +112,7 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
   messages: [],
   streaming: false,
   summarizing: false,
+  contextPercent: 0,
   summary: '',
   summarizedCount: 0,
   loadedOrgId: null,
@@ -176,6 +178,11 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
           return { messages: [...m, { role: 'assistant', content: '', cards: [e.card] }] };
         });
         scheduleSave();
+      } else if (e.type === 'usage') {
+        const u = e.usage as { promptTokens: number; ctxSize: number } | undefined;
+        if (u?.ctxSize) {
+          set({ contextPercent: Math.min(100, Math.round((u.promptTokens / u.ctxSize) * 100)) });
+        }
       } else if (e.type === 'error') {
         set((state) => ({
           messages: [...state.messages, { role: 'assistant', content: e.message ?? '알 수 없는 오류가 생겼어요.' }],
@@ -340,7 +347,7 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
   },
 
   reset: (orgId) => {
-    set({ messages: [], summary: '', summarizedCount: 0 });
+    set({ messages: [], summary: '', summarizedCount: 0, contextPercent: 0 });
     saveHistory(orgId, { messages: [], summary: '', summarizedCount: 0 });
     window.electronAPI.aiResetSession?.().catch(() => undefined);
   },
