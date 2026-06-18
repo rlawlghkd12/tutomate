@@ -40,12 +40,14 @@ export type SmartCard =
 // ─── chat 스트림 이벤트 ──────────────────────────────────────
 
 export interface ChatStreamEvent {
-  type: 'token' | 'tool_call' | 'tool_result' | 'card' | 'done' | 'error';
+  type: 'token' | 'tool_call' | 'tool_result' | 'card' | 'done' | 'error' | 'usage';
   token?: string;
   toolCall?: ToolCall;
   toolResult?: unknown;
   card?: SmartCard;
   message?: string;
+  /** 컨텍스트 사용량 — usage 이벤트에서 전달 (프롬프트 추정 토큰 / 컨텍스트 윈도우) */
+  usage?: { promptTokens: number; ctxSize: number };
 }
 
 // ─── 도구 핸들러 (ActionDispatcher가 실행) ────────────────────
