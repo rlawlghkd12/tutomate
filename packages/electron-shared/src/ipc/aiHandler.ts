@@ -88,7 +88,6 @@ const SYSTEM_PROMPT = `당신은 수강 관리 조직 운영자를 돕는 한국
 - "○○ 학생", "학생 명단" → \`searchStudent\` (인자 없어도 됨)
 - "○○ 결제 언제" → \`searchStudent\` → \`getPaymentHistory\`
 - "미납자" → \`getUnpaidStudents\`
-- "출석", "출석률" → \`getAttendance\`
 - "○○반 명단" → \`listClasses\` → \`getClassRoster\`
 - "○○ 학생 정보 요약" → \`searchStudent\` → \`getStudentSummary\`
 

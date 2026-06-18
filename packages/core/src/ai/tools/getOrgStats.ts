@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import dayjs from 'dayjs';
 import { supabase } from '../../config/supabase';
 import type { ToolHandler } from '../types';
 
@@ -27,11 +28,11 @@ export const getOrgStats: ToolHandler<typeof schema> = {
     const [studentsRes, coursesRes, enrollmentsRes] = await Promise.all([
       supabase.from('students').select('id'),
       supabase.from('courses').select('id'),
+      // 활성 등록 = 탈퇴(withdrawn) 아닌 등록 (enrollments에 status 컬럼은 없고 payment_status 사용)
       supabase
         .from('enrollments')
         .select('id')
-
-        .eq('status', 'active'),
+        .neq('payment_status', 'withdrawn'),
     ]);
 
     console.log('[getOrgStats] students:', { rows: studentsRes.data?.length, error: studentsRes.error });
@@ -60,12 +61,13 @@ export const getOrgStats: ToolHandler<typeof schema> = {
     }
 
     const month = new Date().toISOString().slice(0, 7);
+    const monthStart = `${month}-01`;
+    const nextMonthStart = dayjs(monthStart).add(1, 'month').format('YYYY-MM-DD');
     const { data: pays, error: paysErr } = await supabase
       .from('payment_records')
       .select('amount')
-
-      .gte('paid_at', `${month}-01`)
-      .lte('paid_at', `${month}-31`);
+      .gte('paid_at', monthStart)
+      .lt('paid_at', nextMonthStart);
     if (paysErr) console.warn('[getOrgStats] payments query error:', paysErr);
 
     const result = {

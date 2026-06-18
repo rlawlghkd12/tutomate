@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, BookOpen, Users, Calendar, DollarSign, Settings, UserCog, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
-import { canManageMembers } from '@tutomate/core';
+import { canManageMembers, useAiNotifyStore } from '@tutomate/core';
 
 const mainItems = [
   { key: '/', icon: LayoutDashboard, label: '대시보드' },
@@ -19,6 +19,7 @@ const bottomItems = [
 const Navigation: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const aiUnread = useAiNotifyStore((s) => s.unread);
 
   const ownerItems = canManageMembers()
     ? [{ key: '/members', icon: UserCog, label: '멤버 관리' }]
@@ -84,6 +85,19 @@ const Navigation: React.FC = () => {
         )}
         <Icon style={{ width: 18, height: 18, flexShrink: 0 }} />
         <span>{item.label}</span>
+        {item.key === '/ai-chat' && aiUnread && !isActive && (
+          <span
+            aria-label="새 답변"
+            style={{
+              marginLeft: 'auto',
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: 'hsl(var(--destructive))',
+              flexShrink: 0,
+            }}
+          />
+        )}
       </button>
     );
   };
