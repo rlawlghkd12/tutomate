@@ -25,16 +25,17 @@ const MAX_TOOL_ROUNDS = 5;
 const READY_TIMEOUT_MS = 90_000;
 /** 응답에 예약할 출력 토큰 */
 const MAX_OUTPUT_TOKENS = 2048;
-/** 컨텍스트 추정 오차/템플릿 오버헤드용 여유분 */
-const CONTEXT_SAFETY_TOKENS = 512;
+/** 컨텍스트 추정 오차/템플릿(jinja) 오버헤드용 여유분 */
+const CONTEXT_SAFETY_TOKENS = 1024;
 /** 단일 도구 결과를 컨텍스트에 넣을 때 최대 글자수 (초과 시 잘라냄) */
 const MAX_TOOL_RESULT_CHARS = 4000;
 /** 트림 시 도구 결과를 잘라낼 최소 보존 글자수 */
 const MIN_TOOL_RESULT_CHARS = 400;
 
 /**
- * 토큰 수 추정 (한국어 ≈ 1토큰/글자, ASCII ≈ 3.5글자/토큰).
- * 정확한 토크나이저 대신 컨텍스트 트림 판단용 보수적 추정.
+ * 토큰 수 추정. 정확한 토크나이저 대신 컨텍스트 트림 판단용 *보수적*(=많게) 추정.
+ * 과소평가하면 실제 프롬프트가 n_ctx를 넘겨 답변이 중간에 잘리므로 일부러 넉넉히 잡는다.
+ * Qwen BBPE 기준 한글은 글자당 1토큰을 넘는 경우가 많아 1.3배, ASCII는 3글자/토큰으로 가정.
  */
 function estimateTokens(s?: string): number {
   if (!s) return 0;
@@ -45,7 +46,7 @@ function estimateTokens(s?: string): number {
     if ((code >= 0x3000 && code <= 0x9fff) || (code >= 0xac00 && code <= 0xd7af)) cjk++;
     else other++;
   }
-  return Math.ceil(cjk + other / 3.5);
+  return Math.ceil(cjk * 1.3 + other / 3);
 }
 
 interface ServerOptions extends LlamaRuntimeOptions {
@@ -208,6 +209,14 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
         const toolCalls: { id: string; name: string; args: string }[] = [];
         let finishReason: string | null = null;
 
+        // 실제 남은 공간에 맞춰 출력 토큰을 동적으로 잡는다.
+        // 고정 2048은 프롬프트가 커지면 n_ctx를 넘겨 답변이 중간에 잘리는 원인.
+        const promptTokens = totalTokens() + toolsTokens;
+        const maxTokens = Math.max(
+          512,
+          Math.min(MAX_OUTPUT_TOKENS, ctxSize - promptTokens - CONTEXT_SAFETY_TOKENS),
+        );
+
         const resp = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -216,7 +225,7 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
             tools: oaiTools,
             tool_choice: 'auto',
             stream: true,
-            max_tokens: 2048,
+            max_tokens: maxTokens,
             temperature: 0.3,
           }),
           signal,
@@ -277,6 +286,13 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
               /* malformed chunk */
             }
           }
+        }
+
+        if (finishReason === 'length') {
+          console.warn(
+            `[LlamaServerRuntime] 답변이 출력 한도(max_tokens=${maxTokens})에서 잘림 — ` +
+              `프롬프트 ≈ ${promptTokens}/${ctxSize} 토큰. 대화가 길어 컨텍스트가 부족합니다.`,
+          );
         }
 
         if (toolCalls.length === 0) {

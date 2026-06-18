@@ -7,11 +7,13 @@ type AnyTool = ToolHandler<any>;
 import { searchStudent } from './tools/searchStudent';
 import { getStudent } from './tools/getStudent';
 import { getPaymentHistory } from './tools/getPaymentHistory';
+import { getCoursePayments } from './tools/getCoursePayments';
 import { getUnpaidStudents } from './tools/getUnpaidStudents';
 import { getEnrollment } from './tools/getEnrollment';
 import { listClasses } from './tools/listClasses';
 import { getClassRoster } from './tools/getClassRoster';
 import { getMonthlySummary } from './tools/getMonthlySummary';
+import { getRevenue } from './tools/getRevenue';
 import { getStudentSummary } from './tools/getStudentSummary';
 import { getOrgStats } from './tools/getOrgStats';
 import { parseExcelHeaders } from './tools/parseExcelHeaders';
@@ -19,16 +21,18 @@ import { mapColumns } from './tools/mapColumns';
 import { previewImport } from './tools/previewImport';
 import { confirmImport } from './tools/confirmImport';
 
-/** 챗봇이 호출 가능한 모든 도구 (조회 9 + 임포트 4 = 13개). */
+/** 챗봇이 호출 가능한 모든 도구 (조회 11 + 임포트 4 = 15개). */
 export const ALL_TOOLS: AnyTool[] = [
   searchStudent,
   getStudent,
   getPaymentHistory,
+  getCoursePayments,
   getUnpaidStudents,
   getEnrollment,
   listClasses,
   getClassRoster,
   getMonthlySummary,
+  getRevenue,
   getStudentSummary,
   getOrgStats,
   parseExcelHeaders,

@@ -20,6 +20,7 @@ export default function AiChatPage() {
   const statusError = useAiChatStore((s) => s.statusError);
   const messages = useAiChatStore((s) => s.messages);
   const streaming = useAiChatStore((s) => s.streaming);
+  const summarizing = useAiChatStore((s) => s.summarizing);
   const summary = useAiChatStore((s) => s.summary);
   const init = useAiChatStore((s) => s.init);
   const loadForOrg = useAiChatStore((s) => s.loadForOrg);
@@ -102,6 +103,7 @@ export default function AiChatPage() {
       <ChatWindow
         messages={messages}
         streaming={streaming}
+        summarizing={summarizing}
         onConfirmPreview={(card: Extract<SmartCard, { type: 'importPreview' }>) => confirmPreview(card, ctx)}
         onCancelPreview={cancelPreview}
       />

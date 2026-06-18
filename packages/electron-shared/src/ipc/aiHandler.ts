@@ -83,10 +83,12 @@ const SYSTEM_PROMPT = `당신은 수강 관리 조직 운영자를 돕는 한국
 
 # 질문 → 도구 매핑
 
-- "총 몇 명?", "전체 통계", "이번 달 매출" → \`getOrgStats\`
+- "총 몇 명?", "전체 통계" → \`getOrgStats\`
+- "매출/수익 얼마", "○○강좌 매출", "이번 분기 매출" → \`getRevenue\` (수익 관리 페이지와 동일 기준)
 - "강좌 목록", "무슨 강좌 있어?" → \`listClasses\`
 - "○○ 학생", "학생 명단" → \`searchStudent\` (인자 없어도 됨)
-- "○○ 결제 언제" → \`searchStudent\` → \`getPaymentHistory\`
+- "○○ 결제 언제", "○○ 5월 결제내역" → \`searchStudent\` → \`getPaymentHistory\` (특정 달은 month=YYYY-MM)
+- "○○강좌/반 결제내역", "○○강좌 5월 매출" → \`listClasses\` → \`getCoursePayments\` (학생별 개별 조회 금지)
 - "미납자" → \`getUnpaidStudents\`
 - "○○반 명단" → \`listClasses\` → \`getClassRoster\`
 - "○○ 학생 정보 요약" → \`searchStudent\` → \`getStudentSummary\`
@@ -96,6 +98,19 @@ const SYSTEM_PROMPT = `당신은 수강 관리 조직 운영자를 돕는 한국
 - 간결한 한국어, 짧은 문장 + 줄바꿈
 - 도구 결과 숫자를 그대로 인용. 추측 금지.
 - 회피성 문구("확인되지 않았다", "조회할 수 없다") 금지
+- **\`id\`(UUID) 같은 내부 식별자는 사용자에게 절대 표시하지 마세요.** 강좌는 이름/요일/시간/강의실/수강인원으로, 학생은 이름/전화번호로 보여주세요. id는 다른 도구 호출(예: getClassRoster) 인자로만 내부 사용.
+
+# 매출 vs 결제내역 (중요)
+
+- **"매출/수익이 얼마"** = 수익 관리 페이지 기준 → 반드시 \`getRevenue\` 사용 (등록 누적 납부액, 분기 기준). payment_records를 직접 합산해 매출을 내지 마세요 — 페이지와 숫자가 달라집니다.
+- **"결제내역/언제 냈나/입출금"** = 거래 목록 → \`getPaymentHistory\`(학생) 또는 \`getCoursePayments\`(강좌).
+- 특정 강좌의 결제는 반드시 \`getCoursePayments\` (명단 받아 학생별 \`getPaymentHistory\` 반복 금지).
+
+# 결제내역 표기 규칙
+
+- 결제 도구는 입금/환불 분리: \`paidTotal\`(입금), \`refundTotal\`(환불), \`netTotal\`(순액).
+- 음수 금액 레코드(type:"refund")는 **환불**입니다. "면제/포기일 수 있다" 추측 금지 — 환불로 명시.
+- 음수를 양수와 섞어 단일 합계로 만들지 마세요(합계가 음수로 보임).
 
 # 임포트 시 결제(payments) 데이터 처리
 
@@ -350,9 +365,15 @@ export function registerAiHandlers(ipcMain: IpcMain) {
         );
       } catch (e: any) {
         console.error('[ai:chat] chat 실행 중 예외:', e);
+        const aborted =
+          abort?.signal.aborted ||
+          e?.name === 'AbortError' ||
+          /abort/i.test(e?.message ?? '');
         sendEvent({
           type: 'error',
-          message: `답변 생성 실패: ${e?.message ?? String(e)}`,
+          message: aborted
+            ? '답변 작성을 중간에 멈췄어요.'
+            : '답변을 만드는 중에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.',
         });
         sendEvent({ type: 'done' });
       }

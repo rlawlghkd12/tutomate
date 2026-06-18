@@ -1,11 +1,12 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkCjkFriendly from 'remark-cjk-friendly';
 
 /** 어시스턴트 답변용 마크다운 렌더러. 큰 글씨/넉넉한 간격으로 60대 사용자 가독성 우선. */
 export function Markdown({ children }: { children: string }) {
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkCjkFriendly]}
       components={{
         p: ({ children }) => <p className="mb-2 leading-relaxed last:mb-0">{children}</p>,
         strong: ({ children }) => <strong className="font-bold">{children}</strong>,

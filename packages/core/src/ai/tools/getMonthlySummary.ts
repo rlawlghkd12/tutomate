@@ -22,7 +22,11 @@ export const getMonthlySummary: ToolHandler<typeof schema> = {
       .gte('paid_at', monthStart)
       .lt('paid_at', nextMonthStart);
     if (paysErr) throw new Error(paysErr.message);
-    const totalAmount = (pays ?? []).reduce((s, p: any) => s + (p.amount ?? 0), 0);
+    // 입금(양수)과 환불(음수) 분리 — 합치면 매출이 음수로 보여 혼란
+    const paid = (pays ?? []).filter((p: any) => (p.amount ?? 0) > 0);
+    const refunds = (pays ?? []).filter((p: any) => (p.amount ?? 0) < 0);
+    const revenue = paid.reduce((s, p: any) => s + p.amount, 0);
+    const refundAmount = Math.abs(refunds.reduce((s, p: any) => s + p.amount, 0));
 
     const { data: enrolls, error: enrollErr } = await supabase
       .from('enrollments')
@@ -34,8 +38,11 @@ export const getMonthlySummary: ToolHandler<typeof schema> = {
 
     return {
       month,
-      totalAmount,
-      paymentCount: pays?.length ?? 0,
+      revenue, // 입금 합계 (매출)
+      refundAmount, // 환불 합계 (양수 표기)
+      netRevenue: revenue - refundAmount, // 순매출
+      paymentCount: paid.length, // 입금 건수
+      refundCount: refunds.length, // 환불 건수
       newEnrollments,
     };
   },

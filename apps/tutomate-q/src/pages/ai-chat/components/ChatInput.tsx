@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { Paperclip } from 'lucide-react';
 
 interface Props {
   onSend: (
@@ -32,7 +33,8 @@ export function ChatInput({ onSend, onCancel, streaming }: Props) {
     <div className="border-t border-border p-3 flex flex-col gap-2 bg-background">
       {attachment && (
         <div className="text-sm flex items-center gap-2 bg-muted text-foreground px-3 py-2 rounded-lg">
-          📎 {attachment.name}
+          <Paperclip className="h-4 w-4 shrink-0" />
+          {attachment.name}
           <button
             onClick={() => {
               window.electronAPI.fileStashDelete(attachment.fileId);
@@ -49,10 +51,10 @@ export function ChatInput({ onSend, onCancel, streaming }: Props) {
         <button
           onClick={() => fileRef.current?.click()}
           disabled={streaming}
-          className="px-4 py-3 bg-secondary text-secondary-foreground rounded-xl text-lg disabled:opacity-50 hover:bg-accent"
+          className="px-4 py-3 bg-secondary text-secondary-foreground rounded-xl disabled:opacity-50 hover:bg-accent flex items-center"
           aria-label="파일 첨부"
         >
-          📎
+          <Paperclip className="h-5 w-5" />
         </button>
         <input
           ref={fileRef}
