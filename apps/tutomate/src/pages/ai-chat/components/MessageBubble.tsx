@@ -17,7 +17,6 @@ export type DisplayMessage = ChatMessage & {
 const TOOL_LABELS: Record<string, string> = {
   getMonthlySummary: '월별 수익 조회',
   getOrgStats: '전체 통계 조회',
-  getAttendance: '출석 조회',
   getClassRoster: '수강생 명단 조회',
   getEnrollment: '수강 등록 조회',
   getPaymentHistory: '결제 내역 조회',

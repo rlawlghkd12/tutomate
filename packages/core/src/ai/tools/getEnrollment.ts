@@ -12,9 +12,8 @@ export const getEnrollment: ToolHandler<typeof schema> = {
     if (!supabase) throw new Error('Supabase 미설정');
     const { data, error } = await supabase
       .from('enrollments')
-      .select('id, course_id, status, started_at, ended_at, courses!inner(id, name)')
-      .eq('student_id', studentId)
-;
+      .select('id, course_id, payment_status, paid_amount, remaining_amount, quarter, enrolled_at, courses!inner(id, name)')
+      .eq('student_id', studentId);
     if (error) throw new Error(error.message);
     return { enrollments: data ?? [] };
   },

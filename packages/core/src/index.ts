@@ -34,6 +34,7 @@ export { useQuarterStore } from './stores/quarterStore';
 export { useNotificationStore, getUnreadCountForOrg } from './stores/notificationStore';
 export { useEventLogStore } from './stores/eventLogStore';
 export type { EventLogFilters } from './stores/eventLogStore';
+export { useAiNotifyStore } from './stores/aiNotifyStore';
 
 // ─── Utils ───────────────────────────────────────────────────────
 export { createDataHelper, clearAllCache } from './utils/dataHelper';

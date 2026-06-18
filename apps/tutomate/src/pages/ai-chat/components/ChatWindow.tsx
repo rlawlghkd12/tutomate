@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { ArrowDown } from 'lucide-react';
 import type { SmartCard } from '@tutomate/core';
 import { MessageBubble, type DisplayMessage } from './MessageBubble';
 
@@ -34,38 +35,73 @@ function TypingIndicator() {
 
 export function ChatWindow({ messages, streaming, onConfirmPreview, onCancelPreview }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const [atBottom, setAtBottom] = useState(true);
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+  };
+
+  // 페이지 진입 시 즉시 맨 아래로
+  useLayoutEffect(() => {
+    scrollToBottom('auto');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 새 메시지/스트리밍: 사용자가 맨 아래를 보고 있을 때만 따라 내려감
   useEffect(() => {
-    ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: 'smooth' });
+    if (atBottom) scrollToBottom('smooth');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, streaming]);
 
-  // 마지막 메시지가 user면 아직 assistant 응답 시작 전 → 타이핑 표시
-  // 마지막이 assistant라도 빈 콘텐츠 + cards 없음이면 도구 호출 중일 수 있음 → 표시
-  const last = messages[messages.length - 1];
-  const showTyping = streaming && (
-    !last ||
-    last.role === 'user' ||
-    (last.role === 'assistant' &&
-      !last.content &&
-      !(last.cards && last.cards.length) &&
-      !(last.tools && last.tools.length))
-  );
+  const handleScroll = () => {
+    const el = ref.current;
+    if (!el) return;
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setAtBottom(dist < 80);
+  };
 
   return (
-    <div ref={ref} className="flex-1 overflow-y-auto p-4 space-y-3">
-      {messages.length === 0 && !streaming && (
-        <div className="text-center text-muted-foreground mt-12 text-lg">
-          안녕하세요. 수강생 정보를 묻거나 엑셀을 첨부해 추가해주세요.
-        </div>
+    <div className="relative flex-1 min-h-0">
+      <div ref={ref} onScroll={handleScroll} className="h-full overflow-y-auto p-4 space-y-3">
+        {messages.length === 0 && !streaming && (
+          <div className="text-center text-muted-foreground mt-12 text-lg">
+            안녕하세요. 수강생 정보를 묻거나 엑셀을 첨부해 추가해주세요.
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <MessageBubble
+            key={i}
+            message={m}
+            onConfirmPreview={onConfirmPreview}
+            onCancelPreview={onCancelPreview}
+          />
+        ))}
+        {streaming &&
+          (() => {
+            const last = messages[messages.length - 1];
+            const showTyping =
+              !last ||
+              last.role === 'user' ||
+              (last.role === 'assistant' &&
+                !last.content &&
+                !(last.cards && last.cards.length) &&
+                !(last.tools && last.tools.length));
+            return showTyping ? <TypingIndicator /> : null;
+          })()}
+      </div>
+
+      {!atBottom && (
+        <button
+          onClick={() => scrollToBottom('smooth')}
+          aria-label="맨 아래로 이동"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium shadow-lg hover:bg-accent"
+        >
+          <ArrowDown className="h-4 w-4" />
+          맨 아래로
+        </button>
       )}
-      {messages.map((m, i) => (
-        <MessageBubble
-          key={i}
-          message={m}
-          onConfirmPreview={onConfirmPreview}
-          onCancelPreview={onCancelPreview}
-        />
-      ))}
-      {showTyping && <TypingIndicator />}
     </div>
   );
 }

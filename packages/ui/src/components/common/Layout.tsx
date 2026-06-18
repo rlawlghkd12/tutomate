@@ -407,8 +407,8 @@ const Layout: React.FC<LayoutProps> = ({ children, headerExtra, sidebarExtra }) 
 				)}
 
 				{/* 콘텐츠 (padding 20px) */}
-				<main style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: 24, background: 'hsl(var(--layout-bg))' }}>
-					<div style={{ width: '100%' }}>
+				<main style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: 24, background: 'hsl(var(--layout-bg))', minHeight: 0 }}>
+					<div style={{ width: '100%', height: '100%' }}>
 						{children}
 					</div>
 				</main>
