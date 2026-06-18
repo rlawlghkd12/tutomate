@@ -1,16 +1,17 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, BookOpen, Users, Calendar, DollarSign, Settings, UserCog, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
-import { canManageMembers, useAiNotifyStore } from '@tutomate/core';
+import { canManageMembers, useAiNotifyStore, isAiChatEnabled, useAuthStore } from '@tutomate/core';
 
-const mainItems = [
+const baseMainItems = [
   { key: '/', icon: LayoutDashboard, label: '대시보드' },
   { key: '/courses', icon: BookOpen, label: '강좌 관리' },
   { key: '/students', icon: Users, label: '수강생 관리' },
   { key: '/calendar', icon: Calendar, label: '캘린더' },
   { key: '/revenue', icon: DollarSign, label: '수익 관리' },
-  { key: '/ai-chat', icon: Sparkles, label: 'AI 어시스턴트' },
 ];
+
+const aiItem = { key: '/ai-chat', icon: Sparkles, label: 'AI 어시스턴트' };
 
 const bottomItems = [
   { key: '/settings', icon: Settings, label: '설정' },
@@ -20,6 +21,11 @@ const Navigation: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const aiUnread = useAiNotifyStore((s) => s.unread);
+  const organizationId = useAuthStore((s) => s.organizationId);
+
+  const mainItems = isAiChatEnabled(organizationId)
+    ? [...baseMainItems, aiItem]
+    : baseMainItems;
 
   const ownerItems = canManageMembers()
     ? [{ key: '/members', icon: UserCog, label: '멤버 관리' }]

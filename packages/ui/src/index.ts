@@ -32,6 +32,7 @@ export {
 // Common components
 export { ErrorBoundary, withErrorBoundary } from './components/common/ErrorBoundary';
 export { default as Layout } from './components/common/Layout';
+export { AiChatGate } from './components/common/AiChatGate';
 export { default as LockScreen } from './components/common/LockScreen';
 export { default as Navigation } from './components/common/Navigation';
 export { QuarterSelect } from './components/common/QuarterSelect';
