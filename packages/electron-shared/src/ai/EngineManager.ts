@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import yauzl from 'yauzl';
@@ -41,12 +42,13 @@ export class EngineManager {
       throw new Error('unsupported platform');
     }
 
+    const isZip = url.endsWith('.zip');
     fs.mkdirSync(dest, { recursive: true });
     const tmpDir = fs.mkdtempSync(path.join(this.userDataDir, 'engine-dl-'));
-    const zipPath = path.join(tmpDir, 'llama.zip');
+    const archivePath = path.join(tmpDir, isZip ? 'llama.zip' : 'llama.tar.gz');
 
     try {
-      // 1) zip 다운로드 (진행률)
+      // 1) 아카이브 다운로드 (진행률)
       const res = await fetch(url, { signal });
       if (!res.ok) {
         onEvent({ type: 'error', message: `엔진 다운로드 실패: HTTP ${res.status}` });
@@ -60,12 +62,17 @@ export class EngineManager {
         received += chunk.length;
         onEvent({ type: 'progress', received, total });
       });
-      await pipeline(stream, fs.createWriteStream(zipPath));
+      await pipeline(stream, fs.createWriteStream(archivePath));
 
-      // 2) 압축 해제
+      // 2) 압축 해제 — Windows는 .zip(yauzl), macOS/Linux는 .tar.gz(system tar)
       onEvent({ type: 'extracting' });
       const extractDir = path.join(tmpDir, 'extracted');
-      await extractZip(zipPath, extractDir);
+      fs.mkdirSync(extractDir, { recursive: true });
+      if (isZip) {
+        await extractZip(archivePath, extractDir);
+      } else {
+        execFileSync('tar', ['-xzf', archivePath, '-C', extractDir]);
+      }
 
       // 3) llama-server 위치 찾아 같은 폴더 파일 통째로 복사 (동봉 라이브러리 포함)
       const exe = process.platform === 'win32' ? 'llama-server.exe' : 'llama-server';
