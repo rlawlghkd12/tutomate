@@ -3,7 +3,13 @@ import { useAiNotifyStore } from '@tutomate/core';
 import type { ChatMessage, SmartCard } from '@tutomate/core';
 import type { DisplayMessage } from './components/MessageBubble';
 
-export type AiState = 'unknown' | 'not_installed' | 'loading_pending' | 'ready' | 'disabled';
+export type AiState =
+  | 'unknown'
+  | 'not_installed'
+  | 'engine_missing'
+  | 'loading_pending'
+  | 'ready'
+  | 'disabled';
 
 const HISTORY_LIMIT = 400; // 표시용 메시지 최대 보존 수 (컨텍스트 압축은 별도)
 const COMPRESS_TRIGGER = 3200; // 요약 안 된 활성 대화가 이 추정 토큰을 넘으면 압축
@@ -85,6 +91,7 @@ interface AiChatStore {
   init: () => void;
   loadForOrg: (orgId: string) => void;
   setStatus: (s: AiState) => void;
+  refreshStatus: () => Promise<void>;
   send: (text: string, attachment: { fileId: string; name: string } | undefined, ctx: SendContext) => Promise<void>;
   confirmPreview: (card: Extract<SmartCard, { type: 'importPreview' }>, ctx: SendContext) => Promise<void>;
   cancelPreview: () => void;
@@ -204,9 +211,10 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
           throw new Error('electronAPI.aiStatus 미정의 — preload 갱신 필요');
         }
         const status = (await window.electronAPI.aiStatus()) as AiState;
-        if (status === 'not_installed') {
+        // 엔진·모델 중 무엇이든 없으면 설치 온보딩 필요 — 사양 미달이면 차단
+        if (status === 'not_installed' || status === 'engine_missing') {
           const d = await window.electronAPI.aiDiagnose();
-          set({ status: d.recommendation === 'block' ? 'disabled' : 'not_installed' });
+          set({ status: d.recommendation === 'block' ? 'disabled' : status });
           return;
         }
         set({ status });
@@ -229,6 +237,16 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
   },
 
   setStatus: (s) => set({ status: s }),
+
+  // 설치 완료 후 실제 상태 재조회 (엔진·모델 모두 갖춰졌는지 메인에 다시 물음)
+  refreshStatus: async () => {
+    try {
+      const status = (await window.electronAPI.aiStatus()) as AiState;
+      set({ status });
+    } catch (e: any) {
+      set({ statusError: e?.message ?? String(e) });
+    }
+  },
 
   send: async (text, attachment, ctx) => {
     const userMsg: ChatMessage = {

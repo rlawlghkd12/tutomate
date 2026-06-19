@@ -56,7 +56,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // AI 챗봇
   aiStatus: () => ipcRenderer.invoke('ai:status'),
   aiDiagnose: () => ipcRenderer.invoke('ai:diagnose'),
+  aiNeeds: () => ipcRenderer.invoke('ai:needs'),
   aiDownload: () => ipcRenderer.invoke('ai:download'),
+  aiDownloadEngine: () => ipcRenderer.invoke('ai:download-engine'),
   aiCancel: () => ipcRenderer.invoke('ai:cancel'),
   aiResetSession: () => ipcRenderer.invoke('ai:reset-session'),
   aiSummarize: (payload) => ipcRenderer.invoke('ai:summarize', payload),
@@ -69,6 +71,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (_event, e) => callback(e);
     ipcRenderer.on('ai:download-event', handler);
     return () => ipcRenderer.removeListener('ai:download-event', handler);
+  },
+  onAiEngineDownloadEvent: (callback) => {
+    const handler = (_event, e) => callback(e);
+    ipcRenderer.on('ai:engine-download-event', handler);
+    return () => ipcRenderer.removeListener('ai:engine-download-event', handler);
   },
   onAiChatEvent: (callback) => {
     const handler = (_event, e) => callback(e);
