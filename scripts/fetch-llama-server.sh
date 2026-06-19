@@ -47,12 +47,19 @@ for app_dir in apps/tutomate apps/tutomate-q; do
       continue
     fi
 
-    url="${BASE_URL}/llama-${RELEASE}-bin-${asset}.zip"
-    zip="$TMPDIR/${plat}.zip"
+    # Windows 자산은 .zip, macOS/Linux는 .tar.gz
+    if [[ "$plat" == win-* ]]; then ext="zip"; else ext="tar.gz"; fi
+    url="${BASE_URL}/llama-${RELEASE}-bin-${asset}.${ext}"
+    archive="$TMPDIR/${plat}.${ext}"
     echo "[download] $plat: $url"
-    curl -fL "$url" -o "$zip"
-    echo "[unzip] → $out_dir"
-    unzip -q -o "$zip" -d "$TMPDIR/${plat}-extracted"
+    curl -fL "$url" -o "$archive"
+    echo "[extract] → $out_dir"
+    mkdir -p "$TMPDIR/${plat}-extracted"
+    if [[ "$ext" == "zip" ]]; then
+      unzip -q -o "$archive" -d "$TMPDIR/${plat}-extracted"
+    else
+      tar -xzf "$archive" -C "$TMPDIR/${plat}-extracted"
+    fi
 
     # 압축 풀린 폴더 안에서 llama-server 위치 찾아 복사 (구조가 빌드별로 다를 수 있음)
     found=$(find "$TMPDIR/${plat}-extracted" -name "llama-server*" -type f | head -1)

@@ -61,7 +61,8 @@ export const LLAMA_BIN_RELEASE = 'b9030';
 export function llamaBinDownloadUrl(): string | null {
   const platform = detectPlatformDir();
   if (!platform) return null;
-  // 예: https://github.com/ggml-org/llama.cpp/releases/download/b9030/llama-b9030-bin-macos-arm64.zip
+  // llama.cpp 릴리스 자산: Windows는 .zip, macOS/Linux는 .tar.gz
+  // 예: llama-b9030-bin-macos-arm64.tar.gz / llama-b9030-bin-win-cpu-x64.zip
   const platformAsset = (
     {
       'mac-arm64': 'macos-arm64',
@@ -71,5 +72,6 @@ export function llamaBinDownloadUrl(): string | null {
     } as Record<string, string>
   )[platform];
   if (!platformAsset) return null;
-  return `https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_BIN_RELEASE}/llama-${LLAMA_BIN_RELEASE}-bin-${platformAsset}.zip`;
+  const ext = platform.startsWith('win') ? 'zip' : 'tar.gz';
+  return `https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_BIN_RELEASE}/llama-${LLAMA_BIN_RELEASE}-bin-${platformAsset}.${ext}`;
 }
