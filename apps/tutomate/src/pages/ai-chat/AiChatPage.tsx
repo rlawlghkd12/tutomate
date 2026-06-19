@@ -25,6 +25,7 @@ export default function AiChatPage() {
   const init = useAiChatStore((s) => s.init);
   const loadForOrg = useAiChatStore((s) => s.loadForOrg);
   const setStatus = useAiChatStore((s) => s.setStatus);
+  const refreshStatus = useAiChatStore((s) => s.refreshStatus);
   const send = useAiChatStore((s) => s.send);
   const confirmPreview = useAiChatStore((s) => s.confirmPreview);
   const cancelPreview = useAiChatStore((s) => s.cancelPreview);
@@ -72,10 +73,10 @@ export default function AiChatPage() {
   if (status === 'unknown') {
     return <div className="p-8 text-center">준비 중…</div>;
   }
-  if (status === 'not_installed') {
+  if (status === 'not_installed' || status === 'engine_missing') {
     return (
       <ModelDownloadModal
-        onInstalled={() => setStatus('ready')}
+        onInstalled={() => refreshStatus()}
         onSkip={() => setStatus('disabled')}
       />
     );

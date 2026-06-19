@@ -2,6 +2,7 @@ import { app, type IpcMain } from 'electron';
 import path from 'node:path';
 import {
   ModelManager,
+  EngineManager,
   QWEN_3_5_4B_Q4,
   diagnose,
   decideContextSize,
@@ -22,6 +23,7 @@ import { getFileStash } from './fileStashHandler';
 
 const aiDir = path.join(app.getPath('userData'), 'AI');
 const manager = new ModelManager(aiDir);
+const engineManager = new EngineManager(app.getPath('userData'), process.resourcesPath);
 let runtime: LlamaRuntime | null = null;
 let abort: AbortController | null = null;
 
@@ -134,6 +136,31 @@ export function registerAiHandlers(ipcMain: IpcMain) {
   });
 
   ipcMain.handle('ai:diagnose', async () => diagnose(aiDir));
+
+  // 설치 필요 항목 점검 — 엔진(바이너리)·모델 각각 설치 여부
+  ipcMain.handle('ai:needs', () => ({
+    engineInstalled: engineManager.isInstalled(),
+    modelInstalled: manager.isInstalled(QWEN_3_5_4B_Q4),
+  }));
+
+  // 엔진(llama-server 바이너리) 런타임 다운로드 — 모델처럼 번들 대신 사용자가 받음
+  ipcMain.handle('ai:download-engine', async (event) => {
+    const sender = event.sender;
+    abort = new AbortController();
+    try {
+      await engineManager.download(
+        (e) => sender.send('ai:engine-download-event', e),
+        abort.signal,
+      );
+    } catch (err: any) {
+      sender.send('ai:engine-download-event', {
+        type: 'error',
+        message: err?.message ?? String(err),
+      });
+    } finally {
+      abort = null;
+    }
+  });
 
   ipcMain.handle('ai:download', async (event) => {
     const sender = event.sender;

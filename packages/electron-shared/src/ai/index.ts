@@ -23,3 +23,4 @@ export {
   llamaBinDownloadUrl,
   LLAMA_BIN_RELEASE,
 } from './llamaServerBin';
+export { EngineManager, type EngineEvent } from './EngineManager';

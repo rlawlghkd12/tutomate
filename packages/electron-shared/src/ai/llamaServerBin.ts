@@ -27,9 +27,9 @@ export function findLlamaServerBin(userDataDir: string, resourcesPath?: string):
     if (fs.existsSync(userBin)) return userBin;
   }
 
-  // 3. 앱 번들 (extraResources)
-  if (resourcesPath) {
-    const bundledBin = path.join(resourcesPath, 'llama-bin', exe);
+  // 3. 앱 번들 (extraResources) — fetch-llama-server.sh가 platform 하위폴더로 넣으므로 동일 구조로 조회
+  if (resourcesPath && platform) {
+    const bundledBin = path.join(resourcesPath, 'llama-bin', platform, exe);
     if (fs.existsSync(bundledBin)) return bundledBin;
   }
 

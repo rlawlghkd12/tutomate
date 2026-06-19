@@ -14,10 +14,8 @@ files:
   - "!node_modules/lightningcss/**"
   - "!node_modules/lightningcss-*/**"
 
-extraResources:
-  - from: build/llama-bin
-    to: llama-bin
-    filter: ["**/*"]
+# llama-server 바이너리·AI 모델은 설치 파일에 번들하지 않음 (설치 파일 비대화 방지).
+# 둘 다 첫 실행 시 사용자가 직접 다운로드 → userData/AI/ 에 저장.
 
 publish:
   provider: github

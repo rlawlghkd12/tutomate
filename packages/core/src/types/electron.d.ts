@@ -37,14 +37,16 @@ interface ElectronAPI {
   fileStashDelete(fileId: string): Promise<void>;
 
   // AI 챗봇
-  aiStatus(): Promise<'not_installed' | 'loading_pending' | 'ready' | 'disabled'>;
+  aiStatus(): Promise<'not_installed' | 'engine_missing' | 'loading_pending' | 'ready' | 'disabled'>;
   aiDiagnose(): Promise<{
     ramGB: number;
     diskGB: number;
     recommendation: 'ok' | 'warn' | 'block';
     tier: 'fast' | 'slow' | 'unsupported';
   }>;
+  aiNeeds(): Promise<{ engineInstalled: boolean; modelInstalled: boolean }>;
   aiDownload(): Promise<void>;
+  aiDownloadEngine(): Promise<void>;
   aiCancel(): Promise<void>;
   aiResetSession(): Promise<void>;
   aiSummarize(payload: {
@@ -74,6 +76,7 @@ interface ElectronAPI {
   }): Promise<void>;
   aiDirectImport(fileId: string, orgId: string, userId: string): Promise<{ card: any }>;
   onAiDownloadEvent(callback: (e: any) => void): () => void;
+  onAiEngineDownloadEvent(callback: (e: any) => void): () => void;
   onAiChatEvent(callback: (e: any) => void): () => void;
 }
 
