@@ -100,13 +100,18 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
     console.log('[LlamaServerRuntime] spawn:', binPath, args.join(' '));
     proc = spawn(binPath!, args, { stdio: ['ignore', 'pipe', 'pipe'] });
 
+    // 크래시 원인 파악용 — stderr/stdout 마지막 줄들을 보관해 에러에 첨부
+    let logTail = '';
+    const keepTail = (s: string) => {
+      logTail = (logTail + s + '\n').slice(-1200);
+    };
     proc.stdout?.on('data', (d) => {
       const s = d.toString().trim();
-      if (s) console.log('[llama-server]', s);
+      if (s) { console.log('[llama-server]', s); keepTail(s); }
     });
     proc.stderr?.on('data', (d) => {
       const s = d.toString().trim();
-      if (s) console.error('[llama-server]', s);
+      if (s) { console.error('[llama-server]', s); keepTail(s); }
     });
 
     // ready 대기 (health endpoint)
@@ -122,7 +127,11 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
         /* still starting */
       }
       if (proc.exitCode !== null) {
-        throw new Error(`llama-server 비정상 종료 (code ${proc.exitCode})`);
+        const detail = logTail.trim();
+        throw new Error(
+          `llama-server 비정상 종료 (code ${proc.exitCode})` +
+            (detail ? `\n\n[엔진 로그]\n${detail}` : ''),
+        );
       }
       await new Promise((r) => setTimeout(r, 500));
     }
