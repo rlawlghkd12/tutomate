@@ -8,6 +8,7 @@ import {
   decideContextSize,
   createLlamaServerRuntime,
   findLlamaServerBin,
+  detectPlatformDir,
   type LlamaRuntime,
 } from '../ai';
 import {
@@ -33,12 +34,17 @@ async function ensureRuntime(): Promise<LlamaRuntime> {
     // 기기 RAM에 따라 컨텍스트 크기 결정 — 넉넉하면 더 키워 긴 대화/큰 결과 수용
     const { ramGB } = await diagnose(aiDir);
     const contextSize = decideContextSize(ramGB);
-    console.log(`[ai] RAM ${ramGB}GB → contextSize ${contextSize}`);
+    // macOS 다운로드 빌드는 Metal GPU, Windows/Linux 다운로드 빌드는 CPU 전용 →
+    // CPU 빌드에 -ngl(GPU 오프로드)을 요청하면 기동 실패할 수 있으므로 0으로 둔다.
+    const plat = detectPlatformDir();
+    const gpuLayers = plat && plat.startsWith('mac') ? 99 : 0;
+    console.log(`[ai] RAM ${ramGB}GB → contextSize ${contextSize}, platform ${plat}, gpuLayers ${gpuLayers}`);
     runtime = await createLlamaServerRuntime({
       modelPath: manager.modelPath(QWEN_3_5_4B_Q4),
       userDataDir: app.getPath('userData'),
       resourcesPath: process.resourcesPath,
       contextSize,
+      gpuLayers,
     });
     await runtime.load();
   }
