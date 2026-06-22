@@ -95,7 +95,8 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
       '--jinja',
       '-ngl', String(opts.gpuLayers ?? 99),
       '--no-warmup',
-      '--log-disable', // 줄이기 — 우리 콘솔 더럽히지 않게
+      // --log-disable 제거: 기동 실패(모델 로드 등) 사유가 stderr로 나와야 진단 가능.
+      // (이 로그는 비정상 종료 시 에러 메시지에 첨부됨)
     ];
     console.log('[LlamaServerRuntime] spawn:', binPath, args.join(' '));
     proc = spawn(binPath!, args, { stdio: ['ignore', 'pipe', 'pipe'] });
