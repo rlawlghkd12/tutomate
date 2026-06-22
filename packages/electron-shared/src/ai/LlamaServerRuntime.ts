@@ -103,7 +103,7 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
     // 크래시 원인 파악용 — stderr/stdout 마지막 줄들을 보관해 에러에 첨부
     let logTail = '';
     const keepTail = (s: string) => {
-      logTail = (logTail + s + '\n').slice(-1200);
+      logTail = (logTail + s + '\n').slice(-3000);
     };
     proc.stdout?.on('data', (d) => {
       const s = d.toString().trim();

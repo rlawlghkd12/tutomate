@@ -1,5 +1,6 @@
 import { app, type IpcMain } from 'electron';
 import path from 'node:path';
+import fs from 'node:fs';
 import {
   ModelManager,
   EngineManager,
@@ -34,6 +35,21 @@ async function ensureRuntime(): Promise<LlamaRuntime> {
     // 기기 RAM에 따라 컨텍스트 크기 결정 — 넉넉하면 더 키워 긴 대화/큰 결과 수용
     const { ramGB } = await diagnose(aiDir);
     const contextSize = decideContextSize(ramGB);
+
+    // 모델 파일 사전 검사 — 없거나 크기가 모자라면(미완성/손상) llama-server가 code 1로
+    // 죽어 원인이 모호해지므로, 먼저 명확한 메시지로 막는다.
+    const modelPath = manager.modelPath(QWEN_3_5_4B_Q4);
+    const modelSize = fs.existsSync(modelPath) ? fs.statSync(modelPath).size : 0;
+    if (modelSize < QWEN_3_5_4B_Q4.sizeBytes * 0.99) {
+      throw new Error(
+        modelSize === 0
+          ? 'AI 모델 파일이 없습니다. 모델을 다시 받아주세요.'
+          : `AI 모델 파일이 손상되었거나 다운로드가 덜 됐습니다 ` +
+            `(${(modelSize / 1e9).toFixed(2)}GB / 정상 ${(QWEN_3_5_4B_Q4.sizeBytes / 1e9).toFixed(2)}GB). ` +
+            `모델을 다시 받아주세요.`,
+      );
+    }
+
     // macOS 다운로드 빌드는 Metal GPU, Windows/Linux 다운로드 빌드는 CPU 전용 →
     // CPU 빌드에 -ngl(GPU 오프로드)을 요청하면 기동 실패할 수 있으므로 0으로 둔다.
     const plat = detectPlatformDir();
