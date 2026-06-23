@@ -95,6 +95,13 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
       '--jinja',
       '-ngl', String(opts.gpuLayers ?? 99),
       '--no-warmup',
+      // Flash attention — prefill/decode 속도 개선, 메모리 사용량도 같이 감소.
+      // 저사양(8GB) 사용자 체감 응답 빠르게 하는 가장 큰 단일 ROI.
+      '-fa',
+      // KV 캐시를 q8_0으로 양자화 → KV 메모리 절반. -fa가 켜져 있어야 v도 양자화 가능.
+      // 품질 손실은 거의 측정 불가 수준이라 default로 켠다.
+      '--cache-type-k', 'q8_0',
+      '--cache-type-v', 'q8_0',
       // --log-disable 제거: 기동 실패(모델 로드 등) 사유가 stderr로 나와야 진단 가능.
       // (이 로그는 비정상 종료 시 에러 메시지에 첨부됨)
     ];
@@ -177,9 +184,13 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
 
       // ── 컨텍스트 예산 ──
       // 시스템 프롬프트 + 도구 정의는 못 줄이므로(도구 호출에 필수), 초과 시 대화/도구 결과를 트림한다.
+      // 출력 토큰·safety 마진은 컨텍스트가 작을 때(저사양 8GB → 4096) 비례로 줄여
+      // inputBudget이 음수가 되지 않도록 한다.
       const ctxSize = opts.contextSize ?? 8192;
       const toolsTokens = estimateTokens(JSON.stringify(oaiTools));
-      const inputBudget = ctxSize - MAX_OUTPUT_TOKENS - CONTEXT_SAFETY_TOKENS - toolsTokens;
+      const reservedOutput = Math.min(MAX_OUTPUT_TOKENS, Math.floor(ctxSize / 4));
+      const safety = Math.min(CONTEXT_SAFETY_TOKENS, Math.floor(ctxSize / 16));
+      const inputBudget = Math.max(512, ctxSize - reservedOutput - safety - toolsTokens);
 
       const msgTokens = (m: any) =>
         estimateTokens(typeof m.content === 'string' ? m.content : JSON.stringify(m.content ?? '')) + 4;
@@ -221,10 +232,12 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
 
         // 실제 남은 공간에 맞춰 출력 토큰을 동적으로 잡는다.
         // 고정 2048은 프롬프트가 커지면 n_ctx를 넘겨 답변이 중간에 잘리는 원인.
+        // 컨텍스트가 작으면(저사양 4096) 최소 보장도 함께 낮춰 답변이 잘리는 비율을 줄인다.
         const promptTokens = totalTokens() + toolsTokens;
+        const minOutput = Math.min(256, Math.floor(ctxSize / 16));
         const maxTokens = Math.max(
-          512,
-          Math.min(MAX_OUTPUT_TOKENS, ctxSize - promptTokens - CONTEXT_SAFETY_TOKENS),
+          minOutput,
+          Math.min(reservedOutput, ctxSize - promptTokens - safety),
         );
 
         // 컨텍스트 사용량을 UI에 보고 (대화가 얼마나 찼는지 퍼센트 표시용)

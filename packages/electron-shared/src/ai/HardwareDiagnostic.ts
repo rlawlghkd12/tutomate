@@ -39,16 +39,25 @@ export function decideRecommendation(input: DiagnosticInput): {
 /**
  * RAM 용량에 따른 llama-server 컨텍스트 크기 결정 (순수 함수, 테스트 가능).
  *
- * 컨텍스트가 클수록 KV 캐시 메모리를 더 쓴다 (Qwen 4B Q4 기준 대략 8192≈1GB, 16384≈2GB, 32768≈4GB).
- * 모델(~3GB) + OS/앱(~2~3GB) 여유를 감안해 RAM이 넉넉할 때만 키운다.
+ * 컨텍스트가 클수록 KV 캐시가 커지고, prefill(첫 토큰까지 시간)도 컨텍스트 길이에
+ * 비례해 느려진다. 저사양일수록 작게 잡아 체감 응답을 빠르게 한다.
+ * (llama-server는 KV 양자화 q8_0과 flash attention을 함께 써서 메모리·속도 모두 개선.)
+ *
+ * Qwen 4B Q4 + KV q8_0 기준 KV 캐시 메모리:
+ *   4096 ≈ 0.25GB,  8192 ≈ 0.5GB,  16384 ≈ 1GB,  32768 ≈ 2GB
+ *
+ * 분기:
+ * - 8GB 미만 → 4096 (저사양에서 prefill 부담 절반으로 — "한세월" 방지)
+ * - 16GB 미만 → 8192 (8GB 사용자가 여기 들어옴 — 컨텍스트 절반으로 줄여 체감 응답↑)
+ *   ↑ 위 두 줄은 동일 라이브러리에서 8GB가 4096으로 떨어지도록 8 기준으로 분기.
+ * - 32GB 미만 → 16384
  * - 32GB+ → 32768
- * - 16GB+ → 16384
- * - 그 외 → 8192 (기본, 저사양 안전)
  */
 export function decideContextSize(ramGB: number): number {
   if (ramGB >= 32) return 32768;
   if (ramGB >= 16) return 16384;
-  return 8192;
+  if (ramGB >= 8) return 8192;
+  return 4096;
 }
 
 /**

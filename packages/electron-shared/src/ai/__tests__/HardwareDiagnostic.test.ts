@@ -44,10 +44,15 @@ describe('decideContextSize (RAM 기반 동적 컨텍스트)', () => {
     expect(decideContextSize(31.9)).toBe(16384);
   });
 
-  it('16GB 미만 → 8192 (기본)', () => {
+  it('8~15GB → 8192', () => {
     expect(decideContextSize(8)).toBe(8192);
     expect(decideContextSize(12)).toBe(8192);
     expect(decideContextSize(15.9)).toBe(8192);
-    expect(decideContextSize(4)).toBe(8192);
+  });
+
+  it('8GB 미만 (저사양) → 4096 — 체감 응답 우선', () => {
+    expect(decideContextSize(7.9)).toBe(4096);
+    expect(decideContextSize(6)).toBe(4096);
+    expect(decideContextSize(4)).toBe(4096);
   });
 });
