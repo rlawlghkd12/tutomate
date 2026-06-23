@@ -10,6 +10,8 @@ import {
   createLlamaServerRuntime,
   findLlamaServerBin,
   detectPlatformDir,
+  ensureVcRedist,
+  isVcRedistInstalled,
   type LlamaRuntime,
 } from '../ai';
 import {
@@ -32,6 +34,15 @@ let abort: AbortController | null = null;
 /** llama-server 런타임 보장 (없으면 생성). ai:chat·ai:summarize 공용. */
 async function ensureRuntime(): Promise<LlamaRuntime> {
   if (!runtime) {
+    // Windows 안전망 — 필수 시스템 구성 요소가 빠진 채 chat이 호출되면 llama-server가
+    // 즉시 죽으며 진단이 어려운 에러만 남는다. 다운로드 단계에서 자동 설치되지만
+    // (설치 거부 / 이후 사용자 제거 등) 누락된 채로 들어왔다면 여기서 친화적으로 안내.
+    // ai:status가 이미 engine_missing을 반환하므로 보통은 모달이 자동으로 떠서 복구.
+    if (!isVcRedistInstalled()) {
+      throw new Error(
+        'AI 엔진 준비가 끝나지 않았어요. 챗봇 화면을 닫았다가 다시 열면 자동으로 마저 받아드릴게요.',
+      );
+    }
     // 기기 RAM에 따라 컨텍스트 크기 결정 — 넉넉하면 더 키워 긴 대화/큰 결과 수용
     const { ramGB } = await diagnose(aiDir);
     const contextSize = decideContextSize(ramGB);
@@ -154,23 +165,58 @@ export function registerAiHandlers(ipcMain: IpcMain) {
     if (!findLlamaServerBin(app.getPath('userData'), process.resourcesPath)) {
       return 'engine_missing';
     }
+    // 엔진·모델은 있는데 Windows 필수 구성 요소가 빠진 케이스 —
+    // 다운로드 모달이 ensure-vcredist만 호출해 자동 복구할 수 있게 신호.
+    if (!isVcRedistInstalled()) return 'engine_missing';
     return runtime ? 'ready' : 'loading_pending';
   });
 
   ipcMain.handle('ai:diagnose', async () => diagnose(aiDir));
 
-  // 설치 필요 항목 점검 — 엔진(바이너리)·모델 각각 설치 여부
+  // 설치 필요 항목 점검 — 엔진(바이너리)·모델·VC++ 재배포(Windows만) 각각 설치 여부
   ipcMain.handle('ai:needs', () => ({
     engineInstalled: engineManager.isInstalled(),
     modelInstalled: manager.isInstalled(QWEN_3_5_4B_Q4),
+    vcRedistInstalled: isVcRedistInstalled(),
   }));
 
-  // 엔진(llama-server 바이너리) 런타임 다운로드 — 모델처럼 번들 대신 사용자가 받음
+  // 엔진(llama-server 바이너리) 런타임 다운로드 — 모델처럼 번들 대신 사용자가 받음.
+  // Windows에서는 VC++ 2015-2022 재배포(MSVCP140.dll 등)가 필수라 엔진 다운로드 직후
+  // 자동으로 체크하고 미설치면 같은 흐름에서 설치까지 진행한다.
+  // (없으면 llama-server.exe가 0xC0000005로 즉사 → 사용자는 원인을 알 수 없음.)
   ipcMain.handle('ai:download-engine', async (event) => {
     const sender = event.sender;
     abort = new AbortController();
     try {
       await engineManager.download(
+        (e) => sender.send('ai:engine-download-event', e),
+        abort.signal,
+      );
+      // 엔진 받은 직후 VC++ Redist 자동 보장. 이미 설치돼있으면 즉시 done 이벤트만.
+      // Windows 외 플랫폼은 skipped 이벤트 후 즉시 반환.
+      await ensureVcRedist(
+        app.getPath('userData'),
+        (e) => sender.send('ai:engine-download-event', e),
+        abort.signal,
+      );
+    } catch (err: any) {
+      sender.send('ai:engine-download-event', {
+        type: 'error',
+        message: err?.message ?? String(err),
+      });
+    } finally {
+      abort = null;
+    }
+  });
+
+  // 엔진은 이미 깔렸는데 VC++ Redist만 누락된 케이스(사용자가 VC++ 지운 경우 등) 처리용.
+  // 이벤트 채널은 `ai:engine-download-event`를 그대로 재사용 — UI가 이미 구독 중.
+  ipcMain.handle('ai:ensure-vcredist', async (event) => {
+    const sender = event.sender;
+    abort = new AbortController();
+    try {
+      await ensureVcRedist(
+        app.getPath('userData'),
         (e) => sender.send('ai:engine-download-event', e),
         abort.signal,
       );

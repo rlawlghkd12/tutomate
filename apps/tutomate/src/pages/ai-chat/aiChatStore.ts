@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { useAiNotifyStore } from '@tutomate/core';
+import { useAiNotifyStore, reportError } from '@tutomate/core';
 import type { ChatMessage, SmartCard } from '@tutomate/core';
 import type { DisplayMessage } from './components/MessageBubble';
 
@@ -191,11 +191,16 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
           set({ contextPercent: Math.min(100, Math.round((u.promptTokens / u.ctxSize) * 100)) });
         }
       } else if (e.type === 'error') {
+        const msg: string = e.message ?? '알 수 없는 오류가 생겼어요.';
         set((state) => ({
-          messages: [...state.messages, { role: 'assistant', content: e.message ?? '알 수 없는 오류가 생겼어요.' }],
+          messages: [...state.messages, { role: 'assistant', content: msg }],
           streaming: false,
         }));
         scheduleSave();
+        // 사용자 취소(abort)는 정상 흐름이라 로그 제외 — 그 외엔 error_logs에 자동 캡처.
+        if (!/취소|멈췄/i.test(msg)) {
+          void reportError(new Error(msg), 'ai-chat');
+        }
       } else if (e.type === 'done') {
         set({ streaming: false });
         scheduleSave();

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { reportError } from '@tutomate/core';
 import { HardwareDiagnosticView } from './HardwareDiagnosticView';
 
 interface Props {
@@ -6,13 +7,21 @@ interface Props {
   onSkip: () => void;
 }
 
-type Phase = 'idle' | 'engine' | 'model' | 'installing';
+type Phase =
+  | 'idle'
+  | 'engine'
+  | 'model'
+  | 'installing'
+  | 'vcredist'
+  | 'vcredist-installing';
 
 const PHASE_LABEL: Record<Phase, string> = {
   idle: '',
   engine: 'AI 엔진 받는 중',
   model: 'AI 모델 받는 중 (약 2.9GB)',
   installing: '설치 중',
+  vcredist: 'AI 실행에 필요한 윈도우 구성 요소 받는 중',
+  'vcredist-installing': '윈도우 구성 요소 설치 중 — 권한 요청 창이 뜨면 [예]를 눌러주세요',
 };
 
 export function ModelDownloadModal({ onInstalled, onSkip }: Props) {
@@ -26,12 +35,36 @@ export function ModelDownloadModal({ onInstalled, onSkip }: Props) {
     const onEngine = window.electronAPI.onAiEngineDownloadEvent((e: any) => {
       if (e.type === 'progress') setProgress({ received: e.received, total: e.total });
       else if (e.type === 'extracting') { setProgress(null); setPhase('installing'); }
-      else if (e.type === 'error') { errorRef.current = e.message; setError(e.message); }
+      else if (e.type === 'vcredist-check') { setProgress(null); setPhase('vcredist'); }
+      else if (e.type === 'vcredist-progress')
+        setProgress({ received: e.received, total: e.total });
+      else if (e.type === 'vcredist-installing') {
+        setProgress(null);
+        setPhase('vcredist-installing');
+      }
+      else if (e.type === 'vcredist-done' || e.type === 'vcredist-skipped') {
+        setProgress(null);
+      }
+      else if (e.type === 'vcredist-error') {
+        errorRef.current = e.message;
+        setError(e.message);
+        // 사용자 환경에서만 재현되는 케이스라 서버 로그로 자동 캡처해 추적
+        void reportError(new Error(e.message), 'ai-engine/vcredist');
+      }
+      else if (e.type === 'error') {
+        errorRef.current = e.message;
+        setError(e.message);
+        void reportError(new Error(e.message), 'ai-engine/download');
+      }
     });
     const onModel = window.electronAPI.onAiDownloadEvent((e: any) => {
       if (e.type === 'progress') setProgress({ received: e.received, total: e.total });
       else if (e.type === 'verifying') { setProgress(null); setPhase('installing'); }
-      else if (e.type === 'error') { errorRef.current = e.message; setError(e.message); }
+      else if (e.type === 'error') {
+        errorRef.current = e.message;
+        setError(e.message);
+        void reportError(new Error(e.message), 'ai-model/download');
+      }
     });
     return () => { onEngine(); onModel(); };
   }, []);
@@ -45,7 +78,14 @@ export function ModelDownloadModal({ onInstalled, onSkip }: Props) {
       if (!needs.engineInstalled) {
         setPhase('engine');
         setProgress(null);
+        // 엔진 다운로드 핸들러가 끝에 VC++ Redist까지 자동으로 처리해 줌
         await window.electronAPI.aiDownloadEngine();
+        if (errorRef.current) return;
+      } else if (!needs.vcRedistInstalled) {
+        // 엔진은 있는데 VC++만 빠진 케이스 — 별도 핸들러로 VC++만 설치
+        setPhase('vcredist');
+        setProgress(null);
+        await window.electronAPI.aiEnsureVcRedist();
         if (errorRef.current) return;
       }
       if (!needs.modelInstalled) {
