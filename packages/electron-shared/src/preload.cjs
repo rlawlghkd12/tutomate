@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   aiNeeds: () => ipcRenderer.invoke('ai:needs'),
   aiDownload: () => ipcRenderer.invoke('ai:download'),
   aiDownloadEngine: () => ipcRenderer.invoke('ai:download-engine'),
+  aiEnsureVcRedist: () => ipcRenderer.invoke('ai:ensure-vcredist'),
   aiCancel: () => ipcRenderer.invoke('ai:cancel'),
   aiResetSession: () => ipcRenderer.invoke('ai:reset-session'),
   aiSummarize: (payload) => ipcRenderer.invoke('ai:summarize', payload),

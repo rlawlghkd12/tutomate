@@ -1,7 +1,7 @@
 {
   "name": "@tutomate/app",
   "private": true,
-  "version": "0.7.17",
+  "version": "0.7.18",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -10,9 +10,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "electron:dev": "vite",
-    "electron:build": "pnpm run build && electron-builder --mac --win",
+    "electron:build": "bash ../../scripts/fetch-vc-redist.sh && pnpm run build && electron-builder --mac --win",
     "electron:build:mac": "pnpm run build && electron-builder --mac",
-    "electron:build:win": "pnpm run build && electron-builder --win"
+    "electron:build:win": "bash ../../scripts/fetch-vc-redist.sh && pnpm run build && electron-builder --win"
   },
   "dependencies": {
     "@tutomate/core": "workspace:*",

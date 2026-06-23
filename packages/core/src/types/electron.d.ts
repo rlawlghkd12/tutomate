@@ -44,9 +44,14 @@ interface ElectronAPI {
     recommendation: 'ok' | 'warn' | 'block';
     tier: 'fast' | 'slow' | 'unsupported';
   }>;
-  aiNeeds(): Promise<{ engineInstalled: boolean; modelInstalled: boolean }>;
+  aiNeeds(): Promise<{
+    engineInstalled: boolean;
+    modelInstalled: boolean;
+    vcRedistInstalled: boolean;
+  }>;
   aiDownload(): Promise<void>;
   aiDownloadEngine(): Promise<void>;
+  aiEnsureVcRedist(): Promise<void>;
   aiCancel(): Promise<void>;
   aiResetSession(): Promise<void>;
   aiSummarize(payload: {

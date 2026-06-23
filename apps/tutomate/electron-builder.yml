@@ -52,6 +52,10 @@ nsis:
   language: 1042
   installerLanguages:
     - ko
+  # AI 엔진(llama-server.exe)이 요구하는 VC++ 2015-2022 재배포 패키지를
+  # 인스톨 시점에 자동 설치 (이미 깔린 경우 skip).
+  # build/vc_redist.x64.exe는 빌드 직전 scripts/fetch-vc-redist.sh가 받아둠.
+  include: ../../packages/electron-shared/build/installer.nsh
 
 protocols:
   - name: TutorMate
