@@ -97,7 +97,9 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
       '--no-warmup',
       // Flash attention — prefill/decode 속도 개선, 메모리 사용량도 같이 감소.
       // 저사양(8GB) 사용자 체감 응답 빠르게 하는 가장 큰 단일 ROI.
-      '-fa',
+      // llama.cpp 최근 빌드부터 `-fa`가 on|off|auto 값을 받는 구문으로 바뀌어
+      // 값을 명시하지 않으면 다음 인자(--cache-type-k)를 값으로 해석해 기동 실패한다.
+      '-fa', 'on',
       // KV 캐시를 q8_0으로 양자화 → KV 메모리 절반. -fa가 켜져 있어야 v도 양자화 가능.
       // 품질 손실은 거의 측정 불가 수준이라 default로 켠다.
       '--cache-type-k', 'q8_0',
