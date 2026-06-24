@@ -13,11 +13,53 @@
  * - 모든 chat() 호출이 같은 프로세스로 라우팅됨 (모델 reload 없음 → 빠름)
  */
 
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import net from 'node:net';
 import type { ToolDefinition } from '@tutomate/core';
 import type { LlamaRuntime, LlamaRuntimeOptions } from './LlamaRuntime';
 import { findLlamaServerBin } from './llamaServerBin';
+
+/**
+ * Windows에서 비ASCII(한글 등) 사용자명 경로는 spawn 인자로 그대로 넘기면
+ * llama-server(C++)가 ANSI argv로 받아 fopen에서 "No such file or directory"로 실패한다.
+ * NTFS의 8.3 단축 경로(`통도예~1` 같은 ASCII alias)로 변환해서 넘기면 모든 코드페이지에서 동일하게 동작.
+ *
+ * - 이미 ASCII면 변환 시도 없이 원본 반환 (PowerShell 호출 비용 절약)
+ * - 단축 경로가 결국 ASCII가 아니거나 변환 실패면 원본 그대로 (폴백, 개선 효과 없음)
+ */
+function toShortPathIfNeeded(longPath: string): string {
+  if (process.platform !== 'win32') return longPath;
+  // eslint-disable-next-line no-control-regex
+  if (/^[\x00-\x7F]+$/.test(longPath)) return longPath;
+  try {
+    const esc = longPath.replace(/'/g, "''");
+    const psCmd =
+      `$fso = New-Object -ComObject Scripting.FileSystemObject; ` +
+      `if (Test-Path -LiteralPath '${esc}' -PathType Leaf) { Write-Output $fso.GetFile('${esc}').ShortPath } ` +
+      `elseif (Test-Path -LiteralPath '${esc}' -PathType Container) { Write-Output $fso.GetFolder('${esc}').ShortPath }`;
+    const r = spawnSync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', psCmd],
+      { encoding: 'utf-8', windowsHide: true },
+    );
+    const out = (r.stdout ?? '').trim();
+    // eslint-disable-next-line no-control-regex
+    if (out && /^[\x00-\x7F]+$/.test(out)) {
+      console.log('[LlamaServerRuntime] 비ASCII 경로 → 단축경로 변환:', longPath, '→', out);
+      return out;
+    }
+    console.warn(
+      '[LlamaServerRuntime] 단축경로 변환 실패 또는 ASCII 결과 아님 — 원본 사용:',
+      longPath,
+      '→',
+      out || '(빈 결과)',
+    );
+    return longPath;
+  } catch (e) {
+    console.warn('[LlamaServerRuntime] 단축경로 변환 예외:', e);
+    return longPath;
+  }
+}
 
 /** 도구 호출 라운드 한도 (무한 루프 방지) */
 const MAX_TOOL_ROUNDS = 5;
@@ -87,8 +129,12 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
   async function ensureServer(): Promise<void> {
     if (proc && !proc.killed) return;
     port = await getFreePort();
+    // Windows 한글 사용자명 경로(예: C:\Users\통도예술마을협동조합\...) 대응 —
+    // llama-server에 인자로 넘기는 모든 경로를 가능하면 ASCII 단축경로로 바꿔서 fopen 실패를 막는다.
+    const binPathArg = toShortPathIfNeeded(binPath!);
+    const modelPathArg = toShortPathIfNeeded(opts.modelPath);
     const args = [
-      '-m', opts.modelPath,
+      '-m', modelPathArg,
       '--port', String(port),
       '--host', '127.0.0.1',
       '-c', String(opts.contextSize ?? 8192),
@@ -107,8 +153,8 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
       // --log-disable 제거: 기동 실패(모델 로드 등) 사유가 stderr로 나와야 진단 가능.
       // (이 로그는 비정상 종료 시 에러 메시지에 첨부됨)
     ];
-    console.log('[LlamaServerRuntime] spawn:', binPath, args.join(' '));
-    proc = spawn(binPath!, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    console.log('[LlamaServerRuntime] spawn:', binPathArg, args.join(' '));
+    proc = spawn(binPathArg, args, { stdio: ['ignore', 'pipe', 'pipe'] });
 
     // 크래시 원인 파악용 — stderr/stdout 마지막 줄들을 보관해 에러에 첨부
     let logTail = '';
@@ -138,6 +184,20 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
       }
       if (proc.exitCode !== null) {
         const detail = logTail.trim();
+        // 비ASCII(한글 등) 사용자명 경로 + "No such file or directory" 패턴이면
+        // 단축경로 변환 폴백이 작동 못 한 케이스(8.3 비활성 NTFS / PowerShell 차단 등) —
+        // 기술 메시지 대신 친화 안내로 대체. error_logs에는 자동으로 캡처됨(aiChatStore).
+        // eslint-disable-next-line no-control-regex
+        const isNonAsciiPath = /[^\x00-\x7F]/.test(opts.modelPath);
+        const isFileNotFound = /no such file or directory/i.test(detail);
+        if (isNonAsciiPath && isFileNotFound) {
+          throw new Error(
+            'AI 엔진이 모델 파일을 못 읽고 있어요. ' +
+              '사용자 계정 이름에 한글 같은 비영어 문자가 들어있을 때 일부 PC에서 ' +
+              '생기는 문제입니다. 영문 사용자 계정에서 다시 시도하시거나 고객센터에 문의해 주세요.\n\n' +
+              `[엔진 로그]\n${detail}`,
+          );
+        }
         throw new Error(
           `llama-server 비정상 종료 (code ${proc.exitCode})` +
             (detail ? `\n\n[엔진 로그]\n${detail}` : ''),
