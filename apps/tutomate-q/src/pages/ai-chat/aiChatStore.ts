@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { useAiNotifyStore, reportError } from '@tutomate/core';
-import type { ChatMessage, SmartCard } from '@tutomate/core';
+import { useAiNotifyStore, reportError, reloadAllStores } from '@tutomate/core';
+import type { ChatMessage, SmartCard, DepositSelection } from '@tutomate/core';
 import type { DisplayMessage } from './components/MessageBubble';
 
 export type AiState =
@@ -94,6 +94,11 @@ interface AiChatStore {
   refreshStatus: () => Promise<void>;
   send: (text: string, attachment: { fileId: string; name: string } | undefined, ctx: SendContext) => Promise<void>;
   confirmPreview: (card: Extract<SmartCard, { type: 'importPreview' }>, ctx: SendContext) => Promise<void>;
+  confirmBankDeposits: (
+    card: Extract<SmartCard, { type: 'bankDepositPreview' }>,
+    selections: DepositSelection[],
+    ctx: SendContext,
+  ) => Promise<void>;
   cancelPreview: () => void;
   cancelStreaming: () => void;
   reset: (orgId: string) => void;
@@ -352,6 +357,34 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
         set((state) => ({
           messages: [...state.messages, { role: 'assistant', content: `확정 실패: ${r.error?.message}` }],
         }));
+      } else {
+        // AI 도구가 supabase에 직접 저장하므로 스토어 캐시를 갱신해야 화면에 반영됨
+        await reloadAllStores();
+      }
+    } finally {
+      set({ streaming: false });
+      scheduleSave();
+    }
+  },
+
+  confirmBankDeposits: async (card, selections, ctx) => {
+    set({ streaming: true });
+    try {
+      const r = await window.electronAPI.aiDispatch({
+        toolName: 'confirmBankDeposits',
+        args: { fileId: card.fileId, selections },
+        orgId: ctx.orgId,
+        userId: ctx.userId,
+        accessToken: ctx.accessToken,
+        refreshToken: ctx.refreshToken,
+      });
+      if (r.error) {
+        set((state) => ({
+          messages: [...state.messages, { role: 'assistant', content: `저장 실패: ${r.error?.message}` }],
+        }));
+      } else {
+        // AI 도구가 supabase에 직접 저장하므로 스토어 캐시를 갱신해야 화면에 반영됨
+        await reloadAllStores();
       }
     } finally {
       set({ streaming: false });

@@ -1,10 +1,12 @@
-import type { ChatMessage, SmartCard } from '@tutomate/core';
+import type { ChatMessage, SmartCard, DepositSelection } from '@tutomate/core';
 import { useEffect, useState } from 'react';
 import { Check, Loader2, Paperclip } from 'lucide-react';
 import { MappingErrorCard } from './SmartCard/MappingErrorCard';
 import { ImportPreviewCard } from './SmartCard/ImportPreviewCard';
 import { ImportResultCard } from './SmartCard/ImportResultCard';
 import { SourceLinkCard } from './SmartCard/SourceLinkCard';
+import { BankDepositPreviewCard } from './SmartCard/BankDepositPreviewCard';
+import { BankDepositResultCard } from './SmartCard/BankDepositResultCard';
 import { Markdown } from './Markdown';
 
 export type ToolActivity = { name: string; status: 'running' | 'done' };
@@ -32,6 +34,8 @@ const TOOL_LABELS: Record<string, string> = {
   mapColumns: '엑셀 항목 매칭',
   previewImport: '가져오기 미리보기',
   confirmImport: '가져오기 확정',
+  analyzeBankDeposits: '은행 입금내역 분석',
+  confirmBankDeposits: '입금 저장',
 };
 
 const toolLabel = (name: string) => TOOL_LABELS[name] ?? name;
@@ -50,12 +54,17 @@ function LoadingDots() {
 interface Props {
   message: DisplayMessage;
   onConfirmPreview: (card: Extract<SmartCard, { type: 'importPreview' }>) => void;
+  onConfirmBankDeposits: (
+    card: Extract<SmartCard, { type: 'bankDepositPreview' }>,
+    selections: DepositSelection[],
+  ) => void;
   onCancelPreview: () => void;
 }
 
 function renderCard(
   c: SmartCard,
   onConfirm: Props['onConfirmPreview'],
+  onConfirmBank: Props['onConfirmBankDeposits'],
   onCancel: Props['onCancelPreview'],
 ) {
   switch (c.type) {
@@ -71,12 +80,27 @@ function renderCard(
       );
     case 'importResult':
       return <ImportResultCard {...c} />;
+    case 'bankDepositPreview':
+      return (
+        <BankDepositPreviewCard
+          {...c}
+          onConfirm={(selections) => onConfirmBank(c, selections)}
+          onCancel={onCancel}
+        />
+      );
+    case 'bankDepositResult':
+      return <BankDepositResultCard {...c} />;
     case 'sourceLink':
       return <SourceLinkCard {...c} />;
   }
 }
 
-export function MessageBubble({ message, onConfirmPreview, onCancelPreview }: Props) {
+export function MessageBubble({
+  message,
+  onConfirmPreview,
+  onConfirmBankDeposits,
+  onCancelPreview,
+}: Props) {
   const isUser = message.role === 'user';
   return (
     <div className={`max-w-2xl w-fit ${isUser ? 'ml-auto' : ''}`}>
@@ -125,7 +149,7 @@ export function MessageBubble({ message, onConfirmPreview, onCancelPreview }: Pr
       ))}
       {message.cards?.map((c, i) => (
         <div key={i} className="mt-2">
-          {renderCard(c, onConfirmPreview, onCancelPreview)}
+          {renderCard(c, onConfirmPreview, onConfirmBankDeposits, onCancelPreview)}
         </div>
       ))}
     </div>

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowDown } from 'lucide-react';
-import type { SmartCard } from '@tutomate/core';
+import type { SmartCard, DepositSelection } from '@tutomate/core';
 import { MessageBubble, type DisplayMessage } from './MessageBubble';
 
 interface Props {
@@ -8,6 +8,10 @@ interface Props {
   streaming?: boolean;
   summarizing?: boolean;
   onConfirmPreview: (card: Extract<SmartCard, { type: 'importPreview' }>) => void;
+  onConfirmBankDeposits: (
+    card: Extract<SmartCard, { type: 'bankDepositPreview' }>,
+    selections: DepositSelection[],
+  ) => void;
   onCancelPreview: () => void;
 }
 
@@ -62,7 +66,7 @@ function TypingIndicator() {
   );
 }
 
-export function ChatWindow({ messages, streaming, summarizing, onConfirmPreview, onCancelPreview }: Props) {
+export function ChatWindow({ messages, streaming, summarizing, onConfirmPreview, onConfirmBankDeposits, onCancelPreview }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
 
@@ -104,6 +108,7 @@ export function ChatWindow({ messages, streaming, summarizing, onConfirmPreview,
             key={i}
             message={m}
             onConfirmPreview={onConfirmPreview}
+            onConfirmBankDeposits={onConfirmBankDeposits}
             onCancelPreview={onCancelPreview}
           />
         ))}
