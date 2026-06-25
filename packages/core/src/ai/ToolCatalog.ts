@@ -20,8 +20,10 @@ import { parseExcelHeaders } from './tools/parseExcelHeaders';
 import { mapColumns } from './tools/mapColumns';
 import { previewImport } from './tools/previewImport';
 import { confirmImport } from './tools/confirmImport';
+import { analyzeBankDeposits } from './tools/analyzeBankDeposits';
+import { confirmBankDeposits } from './tools/confirmBankDeposits';
 
-/** 챗봇이 호출 가능한 모든 도구 (조회 11 + 임포트 4 = 15개). */
+/** 챗봇이 호출 가능한 모든 도구 (조회 11 + 임포트 4 + 은행입금 2 = 17개). */
 export const ALL_TOOLS: AnyTool[] = [
   searchStudent,
   getStudent,
@@ -39,6 +41,8 @@ export const ALL_TOOLS: AnyTool[] = [
   mapColumns,
   previewImport,
   confirmImport,
+  analyzeBankDeposits,
+  confirmBankDeposits,
 ];
 
 /**

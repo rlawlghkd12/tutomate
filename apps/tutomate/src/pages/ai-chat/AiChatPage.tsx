@@ -28,6 +28,7 @@ export default function AiChatPage() {
   const refreshStatus = useAiChatStore((s) => s.refreshStatus);
   const send = useAiChatStore((s) => s.send);
   const confirmPreview = useAiChatStore((s) => s.confirmPreview);
+  const confirmBankDeposits = useAiChatStore((s) => s.confirmBankDeposits);
   const cancelPreview = useAiChatStore((s) => s.cancelPreview);
   const cancelStreaming = useAiChatStore((s) => s.cancelStreaming);
   const reset = useAiChatStore((s) => s.reset);
@@ -123,6 +124,7 @@ export default function AiChatPage() {
         streaming={streaming}
         summarizing={summarizing}
         onConfirmPreview={(card: Extract<SmartCard, { type: 'importPreview' }>) => confirmPreview(card, ctx)}
+        onConfirmBankDeposits={(card, selections) => confirmBankDeposits(card, selections, ctx)}
         onCancelPreview={cancelPreview}
       />
       <ChatInput

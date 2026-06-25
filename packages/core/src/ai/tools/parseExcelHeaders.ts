@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { parseExcel } from '../../excel/ExcelParser';
+import { isBankStatementFormat } from '../bank/parseBankExcel';
 import { sanitizeRow } from '../security/sanitize';
 import type { ToolHandler } from '../types';
 
@@ -11,8 +12,15 @@ export const parseExcelHeaders: ToolHandler<typeof schema> = {
   schema,
   async execute({ fileId }, ctx) {
     if (!ctx.fileStash) throw new Error('FileStash 비활성');
-    const buf = await ctx.fileStash.read(fileId);
-    const parsed = parseExcel(new Uint8Array(buf));
+    const bytes = new Uint8Array(await ctx.fileStash.read(fileId));
+    // 은행 거래내역 형식이면 일반 임포트로 처리하면 실패하므로 전용 분석으로 유도.
+    if (isBankStatementFormat(bytes)) {
+      return {
+        kind: 'bank_statement',
+        hint: '이 파일은 은행 거래내역(입금내역)입니다. 곧바로 analyzeBankDeposits를 호출하세요(parseExcelHeaders/mapColumns/previewImport/confirmImport 사용 금지). 사용자에게는 도구 이름을 말하지 말고 "분석 및 매칭을 진행합니다. 잠시만 기다려주세요."처럼만 안내하세요.',
+      };
+    }
+    const parsed = parseExcel(bytes);
     return {
       headers: parsed.headers,
       // 샘플 셀 값은 LLM에 노출되므로 sanitize (prompt injection 방어)
