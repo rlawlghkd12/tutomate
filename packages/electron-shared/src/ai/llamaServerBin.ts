@@ -7,23 +7,25 @@ import { execSync } from 'node:child_process';
  *
  * 우선순위:
  * 1. 환경변수 `LLAMA_SERVER_BIN` (개발자 override)
- * 2. userData/AI/llama-bin/<platform>/llama-server[.exe] (다운로드 받은 self-contained 빌드)
+ * 2. `<aiBaseDir>/llama-bin/<platform>/llama-server[.exe]` (다운로드 받은 self-contained 빌드)
+ *    aiBaseDir는 getAiBaseDir()로 결정 — 영문 사용자는 `%APPDATA%/<앱>/AI`,
+ *    한글 사용자는 ASCII 보장 경로(`%PROGRAMDATA%/<앱>/AI`).
  * 3. process.resourcesPath/llama-bin/llama-server[.exe] (앱 패키지에 번들된 경우)
  * 4. PATH의 llama-server (dev mode — brew install)
  *
  * @returns 실행 가능한 경로 또는 null (없음)
  */
-export function findLlamaServerBin(userDataDir: string, resourcesPath?: string): string | null {
+export function findLlamaServerBin(aiBaseDir: string, resourcesPath?: string): string | null {
   const exe = process.platform === 'win32' ? 'llama-server.exe' : 'llama-server';
 
   // 1. 환경변수
   const envBin = process.env.LLAMA_SERVER_BIN;
   if (envBin && fs.existsSync(envBin)) return envBin;
 
-  // 2. userData (다운로드 받은 빌드)
+  // 2. AI base dir 안의 다운로드된 빌드
   const platform = detectPlatformDir();
   if (platform) {
-    const userBin = path.join(userDataDir, 'AI', 'llama-bin', platform, exe);
+    const userBin = path.join(aiBaseDir, 'llama-bin', platform, exe);
     if (fs.existsSync(userBin)) return userBin;
   }
 

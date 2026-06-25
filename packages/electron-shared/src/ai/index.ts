@@ -29,3 +29,4 @@ export {
   isVcRedistInstalled,
   type VcRedistEvent,
 } from './VcRedistInstaller';
+export { getAiBaseDir, migrateLegacyAiData } from './aiPaths';

@@ -12,6 +12,8 @@ import {
   detectPlatformDir,
   ensureVcRedist,
   isVcRedistInstalled,
+  getAiBaseDir,
+  migrateLegacyAiData,
   type LlamaRuntime,
 } from '../ai';
 import {
@@ -25,9 +27,18 @@ import {
 } from '@tutomate/core';
 import { getFileStash } from './fileStashHandler';
 
-const aiDir = path.join(app.getPath('userData'), 'AI');
+// AI 데이터 위치 결정 — 영문 사용자는 기존 `%APPDATA%/<앱>/AI` 그대로,
+// 한글 사용자는 ASCII 보장 경로(`%PROGRAMDATA%/<앱>/AI`)로 자동 전환.
+// llama-server.exe가 ANSI argv로 모델 경로를 읽을 때 비ASCII에서 실패하는 문제 회피.
+const userDataDir = app.getPath('userData');
+const aiDir = getAiBaseDir(userDataDir, app.getName());
+fs.mkdirSync(aiDir, { recursive: true });
+// 기존 한글 경로 사용자: 모델·엔진 파일을 새 ASCII 경로로 일회성 이전 (있을 때만).
+// 동일 드라이브면 rename으로 거의 즉시 끝남. 매니저 생성 전이라 race 없음.
+migrateLegacyAiData(path.join(userDataDir, 'AI'), aiDir);
+
 const manager = new ModelManager(aiDir);
-const engineManager = new EngineManager(app.getPath('userData'), process.resourcesPath);
+const engineManager = new EngineManager(aiDir, process.resourcesPath);
 let runtime: LlamaRuntime | null = null;
 let abort: AbortController | null = null;
 
@@ -68,7 +79,9 @@ async function ensureRuntime(): Promise<LlamaRuntime> {
     console.log(`[ai] RAM ${ramGB}GB → contextSize ${contextSize}, platform ${plat}, gpuLayers ${gpuLayers}`);
     runtime = await createLlamaServerRuntime({
       modelPath: manager.modelPath(QWEN_3_5_4B_Q4),
-      userDataDir: app.getPath('userData'),
+      // aiDir(=getAiBaseDir 결과)를 그대로 전달 — LlamaServerRuntime 내부의
+      // findLlamaServerBin이 aiDir 안의 llama-bin/<platform>/llama-server.exe를 찾는다.
+      userDataDir: aiDir,
       resourcesPath: process.resourcesPath,
       contextSize,
       gpuLayers,
@@ -162,7 +175,7 @@ export function registerAiHandlers(ipcMain: IpcMain) {
 
   ipcMain.handle('ai:status', () => {
     if (!manager.isInstalled(QWEN_3_5_4B_Q4)) return 'not_installed';
-    if (!findLlamaServerBin(app.getPath('userData'), process.resourcesPath)) {
+    if (!findLlamaServerBin(aiDir, process.resourcesPath)) {
       return 'engine_missing';
     }
     // 엔진·모델은 있는데 Windows 필수 구성 요소가 빠진 케이스 —
