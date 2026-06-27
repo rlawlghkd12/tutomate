@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { supabase } from '../../config/supabase';
+import { getCurrentQuarter } from '../../utils/quarterUtils';
 import { parseBankExcel } from '../bank/parseBankExcel';
 import { matchDeposits } from '../bank/depositMatcher';
 import type { ToolHandler, SmartCard } from '../types';
@@ -26,6 +27,10 @@ const schema = z.object({
           .array(z.object({ enrollmentId: z.string(), amount: z.number() }))
           .optional()
           .describe('여러 강의 합산 입금을 등록별로 나눠 저장할 때 (needsSplit 건)'),
+        refund: z
+          .object({ enrollmentId: z.string(), amount: z.number() })
+          .optional()
+          .describe('출금을 환불(음수 결제)로 저장할 때 (needsRefund 건). amount는 출금액(양수)'),
       }),
     )
     .default([])
@@ -48,9 +53,9 @@ function toPaymentMethod(method: string): 'cash' | 'card' | 'transfer' {
 export const confirmBankDeposits: ToolHandler<typeof schema> = {
   name: 'confirmBankDeposits',
   description:
-    '미리보기에서 확인된 은행 입금들을 결제로 저장한다. auto(자동매칭) 건은 모두 저장하고, ' +
-    'needsConfirm 건은 selections로 받은 것만 저장한다. 등록이 없는 needsEnrollment 건은 ' +
-    'newEnrollment 정보로 수강 등록을 먼저 만든 뒤 저장한다. 이미 저장된 동일 입금은 건너뛴다. ' +
+    '미리보기에서 확인된 은행 입금/출금을 결제로 저장한다. auto(자동매칭) 입금은 모두 저장하고, ' +
+    'needsConfirm 건은 selections로 받은 것만 저장한다. needsEnrollment는 등록을 먼저 만든 뒤 저장하고, ' +
+    'needsRefund(출금)는 음수 결제(환불)로 저장한다. 이미 저장된 동일 입금은 건너뛴다. ' +
     '※ 사용자가 미리보기 카드에서 [확정]을 눌렀을 때만 호출해야 한다.',
   schema,
   async execute({ fileId, selections }, ctx) {
@@ -65,7 +70,7 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
     const [coursesRes, studentsRes, enrollsRes] = await Promise.all([
       supabase.from('courses').select('id, name, fee'),
       supabase.from('students').select('id, name'),
-      supabase.from('enrollments').select('id, student_id, course_id'),
+      supabase.from('enrollments').select('id, student_id, course_id, quarter'),
     ]);
     if (coursesRes.error) throw new Error(coursesRes.error.message);
 
@@ -76,18 +81,21 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
     }));
     const courseFee = new Map(courses.map((c) => [c.id, c.fee]));
 
+    // analyze와 동일하게 현재 분기로 제한 (분기 없는 일반 버전 데이터는 통과)
+    const targetQuarter = getCurrentQuarter();
     const matches = matchDeposits(parsed.deposits, {
       courses,
       students: (studentsRes.data ?? []).map((s: any) => ({ id: s.id, name: s.name })),
-      enrollments: (enrollsRes.data ?? []).map((e: any) => ({
-        id: e.id,
-        studentId: e.student_id,
-        courseId: e.course_id,
-      })),
+      enrollments: (enrollsRes.data ?? [])
+        .filter((e: any) => !e.quarter || e.quarter === targetQuarter)
+        .map((e: any) => ({ id: e.id, studentId: e.student_id, courseId: e.course_id })),
     });
 
     const selByRow = new Map(selections.map((s) => [s.rowIndex, s]));
-    const txByRow = new Map(parsed.deposits.map((t) => [t.rowIndex, t]));
+    // 입금·출금 모두 rowIndex로 찾을 수 있게 (출금=환불)
+    const txByRow = new Map(
+      [...parsed.deposits, ...parsed.withdrawals].map((t) => [t.rowIndex, t]),
+    );
 
     // 1) 신규 등록(needsEnrollment) 먼저 생성 → rowIndex별 새 enrollment_id 확보.
     //    수익 관리 페이지가 enrollments.paid_amount를 합산하므로, 입금액을 등록의 납부액으로 반영한다.
@@ -136,6 +144,7 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
       payment_method: string;
       notes: string;
       userConfirmed: boolean;
+      isRefund?: boolean;
     };
     const candidates: Row[] = [];
     for (const m of matches) {
@@ -183,6 +192,23 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
       });
     }
 
+    // 3) 환불(출금): 사용자가 확인한 출금을 음수 결제로 저장
+    for (const sel of selections) {
+      if (!sel.refund) continue;
+      const tx = txByRow.get(sel.rowIndex);
+      if (!tx) continue;
+      candidates.push({
+        organization_id: ctx.orgId,
+        enrollment_id: sel.refund.enrollmentId,
+        paid_at: tx.paidAt,
+        amount: -Math.abs(sel.refund.amount),
+        payment_method: toPaymentMethod(tx.method),
+        notes: `은행출금 환불: ${tx.payerName} (${tx.method || '경로미상'})`,
+        userConfirmed: true,
+        isRefund: true,
+      });
+    }
+
     if (candidates.length === 0) {
       const card: SmartCard = {
         type: 'bankDepositResult',
@@ -190,9 +216,10 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
         skipped: 0,
         failed: enrollFailed,
         enrolled,
+        refunded: 0,
       };
       ctx.emit?.(card);
-      return { saved: 0, skipped: 0, failed: enrollFailed, enrolled, message: '저장할 입금 건이 없습니다.' };
+      return { saved: 0, skipped: 0, failed: enrollFailed, enrolled, refunded: 0, message: '저장할 입금 건이 없습니다.' };
     }
 
     // 중복 방지 — 동일 (enrollment_id, paid_at, amount) 기존 레코드 제외
@@ -219,22 +246,25 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
     });
     const skipped = candidates.length - toInsert.length;
 
-    // payment_records에 없는 내부 플래그(userConfirmed) 제거 후 insert
-    const insertRows = toInsert.map(({ userConfirmed: _u, ...row }) => row);
+    // payment_records에 없는 내부 플래그(userConfirmed/isRefund) 제거 후 insert
+    const insertRows = toInsert.map(({ userConfirmed: _u, isRefund: _r, ...row }) => row);
 
     let saved = 0;
+    let refunded = 0;
     let failed = enrollFailed;
     if (insertRows.length > 0) {
       const { data, error } = await supabase.from('payment_records').insert(insertRows).select('id');
       if (error) {
         failed += toInsert.length;
       } else {
-        saved = data?.length ?? 0;
+        const total = data?.length ?? 0;
+        refunded = toInsert.filter((r) => r.isRefund).length;
+        saved = Math.max(0, total - refunded); // 입금 저장 건수 (환불 제외)
       }
     }
 
-    const card: SmartCard = { type: 'bankDepositResult', saved, skipped, failed, enrolled };
+    const card: SmartCard = { type: 'bankDepositResult', saved, skipped, failed, enrolled, refunded };
     ctx.emit?.(card);
-    return { saved, skipped, failed, enrolled };
+    return { saved, skipped, failed, enrolled, refunded };
   },
 };

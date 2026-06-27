@@ -12,6 +12,7 @@ type Decision = {
   enrollmentId?: string;
   newEnrollment?: { studentId: string; courseId: string; quarter?: string };
   split?: { enrollmentId: string; amount: number }[];
+  refund?: { enrollmentId: string; amount: number };
 };
 
 const won = (n: number) => n.toLocaleString('ko-KR') + '원';
@@ -50,11 +51,16 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
   const auto = items.filter((i) => i.status === 'auto');
   // 확인이 필요한 건(직접 선택) + 새로 등록할 건을 한 흐름에서 한 건씩 처리
   const review = items.filter(
-    (i) => i.status === 'needsConfirm' || i.status === 'needsEnrollment',
+    (i) =>
+      i.status === 'needsConfirm' ||
+      i.status === 'needsEnrollment' ||
+      i.status === 'needsSplit' ||
+      i.status === 'needsRefund',
   );
   const unmatched = items.filter((i) => i.status === 'unmatched');
   const newEnrollCount = items.filter((i) => i.status === 'needsEnrollment').length;
   const splitCount = items.filter((i) => i.status === 'needsSplit').length;
+  const refundCount = items.filter((i) => i.status === 'needsRefund').length;
 
   const [step, setStep] = useState<'intro' | 'review' | 'ready'>('intro');
   const [idx, setIdx] = useState(0);
@@ -104,6 +110,13 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
     setDecisions((d) => ({ ...d, [cur.rowIndex]: { split } }));
     goNext();
   }
+  function acceptRefund(c: MatchCandidate) {
+    setDecisions((d) => ({
+      ...d,
+      [cur.rowIndex]: { refund: { enrollmentId: c.enrollmentId, amount: cur.amount } },
+    }));
+    goNext();
+  }
   function skip() {
     setDecisions((d) => {
       const n = { ...d };
@@ -148,16 +161,22 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
             <span className="text-success font-bold">●</span> 바로 저장할 수 있는 입금{' '}
             <b>{autoSaveCount}건</b>
           </li>
-          {review.length - newEnrollCount - splitCount > 0 && (
+          {review.length - newEnrollCount - splitCount - refundCount > 0 && (
             <li>
               <span className="text-warning font-bold">●</span> 같이 확인할 입금{' '}
-              <b className="text-warning">{review.length - newEnrollCount - splitCount}건</b>
+              <b className="text-warning">{review.length - newEnrollCount - splitCount - refundCount}건</b>
             </li>
           )}
           {splitCount > 0 && (
             <li>
               <span className="text-warning font-bold">●</span> 여러 강의 합산 입금{' '}
               <b className="text-warning">{splitCount}건</b>
+            </li>
+          )}
+          {refundCount > 0 && (
+            <li>
+              <span className="text-destructive font-bold">●</span> 환불(출금)로 확인할 건{' '}
+              <b className="text-destructive">{refundCount}건</b>
             </li>
           )}
           {newEnrollCount > 0 && (
@@ -257,6 +276,78 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
               ))}
               <BigButton tone="ghost" onClick={() => guard(() => setPickQuarter(false))} disabled={busy}>
                 뒤로
+              </BigButton>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // ── 2-R) 한 건씩 확인: 출금 → 환불 저장 ──
+  if (step === 'review' && cur && cur.status === 'needsRefund') {
+    const parts = cur.candidates;
+    const single = parts.length === 1 ? parts[0] : null;
+    return (
+      <div className="border-2 border-error-subtle bg-error-subtle rounded-2xl p-5 text-foreground">
+        <div className="text-base text-destructive font-semibold mb-2">
+          확인 {idx + 1} / {review.length}
+        </div>
+        <div className="text-2xl font-bold">{cur.payerName || '(이름 없는 출금)'}님</div>
+        <div className="text-lg text-muted-foreground mb-3">
+          {shortDate(cur.paidAt)} · {cur.method || '출금'} · <b className="text-destructive">{won(cur.amount)} 출금</b>
+        </div>
+
+        <div className="text-lg mb-2">이 출금이 환불인가요?</div>
+        {single ? (
+          <>
+            <div className="bg-card border border-border rounded-xl p-3 mb-3 text-base">
+              <div className="text-muted-foreground mb-1">
+                {single.studentName} · {single.courseName} — 이미 받은 기록
+              </div>
+              <ul className="space-y-0.5">
+                {(single.existingPayments ?? []).slice(0, 5).map((p, i) => (
+                  <li key={i} className={p.amount === cur.amount ? 'text-foreground font-bold' : 'text-foreground'}>
+                    · {shortDate(p.paidAt)} {won(p.amount)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex flex-col gap-2">
+              <BigButton tone="primary" onClick={() => guard(() => acceptRefund(single))} disabled={busy}>
+                네, {won(cur.amount)} 환불로 저장할게요
+              </BigButton>
+              <BigButton tone="ghost" onClick={() => guard(skip)} disabled={busy}>
+                환불 아니에요 (건너뛰기)
+              </BigButton>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="text-base text-muted-foreground mb-2">어느 강의 환불인가요?</div>
+            <div className="flex flex-col gap-2">
+              {parts.map((c) => {
+                const ch = c.existingPayments ?? [];
+                return (
+                  <BigButton
+                    key={c.enrollmentId}
+                    tone="outline"
+                    onClick={() => guard(() => acceptRefund(c))}
+                    disabled={busy}
+                  >
+                    <div>
+                      {c.studentName} · {c.courseName}
+                    </div>
+                    {ch.length > 0 && (
+                      <div className="text-sm text-muted-foreground mt-0.5">
+                        받은 기록: {ch.slice(0, 3).map((p) => `${shortDate(p.paidAt)} ${won(p.amount)}`).join(', ')}
+                      </div>
+                    )}
+                  </BigButton>
+                );
+              })}
+              <BigButton tone="ghost" onClick={() => guard(skip)} disabled={busy}>
+                환불 아니에요 (건너뛰기)
               </BigButton>
             </div>
           </>
@@ -482,7 +573,8 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
   // ── 3) 마무리 ──
   const decisionVals = Object.values(decisions);
   const confirmedNew = decisionVals.filter((d) => d.newEnrollment).length;
-  const confirmedExisting = confirmedRecords - confirmedNew;
+  const confirmedRefunds = decisionVals.filter((d) => d.refund).length;
+  const confirmedExisting = confirmedRecords - confirmedNew - confirmedRefunds;
   return (
     <div className="border-2 border-border bg-card rounded-2xl p-5 text-foreground">
       <div className="text-xl font-bold mb-3">확인이 끝났어요!</div>
@@ -491,6 +583,9 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
         {confirmedExisting > 0 && <li>확인해서 저장 <b>{confirmedExisting}건</b></li>}
         {confirmedNew > 0 && (
           <li className="text-primary">새로 등록하고 저장 <b>{confirmedNew}건</b></li>
+        )}
+        {confirmedRefunds > 0 && (
+          <li className="text-destructive">환불 처리 <b>{confirmedRefunds}건</b></li>
         )}
         <li className="text-success">모두 <b>{totalSave}건</b> 저장할게요</li>
       </ul>

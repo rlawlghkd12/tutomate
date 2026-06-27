@@ -24,7 +24,9 @@ export interface ParsedBankExcel {
   period?: string;
   /** 입금 거래만 (출금·취소 제외) */
   deposits: BankTransaction[];
-  /** 출금/취소 등 입금이 아닌 행 수 (참고용) */
+  /** 출금 거래만 (환불 처리 후보) — amount는 출금액(양수) */
+  withdrawals: BankTransaction[];
+  /** 입금도 출금도 아닌 행 수 (참고용) */
   nonDepositCount: number;
 }
 
@@ -122,6 +124,7 @@ export function parseBankExcel(buffer: Uint8Array): ParsedBankExcel {
   }
 
   const deposits: BankTransaction[] = [];
+  const withdrawals: BankTransaction[] = [];
   let nonDepositCount = 0;
   for (let i = headerRow + 1; i < aoa.length; i++) {
     const row = aoa[i] as unknown[];
@@ -130,24 +133,26 @@ export function parseBankExcel(buffer: Uint8Array): ParsedBankExcel {
     // 거래일시가 날짜 형태가 아니면 데이터행이 아님 (소계/합계 등)
     if (!/^\d{4}[.\-/]\d{1,2}/.test(dateTime)) continue;
 
-    const inAmt = toAmount(row[idxIn]);
-    const outAmt = idxOut >= 0 ? toAmount(row[idxOut]) : NaN;
-    // 입금 컬럼에 유효 금액이 없으면 입금건 아님 (출금/취소)
-    if (!Number.isFinite(inAmt) || inAmt <= 0) {
-      if (Number.isFinite(outAmt) && outAmt > 0) nonDepositCount++;
-      continue;
-    }
-
-    deposits.push({
+    const base = {
       rowIndex: i,
       dateTime,
       paidAt: toIsoDate(dateTime),
       payerName: String(row[idxName] ?? '').trim(),
-      amount: inAmt,
       method: idxMethod >= 0 ? String(row[idxMethod] ?? '').trim() : '',
       memo: idxMemo >= 0 ? String(row[idxMemo] ?? '').trim() : '',
-    });
+    };
+
+    const inAmt = toAmount(row[idxIn]);
+    const outAmt = idxOut >= 0 ? toAmount(row[idxOut]) : NaN;
+    if (Number.isFinite(inAmt) && inAmt > 0) {
+      deposits.push({ ...base, amount: inAmt });
+    } else if (Number.isFinite(outAmt) && outAmt > 0) {
+      // 출금 — 환불 후보 (amount는 출금액 양수로 보관, 저장 시 음수로)
+      withdrawals.push({ ...base, amount: outAmt });
+    } else {
+      nonDepositCount++;
+    }
   }
 
-  return { accountName, period, deposits, nonDepositCount };
+  return { accountName, period, deposits, withdrawals, nonDepositCount };
 }

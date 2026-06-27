@@ -44,19 +44,22 @@ export type MatchStatus =
   | 'needsConfirm'
   | 'unmatched'
   | 'needsEnrollment'
-  | 'needsSplit';
+  | 'needsSplit'
+  | 'needsRefund';
 
 /**
  * 확정(confirmBankDeposits)에 보낼 사용자 선택.
  * - enrollmentId: 기존 등록에 저장
  * - newEnrollment: 등록이 없어 새로 등록하면서 저장 (needsEnrollment 건)
  * - split: 한 입금을 여러 강의 등록에 나눠 저장 (needsSplit 건, 합산 입금)
+ * - refund: 출금을 해당 등록의 환불(음수 결제)로 저장 (needsRefund 건)
  */
 export interface DepositSelection {
   rowIndex: number;
   enrollmentId?: string;
   newEnrollment?: { studentId: string; courseId: string; quarter?: string };
   split?: { enrollmentId: string; amount: number }[];
+  refund?: { enrollmentId: string; amount: number };
 }
 
 /** needsConfirm일 때 사용자에게 제시할 후보 (학생×강좌=등록 조합). */
@@ -98,7 +101,7 @@ export interface DepositMatch {
 }
 
 /** 공백·구두점 제거. 한글은 그대로. 비교를 관대하게 하기 위한 정규화. */
-function norm(s: string): string {
+export function norm(s: string): string {
   return String(s)
     .replace(/[\s.,·()\[\]{}/\\|·.~!@#$%^&*\-_+=]/g, '')
     .toLowerCase();
