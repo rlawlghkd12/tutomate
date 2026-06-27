@@ -48,6 +48,8 @@ export type SmartCard =
         needsEnrollment: number;
         /** 여러 강의 합산 입금으로 나눠 저장 제안하는 건 수 */
         needsSplit: number;
+        /** 출금 → 환불로 저장 제안하는 건 수 */
+        needsRefund: number;
         /** 기존 결제와 등록·날짜·금액이 겹치는 건 수 (저장 후보 중) */
         duplicate: number;
         accountName?: string;
@@ -62,6 +64,8 @@ export type SmartCard =
       failed: number;
       /** 새로 등록(enrollment)을 만든 건 수 */
       enrolled?: number;
+      /** 환불(음수 결제)로 저장한 건 수 */
+      refunded?: number;
     }
   | { type: 'sourceLink'; kind: string; id: string; label: string };
 
