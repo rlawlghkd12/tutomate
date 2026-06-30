@@ -64,3 +64,5 @@ apps/tutomate-q/build/llama-bin/
 
 # VC++ 재배포 패키지 (빌드 직전 scripts/fetch-vc-redist.sh가 받음 — 25MB, NSIS 인스톨러에 번들)
 packages/electron-shared/build/vc_redist.x64.exe
+
+.env*
