@@ -21,9 +21,9 @@ const Navigation: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const aiUnread = useAiNotifyStore((s) => s.unread);
-  const organizationId = useAuthStore((s) => s.organizationId);
+  const plan = useAuthStore((s) => s.plan);
 
-  const mainItems = isAiChatEnabled(organizationId)
+  const mainItems = isAiChatEnabled(plan)
     ? [...baseMainItems, aiItem]
     : baseMainItems;
 
