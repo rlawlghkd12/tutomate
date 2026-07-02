@@ -8,6 +8,7 @@ vi.mock('../../config/supabase', () => ({
   supabase: {
     auth: {
       getSession: (...args: unknown[]) => mockGetSession(...args),
+      onAuthStateChange: vi.fn(),
     },
     from: () => ({
       insert: mockInsert,
