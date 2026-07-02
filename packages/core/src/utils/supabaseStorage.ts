@@ -6,6 +6,22 @@ import { reportError } from "./errorReporter";
 
 type TableName = "courses" | "students" | "enrollments" | "monthly_payments" | "payment_records";
 
+function normalizeError(error: unknown): Error {
+	if (error instanceof Error) return error;
+
+	if (error && typeof error === 'object') {
+		const e = error as Record<string, unknown>;
+		const message = [e.message, e.details, e.hint, e.code]
+			.filter((v) => v != null && v !== '')
+			.join(' | ');
+		const err = new Error(message || JSON.stringify(error));
+		if (e.code != null) (err as any).code = e.code;
+		return err;
+	}
+
+	return new Error(String(error));
+}
+
 function toAppError(error: unknown, operation: string, table: string): AppError {
 	if (error instanceof AppError) return error;
 
@@ -27,7 +43,7 @@ function toAppError(error: unknown, operation: string, table: string): AppError 
 	}
 
 	logError(`${operation} failed: ${table}`, { error, data: { code } });
-	reportError(error instanceof Error ? error : new Error(String(error)));
+	reportError(normalizeError(error), 'supabaseStorage');
 
 	return new AppError({
 		type: ErrorType.NETWORK_ERROR,
