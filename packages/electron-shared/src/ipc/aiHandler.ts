@@ -14,6 +14,11 @@ import {
   isVcRedistInstalled,
   getAiBaseDir,
   migrateLegacyAiData,
+  createOpenRouterRuntime,
+  fetchUsageSummary,
+  getAiBackend,
+  getAiProxyUrl,
+  getAiModelOverride,
   type LlamaRuntime,
 } from '../ai';
 import {
@@ -21,6 +26,8 @@ import {
   createDispatcher,
   toToolDefinitions,
   setSupabaseSession,
+  createPiiVault,
+  tokenizeOutgoingMessages,
   type ChatMessage,
   type SmartCard,
   type ToolContext,
@@ -41,10 +48,36 @@ const manager = new ModelManager(aiDir);
 const engineManager = new EngineManager(aiDir, process.resourcesPath);
 let runtime: LlamaRuntime | null = null;
 let abort: AbortController | null = null;
+// OpenRouter 백엔드가 프록시 인증에 쓰는 최신 Supabase 액세스 토큰.
+// ai:chat / ai:summarize 진입 시 payload.accessToken으로 갱신된다.
+let lastAccessToken: string | null = null;
+// PII 토큰화 볼트 — OpenRouter(클라우드) 백엔드에서만 사용. 실명↔토큰 매핑을 세션 동안 유지,
+// ai:reset-session에서 초기화. 로컬 백엔드에선 미사용(데이터가 기기를 안 벗어남).
+const piiVault = createPiiVault();
+const tokenizeEnabled = () => getAiBackend() === 'openrouter';
 
-/** llama-server 런타임 보장 (없으면 생성). ai:chat·ai:summarize 공용. */
+/** AI 런타임 보장 (없으면 생성). ai:chat·ai:summarize 공용. 백엔드 플래그로 로컬/OpenRouter 선택. */
 async function ensureRuntime(): Promise<LlamaRuntime> {
-  if (!runtime) {
+  if (runtime) return runtime;
+
+  // OpenRouter 백엔드 — 프록시 경유 원격 호출 (로컬 자산 불필요). 플래그 미설정 시 아래 로컬로 폴백.
+  if (getAiBackend() === 'openrouter') {
+    const proxyUrl = getAiProxyUrl();
+    if (proxyUrl) {
+      console.log('[ai] backend=openrouter, proxy=', proxyUrl, 'model=', getAiModelOverride() ?? '(proxy default)');
+      runtime = createOpenRouterRuntime({
+        proxyUrl,
+        getAccessToken: () => lastAccessToken,
+        model: getAiModelOverride(),
+        vault: piiVault,
+      });
+      await runtime.load();
+      return runtime;
+    }
+    console.warn('[ai] backend=openrouter이나 proxy URL이 없어 로컬 llama로 폴백합니다.');
+  }
+
+  {
     // Windows 안전망 — 필수 시스템 구성 요소가 빠진 채 chat이 호출되면 llama-server가
     // 즉시 죽으며 진단이 어려운 에러만 남는다. 다운로드 단계에서 자동 설치되지만
     // (설치 거부 / 이후 사용자 제거 등) 누락된 채로 들어왔다면 여기서 친화적으로 안내.
@@ -149,6 +182,7 @@ const SYSTEM_PROMPT = `당신은 수강 관리 조직 운영자를 돕는 한국
 - "매출/수익 얼마", "○○강좌 매출", "이번 분기 매출" → \`getRevenue\` (수익 관리 페이지와 동일 기준)
 - "강좌 목록", "무슨 강좌 있어?" → \`listClasses\`
 - "○○ 학생", "학생 명단" → \`searchStudent\` (인자 없어도 됨)
+- "○○로 시작/포함하는 학생 **몇 명**?", "김씨 몇 명?" 같은 **인원수** 질문 → \`countStudents\` (searchStudent로 세지 마세요 — 목록 최대 50개라 카운트가 부정확)
 - "○○ 결제 언제", "○○ 5월 결제내역" → \`searchStudent\` → \`getPaymentHistory\` (특정 달은 month=YYYY-MM)
 - "○○강좌/반 결제내역", "○○강좌 5월 매출" → \`listClasses\` → \`getCoursePayments\` (학생별 개별 조회 금지)
 - "미납자" → \`getUnpaidStudents\`
@@ -185,11 +219,43 @@ const SYSTEM_PROMPT = `당신은 수강 관리 조직 운영자를 돕는 한국
 
 className 누락 행을 그냥 무시하지 말고 사용자에게 명확히 보고하세요.`;
 
+/**
+ * 클라우드(OpenRouter) 백엔드 전용 시스템 프롬프트 보강.
+ * PII가 ⟦S1⟧·⟦T1⟧ 등 토큰으로 가명처리돼 모델에 전달되므로, 이를 "진짜 데이터"로
+ * 취급하도록 명시한다. 이 안내가 없으면 모델이 토큰을 샘플/가상 데이터로 오해해
+ * 실제 존재하는 학생을 "데이터 없음"으로 답하는 회귀가 발생한다.
+ * 로컬(llama) 백엔드에선 토큰화가 없어 이 노트를 붙이지 않는다.
+ */
+const PII_TOKEN_SYSTEM_NOTE = `
+
+# 개인정보 가명처리 (매우 중요)
+
+도구 결과나 대화에 \`⟦S1⟧\`·\`⟦T1⟧\`·\`⟦E1⟧\`·\`⟦A1⟧\`처럼 \`⟦ ⟧\`로 감싼 토큰이 나올 수 있습니다.
+이는 개인정보 보호를 위해 **실제 학생의 이름·전화번호·이메일·주소를 가명처리한 것**입니다.
+
+- 이 토큰들은 **실제로 존재하는 진짜 데이터**입니다. 절대 "가상 데이터", "샘플", "예시", "플레이스홀더", "등록된 데이터가 없다"고 말하지 마세요.
+- 도구가 \`⟦S1⟧\` 같은 토큰이 담긴 결과를 반환했다면 그 학생·강좌·결제는 **실제로 존재**합니다. 조회를 멈추지 말고 정상적으로 이어서 처리하세요.
+- 학생을 찾았다면 추가 식별정보(생년월일·이메일 등)를 되묻지 말고, 요청받은 후속 조회(수강이력·결제 등)를 바로 진행하세요.
+- 답변에는 토큰을 그대로 사용하세요(예: "\`⟦S1⟧\`님의 2분기 수강이력은 …"). 화면에는 자동으로 실제 이름·연락처로 복원되어 표시됩니다.
+
+## 토큰은 식별자가 아님 (조회 실패 방지 — 매우 중요)
+
+\`⟦S1⟧\` 같은 토큰은 **표시용 별칭일 뿐 데이터베이스 식별자(id)가 아닙니다.**
+- \`getStudentSummary\`·\`getEnrollment\`·\`getPaymentHistory\` 등 후속 도구의 \`studentId\`에는 **반드시 \`searchStudent\`가 반환한 실제 \`id\`(UUID)**를 사용하세요.
+- **토큰(\`⟦S1⟧\`)이나 이름("김남희")을 \`studentId\`로 넘기면 조회가 실패합니다.**
+- 이전 대화에 학생이 토큰으로만 있고 그 학생의 \`id\`(UUID)를 지금 모른다면, **먼저 \`searchStudent\`를 호출해 \`id\`를 얻은 뒤** 후속 도구를 호출하세요. 사용자에게 되묻지 마세요.`;
+
 export function registerAiHandlers(ipcMain: IpcMain) {
   // 새 모델이 이미 설치돼 있으면 구버전 모델 orphan 정리 (앱 시작 시 1회)
   if (manager.isInstalled(QWEN_3_5_4B_Q4)) manager.cleanupLegacy();
 
   ipcMain.handle('ai:status', () => {
+    // 클라우드(OpenRouter) 백엔드: 로컬 모델·엔진·VC++가 전혀 필요 없다(프록시 경유).
+    // ensureRuntime과 동일한 조건(백엔드=openrouter + proxyUrl 존재)으로 판정 —
+    // 이 검사 없이 로컬 자산을 요구하면 클라우드 사용자에게 불필요한 4GB 모델 다운로드를 강요하게 된다.
+    if (getAiBackend() === 'openrouter' && getAiProxyUrl()) {
+      return 'ready';
+    }
     if (!manager.isInstalled(QWEN_3_5_4B_Q4)) return 'not_installed';
     if (!findLlamaServerBin(aiDir, process.resourcesPath)) {
       return 'engine_missing';
@@ -201,6 +267,24 @@ export function registerAiHandlers(ipcMain: IpcMain) {
   });
 
   ipcMain.handle('ai:diagnose', async () => diagnose(aiDir));
+
+  // 백엔드 정보 — 프론트가 클라우드(OpenRouter) 사용 여부를 알아야 개인정보 동의 모달을
+  // 띄울지 판단한다. cloud=true일 때만 동의를 요구(로컬은 데이터가 기기를 안 벗어남).
+  ipcMain.handle('ai:backend-info', () => {
+    const backend = getAiBackend();
+    return { backend, cloud: backend === 'openrouter' };
+  });
+
+  // 이번 달 AI 사용량 조회 — 클라우드(OpenRouter)에서만 의미가 있다(로컬은 한도 없음).
+  // 프론트가 채팅 화면 진입 시 호출해 한도 임박(warn)·초과(exceeded)를 402 이전에 미리 안내.
+  // 채팅 없이 usage 액션만 호출하므로 토큰을 소비하지 않는다. 실패는 조용히 null.
+  ipcMain.handle('ai:usage', async (_event, payload?: { accessToken?: string }) => {
+    if (getAiBackend() !== 'openrouter') return null;
+    const proxyUrl = getAiProxyUrl();
+    if (!proxyUrl) return null;
+    if (payload?.accessToken) lastAccessToken = payload.accessToken;
+    return fetchUsageSummary({ proxyUrl, getAccessToken: () => lastAccessToken });
+  });
 
   // 설치 필요 항목 점검 — 엔진(바이너리)·모델·VC++ 재배포(Windows만) 각각 설치 여부
   ipcMain.handle('ai:needs', () => ({
@@ -284,6 +368,7 @@ export function registerAiHandlers(ipcMain: IpcMain) {
 
   ipcMain.handle('ai:reset-session', async () => {
     if (runtime) await runtime.resetSession();
+    piiVault.reset(); // 세션 전환 시 실명↔토큰 매핑 초기화
   });
 
   /**
@@ -294,9 +379,12 @@ export function registerAiHandlers(ipcMain: IpcMain) {
     'ai:summarize',
     async (
       _event,
-      payload: { prevSummary?: string; messages: ChatMessage[] },
+      payload: { prevSummary?: string; messages: ChatMessage[]; accessToken?: string },
     ): Promise<{ summary: string }> => {
       try {
+        // 클라우드 백엔드: 요약도 프록시를 타므로 최신 액세스 토큰이 필요하다.
+        // 압축은 보통 첫 ai:chat 이전에 먼저 실행될 수 있어(첫 메시지 압축), 여기서도 토큰을 갱신한다.
+        if (payload.accessToken) lastAccessToken = payload.accessToken;
         const rt = await ensureRuntime();
         const sumSystem =
           '당신은 대화 요약기입니다. 아래 [기존 요약]과 [새 대화]를 통합해, ' +
@@ -313,13 +401,21 @@ export function registerAiHandlers(ipcMain: IpcMain) {
           `${payload.prevSummary ? `[기존 요약]\n${payload.prevSummary}\n\n` : ''}` +
           `[새 대화]\n${convo}\n\n위 내용을 통합 요약:`;
 
-        let out = '';
-        let errored = false;
-        await rt.chat(
+        // H4: 요약도 클라우드 프록시를 타므로 발신 전 실명·연락처를 토큰화(ai:chat과 동일 정책).
+        // 요약 대상 대화 본문은 user 메시지에 담기고, system은 앱 프롬프트라 제외된다.
+        const summarizeMessages = tokenizeOutgoingMessages<ChatMessage>(
           [
             { role: 'system', content: sumSystem },
             { role: 'user', content: user },
           ],
+          piiVault,
+          tokenizeEnabled(),
+        );
+
+        let out = '';
+        let errored = false;
+        await rt.chat(
+          summarizeMessages,
           [],
           (e: any) => {
             if (e.type === 'token') out += e.token;
@@ -330,6 +426,10 @@ export function registerAiHandlers(ipcMain: IpcMain) {
         );
 
         if (errored || !out.trim()) return { summary: payload.prevSummary ?? '' };
+        // 요약은 그대로 저장·재주입한다(복원하지 않음). 클라우드면 이 문자열은 토큰 상태이며,
+        // 다음 ai:chat에서 system 프롬프트에 그대로 실려 클라우드엔 토큰만 나간다(재주입 누출 방지).
+        // 요약은 UI에 표시되지 않는 내부 컨텍스트라 토큰이 화면에 노출될 일도 없다.
+        // 로컬 백엔드면 애초에 토큰화가 없어 실명 그대로다.
         return { summary: out.trim() };
       } catch (e: any) {
         console.error('[ai:summarize] 실패:', e);
@@ -419,6 +519,7 @@ export function registerAiHandlers(ipcMain: IpcMain) {
         payload.refreshToken?.length ?? 0,
       );
       if (payload.accessToken) {
+        lastAccessToken = payload.accessToken; // OpenRouter 프록시 인증용
         try {
           await setSupabaseSession(payload.accessToken, payload.refreshToken ?? '');
           console.log('[ai:chat] supabase 세션 적용됨');
@@ -461,13 +562,22 @@ export function registerAiHandlers(ipcMain: IpcMain) {
         payload.orgPlan ? `조직 플랜: ${payload.orgPlan}` : null,
         payload.userEmail ? `로그인 사용자: ${payload.userEmail}` : null,
       ].filter(Boolean).join('\n');
-      const baseSystemPrompt = contextLines
-        ? `${SYSTEM_PROMPT}\n\n# 현재 컨텍스트\n\n${contextLines}`
-        : SYSTEM_PROMPT;
-      // 압축된 이전 대화 요약 주입 (프론트가 컨텍스트 관리 — 오래된 대화는 요약으로 접힘)
-      const fullSystemPrompt = payload.summary
-        ? `${baseSystemPrompt}\n\n# 이전 대화 요약 (오래된 메시지는 압축됨, 참고용)\n${payload.summary}`
-        : baseSystemPrompt;
+      // 클라우드 백엔드는 PII를 가명처리(⟦S1⟧ 등)해 모델에 보낸다. 이 설명이 없으면 모델이
+      // 토큰을 '가상/샘플 데이터'로 오해해 "데이터 없음"이라 답한다(실제 그런 버그가 있었다).
+      const piiNote = tokenizeEnabled() ? PII_TOKEN_SYSTEM_NOTE : '';
+      // 프롬프트 캐싱 최적화: 매 요청·매 툴라운드마다 동일한 큰 정적 블록(시스템 프롬프트+PII 노트)을
+      // 맨 앞에 고정하고, 요청마다 바뀌는 동적 부분(날짜·조직·요약)은 뒤에 붙인다.
+      // 캐싱은 프리픽스가 바이트 단위로 동일해야 히트하므로, 동적 값이 앞·중간에 섞이면 캐시가 깨진다.
+      // gemini-3.1-flash-lite는 자동(암묵적) 캐싱 → 캐시 읽기 시 입력단가 0.25배.
+      const staticPrompt = SYSTEM_PROMPT + piiNote;
+      const dynamicParts: string[] = [];
+      if (contextLines) dynamicParts.push(`# 현재 컨텍스트\n\n${contextLines}`);
+      if (payload.summary) {
+        dynamicParts.push(`# 이전 대화 요약 (오래된 메시지는 압축됨, 참고용)\n${payload.summary}`);
+      }
+      const fullSystemPrompt = dynamicParts.length
+        ? `${staticPrompt}\n\n${dynamicParts.join('\n\n')}`
+        : staticPrompt;
 
       // 시스템 프롬프트가 메시지 첫 자리에 오도록 보장
       const messagesWithSystem: ChatMessage[] =
@@ -475,13 +585,21 @@ export function registerAiHandlers(ipcMain: IpcMain) {
           ? payload.messages
           : [{ role: 'system', content: fullSystemPrompt }, ...payload.messages];
 
+      // H4: 클라우드(OpenRouter) 백엔드면 발신 메시지의 실명·연락처를 토큰으로 치환.
+      // (system 프롬프트는 PII가 없어 제외. 실명 매칭은 볼트에 알려진 이름만 — MIGRATION §6-4 한계)
+      const outgoingMessages: ChatMessage[] = tokenizeOutgoingMessages(
+        messagesWithSystem,
+        piiVault,
+        tokenizeEnabled(),
+      );
+
       // 첨부 파일 있을 때만 임포트 도구 노출
       const activeToolDefs = payload.hasAttachment ? ALL_TOOL_DEFS : QUERY_TOOL_DEFS;
       console.log(`[ai:chat] tools 노출: ${activeToolDefs.length}개 (hasAttachment=${!!payload.hasAttachment})`);
 
       try {
         await rt.chat(
-          messagesWithSystem,
+          outgoingMessages,
           activeToolDefs,
           sendEvent,
           async (name, args) => dispatcher.dispatch(name, args, ctx),

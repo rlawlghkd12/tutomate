@@ -55,6 +55,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // AI 챗봇
   aiStatus: () => ipcRenderer.invoke('ai:status'),
+  aiBackendInfo: () => ipcRenderer.invoke('ai:backend-info'),
+  aiUsage: (payload) => ipcRenderer.invoke('ai:usage', payload),
   aiDiagnose: () => ipcRenderer.invoke('ai:diagnose'),
   aiNeeds: () => ipcRenderer.invoke('ai:needs'),
   aiDownload: () => ipcRenderer.invoke('ai:download'),

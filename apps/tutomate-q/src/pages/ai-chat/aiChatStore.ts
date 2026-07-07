@@ -30,6 +30,17 @@ const estTokens = (s?: string) => {
 
 const historyKey = (orgId: string) => `ai-chat-history:${orgId || 'default'}`;
 
+// 클라우드(OpenRouter) 전송 개인정보 처리 동의 여부 — 기기/사용자 단위로 1회 저장.
+// 로컬 백엔드는 데이터가 기기를 안 벗어나므로 동의 불필요.
+const CLOUD_CONSENT_KEY = 'ai-cloud-consent';
+function loadCloudConsent(): boolean {
+  try {
+    return localStorage.getItem(CLOUD_CONSENT_KEY) === 'accepted';
+  } catch {
+    return false;
+  }
+}
+
 interface PersistedHistory {
   messages: DisplayMessage[];
   summary: string;
@@ -86,13 +97,30 @@ interface AiChatStore {
   summary: string;
   summarizedCount: number;
   loadedOrgId: string | null;
+  /** 클라우드(OpenRouter) 백엔드로 동작 중인지 — 동의 모달 노출 판단용 */
+  cloudBackend: boolean;
+  /** 클라우드 전송 개인정보 처리 동의 완료 여부 */
+  cloudConsent: boolean;
+  /** 이번 달 클라우드 AI 사용량 요약 — 클라우드 백엔드에서만 채워짐(로컬은 null). */
+  usage: {
+    used: number;
+    cap: number;
+    scope: 'org' | 'user';
+    percent: number;
+    remaining: number | null;
+    level: 'none' | 'warn' | 'exceeded';
+  } | null;
   _inited: boolean;
 
   init: () => void;
   loadForOrg: (orgId: string) => void;
   setStatus: (s: AiState) => void;
   refreshStatus: () => Promise<void>;
+  acceptCloudConsent: () => void;
+  refreshUsage: (accessToken?: string) => Promise<void>;
   send: (text: string, attachment: { fileId: string; name: string } | undefined, ctx: SendContext) => Promise<void>;
+  /** 직전 사용자 질문을 다시 전송 (에러 후 재시도) */
+  retry: (ctx: SendContext) => Promise<void>;
   confirmPreview: (card: Extract<SmartCard, { type: 'importPreview' }>, ctx: SendContext) => Promise<void>;
   confirmBankDeposits: (
     card: Extract<SmartCard, { type: 'bankDepositPreview' }>,
@@ -110,10 +138,13 @@ function scheduleSave() {
   saveTimer = setTimeout(() => {
     const s = useAiChatStore.getState();
     if (s.loadedOrgId == null) return;
+    // 클라우드: 요약은 토큰 상태이고 그 토큰의 의미는 메인 프로세스 볼트(세션 수명) 안에서만 유효하다.
+    // 앱 재시작으로 볼트가 초기화되면 저장된 토큰 요약이 새로 발급되는 토큰과 충돌하므로,
+    // 클라우드에선 요약을 영속화하지 않는다(세션 한정). 재시작 후엔 원문 메시지에서 다시 압축된다.
     saveHistory(s.loadedOrgId, {
       messages: s.messages,
-      summary: s.summary,
-      summarizedCount: s.summarizedCount,
+      summary: s.cloudBackend ? '' : s.summary,
+      summarizedCount: s.cloudBackend ? 0 : s.summarizedCount,
     });
   }, 300);
 }
@@ -128,6 +159,9 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
   summary: '',
   summarizedCount: 0,
   loadedOrgId: null,
+  cloudBackend: false,
+  cloudConsent: loadCloudConsent(),
+  usage: null,
   _inited: false,
 
   // 앱 생애주기 동안 1회만: 상태 점검 + chat 이벤트 구독(페이지 이동해도 유지 → 대화 안 끊김)
@@ -197,13 +231,15 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
         }
       } else if (e.type === 'error') {
         const msg: string = e.message ?? '알 수 없는 오류가 생겼어요.';
+        // 사용자 취소(취소/멈췄)는 정상 흐름 → 에러 스타일·재시도 버튼 없이 일반 안내로.
+        const isCancel = /취소|멈췄/i.test(msg);
         set((state) => ({
-          messages: [...state.messages, { role: 'assistant', content: msg }],
+          messages: [...state.messages, { role: 'assistant', content: msg, error: !isCancel }],
           streaming: false,
         }));
         scheduleSave();
         // 사용자 취소(abort)는 정상 흐름이라 로그 제외 — 그 외엔 error_logs에 자동 캡처.
-        if (!/취소|멈췄/i.test(msg)) {
+        if (!isCancel) {
           void reportError(new Error(msg), 'ai-chat');
         }
       } else if (e.type === 'done') {
@@ -213,6 +249,16 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
         useAiNotifyStore.getState().notifyAnswerDone();
       }
     });
+
+    // 백엔드(로컬/클라우드) 확인 — 클라우드면 개인정보 동의 모달을 띄운다.
+    (async () => {
+      try {
+        const info = await window.electronAPI.aiBackendInfo?.();
+        if (info?.cloud) set({ cloudBackend: true });
+      } catch {
+        /* 구버전 preload 등 미지원 시 로컬로 간주 */
+      }
+    })();
 
     // 상태 점검
     (async () => {
@@ -248,6 +294,27 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
 
   setStatus: (s) => set({ status: s }),
 
+  acceptCloudConsent: () => {
+    try {
+      localStorage.setItem(CLOUD_CONSENT_KEY, 'accepted');
+    } catch {
+      /* 저장 실패해도 이번 세션은 진행 */
+    }
+    set({ cloudConsent: true });
+  },
+
+  // 이번 달 클라우드 AI 사용량 갱신 — 클라우드 백엔드에서만 의미. 실패는 조용히 무시(부가 정보).
+  // accessToken을 넘겨 메인이 프록시 인증에 쓰게 한다(첫 채팅 이전에도 조회 가능).
+  refreshUsage: async (accessToken) => {
+    if (!get().cloudBackend) return;
+    try {
+      const u = await window.electronAPI.aiUsage?.(accessToken ? { accessToken } : undefined);
+      if (u) set({ usage: u });
+    } catch {
+      /* 사용량 표시는 부가 정보라 실패해도 채팅에 영향 없음 */
+    }
+  },
+
   // 설치 완료 후 실제 상태 재조회 (엔진·모델 모두 갖춰졌는지 메인에 다시 물음)
   refreshStatus: async () => {
     try {
@@ -267,6 +334,9 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
     const messages = get().messages;
     set({ messages: [...messages, userMsg], streaming: true });
     scheduleSave();
+
+    // 클라우드: 이번 달 사용량을 갱신해 한도 임박/초과 배너를 최신화 (토큰 미소비, fire-and-forget)
+    if (get().cloudBackend) void get().refreshUsage(ctx.accessToken);
 
     if (!ctx.orgId) {
       set((state) => ({
@@ -298,6 +368,7 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
           const res = await window.electronAPI.aiSummarize({
             prevSummary: curSummary,
             messages: toFold.map((m) => ({ role: m.role, content: m.content ?? '' })),
+            accessToken: ctx.accessToken, // 클라우드 백엔드 프록시 인증용
           });
           if (res?.summary && res.summary !== curSummary) {
             curSummary = res.summary;
@@ -400,6 +471,23 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
   cancelStreaming: () => {
     window.electronAPI.aiCancel?.().catch(() => undefined);
     set({ streaming: false });
+  },
+
+  // 에러 후 재시도 — 마지막 사용자 질문 이후(그 메시지 + 실패 응답)를 제거하고 그대로 재전송.
+  // send가 사용자 메시지를 다시 붙이므로 중복 없이 깔끔하게 재생성된다.
+  retry: async (ctx) => {
+    if (get().streaming) return;
+    const msgs = get().messages;
+    let ui = -1;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === 'user') { ui = i; break; }
+    }
+    if (ui < 0) return;
+    const u = msgs[ui];
+    const att = u.attachments?.[0];
+    const attachment = att ? { fileId: att.fileId, name: att.name } : undefined;
+    set({ messages: msgs.slice(0, ui) });
+    await get().send(u.content ?? '', attachment, ctx);
   },
 
   reset: (orgId) => {

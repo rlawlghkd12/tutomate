@@ -38,6 +38,15 @@ interface ElectronAPI {
 
   // AI 챗봇
   aiStatus(): Promise<'not_installed' | 'engine_missing' | 'loading_pending' | 'ready' | 'disabled'>;
+  aiBackendInfo(): Promise<{ backend: 'openrouter' | 'llama'; cloud: boolean }>;
+  aiUsage(payload?: { accessToken?: string }): Promise<{
+    used: number;
+    cap: number;
+    scope: 'org' | 'user';
+    percent: number;
+    remaining: number | null;
+    level: 'none' | 'warn' | 'exceeded';
+  } | null>;
   aiDiagnose(): Promise<{
     ramGB: number;
     diskGB: number;
@@ -57,6 +66,7 @@ interface ElectronAPI {
   aiSummarize(payload: {
     prevSummary?: string;
     messages: { role: string; content: string }[];
+    accessToken?: string;
   }): Promise<{ summary: string }>;
   aiDispatch(payload: {
     toolName: string;

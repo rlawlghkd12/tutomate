@@ -18,6 +18,20 @@ export {
 export type { LlamaRuntime, LlamaRuntimeOptions } from './LlamaRuntime';
 export { createLlamaServerRuntime } from './LlamaServerRuntime';
 export {
+  createOpenRouterRuntime,
+  fetchUsageSummary,
+  type OpenRouterRuntimeOptions,
+  type UsageSummary,
+} from './OpenRouterRuntime';
+export {
+  OPENROUTER_CANDIDATES,
+  OPENROUTER_DEFAULT_MODEL,
+  getAiBackend,
+  getAiProxyUrl,
+  getAiModelOverride,
+  type OpenRouterCandidate,
+} from './openRouterConfig';
+export {
   findLlamaServerBin,
   detectPlatformDir,
   llamaBinDownloadUrl,
