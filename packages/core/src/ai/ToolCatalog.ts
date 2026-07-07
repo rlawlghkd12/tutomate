@@ -5,6 +5,7 @@ import type { ToolDefinition, ToolHandler } from './types';
 type AnyTool = ToolHandler<any>;
 
 import { searchStudent } from './tools/searchStudent';
+import { countStudents } from './tools/countStudents';
 import { getStudent } from './tools/getStudent';
 import { getPaymentHistory } from './tools/getPaymentHistory';
 import { getCoursePayments } from './tools/getCoursePayments';
@@ -23,9 +24,10 @@ import { confirmImport } from './tools/confirmImport';
 import { analyzeBankDeposits } from './tools/analyzeBankDeposits';
 import { confirmBankDeposits } from './tools/confirmBankDeposits';
 
-/** 챗봇이 호출 가능한 모든 도구 (조회 11 + 임포트 4 + 은행입금 2 = 17개). */
+/** 챗봇이 호출 가능한 모든 도구 (조회 12 + 임포트 4 + 은행입금 2 = 18개). */
 export const ALL_TOOLS: AnyTool[] = [
   searchStudent,
+  countStudents,
   getStudent,
   getPaymentHistory,
   getCoursePayments,

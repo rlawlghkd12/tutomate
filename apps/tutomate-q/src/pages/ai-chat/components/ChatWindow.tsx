@@ -13,6 +13,8 @@ interface Props {
     selections: DepositSelection[],
   ) => void;
   onCancelPreview: () => void;
+  /** 오류 메시지의 "다시 시도" — 직전 질문 재전송 */
+  onRetry?: () => void;
 }
 
 /** 대화가 길어져 이전 내용을 요약(압축)하는 동안 보여줄 인디케이터 */
@@ -66,7 +68,7 @@ function TypingIndicator() {
   );
 }
 
-export function ChatWindow({ messages, streaming, summarizing, onConfirmPreview, onConfirmBankDeposits, onCancelPreview }: Props) {
+export function ChatWindow({ messages, streaming, summarizing, onConfirmPreview, onConfirmBankDeposits, onCancelPreview, onRetry }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
 
@@ -110,6 +112,7 @@ export function ChatWindow({ messages, streaming, summarizing, onConfirmPreview,
             onConfirmPreview={onConfirmPreview}
             onConfirmBankDeposits={onConfirmBankDeposits}
             onCancelPreview={onCancelPreview}
+            onRetry={i === messages.length - 1 ? onRetry : undefined}
           />
         ))}
         {summarizing && <SummarizingIndicator />}

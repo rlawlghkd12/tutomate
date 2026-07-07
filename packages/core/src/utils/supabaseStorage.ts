@@ -6,7 +6,9 @@ import { reportError } from "./errorReporter";
 
 type TableName = "courses" | "students" | "enrollments" | "monthly_payments" | "payment_records";
 
-function normalizeError(error: unknown): Error {
+// PostgrestError 등 비-Error 객체를 읽을 수 있는 Error로 변환 — 로그가 `[object Object]`로
+// 저장되던 문제 방지. message|details|hint|code를 합쳐 메시지로, code는 별도 보존.
+export function normalizeError(error: unknown): Error {
 	if (error instanceof Error) return error;
 
 	if (error && typeof error === 'object') {

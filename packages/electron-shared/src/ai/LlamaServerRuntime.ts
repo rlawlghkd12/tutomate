@@ -63,6 +63,8 @@ function toShortPathIfNeeded(longPath: string): string {
 
 /** 도구 호출 라운드 한도 (무한 루프 방지) */
 const MAX_TOOL_ROUNDS = 5;
+/** 답변이 출력 한도(length)로 잘렸을 때 자동으로 이어쓰기 할 최대 횟수 */
+const MAX_CONTINUATIONS = 3;
 /** 서버 health check 타임아웃 */
 const READY_TIMEOUT_MS = 90_000;
 /** 응답에 예약할 출력 토큰 */
@@ -285,7 +287,12 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
         console.warn(`[LlamaServerRuntime] 컨텍스트 트림 적용 — 예상 ${totalTokens()}/${inputBudget} 토큰`);
       };
 
-      for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      let toolRounds = 0;
+      let continuations = 0;
+      // length로 잘려 이어쓰기 중일 때, 부분 응답을 누적하는 단일 assistant 메시지.
+      // (여러 개로 쪼개 push하면 llama.cpp가 prefill 이어쓰기로 인식 못 함)
+      let contAssistant: { role: string; content: string } | null = null;
+      while (true) {
         fitContext();
 
         let assistantText = '';
@@ -384,9 +391,27 @@ export async function createLlamaServerRuntime(opts: ServerOptions): Promise<Lla
         }
 
         if (toolCalls.length === 0) {
-          // 일반 응답 종료
+          // length로 잘렸으면 조용히 끝내지 말고 이어서 생성한다.
+          // llama.cpp(--jinja)는 마지막 메시지가 assistant면 새 턴을 열지 않고
+          // 그 내용에 이어서 생성(prefill)하므로, 부분 응답을 넣고 재요청하면
+          // 같은 답변이 이어지고 UI 말풍선에도 자연스럽게 이어붙는다.
+          if (finishReason === 'length' && continuations < MAX_CONTINUATIONS) {
+            if (contAssistant) {
+              contAssistant.content += assistantText;
+            } else {
+              contAssistant = { role: 'assistant', content: assistantText };
+              oaiMessages.push(contAssistant);
+            }
+            continuations++;
+            continue;
+          }
+          // 정상 종료 (또는 이어쓰기 한도 도달)
           break;
         }
+
+        // 도구 호출 라운드 한도 체크 (무한 루프 방지)
+        if (toolRounds >= MAX_TOOL_ROUNDS) break;
+        toolRounds++;
 
         // 도구 호출 실행 + assistant + tool 메시지 추가
         oaiMessages.push({

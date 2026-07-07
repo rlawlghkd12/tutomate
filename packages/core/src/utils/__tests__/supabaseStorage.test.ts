@@ -50,6 +50,7 @@ import {
   supabaseUpdate,
   supabaseDelete,
   supabaseBulkInsert,
+  normalizeError,
 } from '../supabaseStorage';
 import { AppError, ErrorCode } from '../errors';
 
@@ -455,5 +456,34 @@ describe('toAppError 에러 코드 분류', () => {
     } else {
       Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
     }
+  });
+});
+
+describe('normalizeError (에러 로그 [object Object] 방지)', () => {
+  it('Error 인스턴스는 그대로 반환한다', () => {
+    const e = new Error('boom');
+    expect(normalizeError(e)).toBe(e);
+  });
+
+  it('PostgrestError 객체를 message|details|hint|code로 합친다', () => {
+    const pg = { message: 'insert failed', details: 'row 3', hint: 'check fk', code: '23503' };
+    const err = normalizeError(pg);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toBe('insert failed | row 3 | check fk | 23503');
+    expect((err as any).code).toBe('23503');
+  });
+
+  it('빈 필드는 건너뛰고 존재하는 값만 합친다', () => {
+    expect(normalizeError({ message: 'oops', details: '', hint: null, code: undefined }).message).toBe('oops');
+  });
+
+  it('메시지가 전혀 없으면 JSON 직렬화로 폴백한다', () => {
+    expect(normalizeError({ foo: 'bar' }).message).toBe(JSON.stringify({ foo: 'bar' }));
+  });
+
+  it('원시값은 String()으로 감싼다', () => {
+    expect(normalizeError('just a string').message).toBe('just a string');
+    expect(normalizeError(42).message).toBe('42');
+    expect(normalizeError(null).message).toBe('null');
   });
 });

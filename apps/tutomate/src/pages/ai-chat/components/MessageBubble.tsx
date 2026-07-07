@@ -1,6 +1,6 @@
 import type { ChatMessage, SmartCard, DepositSelection } from '@tutomate/core';
 import { useEffect, useState } from 'react';
-import { Check, Loader2, Paperclip } from 'lucide-react';
+import { Check, Loader2, Paperclip, RotateCcw, AlertCircle } from 'lucide-react';
 import { MappingErrorCard } from './SmartCard/MappingErrorCard';
 import { ImportPreviewCard } from './SmartCard/ImportPreviewCard';
 import { ImportResultCard } from './SmartCard/ImportResultCard';
@@ -14,6 +14,8 @@ export type ToolActivity = { name: string; status: 'running' | 'done' };
 export type DisplayMessage = ChatMessage & {
   cards?: SmartCard[];
   tools?: ToolActivity[];
+  /** 오류 메시지 — 에러 스타일 + 재시도 버튼 표시 */
+  error?: boolean;
 };
 
 // 도구 이름 → 사용자에게 보일 한글 라벨 (AI가 무슨 작업을 하는지 직관적으로)
@@ -30,6 +32,7 @@ const TOOL_LABELS: Record<string, string> = {
   getUnpaidStudents: '미납자 조회',
   listClasses: '강좌 목록 조회',
   searchStudent: '학생 검색',
+  countStudents: '수강생 수 조회',
   parseExcelHeaders: '엑셀 항목 읽기',
   mapColumns: '엑셀 항목 매칭',
   previewImport: '가져오기 미리보기',
@@ -59,6 +62,8 @@ interface Props {
     selections: DepositSelection[],
   ) => void;
   onCancelPreview: () => void;
+  /** 오류 메시지의 "다시 시도" — 직전 질문 재전송 */
+  onRetry?: () => void;
 }
 
 function renderCard(
@@ -100,6 +105,7 @@ export function MessageBubble({
   onConfirmPreview,
   onConfirmBankDeposits,
   onCancelPreview,
+  onRetry,
 }: Props) {
   const isUser = message.role === 'user';
   return (
@@ -133,13 +139,33 @@ export function MessageBubble({
           className={`rounded-2xl px-5 py-3 ${
             isUser
               ? 'whitespace-pre-wrap bg-primary text-primary-foreground'
-              : 'text-lg bg-muted text-foreground'
+              : message.error
+                ? 'flex items-start gap-2 text-base bg-destructive/10 text-destructive border border-destructive/30'
+                : 'text-lg bg-muted text-foreground'
           }`}
           // 사용자 말풍선은 설정 글자 크기에 따라 커지도록 (기본 대비 1.2배)
           style={isUser ? { fontSize: 'calc(var(--font-size-base-value, 14px) * 1.2)', lineHeight: 1.5 } : undefined}
         >
-          {isUser ? message.content : <Markdown>{message.content}</Markdown>}
+          {isUser ? (
+            message.content
+          ) : message.error ? (
+            <>
+              <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+              <span>{message.content}</span>
+            </>
+          ) : (
+            <Markdown>{message.content}</Markdown>
+          )}
         </div>
+      )}
+      {!isUser && message.error && onRetry && (
+        <button
+          onClick={onRetry}
+          className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
+        >
+          <RotateCcw className="h-4 w-4" />
+          다시 시도
+        </button>
       )}
       {message.attachments?.map((a, i) => (
         <div key={i} className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">

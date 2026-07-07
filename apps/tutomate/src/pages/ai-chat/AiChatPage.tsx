@@ -4,6 +4,7 @@ import type { SmartCard } from '@tutomate/core';
 import { ChatWindow } from './components/ChatWindow';
 import { ChatInput } from './components/ChatInput';
 import { ModelDownloadModal } from './components/ModelDownloadModal';
+import { AiCloudConsentModal } from './components/AiCloudConsentModal';
 import { DirectImportFallback } from './components/DirectImportFallback';
 import { useAiChatStore, type SendContext } from './aiChatStore';
 
@@ -18,6 +19,11 @@ export default function AiChatPage() {
 
   const status = useAiChatStore((s) => s.status);
   const statusError = useAiChatStore((s) => s.statusError);
+  const cloudBackend = useAiChatStore((s) => s.cloudBackend);
+  const cloudConsent = useAiChatStore((s) => s.cloudConsent);
+  const acceptCloudConsent = useAiChatStore((s) => s.acceptCloudConsent);
+  const usage = useAiChatStore((s) => s.usage);
+  const refreshUsage = useAiChatStore((s) => s.refreshUsage);
   const messages = useAiChatStore((s) => s.messages);
   const streaming = useAiChatStore((s) => s.streaming);
   const summarizing = useAiChatStore((s) => s.summarizing);
@@ -27,6 +33,7 @@ export default function AiChatPage() {
   const setStatus = useAiChatStore((s) => s.setStatus);
   const refreshStatus = useAiChatStore((s) => s.refreshStatus);
   const send = useAiChatStore((s) => s.send);
+  const retry = useAiChatStore((s) => s.retry);
   const confirmPreview = useAiChatStore((s) => s.confirmPreview);
   const confirmBankDeposits = useAiChatStore((s) => s.confirmBankDeposits);
   const cancelPreview = useAiChatStore((s) => s.cancelPreview);
@@ -52,6 +59,11 @@ export default function AiChatPage() {
   useEffect(() => {
     loadForOrg(orgId);
   }, [orgId, loadForOrg]);
+
+  // 클라우드: 동의 완료 후 이번 달 사용량을 미리 조회해 한도 임박/초과 배너를 띄운다(첫 채팅 전에도).
+  useEffect(() => {
+    if (cloudBackend && cloudConsent && accessToken) void refreshUsage(accessToken);
+  }, [cloudBackend, cloudConsent, accessToken, refreshUsage]);
 
   const handleResetChat = () => {
     if (streaming) return;
@@ -85,9 +97,31 @@ export default function AiChatPage() {
   if (status === 'disabled') {
     return <DirectImportFallback />;
   }
+  // 클라우드 백엔드는 개인정보가 기기를 벗어나므로, 첫 사용 전 동의를 받는다.
+  if (cloudBackend && !cloudConsent) {
+    return (
+      <AiCloudConsentModal
+        onAccept={acceptCloudConsent}
+        onDecline={() => setStatus('disabled')}
+      />
+    );
+  }
 
   return (
     <div className="relative flex flex-col h-full min-h-0">
+      {usage && usage.level !== 'none' && (
+        <div
+          className={`px-4 py-2 text-sm text-center ${
+            usage.level === 'exceeded'
+              ? 'bg-red-50 text-red-700 border-b border-red-200'
+              : 'bg-amber-50 text-amber-700 border-b border-amber-200'
+          }`}
+        >
+          {usage.level === 'exceeded'
+            ? '이번 달 AI 사용 한도를 모두 사용했어요. 다음 달에 다시 이용하실 수 있어요.'
+            : `이번 달 AI 사용량이 ${usage.percent}%에 도달했어요. 한도에 가까워지고 있어요.`}
+        </div>
+      )}
       {messages.length > 0 && (
         <div className="absolute top-2 right-3 z-10 flex items-center gap-3">
           {contextPercent > 0 && (
@@ -126,6 +160,7 @@ export default function AiChatPage() {
         onConfirmPreview={(card: Extract<SmartCard, { type: 'importPreview' }>) => confirmPreview(card, ctx)}
         onConfirmBankDeposits={(card, selections) => confirmBankDeposits(card, selections, ctx)}
         onCancelPreview={cancelPreview}
+        onRetry={() => retry(ctx)}
       />
       <ChatInput
         onSend={(text, attachment) => send(text, attachment, ctx)}
