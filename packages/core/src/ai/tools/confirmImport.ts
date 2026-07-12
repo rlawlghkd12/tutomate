@@ -18,6 +18,9 @@ export const confirmImport: ToolHandler<typeof schema> = {
   async execute({ fileId, mapping, kind }, ctx) {
     if (!ctx.fileStash) throw new Error('FileStash 비활성');
     if (!supabase) throw new Error('Supabase 미설정');
+    // students·payment_records는 organization_id가 NOT NULL이고 RLS(insert)가
+    // organization_id = get_user_org_id() 를 요구한다. 이 값이 없으면 저장이 통째로 실패한다.
+    if (!ctx.orgId) throw new Error('현재 조직을 확인할 수 없어 저장할 수 없습니다. 다시 로그인해 주세요.');
     const buf = await ctx.fileStash.read(fileId);
     const parsed = parseExcel(new Uint8Array(buf));
     const typed = mapping as Record<string, StandardField>;
@@ -33,16 +36,40 @@ export const confirmImport: ToolHandler<typeof schema> = {
       const rows = valid
         .map((n) => ({
           name: n.data.name as string,
-          phone: n.data.phone as string | undefined,
-          birth_date: n.data.birthDate as string | undefined,
+          phone: (n.data.phone as string | undefined) || null,
+          birth_date: (n.data.birthDate as string | undefined) || null,
         }))
         .filter((r) => r.name);
-      const { data, error } = await supabase
-        .from('students')
-        .upsert(rows, { onConflict: 'phone', ignoreDuplicates: false })
-        .select('id');
-      if (error) throw new Error(error.message);
-      added = data?.length ?? 0;
+
+      // students.phone엔 unique 제약이 없어 upsert(onConflict:'phone')가 불가능하다.
+      // 조직 내 기존 전화번호를 조회해 새 학생만 insert하고, 이미 있는 번호는 중복으로 건너뛴다.
+      // (select는 RLS로 현재 조직 범위로 자동 스코프됨)
+      const phones = rows.map((r) => r.phone).filter(Boolean) as string[];
+      const existing = new Set<string>();
+      if (phones.length > 0) {
+        const { data: dup, error: dupErr } = await supabase
+          .from('students')
+          .select('phone')
+          .in('phone', phones);
+        if (dupErr) throw new Error(dupErr.message);
+        for (const d of dup ?? []) {
+          const p = (d as { phone?: string }).phone;
+          if (p) existing.add(p);
+        }
+      }
+      const toInsert = rows
+        .filter((r) => !(r.phone && existing.has(r.phone)))
+        .map((r) => ({ ...r, organization_id: ctx.orgId }));
+      duplicated = rows.length - toInsert.length;
+
+      if (toInsert.length > 0) {
+        const { data, error } = await supabase
+          .from('students')
+          .insert(toInsert)
+          .select('id');
+        if (error) throw new Error(error.message);
+        added = data?.length ?? 0;
+      }
     } else {
       // payments: phone → student → enrollment(들 중 하나) → payment_records.enrollment_id
       // 학생이 여러 강좌면 className 매핑이 필요. 일단 className 기반 매칭 시도.
@@ -92,6 +119,7 @@ export const confirmImport: ToolHandler<typeof schema> = {
         if (!enrollmentId) { duplicated++; continue; }
 
         rows.push({
+          organization_id: ctx.orgId,
           enrollment_id: enrollmentId,
           paid_at: n.data.paymentDate,
           amount: n.data.amount,

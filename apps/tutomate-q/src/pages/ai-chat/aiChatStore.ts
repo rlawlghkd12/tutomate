@@ -426,12 +426,17 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
       });
       if (r.error) {
         set((state) => ({
-          messages: [...state.messages, { role: 'assistant', content: `확정 실패: ${r.error?.message}` }],
+          messages: [...state.messages, { role: 'assistant', content: `확정 실패: ${r.error?.message}`, error: true }],
         }));
       } else {
         // AI 도구가 supabase에 직접 저장하므로 스토어 캐시를 갱신해야 화면에 반영됨
         await reloadAllStores();
       }
+    } catch (e: any) {
+      // 도구가 예외를 던지면(IPC reject) r.error가 아니라 throw로 온다 — 조용히 멈추지 말고 안내.
+      set((state) => ({
+        messages: [...state.messages, { role: 'assistant', content: `확정 실패: ${e?.message ?? '알 수 없는 오류'}`, error: true }],
+      }));
     } finally {
       set({ streaming: false });
       scheduleSave();
@@ -451,12 +456,16 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
       });
       if (r.error) {
         set((state) => ({
-          messages: [...state.messages, { role: 'assistant', content: `저장 실패: ${r.error?.message}` }],
+          messages: [...state.messages, { role: 'assistant', content: `저장 실패: ${r.error?.message}`, error: true }],
         }));
       } else {
         // AI 도구가 supabase에 직접 저장하므로 스토어 캐시를 갱신해야 화면에 반영됨
         await reloadAllStores();
       }
+    } catch (e: any) {
+      set((state) => ({
+        messages: [...state.messages, { role: 'assistant', content: `저장 실패: ${e?.message ?? '알 수 없는 오류'}`, error: true }],
+      }));
     } finally {
       set({ streaming: false });
       scheduleSave();
