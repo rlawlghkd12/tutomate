@@ -74,7 +74,9 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
     const [coursesRes, studentsRes, enrollsRes] = await Promise.all([
       supabase.from('courses').select('id, name, fee'),
       supabase.from('students').select('id, name'),
-      supabase.from('enrollments').select('id, student_id, course_id, quarter'),
+      supabase
+        .from('enrollments')
+        .select('id, student_id, course_id, quarter, payment_status, discount_amount'),
     ]);
     if (coursesRes.error) throw new Error(coursesRes.error.message);
 
@@ -84,6 +86,13 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
       fee: c.fee ?? 0,
     }));
     const courseFee = new Map(courses.map((c) => [c.id, c.fee]));
+    // 저장 후 기존 등록의 납부일·납부액 동기화용 (화면 '납부일'은 enrollments.paid_at을 읽음)
+    const enrollMetaById = new Map<string, { courseId: string; status: string; discount: number }>(
+      (enrollsRes.data ?? []).map((e: any) => [
+        e.id,
+        { courseId: e.course_id, status: e.payment_status, discount: e.discount_amount ?? 0 },
+      ]),
+    );
 
     // analyze와 동일하게 현재 분기로 제한 (분기 없는 일반 버전 데이터는 통과)
     const targetQuarter = getCurrentQuarter();
@@ -106,37 +115,58 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
     const newEnrollmentIdByRow = new Map<number, string>();
     let enrolled = 0;
     let enrollFailed = 0;
-    for (const sel of selections) {
-      if (!sel.newEnrollment) continue;
+    // 신규 등록 행을 모아 한 번의 배치 insert로 처리한다('전체 추천대로'는 신규 등록 N건이
+    // 흔해 건별 왕복이 병목이었다). 반환 순서=입력 순서로 rowIndex에 매핑한다.
+    const enrollRows = selections.flatMap((sel) => {
+      if (!sel.newEnrollment) return [];
       const tx = txByRow.get(sel.rowIndex);
-      if (!tx) continue;
+      if (!tx) return [];
       const fee = courseFee.get(sel.newEnrollment.courseId) ?? 0;
       const amount = tx.amount;
-      const remaining = Math.max(0, fee - amount);
-      const paymentStatus = amount <= 0 ? 'pending' : amount < fee ? 'partial' : 'completed';
+      return [
+        {
+          rowIndex: sel.rowIndex,
+          payload: {
+            organization_id: ctx.orgId,
+            course_id: sel.newEnrollment.courseId,
+            student_id: sel.newEnrollment.studentId,
+            enrolled_at: new Date().toISOString(),
+            payment_status: amount <= 0 ? 'pending' : amount < fee ? 'partial' : 'completed',
+            paid_amount: amount,
+            remaining_amount: Math.max(0, fee - amount),
+            paid_at: tx.paidAt,
+            payment_method: toPaymentMethod(tx.method),
+            discount_amount: 0,
+            quarter: sel.newEnrollment.quarter ?? null,
+          },
+        },
+      ];
+    });
+    if (enrollRows.length > 0) {
       const { data, error } = await supabase
         .from('enrollments')
-        .insert({
-          organization_id: ctx.orgId,
-          course_id: sel.newEnrollment.courseId,
-          student_id: sel.newEnrollment.studentId,
-          enrolled_at: new Date().toISOString(),
-          payment_status: paymentStatus,
-          paid_amount: amount,
-          remaining_amount: remaining,
-          paid_at: tx.paidAt,
-          payment_method: toPaymentMethod(tx.method),
-          discount_amount: 0,
-          quarter: sel.newEnrollment.quarter ?? null,
-        })
-        .select('id')
-        .single();
-      if (error || !data) {
-        enrollFailed++;
-        continue;
+        .insert(enrollRows.map((r) => r.payload))
+        .select('id');
+      if (!error && data && data.length === enrollRows.length) {
+        // 성공: PostgREST 단일 insert는 입력 순서대로 반환 → 인덱스로 매핑
+        data.forEach((row: any, i: number) => newEnrollmentIdByRow.set(enrollRows[i].rowIndex, row.id));
+        enrolled += data.length;
+      } else {
+        // 배치 실패(제약 위반 등) → 건별 fallback으로 부분 성공 내성 유지
+        for (const r of enrollRows) {
+          const { data: one, error: e1 } = await supabase
+            .from('enrollments')
+            .insert(r.payload)
+            .select('id')
+            .single();
+          if (e1 || !one) {
+            enrollFailed++;
+            continue;
+          }
+          newEnrollmentIdByRow.set(r.rowIndex, one.id);
+          enrolled++;
+        }
       }
-      newEnrollmentIdByRow.set(sel.rowIndex, data.id);
-      enrolled++;
     }
 
     // 2) 저장 후보 구성: auto는 매칭된 enrollment(자동), 선택건은 사용자 확인분
@@ -256,21 +286,73 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
     });
     const skipped = candidates.length - toInsert.length;
 
-    // payment_records에 없는 내부 플래그(userConfirmed/isRefund) 제거 후 insert
-    const insertRows = toInsert.map(({ userConfirmed: _u, isRefund: _r, ...row }) => row);
+    // payment_records에 없는 내부 플래그(userConfirmed/isRefund/viaRecommend) 제거 후 insert.
+    // viaRecommend를 안 벗기면 존재하지 않는 컬럼이 딸려가 insert 전체가 거부된다(저장 실패).
+    const insertRows = toInsert.map(
+      ({ userConfirmed: _u, isRefund: _r, viaRecommend: _v, ...row }) => row,
+    );
 
     let saved = 0;
     let refunded = 0;
     let failed = enrollFailed;
+    let insertOk = false;
     if (insertRows.length > 0) {
       const { data, error } = await supabase.from('payment_records').insert(insertRows).select('id');
       if (error) {
         failed += toInsert.length;
       } else {
+        insertOk = true;
         const total = data?.length ?? 0;
         refunded = toInsert.filter((r) => r.isRefund).length;
         saved = Math.max(0, total - refunded); // 입금 저장 건수 (환불 제외)
       }
+    }
+
+    // 기존 등록에 결제를 붙였으면 enrollments.paid_at/paid_amount를 갱신한다.
+    // (이 툴은 store를 안 거쳐 syncEnrollmentTotal이 안 돌아, 화면 '납부일'이 갱신 안 되던 문제)
+    // 신규 등록은 insert 시 이미 반영되므로 제외. 결제 이력=기존(existing)+이번(insertRows) 합산.
+    if (insertOk) {
+      const db = supabase; // 클로저 안 null 내로잉 유지
+      const newIds = new Set(newEnrollmentIdByRow.values());
+      const recsByEnroll = new Map<string, { paidAt: string; amount: number }[]>();
+      const pushRec = (eid: string, paidAt: string, amount: number) => {
+        const arr = recsByEnroll.get(eid) ?? [];
+        arr.push({ paidAt, amount });
+        recsByEnroll.set(eid, arr);
+      };
+      for (const e of existing ?? []) pushRec((e as any).enrollment_id, (e as any).paid_at, (e as any).amount);
+      for (const r of insertRows) pushRec(r.enrollment_id, r.paid_at, r.amount);
+
+      const affected = Array.from(new Set(insertRows.map((r) => r.enrollment_id))).filter(
+        (id) => !newIds.has(id) && enrollMetaById.has(id),
+      );
+      await Promise.all(
+        affected.map((eid) => {
+          const meta = enrollMetaById.get(eid)!;
+          const recs = recsByEnroll.get(eid) ?? [];
+          const totalPaid = recs.reduce((a, r) => a + (Number(r.amount) || 0), 0);
+          const latestPaidAt = recs.reduce((m, r) => (r.paidAt && r.paidAt > m ? r.paidAt : m), '');
+          // withdrawn/exempt 상태는 유지하고 납부액·납부일만 반영
+          if (meta.status === 'withdrawn' || meta.status === 'exempt') {
+            return db
+              .from('enrollments')
+              .update({ paid_amount: totalPaid, remaining_amount: 0, paid_at: latestPaidAt || null })
+              .eq('id', eid);
+          }
+          const netFee = Math.max(0, (courseFee.get(meta.courseId) ?? 0) - meta.discount);
+          const remaining = Math.max(0, netFee - totalPaid);
+          const status = totalPaid <= 0 ? 'pending' : totalPaid < netFee ? 'partial' : 'completed';
+          return db
+            .from('enrollments')
+            .update({
+              paid_amount: totalPaid,
+              remaining_amount: remaining,
+              payment_status: status,
+              paid_at: latestPaidAt || null,
+            })
+            .eq('id', eid);
+        }),
+      );
     }
 
     const card: SmartCard = { type: 'bankDepositResult', saved, skipped, failed, enrolled, refunded };
