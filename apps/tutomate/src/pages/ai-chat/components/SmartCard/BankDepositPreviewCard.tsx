@@ -74,12 +74,18 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
   const newEnrollCount = items.filter((i) => i.status === 'needsEnrollment').length;
   const splitCount = items.filter((i) => i.status === 'needsSplit').length;
   const refundCount = items.filter((i) => i.status === 'needsRefund').length;
+  // 재수강생(지난 분기 이력 있음) — 이번/지난 분기 선택이 애매해 '전체 추천대로'에서 제외하고 건별로만 확인한다.
+  const returningRows = review.filter(
+    (i) => i.status === 'needsEnrollment' && !!i.candidates[0]?.priorEnrollmentId,
+  );
 
   const [step, setStep] = useState<'intro' | 'review' | 'ready'>('intro');
   const [idx, setIdx] = useState(0);
   const [decisions, setDecisions] = useState<Record<number, Decision>>({});
   const [showAlt, setShowAlt] = useState(false);
   const [busy, setBusy] = useState(false);
+  // 벌크 처리 후 '남은 재수강 건만' 건별 확인하는 모드
+  const [reviewingRemainder, setReviewingRemainder] = useState(false);
 
   // 화면이 바뀌기 전 같은 버튼이 두 번 처리되는 것(더블클릭)을 막는 잠금.
   // idx/step이 바뀌어 새 화면이 렌더되면 자동 해제된다.
@@ -93,7 +99,9 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
     fn();
   }
 
-  const cur = review[idx];
+  // 일반 확인은 review 전체를, 벌크 후 잔여 모드에서는 재수강 건만 순회한다.
+  const activeList = reviewingRemainder ? returningRows : review;
+  const cur = activeList[idx];
   // 합산 분할은 한 건의 결정이 여러 결제로 저장되므로 '저장될 기록 수'로 센다.
   const recordsOf = (d: Decision) => (d.split ? d.split.length : 1);
   const confirmedRecords = Object.values(decisions).reduce((a, d) => a + recordsOf(d), 0);
@@ -102,7 +110,7 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
 
   function goNext() {
     setShowAlt(false);
-    if (idx + 1 < review.length) setIdx(idx + 1);
+    if (idx + 1 < activeList.length) setIdx(idx + 1);
     else setStep('ready');
   }
   function accept(enrollmentId: string) {
@@ -139,7 +147,7 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
   function skipAllRemaining() {
     setDecisions((d) => {
       const n = { ...d };
-      for (let i = idx; i < review.length; i++) delete n[review[i].rowIndex];
+      for (let i = idx; i < activeList.length; i++) delete n[activeList[i].rowIndex];
       return n;
     });
     setShowAlt(false);
@@ -154,9 +162,11 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
     const next: Record<number, Decision> = {};
     for (const it of review) {
       if (it.status === 'needsEnrollment') {
-        // 재수강 포함 — 추천은 '이번 분기 새로 등록'
         const c = it.candidates[0];
-        if (c) next[it.rowIndex] = { newEnrollment: { studentId: c.studentId, courseId: c.courseId, quarter: newQuarter }, viaRecommend: true };
+        if (!c) continue;
+        // 재수강(지난 분기 이력)은 이번/지난 분기 선택이 애매 → 벌크 제외, 아래에서 건별 확인
+        if (c.priorEnrollmentId) continue;
+        next[it.rowIndex] = { newEnrollment: { studentId: c.studentId, courseId: c.courseId, quarter: newQuarter }, viaRecommend: true };
       } else if (it.status === 'needsSplit') {
         const split = it.candidates.map((c) => ({ enrollmentId: c.enrollmentId, amount: c.fee }));
         if (split.length > 0) next[it.rowIndex] = { split, viaRecommend: true };
@@ -177,7 +187,14 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
     }
     setDecisions(next);
     setShowAlt(false);
-    setStep('ready');
+    // 재수강 건이 남아 있으면 그것만 건별로 확인, 없으면 바로 마무리.
+    if (returningRows.length > 0) {
+      setReviewingRemainder(true);
+      setIdx(0);
+      setStep('review');
+    } else {
+      setStep('ready');
+    }
   }
   function save() {
     const selections: DepositSelection[] = Object.entries(decisions).map(([rowIndex, d]) => ({
@@ -243,7 +260,11 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
         <div className="flex flex-col gap-2">
           {review.length > 0 ? (
             <>
-              <BigButton tone="primary" onClick={() => guard(() => setStep('review'))} disabled={busy}>
+              <BigButton
+                tone="primary"
+                onClick={() => guard(() => { setReviewingRemainder(false); setIdx(0); setStep('review'); })}
+                disabled={busy}
+              >
                 {review.length}건 하나씩 확인하기
               </BigButton>
               <BigButton tone="outline" onClick={() => guard(acceptAllRecommended)} disabled={busy}>
@@ -278,7 +299,7 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
     return (
       <div className="border-2 border-primary bg-card rounded-2xl p-5 text-foreground">
         <div className="text-base text-primary font-semibold mb-2">
-          확인 {idx + 1} / {review.length}
+          확인 {idx + 1} / {activeList.length}
         </div>
         <div className="text-2xl font-bold">{cur.payerName || '(이름 없는 입금)'}님</div>
         <div className="text-lg text-muted-foreground mb-3">
@@ -359,7 +380,7 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
     return (
       <div className="border-2 border-error-subtle bg-error-subtle rounded-2xl p-5 text-foreground">
         <div className="text-base text-destructive font-semibold mb-2">
-          확인 {idx + 1} / {review.length}
+          확인 {idx + 1} / {activeList.length}
         </div>
         <div className="text-2xl font-bold">{cur.payerName || '(이름 없는 출금)'}님</div>
         <div className="text-lg text-muted-foreground mb-3">
@@ -430,7 +451,7 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
     return (
       <div className="border-2 border-warning-subtle bg-warning-subtle rounded-2xl p-5 text-foreground">
         <div className="text-base text-warning font-semibold mb-2">
-          확인 {idx + 1} / {review.length}
+          확인 {idx + 1} / {activeList.length}
         </div>
         <div className="text-2xl font-bold">{cur.payerName || '(이름 없는 입금)'}님</div>
         <div className="text-lg text-muted-foreground mb-3">
@@ -508,7 +529,7 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
       <div className="border-2 border-warning-subtle bg-warning-subtle rounded-2xl p-5 text-foreground">
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="text-base text-warning font-semibold">
-            확인 {idx + 1} / {review.length}
+            확인 {idx + 1} / {activeList.length}
           </div>
           {isDupNow && (
             <button
