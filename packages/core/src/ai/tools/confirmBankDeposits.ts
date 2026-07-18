@@ -31,6 +31,10 @@ const schema = z.object({
           .object({ enrollmentId: z.string(), amount: z.number() })
           .optional()
           .describe('출금을 환불(음수 결제)로 저장할 때 (needsRefund 건). amount는 출금액(양수)'),
+        viaRecommend: z
+          .boolean()
+          .optional()
+          .describe('"전체 추천대로 처리"로 일괄 적용된 건 — 확정 시 중복 검사를 그대로 적용(재업로드 중복 방지)'),
       }),
     )
     .default([])
@@ -144,6 +148,8 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
       payment_method: string;
       notes: string;
       userConfirmed: boolean;
+      /** '전체 추천대로' 일괄 적용 건 — userConfirmed여도 중복 검사를 적용한다 */
+      viaRecommend?: boolean;
       isRefund?: boolean;
     };
     const candidates: Row[] = [];
@@ -162,6 +168,7 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
             payment_method: toPaymentMethod(m.tx.method),
             notes: `은행입금 합산분할: ${m.tx.payerName} — 총 ${m.tx.amount}원을 ${n}개 강의로 나눔 (${m.tx.method || '경로미상'})`,
             userConfirmed: true,
+            viaRecommend: !!sel.viaRecommend,
           });
         }
         continue;
@@ -189,6 +196,7 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
         payment_method: toPaymentMethod(m.tx.method),
         notes: `은행입금 자동기록: ${m.tx.payerName} (${m.tx.method || '경로미상'})`,
         userConfirmed,
+        viaRecommend: !!sel?.viaRecommend,
       });
     }
 
@@ -205,6 +213,7 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
         payment_method: toPaymentMethod(tx.method),
         notes: `은행출금 환불: ${tx.payerName} (${tx.method || '경로미상'})`,
         userConfirmed: true,
+        viaRecommend: !!sel.viaRecommend,
         isRefund: true,
       });
     }
@@ -236,10 +245,11 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
       (existing ?? []).map((e: any) => `${e.enrollment_id}|${ym(e.paid_at)}|${e.amount}`),
     );
 
-    // 사용자가 직접 확인한 건은 항상 저장.
-    // 자동매칭 건은 같은 날뿐 아니라 같은 달·같은 금액 기록이 있으면(수동입력 등) 자동 저장 제외.
+    // 사용자가 한 건씩 직접 확인한 건은 항상 저장(중복 경고를 보고 '그래도 저장'한 의식적 선택).
+    // 단, '전체 추천대로' 일괄 적용 건(viaRecommend)은 의식적 오버라이드가 아니므로 중복 검사를 적용한다.
+    // 자동매칭 건도 같은 날뿐 아니라 같은 달·같은 금액 기록이 있으면(수동입력 등) 자동 저장 제외.
     const toInsert = candidates.filter((c) => {
-      if (c.userConfirmed) return true;
+      if (c.userConfirmed && !c.viaRecommend) return true;
       const exact = existKey.has(`${c.enrollment_id}|${c.paid_at}|${c.amount}`);
       const month = monthKey.has(`${c.enrollment_id}|${ym(c.paid_at)}|${c.amount}`);
       return !exact && !month;
