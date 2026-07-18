@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { supabase } from '../../config/supabase';
-import { getCurrentQuarter } from '../../utils/quarterUtils';
+import { getCurrentQuarter, getPreviousQuarter } from '../../utils/quarterUtils';
 import { parseBankExcel } from '../bank/parseBankExcel';
 import {
   matchDeposits,
@@ -19,7 +19,9 @@ const schema = z.object({
  * 은행 거래내역 엑셀(입금/출금)을 분석해 수강생·강좌·금액과 매칭하고 미리보기 카드를 띄운다.
  * - 입금: 수강생·강좌·금액 매칭 (auto/needsConfirm/needsEnrollment/needsSplit)
  * - 출금: 낸 기록이 있는 수강생 환불 후보 (needsRefund, 항상 확인)
- * 모든 매칭·중복확인은 현재 분기 등록(enrollment) 기준으로 제한한다(분기 없는 일반 버전 데이터는 전체).
+ * 매칭·중복확인은 현재 분기 등록(enrollment) 기준으로 하되(분기 없는 일반 버전 데이터는 전체),
+ * 직전 분기 등록은 재수강 감지에 쓴다 — 지난 분기 수강생이 이번 분기 미등록이면
+ * '신규 등록'으로 단정하지 않고 '지난 분기 등록에 저장' 선택지도 함께 제시한다.
  * 저장은 하지 않는다 — 사용자가 카드에서 [확정]을 눌러야 confirmBankDeposits가 실행된다.
  */
 export const analyzeBankDeposits: ToolHandler<typeof schema> = {
@@ -50,19 +52,26 @@ export const analyzeBankDeposits: ToolHandler<typeof schema> = {
 
     // 현재 분기로 제한 — '2분기 정리'면 1분기 등록/결제는 보지 않는다.
     // (분기 없는 데이터=일반 버전은 그대로 통과시켜 양쪽 앱 모두 안전)
+    // 단, 직전 분기 등록은 '재수강 감지'용으로 따로 넘긴다 — 지난 분기 수강생이
+    // 이번 분기 미등록이라고 무조건 '신규'로 뜨지 않고, 지난 분기 등록에 저장하는 선택지를 준다.
     const targetQuarter = getCurrentQuarter();
+    const prevQuarter = getPreviousQuarter(targetQuarter);
     const courses = (coursesRes.data ?? []).map((c: any) => ({
       id: c.id,
       name: c.name,
       fee: c.fee ?? 0,
     }));
     const students = (studentsRes.data ?? []).map((s: any) => ({ id: s.id, name: s.name }));
-    const enrollments = (enrollsRes.data ?? [])
+    const allEnrolls = enrollsRes.data ?? [];
+    const enrollments = allEnrolls
       .filter((e: any) => !e.quarter || e.quarter === targetQuarter)
+      .map((e: any) => ({ id: e.id, studentId: e.student_id, courseId: e.course_id }));
+    const prevEnrollments = allEnrolls
+      .filter((e: any) => e.quarter === prevQuarter)
       .map((e: any) => ({ id: e.id, studentId: e.student_id, courseId: e.course_id }));
 
     // ── 입금 매칭 ──
-    const matches = matchDeposits(parsed.deposits, { courses, students, enrollments });
+    const matches = matchDeposits(parsed.deposits, { courses, students, enrollments, prevEnrollments });
     const items = matches.map(toPreviewItem);
 
     // ── 출금(환불) 후보: 출금 적요에 수강생 이름이 잡히면 그 학생의 현재 분기 등록을 후보로 ──
@@ -98,10 +107,11 @@ export const analyzeBankDeposits: ToolHandler<typeof schema> = {
     // ── 결제 이력 한 번에 조회 (입금 후보 ∪ 환불 후보 등록) ──
     const allEnrollmentIds = Array.from(
       new Set([
-        ...items.flatMap((i) => i.candidates.map((c) => c.enrollmentId)),
+        // 재수강 후보는 enrollmentId가 빈 문자열이고 priorEnrollmentId(지난 분기)에 이력이 있다
+        ...items.flatMap((i) => i.candidates.flatMap((c) => [c.enrollmentId, c.priorEnrollmentId])),
         ...refundPlan.flatMap((p) => p.enrolls.map((e) => e.enrollmentId)),
       ]),
-    ).filter(Boolean);
+    ).filter((id): id is string => Boolean(id));
 
     const ym = (s: string) => String(s).slice(0, 7); // YYYY-MM
     const byEnrollment = new Map<string, { paidAt: string; amount: number }[]>();
@@ -124,12 +134,30 @@ export const analyzeBankDeposits: ToolHandler<typeof schema> = {
       }
     }
 
-    // 입금 후보에 이력 주입 + 중복 처리
+    // 입금 후보에 이력 주입 + 정기 반복(recurring) 판정 + 중복 처리
     for (const it of items) {
       for (const c of it.candidates) {
-        const hist = byEnrollment.get(c.enrollmentId);
+        // 재수강 후보는 지난 분기 등록(priorEnrollmentId)의 결제 이력을 보여준다.
+        const eid = c.enrollmentId || c.priorEnrollmentId;
+        const hist = eid ? byEnrollment.get(eid) : undefined;
         if (hist && hist.length > 0) {
           c.existingPayments = [...hist].sort((a, b) => (a.paidAt < b.paidAt ? 1 : -1));
+          // 직전 '다른 달'에 같은 금액을 낸 정기 수강료 패턴 (같은 달=중복 의심이라 제외)
+          c.recurring = hist.some(
+            (p) => p.amount === it.amount && ym(p.paidAt) !== ym(it.paidAt) && p.paidAt < it.paidAt,
+          );
+        }
+      }
+      // 정기 반복 후보가 딱 하나면 1순위로 올려 "지난달에도…" 라벨을 보여준다(이름만 입금의 매달 확인 부담↓).
+      if (it.status === 'needsConfirm') {
+        const rec = it.candidates.filter((c) => c.recurring);
+        if (rec.length === 1) {
+          const r = rec[0];
+          it.candidates = [r, ...it.candidates.filter((c) => c !== r)];
+          it.enrollmentId = r.enrollmentId;
+          it.studentName = r.studentName;
+          it.courseName = r.courseName;
+          it.reason = '지난달에도 같은 금액을 이 강좌에 내셨어요 — 정기 수강료로 보임';
         }
       }
       if (!it.enrollmentId) continue;

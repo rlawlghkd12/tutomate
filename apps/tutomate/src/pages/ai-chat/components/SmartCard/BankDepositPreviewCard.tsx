@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ButtonHTMLAttributes } from 'react';
 import type { SmartCard, MatchCandidate, DepositSelection } from '@tutomate/core';
-import { appConfig, getCurrentQuarter, getQuarterOptions } from '@tutomate/core';
+import { appConfig, getCurrentQuarter, getPreviousQuarter, getQuarterLabel } from '@tutomate/core';
 
 type Card = Extract<SmartCard, { type: 'bankDepositPreview' }>;
 type Props = Card & {
@@ -13,12 +13,25 @@ type Decision = {
   newEnrollment?: { studentId: string; courseId: string; quarter?: string };
   split?: { enrollmentId: string; amount: number }[];
   refund?: { enrollmentId: string; amount: number };
+  /** '전체 추천대로' 일괄 적용 건 — 확정 시 중복 검사를 적용받게 한다 */
+  viaRecommend?: boolean;
 };
 
 const won = (n: number) => n.toLocaleString('ko-KR') + '원';
 function shortDate(iso: string): string {
   const m = iso.match(/^\d{4}-(\d{2})-(\d{2})/);
   return m ? `${Number(m[1])}월 ${Number(m[2])}일` : iso;
+}
+
+// 입금액과 수강료 관계 라벨 (수수료차감/부분/초과). 정확 일치·미상은 라벨 없음.
+function amountLabel(c: MatchCandidate | undefined, amount: number): { text: string; tone: string } | null {
+  const note = c?.amountNote;
+  if (!c || !note || note === 'exact') return null;
+  if (note === 'feeDeducted')
+    return { text: `수수료 빼고 딱 맞아요 (수강료 ${won(c.fee)})`, tone: 'text-success' };
+  if (note === 'partial')
+    return { text: `부분 납부 · 남은 금액 ${won(Math.max(0, c.fee - amount))}`, tone: 'text-warning' };
+  return { text: `수강료(${won(c.fee)})보다 많이 들어왔어요`, tone: 'text-warning' };
 }
 
 type Tone = 'primary' | 'success' | 'outline' | 'ghost' | 'secondary';
@@ -66,7 +79,6 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
   const [idx, setIdx] = useState(0);
   const [decisions, setDecisions] = useState<Record<number, Decision>>({});
   const [showAlt, setShowAlt] = useState(false);
-  const [pickQuarter, setPickQuarter] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // 화면이 바뀌기 전 같은 버튼이 두 번 처리되는 것(더블클릭)을 막는 잠금.
@@ -74,7 +86,7 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
   const navLock = useRef(false);
   useEffect(() => {
     navLock.current = false;
-  }, [idx, step, showAlt, pickQuarter]);
+  }, [idx, step, showAlt]);
   function guard(fn: () => void) {
     if (navLock.current || busy) return;
     navLock.current = true;
@@ -90,7 +102,6 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
 
   function goNext() {
     setShowAlt(false);
-    setPickQuarter(false);
     if (idx + 1 < review.length) setIdx(idx + 1);
     else setStep('ready');
   }
@@ -132,7 +143,40 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
       return n;
     });
     setShowAlt(false);
-    setPickQuarter(false);
+    setStep('ready');
+  }
+  // 확인이 필요한 모든 건을 각 카드의 '1순위 추천 액션'으로 한 번에 처리하고 마무리로 이동.
+  // 중복 의심 건(같은 달·같은 금액 기록 있음)은 카드 추천이 '건너뛰기'이므로 저장에서 제외한다.
+  // 저장 전 마무리 화면에서 카테고리별 건수(새 등록·환불 포함)를 다시 확인할 수 있다.
+  function acceptAllRecommended() {
+    const newQuarter = appConfig.enableQuarterSystem ? getCurrentQuarter() : undefined;
+    const ym = (s: string) => s.slice(0, 7); // YYYY-MM
+    const next: Record<number, Decision> = {};
+    for (const it of review) {
+      if (it.status === 'needsEnrollment') {
+        // 재수강 포함 — 추천은 '이번 분기 새로 등록'
+        const c = it.candidates[0];
+        if (c) next[it.rowIndex] = { newEnrollment: { studentId: c.studentId, courseId: c.courseId, quarter: newQuarter }, viaRecommend: true };
+      } else if (it.status === 'needsSplit') {
+        const split = it.candidates.map((c) => ({ enrollmentId: c.enrollmentId, amount: c.fee }));
+        if (split.length > 0) next[it.rowIndex] = { split, viaRecommend: true };
+      } else if (it.status === 'needsRefund') {
+        const c = it.candidates.find((x) => x.amountMatches) ?? it.candidates[0];
+        if (c) next[it.rowIndex] = { refund: { enrollmentId: c.enrollmentId, amount: it.amount }, viaRecommend: true };
+      } else {
+        // needsConfirm — 1순위 후보에 저장 (중복 의심이면 추천이 '건너뛰기'이므로 제외)
+        const primary = it.candidates.find((c) => c.enrollmentId === it.enrollmentId) ?? it.candidates[0];
+        if (!primary || !primary.enrollmentId) continue;
+        const hist = primary.existingPayments ?? [];
+        const dup = hist.some(
+          (p) => (p.paidAt === it.paidAt || ym(p.paidAt) === ym(it.paidAt)) && p.amount === it.amount,
+        );
+        if (dup) continue;
+        next[it.rowIndex] = { enrollmentId: primary.enrollmentId, viaRecommend: true };
+      }
+    }
+    setDecisions(next);
+    setShowAlt(false);
     setStep('ready');
   }
   function save() {
@@ -196,11 +240,16 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
             </li>
           )}
         </ul>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col gap-2">
           {review.length > 0 ? (
-            <BigButton tone="primary" onClick={() => guard(() => setStep('review'))} disabled={busy}>
-              {review.length}건 같이 확인하기
-            </BigButton>
+            <>
+              <BigButton tone="primary" onClick={() => guard(() => setStep('review'))} disabled={busy}>
+                {review.length}건 하나씩 확인하기
+              </BigButton>
+              <BigButton tone="outline" onClick={() => guard(acceptAllRecommended)} disabled={busy}>
+                전체 추천대로 처리하기
+              </BigButton>
+            </>
           ) : (
             <BigButton tone="primary" onClick={() => guard(save)} disabled={busy || totalSave === 0}>
               {busy ? '저장 중…' : `${totalSave}건 저장하기`}
@@ -215,11 +264,16 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
   }
 
   // ── 2-A) 한 건씩 확인: 새로 등록 제안 ──
+  //   재수강(지난 분기 이력 있음)이면 '이번 분기 새 등록' / '지난 분기 등록에 저장'을 함께 제시한다.
   if (step === 'review' && cur && cur.status === 'needsEnrollment') {
     const c = cur.candidates[0];
-    const askQuarter = appConfig.enableQuarterSystem;
+    const withQuarter = appConfig.enableQuarterSystem;
     const current = getCurrentQuarter();
-    const quarterOpts = [...getQuarterOptions()].reverse(); // 최신 분기 먼저
+    const prevQ = getPreviousQuarter(current);
+    // 분기 시스템이 없는 일반 버전은 quarter 없이 등록 (기존 동작 유지)
+    const newQuarter = withQuarter ? current : undefined;
+    const returning = withQuarter && !!c?.priorEnrollmentId;
+    const priorPays = c?.existingPayments ?? [];
 
     return (
       <div className="border-2 border-primary bg-card rounded-2xl p-5 text-foreground">
@@ -231,28 +285,35 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
           {shortDate(cur.paidAt)} · {cur.method || '입금'} · {won(cur.amount)}
         </div>
 
-        {!pickQuarter ? (
+        {returning ? (
           <>
             <div className="text-lg mb-2">
-              <b>{c?.courseName}</b> 강의에 새로 등록할까요?
+              이번 {getQuarterLabel(current)}엔 <b>{c?.courseName}</b> 등록이 없어요.
             </div>
             <div className="bg-card border border-border rounded-xl p-3 mb-3 text-base">
-              <div className="text-muted-foreground">
-                이 분은 아직 <b className="text-foreground">{c?.courseName}</b> 강의에 등록돼 있지 않아요.
+              <div className="text-muted-foreground mb-1">
+                지난 {getQuarterLabel(prevQ)}에 <b className="text-foreground">{c?.courseName}</b> 수강 이력이 있어요.
               </div>
-              {c && c.amountMatches && (
-                <div className="text-success mt-1">
-                  입금액 {won(cur.amount)}이 수강료와 같아요.
-                </div>
+              {priorPays.length > 0 && (
+                <ul className="space-y-0.5">
+                  {priorPays.slice(0, 5).map((p, i) => (
+                    <li key={i} className={p.amount === cur.amount ? 'text-foreground font-bold' : 'text-foreground'}>
+                      · {shortDate(p.paidAt)} {won(p.amount)}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
             <div className="flex flex-col gap-2">
+              <BigButton tone="success" onClick={() => guard(() => c && acceptEnroll(c, newQuarter))} disabled={busy}>
+                이번 {getQuarterLabel(current)}에 새로 등록할게요
+              </BigButton>
               <BigButton
-                tone="success"
-                onClick={() => guard(() => (askQuarter ? setPickQuarter(true) : c && acceptEnroll(c)))}
+                tone="outline"
+                onClick={() => guard(() => c?.priorEnrollmentId && accept(c.priorEnrollmentId))}
                 disabled={busy}
               >
-                네, 새로 등록할게요
+                지난 {getQuarterLabel(prevQ)} 등록에 저장할게요
               </BigButton>
               <BigButton tone="ghost" onClick={() => guard(skip)} disabled={busy}>
                 이 입금은 건너뛸게요
@@ -261,21 +322,28 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
           </>
         ) : (
           <>
-            <div className="text-lg mb-2">어느 분기로 등록할까요?</div>
+            <div className="text-lg mb-2">
+              <b>{c?.courseName}</b> 강의에 새로 등록할까요?
+            </div>
+            <div className="bg-card border border-border rounded-xl p-3 mb-3 text-base">
+              <div className="text-muted-foreground">
+                이 분은 아직 <b className="text-foreground">{c?.courseName}</b> 강의에 등록돼 있지 않아요.
+              </div>
+              {c && c.amountMatches ? (
+                <div className="text-success mt-1">입금액 {won(cur.amount)}이 수강료와 같아요.</div>
+              ) : (
+                (() => {
+                  const l = amountLabel(c, cur.amount);
+                  return l ? <div className={`${l.tone} mt-1`}>{l.text}</div> : null;
+                })()
+              )}
+            </div>
             <div className="flex flex-col gap-2">
-              {quarterOpts.map((q) => (
-                <BigButton
-                  key={q.value}
-                  tone={q.value === current ? 'success' : 'outline'}
-                  onClick={() => guard(() => c && acceptEnroll(c, q.value))}
-                  disabled={busy}
-                >
-                  {q.label}
-                  {q.value === current ? ' (이번 분기)' : ''}
-                </BigButton>
-              ))}
-              <BigButton tone="ghost" onClick={() => guard(() => setPickQuarter(false))} disabled={busy}>
-                뒤로
+              <BigButton tone="success" onClick={() => guard(() => c && acceptEnroll(c, newQuarter))} disabled={busy}>
+                {withQuarter ? `이번 ${getQuarterLabel(current)}에 새로 등록할게요` : '네, 새로 등록할게요'}
+              </BigButton>
+              <BigButton tone="ghost" onClick={() => guard(skip)} disabled={busy}>
+                이 입금은 건너뛸게요
               </BigButton>
             </div>
           </>
@@ -427,6 +495,7 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
     const primary =
       cur.candidates.find((c) => c.enrollmentId === cur.enrollmentId) ?? cur.candidates[0];
     const hist = primary?.existingPayments ?? [];
+    const amtLabel = amountLabel(primary, cur.amount);
     const ym = (s: string) => s.slice(0, 7); // YYYY-MM
     // 같은 날·같은 금액(정확 중복) 또는 같은 달·같은 금액(수동입력 등 날짜만 다른 중복 의심)
     const dupSameDay = hist.find((p) => p.paidAt === cur.paidAt && p.amount === cur.amount);
@@ -456,11 +525,36 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
           {shortDate(cur.paidAt)} · {cur.method || '입금'} · {won(cur.amount)}
         </div>
 
+        {/* 연결할 수강 후보가 없는 건 — 예전엔 버튼이 하나도 안 그려져 막다른 상태였다.
+            항상 건너뛰기(개별/전체)를 제공해 흐름이 멈추지 않게 한다. */}
+        {!primary && (
+          <div className="flex flex-col gap-2">
+            <div className="bg-card border border-border rounded-xl p-3 mb-1 text-base text-muted-foreground">
+              이 입금과 연결할 수강 정보를 찾지 못했어요. 건너뛰고 계속하실 수 있어요.
+            </div>
+            <BigButton tone="primary" onClick={() => guard(skip)} disabled={busy}>
+              이 입금은 건너뛸게요
+            </BigButton>
+            <BigButton tone="ghost" onClick={() => guard(skipAllRemaining)} disabled={busy}>
+              남은 것 전체 건너뛰기
+            </BigButton>
+          </div>
+        )}
+
         {!showAlt && primary && (
           <>
             <div className="text-lg mb-2">
               <b>{primary.courseName}</b> 강의가 맞나요?
             </div>
+
+            {/* 정기 수강료(지난달에도 같은 금액) — 매달 반복 확인 부담을 줄이는 힌트 */}
+            {primary.recurring && (
+              <div className="text-base text-success font-medium mb-2">
+                🔁 지난달에도 이 금액을 여기에 내셨어요 (정기 수강료)
+              </div>
+            )}
+            {/* 금액 관계 라벨 (수수료 차감·부분 납부·초과) */}
+            {amtLabel && <div className={`text-base ${amtLabel.tone} font-medium mb-2`}>{amtLabel.text}</div>}
 
             {/* 기존 결제 이력 — 사용자가 직접 중복 여부 판단 */}
             <div className="bg-card border border-border rounded-xl p-3 mb-3 text-base">

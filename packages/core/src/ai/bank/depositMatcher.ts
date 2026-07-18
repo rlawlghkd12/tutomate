@@ -36,7 +36,14 @@ export interface MatchEnrollment {
 export interface MatchInput {
   courses: MatchCourse[];
   students: MatchStudent[];
+  /** 이번 분기(또는 분기 없는 일반 데이터) 등록 — 기본 매칭 대상 */
   enrollments: MatchEnrollment[];
+  /**
+   * 직전 분기 등록 — 재수강 감지용.
+   * 이번 분기 등록이 없어 '신규 등록'으로 갈 뻔한 건 중, 같은 학생·강좌가 지난 분기에 있으면
+   * 후보에 priorEnrollmentId를 실어 '지난 분기 등록에 저장' 선택지를 제공한다.
+   */
+  prevEnrollments?: MatchEnrollment[];
 }
 
 export type MatchStatus =
@@ -46,6 +53,30 @@ export type MatchStatus =
   | 'needsEnrollment'
   | 'needsSplit'
   | 'needsRefund';
+
+/**
+ * 입금액과 수강료의 관계 라벨.
+ * - exact: 정확히 일치 (auto 대상)
+ * - feeDeducted: 이체 수수료 등으로 소액(≤FEE_TOLERANCE) 부족 — "수수료 빼고 딱 맞음"
+ * - partial: 부분 납부 (수강료보다 많이 부족)
+ * - over: 초과 입금 (합산 분할 가능성)
+ */
+export type AmountNote = 'exact' | 'feeDeducted' | 'partial' | 'over';
+
+/** 수수료 차감으로 볼 수 있는 최대 부족액(원). 이보다 더 부족하면 부분 납부로 본다. */
+const FEE_TOLERANCE = 1000;
+
+export function amountNoteOf(fee: number, amount: number): AmountNote {
+  if (amount === fee) return 'exact';
+  if (amount < fee) return fee - amount <= FEE_TOLERANCE ? 'feeDeducted' : 'partial';
+  return 'over';
+}
+
+/** 후보 정렬 순위: 정확 > 수수료차감 > 초과 > 부분 (금액 신뢰도 순) */
+function amountRank(fee: number, amount: number): number {
+  const n = amountNoteOf(fee, amount);
+  return n === 'exact' ? 3 : n === 'feeDeducted' ? 2 : n === 'over' ? 1 : 0;
+}
 
 /**
  * 확정(confirmBankDeposits)에 보낼 사용자 선택.
@@ -60,6 +91,12 @@ export interface DepositSelection {
   newEnrollment?: { studentId: string; courseId: string; quarter?: string };
   split?: { enrollmentId: string; amount: number }[];
   refund?: { enrollmentId: string; amount: number };
+  /**
+   * '전체 추천대로 처리'로 일괄 적용된 건 표시.
+   * 사용자가 한 건씩 의식적으로 확인한 게 아니므로, 확정 시 중복 검사를 그대로 적용한다
+   * (건별 '그래도 저장'처럼 중복을 일부러 넘기는 게 아님 → 재업로드 중복 방지).
+   */
+  viaRecommend?: boolean;
 }
 
 /** needsConfirm일 때 사용자에게 제시할 후보 (학생×강좌=등록 조합). */
@@ -71,13 +108,23 @@ export interface MatchCandidate {
   courseId: string;
   courseName: string;
   fee: number;
-  /** 입금액이 이 강좌 수강료와 일치하는가 (정렬·강조용) */
+  /** 입금액이 이 강좌 수강료와 정확히 일치하는가 (auto 판정·강조용) */
   amountMatches: boolean;
+  /** 입금액과 수강료 관계 라벨(수수료차감/부분/초과) — 카드 라벨·정렬용. matchDeposit이 후처리로 채운다. */
+  amountNote?: AmountNote;
+  /** 직전 달에도 이 등록에 같은 금액을 낸 정기 패턴 — analyzeBankDeposits가 채운다(반복 확인 부담↓). */
+  recurring?: boolean;
   /**
    * 이 후보는 아직 등록(enrollment)이 없어 "새로 등록 후 저장"해야 하는 건이다.
    * 이때 enrollmentId는 빈 문자열이며, 확정 시 studentId+courseId로 등록을 생성한다.
    */
   isNewEnrollment?: boolean;
+  /**
+   * 이 학생·강좌가 '직전 분기'에 등록돼 있으면 그 등록 id (재수강).
+   * isNewEnrollment 후보에 붙어, 카드가 '지난 분기 등록에 저장'(=이 id로 결제 저장)을 제공한다.
+   * existingPayments에는 이 지난 분기 등록의 결제 이력이 주입된다.
+   */
+  priorEnrollmentId?: string;
   /**
    * 이 등록(enrollment)에 이미 저장돼 있는 결제 이력 (날짜·금액).
    * 매칭 엔진은 기존 결제를 모르므로 도구(analyzeBankDeposits)가 주입한다.
@@ -160,7 +207,16 @@ function findCourseInName(
 const GROUP_RE = /\d+\s*명/; // "사군자9명", "윤영진외4명"
 const CODE_RE = /^[0-9a-zA-Z\-_.]+$/; // "740704535B"
 
+/** 입금 1건 매칭 + 모든 후보에 amountNote(금액 관계 라벨) 후처리. */
 export function matchDeposit(tx: BankTransaction, input: MatchInput): DepositMatch {
+  const m = matchDepositInner(tx, input);
+  for (const c of m.candidates) {
+    c.amountNote = amountNoteOf(c.fee, tx.amount);
+  }
+  return m;
+}
+
+function matchDepositInner(tx: BankTransaction, input: MatchInput): DepositMatch {
   const base = (over: Partial<DepositMatch>): DepositMatch => ({
     tx,
     status: 'unmatched',
@@ -186,6 +242,19 @@ export function matchDeposit(tx: BankTransaction, input: MatchInput): DepositMat
     arr.push({ course: c, enrollmentId: e.id });
     enrollsByStudent.set(e.studentId, arr);
   }
+
+  // 직전 분기 등록 인덱스 (재수강 감지용)
+  const prevEnrollsByStudent = new Map<string, { course: MatchCourse; enrollmentId: string }[]>();
+  for (const e of input.prevEnrollments ?? []) {
+    const c = courseById.get(e.courseId);
+    if (!c) continue;
+    const arr = prevEnrollsByStudent.get(e.studentId) ?? [];
+    arr.push({ course: c, enrollmentId: e.id });
+    prevEnrollsByStudent.set(e.studentId, arr);
+  }
+  /** (학생, 강좌)의 직전 분기 등록 id — 재수강이면 그 id, 아니면 undefined */
+  const priorIdOf = (studentId: string, courseId: string): string | undefined =>
+    (prevEnrollsByStudent.get(studentId) ?? []).find((x) => x.course.id === courseId)?.enrollmentId;
 
   // payer에 이름이 포함되는 학생들 (정확 일치 우선, 길이 긴 이름 우선)
   const studentHits = input.students
@@ -254,7 +323,7 @@ export function matchDeposit(tx: BankTransaction, input: MatchInput): DepositMat
           reason: `여러 강의 합산 입금(${split.length}개) — 나눠서 저장 제안`,
         });
       }
-      const sorted = sortByAmount(uniq);
+      const sorted = sortByAmount(uniq, tx.amount);
       return base({
         status: 'needsConfirm',
         candidates: sorted,
@@ -286,14 +355,17 @@ export function matchDeposit(tx: BankTransaction, input: MatchInput): DepositMat
     const feeMatched = newPairs.filter((c) => c.amountMatches);
     if (feeMatched.length === 1) {
       const c = feeMatched[0];
+      const priorId = priorIdOf(c.studentId, c.courseId);
       return base({
         status: 'needsEnrollment',
         studentId: c.studentId,
         studentName: c.studentName,
         courseId: c.courseId,
         courseName: c.courseName,
-        candidates: [c],
-        reason: `'${c.studentName}'님이 '${c.courseName}' 강의에 아직 등록되지 않음 — 새로 등록 후 저장 제안`,
+        candidates: [{ ...c, priorEnrollmentId: priorId }],
+        reason: priorId
+          ? `'${c.studentName}'님은 지난 분기 '${c.courseName}' 수강 이력이 있음 — 이번 분기 새 등록 또는 지난 분기 등록에 저장`
+          : `'${c.studentName}'님이 '${c.courseName}' 강의에 아직 등록되지 않음 — 새로 등록 후 저장 제안`,
       });
     }
     // 그 외(이름만 잡힘·금액 불일치·후보 모호)는 이름만 흐름으로 폴백
@@ -313,6 +385,35 @@ export function matchDeposit(tx: BankTransaction, input: MatchInput): DepositMat
       amountMatches: t.course.fee === tx.amount,
     }));
     if (cands.length === 0) {
+      // 이번 분기 등록은 없지만 지난 분기에 금액이 맞는 강좌 등록이 딱 하나 있으면 재수강 제안.
+      // (branch A와 동일하게 금액 일치 단일 후보일 때만 — 오인 등록 방지)
+      const prevFeeMatch = (prevEnrollsByStudent.get(s.id) ?? []).filter(
+        (t) => t.course.fee === tx.amount,
+      );
+      if (prevFeeMatch.length === 1) {
+        const t = prevFeeMatch[0];
+        return base({
+          status: 'needsEnrollment',
+          studentId: s.id,
+          studentName: s.name,
+          courseId: t.course.id,
+          courseName: t.course.name,
+          candidates: [
+            {
+              enrollmentId: '',
+              studentId: s.id,
+              studentName: s.name,
+              courseId: t.course.id,
+              courseName: t.course.name,
+              fee: t.course.fee,
+              amountMatches: true,
+              isNewEnrollment: true,
+              priorEnrollmentId: t.enrollmentId,
+            },
+          ],
+          reason: `'${s.name}'님은 지난 분기 '${t.course.name}' 수강 이력이 있음 — 이번 분기 새 등록 또는 지난 분기 등록에 저장`,
+        });
+      }
       return base({ reason: `'${s.name}' 수강 중인 강좌 없음` });
     }
     // 합산 입금: 이 학생의 여러 등록 수강료 합이 입금액과 같으면 나눠 저장 제안
@@ -326,7 +427,7 @@ export function matchDeposit(tx: BankTransaction, input: MatchInput): DepositMat
         reason: `여러 강의 합산 입금(${split.length}개) — 나눠서 저장 제안`,
       });
     }
-    const sorted = sortByAmount(cands);
+    const sorted = sortByAmount(cands, tx.amount);
     const feeMatch = sorted.filter((c) => c.amountMatches);
     const top = feeMatch[0] ?? sorted[0];
     return base({
@@ -363,7 +464,7 @@ export function matchDeposit(tx: BankTransaction, input: MatchInput): DepositMat
     }
     return base({
       status: 'needsConfirm',
-      candidates: sortByAmount(cands),
+      candidates: sortByAmount(cands, tx.amount),
       reason: '같은 이름의 수강생이 여러 명 — 누구인지 확인 필요',
     });
   }
@@ -397,9 +498,9 @@ function dedupeCandidates(cands: MatchCandidate[]): MatchCandidate[] {
 }
 
 /** 금액 일치 후보를 앞으로 정렬. */
-function sortByAmount(cands: MatchCandidate[]): MatchCandidate[] {
+function sortByAmount(cands: MatchCandidate[], amount: number): MatchCandidate[] {
   return [...dedupeCandidates(cands)].sort(
-    (a, b) => Number(b.amountMatches) - Number(a.amountMatches),
+    (a, b) => amountRank(b.fee, amount) - amountRank(a.fee, amount),
   );
 }
 

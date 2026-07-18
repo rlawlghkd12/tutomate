@@ -165,3 +165,87 @@ describe('matchDeposit', () => {
     expect(picked?.enrollmentId).toBe('e7');
   });
 });
+
+// ── 재수강(직전 분기 이력) 감지 ─────────────────────────────────
+// 이번 분기엔 등록이 없지만 지난 분기에 같은 강좌 등록이 있으면,
+// "신규 등록"으로 단정하지 않고 지난 분기 등록(priorEnrollmentId)을 후보에 실어
+// 카드가 '이번 분기 새로 등록 / 지난 분기 등록에 저장'을 함께 제시하게 한다.
+describe('matchDeposit — 재수강 감지(prevEnrollments)', () => {
+  const rCourses = [{ id: 'c_요가', name: '요가', fee: 50000 }];
+  const rStudents = [{ id: 's_박봄', name: '박봄' }];
+  // 박봄: 이번 분기 등록 없음(enrollments 비어있음), 지난 분기 요가 등록(pe1)만 있음
+  const withPrev: MatchInput = {
+    courses: rCourses,
+    students: rStudents,
+    enrollments: [],
+    prevEnrollments: [{ id: 'pe1', studentId: 's_박봄', courseId: 'c_요가' }],
+  };
+  const noPrev: MatchInput = { courses: rCourses, students: rStudents, enrollments: [] };
+
+  it('강좌+이름 + 금액 일치 + 지난 분기 이력 → needsEnrollment + priorEnrollmentId', () => {
+    const r = matchDeposit(tx('요가박봄', 50000), withPrev);
+    expect(r.status).toBe('needsEnrollment');
+    const c = r.candidates[0];
+    expect(c.isNewEnrollment).toBe(true);
+    expect(c.priorEnrollmentId).toBe('pe1');
+  });
+
+  it('이름만 + 금액 일치 + 지난 분기 이력 → needsEnrollment + priorEnrollmentId', () => {
+    const r = matchDeposit(tx('박봄', 50000), withPrev);
+    expect(r.status).toBe('needsEnrollment');
+    const c = r.candidates[0];
+    expect(c.priorEnrollmentId).toBe('pe1');
+    expect(c.courseId).toBe('c_요가');
+  });
+
+  it('지난 분기 이력 없으면 강좌+이름은 여전히 신규 등록(priorEnrollmentId 없음)', () => {
+    const r = matchDeposit(tx('요가박봄', 50000), noPrev);
+    expect(r.status).toBe('needsEnrollment');
+    expect(r.candidates[0].priorEnrollmentId).toBeUndefined();
+  });
+
+  it('지난 분기 이력 없으면 이름만 입금은 unmatched(기존 동작 유지)', () => {
+    const r = matchDeposit(tx('박봄', 50000), noPrev);
+    expect(r.status).toBe('unmatched');
+  });
+
+  it('지난 분기 이력 있어도 금액 불일치면 재수강 제안 안 함', () => {
+    const r = matchDeposit(tx('박봄', 33000), withPrev);
+    expect(r.status).not.toBe('needsEnrollment');
+  });
+});
+
+// ── 금액 근사 매칭(amountNote): 수수료 차감·부분 납부·초과 라벨 ──
+describe('matchDeposit — 금액 근사(amountNote)', () => {
+  // 최남기: 합창(60,000) 등록(e1)
+  const note = (amount: number) => matchDeposit(tx('합창최남기', amount), input).candidates[0]?.amountNote;
+
+  it('정확 일치 → exact (기존 auto 유지)', () => {
+    const r = matchDeposit(tx('합창최남기', 60000), input);
+    expect(r.status).toBe('auto');
+    expect(r.candidates[0].amountNote).toBe('exact');
+  });
+
+  it('수수료 차감 추정(-500, 1000원 이내 부족) → feeDeducted', () => {
+    expect(note(59500)).toBe('feeDeducted');
+  });
+
+  it('경계값: 정확히 1000원 부족 → feeDeducted, 1001원 부족 → partial', () => {
+    expect(note(59000)).toBe('feeDeducted');
+    expect(note(58999)).toBe('partial');
+  });
+
+  it('부분 납부(절반) → partial', () => {
+    expect(note(30000)).toBe('partial');
+  });
+
+  it('초과 입금 → over', () => {
+    expect(note(70000)).toBe('over');
+  });
+
+  it('근사/부분/초과는 auto가 아니다(안전) — 정확 일치만 auto', () => {
+    expect(matchDeposit(tx('합창최남기', 59500), input).status).not.toBe('auto');
+    expect(matchDeposit(tx('합창최남기', 30000), input).status).not.toBe('auto');
+    expect(matchDeposit(tx('합창최남기', 70000), input).status).not.toBe('auto');
+  });
+});
