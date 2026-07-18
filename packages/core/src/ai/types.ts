@@ -66,6 +66,14 @@ export type SmartCard =
       enrolled?: number;
       /** 환불(음수 결제)로 저장한 건 수 */
       refunded?: number;
+      /** 실제로 저장된 각 건의 요약 (누구·강의·금액·날짜·종류) */
+      items?: {
+        name: string;
+        course: string;
+        amount: number;
+        paidAt: string;
+        kind: 'saved' | 'enrolled' | 'refunded';
+      }[];
     }
   | { type: 'sourceLink'; kind: string; id: string; label: string };
 
