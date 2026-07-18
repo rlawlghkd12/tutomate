@@ -296,6 +296,8 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
     let refunded = 0;
     let failed = enrollFailed;
     let insertOk = false;
+    type SavedItem = { name: string; course: string; amount: number; paidAt: string; kind: 'saved' | 'enrolled' | 'refunded' };
+    let savedItems: SavedItem[] = [];
     if (insertRows.length > 0) {
       const { data, error } = await supabase.from('payment_records').insert(insertRows).select('id');
       if (error) {
@@ -314,6 +316,38 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
     if (insertOk) {
       const db = supabase; // 클로저 안 null 내로잉 유지
       const newIds = new Set(newEnrollmentIdByRow.values());
+
+      // 저장 요약(누구·강의·금액·날짜·종류) — 결과 카드에서 "무엇을 저장했는지" 보여준다.
+      const studentNameById = new Map<string, string>(
+        (studentsRes.data ?? []).map((s: any) => [s.id, s.name]),
+      );
+      const courseNameById = new Map(courses.map((c) => [c.id, c.name]));
+      const enrollDisp = new Map<string, { name: string; course: string }>();
+      for (const e of enrollsRes.data ?? []) {
+        enrollDisp.set((e as any).id, {
+          name: studentNameById.get((e as any).student_id) ?? '',
+          course: courseNameById.get((e as any).course_id) ?? '',
+        });
+      }
+      for (const [rowIndex, newId] of newEnrollmentIdByRow) {
+        const ne = selByRow.get(rowIndex)?.newEnrollment;
+        if (ne)
+          enrollDisp.set(newId, {
+            name: studentNameById.get(ne.studentId) ?? '',
+            course: courseNameById.get(ne.courseId) ?? '',
+          });
+      }
+      savedItems = toInsert.map((r) => {
+        const d = enrollDisp.get(r.enrollment_id);
+        return {
+          name: d?.name || '(이름 미상)',
+          course: d?.course ?? '',
+          amount: Math.abs(r.amount),
+          paidAt: r.paid_at,
+          kind: r.isRefund ? 'refunded' : newIds.has(r.enrollment_id) ? 'enrolled' : 'saved',
+        };
+      });
+
       const recsByEnroll = new Map<string, { paidAt: string; amount: number }[]>();
       const pushRec = (eid: string, paidAt: string, amount: number) => {
         const arr = recsByEnroll.get(eid) ?? [];
@@ -355,7 +389,7 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
       );
     }
 
-    const card: SmartCard = { type: 'bankDepositResult', saved, skipped, failed, enrolled, refunded };
+    const card: SmartCard = { type: 'bankDepositResult', saved, skipped, failed, enrolled, refunded, items: savedItems };
     ctx.emit?.(card);
     return { saved, skipped, failed, enrolled, refunded };
   },
