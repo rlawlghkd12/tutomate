@@ -6,6 +6,7 @@ import {
   getQuarterOptions,
   quarterMonthToYYYYMM,
   getPreviousQuarter,
+  getQuarterForDate,
 } from '../quarterUtils';
 
 afterEach(() => {
@@ -217,5 +218,14 @@ describe('getPreviousQuarter', () => {
 
   it('Q3 → Q2', () => {
     expect(getPreviousQuarter('2026-Q3')).toBe('2026-Q2');
+  });
+});
+
+describe('getQuarterForDate', () => {
+  it('YYYY-MM-DD → 분기', () => {
+    expect(getQuarterForDate('2026-05-03')).toBe('2026-Q2');
+    expect(getQuarterForDate('2026-01-15')).toBe('2026-Q1');
+    expect(getQuarterForDate('2026-07-01')).toBe('2026-Q3');
+    expect(getQuarterForDate('2026-12-31')).toBe('2026-Q4');
   });
 });

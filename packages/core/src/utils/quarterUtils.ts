@@ -10,6 +10,14 @@ export function getCurrentQuarter(): string {
   return `${year}-Q${q}`;
 }
 
+/** 날짜(YYYY-MM-DD / ISO) → 분기 "2026-Q2". 파싱 실패 시 현재 분기. */
+export function getQuarterForDate(dateIso: string): string {
+  const m = String(dateIso).match(/^(\d{4})-(\d{2})/);
+  if (!m) return getCurrentQuarter();
+  const q = Math.ceil(Number(m[2]) / 3);
+  return `${m[1]}-Q${q}`;
+}
+
 /** 분기 라벨 — "2026년 1분기" */
 export function getQuarterLabel(quarter: string): string {
   const [year, q] = quarter.split('-Q');

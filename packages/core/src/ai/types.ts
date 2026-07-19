@@ -39,6 +39,8 @@ export type SmartCard =
   | {
       type: 'bankDepositPreview';
       fileId: string;
+      /** 거래 날짜로 추정한 이 거래내역의 분기(다수결). 현재 분기와 다르면 카드가 저장 분기를 먼저 묻는다. */
+      dataQuarter?: string;
       summary: {
         total: number;
         auto: number;

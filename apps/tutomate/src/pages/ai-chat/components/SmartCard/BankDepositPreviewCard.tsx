@@ -60,7 +60,7 @@ function BigButton({
  * 1) 요약  2) 한 건씩 확인(기존 결제 이력 비교 / 신규 등록 제안)  3) 마무리.
  * 색은 모두 테마 토큰(primary/success/warning/destructive/muted)으로 다크모드 자동 대응.
  */
-export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: Props) {
+export function BankDepositPreviewCard({ summary, items, dataQuarter, onConfirm, onCancel }: Props) {
   const auto = items.filter((i) => i.status === 'auto');
   // 확인이 필요한 건(직접 선택) + 새로 등록할 건을 한 흐름에서 한 건씩 처리
   const review = items.filter(
@@ -87,12 +87,19 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
   // 벌크 처리 후 '남은 재수강 건만' 건별 확인하는 모드
   const [reviewingRemainder, setReviewingRemainder] = useState(false);
 
+  // 새 등록을 어느 분기로 저장할지. 거래 날짜가 지난 분기면 시작할 때 한 번 물어본다(조회 분기와 무관).
+  const currentQuarter = getCurrentQuarter();
+  const [targetQuarter, setTargetQuarter] = useState(currentQuarter);
+  const [quarterChosen, setQuarterChosen] = useState(false);
+  const askDataQuarter =
+    appConfig.enableQuarterSystem && !!dataQuarter && dataQuarter !== currentQuarter;
+
   // 화면이 바뀌기 전 같은 버튼이 두 번 처리되는 것(더블클릭)을 막는 잠금.
   // idx/step이 바뀌어 새 화면이 렌더되면 자동 해제된다.
   const navLock = useRef(false);
   useEffect(() => {
     navLock.current = false;
-  }, [idx, step, showAlt]);
+  }, [idx, step, showAlt, quarterChosen]);
   function guard(fn: () => void) {
     if (navLock.current || busy) return;
     navLock.current = true;
@@ -157,7 +164,7 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
   // 중복 의심 건(같은 달·같은 금액 기록 있음)은 카드 추천이 '건너뛰기'이므로 저장에서 제외한다.
   // 저장 전 마무리 화면에서 카테고리별 건수(새 등록·환불 포함)를 다시 확인할 수 있다.
   function acceptAllRecommended() {
-    const newQuarter = appConfig.enableQuarterSystem ? getCurrentQuarter() : undefined;
+    const newQuarter = appConfig.enableQuarterSystem ? targetQuarter : undefined;
     const ym = (s: string) => s.slice(0, 7); // YYYY-MM
     const next: Record<number, Decision> = {};
     for (const it of review) {
@@ -207,6 +214,34 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
   function cancel() {
     setBusy(true);
     onCancel();
+  }
+
+  // ── 0) 저장 분기 선택 — 거래 날짜가 지난 분기면 먼저 어느 분기에 저장할지 묻는다 ──
+  if (step === 'intro' && askDataQuarter && !quarterChosen) {
+    const pick = (q: string) => {
+      setTargetQuarter(q);
+      setQuarterChosen(true);
+    };
+    return (
+      <div className="border-2 border-warning bg-warning-subtle rounded-2xl p-5 text-foreground">
+        <div className="text-xl font-bold mb-2">어느 분기에 저장할까요?</div>
+        <div className="text-lg text-muted-foreground mb-4">
+          이 거래내역은 <b className="text-foreground">{getQuarterLabel(dataQuarter!)}</b> 자료로 보여요.
+          지난 분기 자료면 그 분기에 저장할 수 있어요.
+        </div>
+        <div className="flex flex-col gap-2">
+          <BigButton tone="success" onClick={() => guard(() => pick(dataQuarter!))} disabled={busy}>
+            {getQuarterLabel(dataQuarter!)}에 저장할게요 (거래내역 기준)
+          </BigButton>
+          <BigButton tone="outline" onClick={() => guard(() => pick(currentQuarter))} disabled={busy}>
+            이번 {getQuarterLabel(currentQuarter)}에 저장할게요
+          </BigButton>
+          <BigButton tone="ghost" onClick={() => guard(cancel)} disabled={busy}>
+            그만두기
+          </BigButton>
+        </div>
+      </div>
+    );
   }
 
   // ── 1) 요약 ──
@@ -292,7 +327,9 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
     const current = getCurrentQuarter();
     const prevQ = getPreviousQuarter(current);
     // 분기 시스템이 없는 일반 버전은 quarter 없이 등록 (기존 동작 유지)
-    const newQuarter = withQuarter ? current : undefined;
+    const newQuarter = withQuarter ? targetQuarter : undefined;
+    const targetLabel = getQuarterLabel(targetQuarter);
+    const targetPrefix = targetQuarter === current ? '이번 ' : '';
     const returning = withQuarter && !!c?.priorEnrollmentId;
     const priorPays = c?.existingPayments ?? [];
 
@@ -327,7 +364,7 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
             </div>
             <div className="flex flex-col gap-2">
               <BigButton tone="success" onClick={() => guard(() => c && acceptEnroll(c, newQuarter))} disabled={busy}>
-                이번 {getQuarterLabel(current)}에 새로 등록할게요
+                {targetPrefix}{targetLabel}에 새로 등록할게요
               </BigButton>
               <BigButton
                 tone="outline"
@@ -361,7 +398,7 @@ export function BankDepositPreviewCard({ summary, items, onConfirm, onCancel }: 
             </div>
             <div className="flex flex-col gap-2">
               <BigButton tone="success" onClick={() => guard(() => c && acceptEnroll(c, newQuarter))} disabled={busy}>
-                {withQuarter ? `이번 ${getQuarterLabel(current)}에 새로 등록할게요` : '네, 새로 등록할게요'}
+                {withQuarter ? `${targetPrefix}${targetLabel}에 새로 등록할게요` : '네, 새로 등록할게요'}
               </BigButton>
               <BigButton tone="ghost" onClick={() => guard(skip)} disabled={busy}>
                 이 입금은 건너뛸게요

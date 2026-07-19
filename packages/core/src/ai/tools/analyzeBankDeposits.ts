@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { supabase } from '../../config/supabase';
-import { getCurrentQuarter, getPreviousQuarter } from '../../utils/quarterUtils';
+import { getCurrentQuarter, getPreviousQuarter, getQuarterForDate } from '../../utils/quarterUtils';
 import { parseBankExcel } from '../bank/parseBankExcel';
 import {
   matchDeposits,
@@ -211,6 +211,15 @@ export const analyzeBankDeposits: ToolHandler<typeof schema> = {
 
     const allItems = [...items, ...refundItems];
 
+    // 거래 날짜(다수결)로 이 거래내역의 분기를 추정 — 현재 분기와 다르면 카드가 저장 분기를 먼저 묻는다.
+    const quarterCount = new Map<string, number>();
+    for (const t of [...parsed.deposits, ...parsed.withdrawals]) {
+      if (!t.paidAt) continue;
+      const q = getQuarterForDate(t.paidAt);
+      quarterCount.set(q, (quarterCount.get(q) ?? 0) + 1);
+    }
+    const dataQuarter = [...quarterCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
     const summary = {
       total: allItems.length,
       auto: allItems.filter((i) => i.status === 'auto').length,
@@ -224,7 +233,7 @@ export const analyzeBankDeposits: ToolHandler<typeof schema> = {
       period: parsed.period,
     };
 
-    const card: SmartCard = { type: 'bankDepositPreview', fileId, summary, items: allItems };
+    const card: SmartCard = { type: 'bankDepositPreview', fileId, dataQuarter, summary, items: allItems };
     ctx.emit?.(card);
 
     // LLM에는 요약 + 확인 필요/미매칭 건 일부만 (전체 items는 카드로 갔으므로 토큰 절약)
