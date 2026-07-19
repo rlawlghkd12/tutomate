@@ -2,7 +2,13 @@ import type React from 'react';
 import { useMemo } from 'react';
 import { RotateCcw, History } from 'lucide-react';
 import { toast } from 'sonner';
-import { useEnrollmentStore, useQuarterStore, getCurrentQuarter, getQuarterLabel } from '@tutomate/core';
+import {
+	useEnrollmentStore,
+	useQuarterStore,
+	getCurrentQuarter,
+	getPreviousQuarter,
+	getQuarterLabel,
+} from '@tutomate/core';
 import { cn } from '../../lib/utils';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger } from '../ui/select';
 import { Button } from '../ui/button';
@@ -43,6 +49,8 @@ export const QuarterSelect: React.FC = () => {
 			if (e.quarter && QUARTER_RE.test(e.quarter)) set.add(e.quarter);
 		}
 		set.add(currentQuarter);
+		// 직전 분기는 데이터가 비어도 항상 노출 — 비운 지난 분기로 다시 돌아갈 수 있게.
+		set.add(getPreviousQuarter(currentQuarter));
 		set.add(selectedQuarter);
 		return Array.from(set)
 			.sort((a, b) => a.localeCompare(b))
