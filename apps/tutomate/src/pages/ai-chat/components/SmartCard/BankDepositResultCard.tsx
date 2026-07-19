@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { SmartCard } from '@tutomate/core';
 
 type Props = Extract<SmartCard, { type: 'bankDepositResult' }>;
@@ -11,7 +12,8 @@ function shortDate(iso: string): string {
 export function BankDepositResultCard({ saved, skipped, failed, enrolled, refunded, items }: Props) {
   const list = items ?? [];
   const LIMIT = 20;
-  const shown = list.slice(0, LIMIT);
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? list : list.slice(0, LIMIT);
 
   return (
     <div className="border-2 border-success-subtle bg-success-subtle rounded-2xl p-4 text-foreground">
@@ -52,8 +54,14 @@ export function BankDepositResultCard({ saved, skipped, failed, enrolled, refund
               </li>
             ))}
           </ul>
-          {list.length > shown.length && (
-            <div className="text-sm text-muted-foreground mt-2">외 {list.length - shown.length}건 더</div>
+          {list.length > LIMIT && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-2 w-full rounded-lg border border-border py-2 text-base font-medium text-foreground hover:bg-accent"
+            >
+              {expanded ? '접기' : `더보기 (외 ${list.length - LIMIT}건)`}
+            </button>
           )}
         </div>
       )}
