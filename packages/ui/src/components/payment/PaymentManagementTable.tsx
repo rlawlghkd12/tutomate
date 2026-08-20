@@ -528,7 +528,18 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
       cell: ({ row }) => {
         const record = row.original;
         const lastRecord = record.records[0];
-        if (!lastRecord?.paidAt) return <span className="text-muted-foreground">-</span>;
+        // 납부 이력(payment_records)이 있으면 그 최근일을, 없으면 enrollment의 납부일로 대체 표시
+        const hasHistory = !!lastRecord?.paidAt;
+        const lastPaidAt = lastRecord?.paidAt ?? record.enrollment.paidAt;
+        if (!lastPaidAt) return <span className="text-muted-foreground">-</span>;
+        if (!hasHistory) {
+          // 이력 레코드가 없으므로 클릭(이력 모달)은 비활성, 날짜만 표시
+          return (
+            <span className="whitespace-nowrap text-muted-foreground">
+              {dayjs(lastPaidAt).format('YY.MM.DD')}
+            </span>
+          );
+        }
         return (
           <span
             className="whitespace-nowrap cursor-pointer hover:underline text-primary"
@@ -537,7 +548,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               setIsHistoryModalVisible(true);
             }}
           >
-            {dayjs(lastRecord.paidAt).format('YY.MM.DD')}
+            {dayjs(lastPaidAt).format('YY.MM.DD')}
           </span>
         );
       },
@@ -1118,12 +1129,13 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 w-7 p-0 rounded-full shrink-0 text-muted-foreground/60 hover:text-foreground hover:bg-accent"
+                      className="h-7 px-2 rounded-md shrink-0 gap-1 text-muted-foreground hover:text-foreground hover:bg-accent"
                       onClick={() => startEditRecord(r)}
                       disabled={editingRecordId !== null}
                       aria-label="납부 기록 수정"
                     >
                       <Pencil className="h-3.5 w-3.5" />
+                      <span className="text-xs">수정</span>
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>

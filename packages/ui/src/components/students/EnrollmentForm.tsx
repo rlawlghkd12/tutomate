@@ -285,7 +285,9 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 							control={form.control}
 							name="courseId"
 							render={({ field }) => {
-								const filtered = courses.filter((c) => !isCourseEnded(c) && c.name.toLowerCase().includes(courseSearch.toLowerCase()));
+								const filtered = courses
+									.filter((c) => !isCourseEnded(c) && c.name.toLowerCase().includes(courseSearch.toLowerCase()))
+									.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 								return (
 								<div>
 									<Input
