@@ -30,6 +30,7 @@ const StudentsPage: React.FC = () => {
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState<string[]>(DEFAULT_EXPORT_FIELDS);
   const [exportScope, setExportScope] = useState<string>(getCurrentQuarter());
+  const [includeWithdrawn, setIncludeWithdrawn] = useState(false);
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
   const { courses, loadCourses } = useCourseStore();
@@ -38,13 +39,26 @@ const StudentsPage: React.FC = () => {
     () => getQuarterOptions(enrollments.map((e) => e.quarter).filter(Boolean) as string[]),
     [enrollments],
   );
-  const exportEnrollments = useMemo(
+  // 선택한 분기 범위에 해당하는 수강 등록 (수강취소 포함 여부와 무관)
+  const scopedEnrollments = useMemo(
     () =>
       exportScope === EXPORT_SCOPE_ALL
         ? enrollments
-        : enrollments.filter((e) => isActiveEnrollment(e) && (e.quarter === exportScope || !e.quarter)),
+        : enrollments.filter((e) => e.quarter === exportScope || !e.quarter),
     [exportScope, enrollments],
   );
+  // 실제 내보낼 등록: 수강취소 미포함이면 활성 등록만
+  const exportEnrollments = useMemo(
+    () => (includeWithdrawn ? scopedEnrollments : scopedEnrollments.filter(isActiveEnrollment)),
+    [includeWithdrawn, scopedEnrollments],
+  );
+  // 내보낼 수강생: 수강취소 미포함이면 "범위 내 등록이 있으나 활성 등록이 없는(수강취소만 남은)" 학생 제외
+  const exportStudents = useMemo(() => {
+    if (includeWithdrawn) return students;
+    const activeIds = new Set(exportEnrollments.map((e) => e.studentId));
+    const scopedIds = new Set(scopedEnrollments.map((e) => e.studentId));
+    return students.filter((s) => !scopedIds.has(s.id) || activeIds.has(s.id));
+  }, [includeWithdrawn, students, exportEnrollments, scopedEnrollments]);
   const exportQuarterTag = exportScope === EXPORT_SCOPE_ALL ? '전체분기' : exportScope;
 
   useEffect(() => {
@@ -71,17 +85,17 @@ const StudentsPage: React.FC = () => {
       return;
     }
 
-    if (students.length === 0) {
+    if (exportStudents.length === 0) {
       toast.warning('내보낼 수강생 데이터가 없습니다');
       return;
     }
 
     try {
       if (type === 'excel') {
-        exportStudentsToExcel(students, exportEnrollments, courses, selectedExportFields, exportQuarterTag);
+        exportStudentsToExcel(exportStudents, exportEnrollments, courses, selectedExportFields, exportQuarterTag);
         toast.success('Excel 파일이 다운로드되었습니다');
       } else {
-        exportStudentsToCSV(students, exportEnrollments, courses, 'utf-8', selectedExportFields, exportQuarterTag);
+        exportStudentsToCSV(exportStudents, exportEnrollments, courses, 'utf-8', selectedExportFields, exportQuarterTag);
         toast.success('CSV 파일이 다운로드되었습니다');
       }
       setIsExportModalVisible(false);
@@ -138,6 +152,14 @@ const StudentsPage: React.FC = () => {
             onChange={setExportScope}
             quarters={quarterOptions}
           />
+
+          <label className="flex items-center gap-2 text-sm cursor-pointer py-2 mb-1">
+            <Checkbox
+              checked={includeWithdrawn}
+              onCheckedChange={(checked) => setIncludeWithdrawn(checked === true)}
+            />
+            수강취소생 포함
+          </label>
 
           <div className="flex justify-between items-center py-1 pb-2 border-b border-border mb-3">
             <label className="flex items-center gap-2 text-sm cursor-pointer">

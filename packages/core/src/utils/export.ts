@@ -97,8 +97,9 @@ export const exportStudentsToExcel = async (
     ? STUDENT_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key))
     : STUDENT_EXPORT_FIELDS;
 
-  const rows = students.map((student) => {
-    const row: Record<string, string | number> = {};
+  // 순번 열(1부터)을 첫 컬럼으로 추가
+  const rows = students.map((student, i) => {
+    const row: Record<string, string | number> = { 순번: i + 1 };
     fields.forEach((field) => {
       row[field.label] = field.getValue(student, enrollments, courses);
     });
@@ -108,7 +109,7 @@ export const exportStudentsToExcel = async (
   // 합계 행 추가
   const hasSummable = fields.some((f) => STUDENT_SUMMABLE_FIELDS.has(f.key));
   if (hasSummable) {
-    const totalRow: Record<string, string | number> = {};
+    const totalRow: Record<string, string | number> = { 순번: '' };
     fields.forEach((field, idx) => {
       if (STUDENT_SUMMABLE_FIELDS.has(field.key)) {
         totalRow[field.label] = students.reduce(
@@ -124,7 +125,7 @@ export const exportStudentsToExcel = async (
     rows.push(totalRow);
   }
 
-  const colWidths = fields.map((f) => ({ wch: f.wch }));
+  const colWidths = [{ wch: 6 }, ...fields.map((f) => ({ wch: f.wch }))];
   const headerLines = [getOrgName(), `수강생 명단 (${dayjs().format('YYYY-MM-DD')} 기준)`];
   const worksheet = createSheetWithHeader(XLSX, headerLines, rows, colWidths);
   applyAutoFilter(XLSX, worksheet, hasSummable);
@@ -223,25 +224,30 @@ export const exportStudentsToCSV = (
     ? STUDENT_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key))
     : STUDENT_EXPORT_FIELDS;
 
-  const csvHeaders = fields.map((f) => f.label);
+  // 순번 열(1부터)을 첫 컬럼으로 추가
+  const csvHeaders = ['순번', ...fields.map((f) => f.label)];
 
-  const rows = students.map((student) =>
-    fields.map((field) => `"${field.getValue(student, enrollments, courses)}"`),
-  );
+  const rows = students.map((student, i) => [
+    `"${i + 1}"`,
+    ...fields.map((field) => `"${field.getValue(student, enrollments, courses)}"`),
+  ]);
 
   // 합계 행 추가
   const hasSummable = fields.some((f) => STUDENT_SUMMABLE_FIELDS.has(f.key));
   if (hasSummable) {
-    const totalRow = fields.map((field, idx) => {
-      if (STUDENT_SUMMABLE_FIELDS.has(field.key)) {
-        const sum = students.reduce(
-          (s, student) => s + (Number(field.getValue(student, enrollments, courses)) || 0),
-          0,
-        );
-        return `"${sum}"`;
-      }
-      return idx === 0 ? '"합계"' : '""';
-    });
+    const totalRow = [
+      '""',
+      ...fields.map((field, idx) => {
+        if (STUDENT_SUMMABLE_FIELDS.has(field.key)) {
+          const sum = students.reduce(
+            (s, student) => s + (Number(field.getValue(student, enrollments, courses)) || 0),
+            0,
+          );
+          return `"${sum}"`;
+        }
+        return idx === 0 ? '"합계"' : '""';
+      }),
+    ];
     rows.push(totalRow);
   }
 

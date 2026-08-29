@@ -389,6 +389,18 @@ describe('export 함수 — DOM 다운로드', () => {
 		await expect(exportStudentsToExcel([], [], [])).resolves.toBeUndefined();
 	});
 
+	it('exportStudentsToExcel — 순번 열이 첫 컬럼, 1부터 시작', async () => {
+		const XLSX = await import('xlsx');
+		const spy = vi.spyOn(XLSX.utils, 'book_append_sheet');
+		const s2: Student = { ...student, id: 's2', name: '김철수' };
+		await exportStudentsToExcel([student, s2], [enrollment], [course], ['name']);
+		const ws = spy.mock.calls[0][1] as Record<string, { v: unknown }>;
+		expect(ws['A1'].v).toBe('순번'); // 헤더 첫 컬럼
+		expect(ws['A2'].v).toBe(1); // 첫 수강생 순번 = 1
+		expect(ws['A3'].v).toBe(2); // 둘째 수강생 순번 = 2
+		spy.mockRestore();
+	});
+
 	it('exportRevenueToExcel — 수강 있으면 에러 없이 완료', async () => {
 		await expect(exportRevenueToExcel([enrollment], [student], [course])).resolves.toBeUndefined();
 	});

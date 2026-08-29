@@ -31,15 +31,29 @@ const StudentsPage: React.FC = () => {
   const { courses, loadCourses } = useCourseStore();
   const currentQuarter = useQuarterStore((s) => s.selectedQuarter);
   const [exportAll, setExportAll] = useState(false);
+  const [includeWithdrawn, setIncludeWithdrawn] = useState(false);
   const [quarterOnly, setQuarterOnly] = useState(false);
   const quarterEnrollments = useMemo(
     () => enrollments.filter((e) => isActiveEnrollment(e) && (e.quarter === currentQuarter || !e.quarter)),
     [enrollments, currentQuarter],
   );
-  const exportEnrollments = useMemo(
-    () => (exportAll ? enrollments.filter((e) => isActiveEnrollment(e)) : quarterEnrollments),
-    [exportAll, enrollments, quarterEnrollments],
+  // 내보내기 분기 범위 (수강취소 포함 여부와 무관)
+  const scopedExportEnrollments = useMemo(
+    () => (exportAll ? enrollments : enrollments.filter((e) => e.quarter === currentQuarter || !e.quarter)),
+    [exportAll, enrollments, currentQuarter],
   );
+  // 실제 내보낼 등록: 수강취소 미포함이면 활성 등록만
+  const exportEnrollments = useMemo(
+    () => (includeWithdrawn ? scopedExportEnrollments : scopedExportEnrollments.filter(isActiveEnrollment)),
+    [includeWithdrawn, scopedExportEnrollments],
+  );
+  // 내보낼 수강생: 수강취소 미포함이면 "범위 내 등록이 있으나 활성 등록이 없는(수강취소만 남은)" 학생 제외
+  const exportStudents = useMemo(() => {
+    if (includeWithdrawn) return students;
+    const activeIds = new Set(exportEnrollments.map((e) => e.studentId));
+    const scopedIds = new Set(scopedExportEnrollments.map((e) => e.studentId));
+    return students.filter((s) => !scopedIds.has(s.id) || activeIds.has(s.id));
+  }, [includeWithdrawn, students, exportEnrollments, scopedExportEnrollments]);
   const exportQuarterTag = exportAll ? '전체분기' : currentQuarter;
 
   useEffect(() => {
@@ -65,17 +79,17 @@ const StudentsPage: React.FC = () => {
       return;
     }
 
-    if (students.length === 0) {
+    if (exportStudents.length === 0) {
       toast.warning('내보낼 수강생 데이터가 없습니다');
       return;
     }
 
     try {
       if (type === 'excel') {
-        exportStudentsToExcel(students, exportEnrollments, courses, selectedExportFields, exportQuarterTag);
+        exportStudentsToExcel(exportStudents, exportEnrollments, courses, selectedExportFields, exportQuarterTag);
         toast.success('Excel 파일이 다운로드되었습니다');
       } else {
-        exportStudentsToCSV(students, exportEnrollments, courses, 'utf-8', selectedExportFields, exportQuarterTag);
+        exportStudentsToCSV(exportStudents, exportEnrollments, courses, 'utf-8', selectedExportFields, exportQuarterTag);
         toast.success('CSV 파일이 다운로드되었습니다');
       }
       setIsExportModalVisible(false);
@@ -141,6 +155,14 @@ const StudentsPage: React.FC = () => {
             onChange={(v) => setExportAll(v === EXPORT_SCOPE_ALL)}
             currentQuarter={currentQuarter}
           />
+
+          <label className="flex items-center gap-2 text-sm cursor-pointer mt-2 select-none">
+            <Checkbox
+              checked={includeWithdrawn}
+              onCheckedChange={(checked) => setIncludeWithdrawn(checked === true)}
+            />
+            수강취소생 포함
+          </label>
 
           <div style={{ marginTop: 8 }}>
             <div className="flex justify-between items-center mb-3">
@@ -224,7 +246,7 @@ const StudentsPage: React.FC = () => {
             )}
 
             {/* 미리보기 */}
-            {selectedExportFields.length > 0 && students.length > 0 && (
+            {selectedExportFields.length > 0 && exportStudents.length > 0 && (
               <div className="rounded-lg border overflow-hidden mb-2">
                 <div className="text-[0.73rem] font-semibold text-muted-foreground uppercase tracking-wide px-3 py-2 bg-muted/30">미리보기</div>
                 <div className="overflow-x-auto">
@@ -238,7 +260,7 @@ const StudentsPage: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {students.slice(0, 3).map((student) => (
+                      {exportStudents.slice(0, 3).map((student) => (
                         <tr key={student.id} className="border-b last:border-0">
                           {selectedExportFields.map((key) => {
                             const field = STUDENT_EXPORT_FIELDS.find((f) => f.key === key);
