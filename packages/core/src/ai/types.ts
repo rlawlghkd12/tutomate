@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import type { BankDepositPreviewItem } from './bank/depositMatcher';
 import type { ImportPreviewRow } from './import/ImportPreviewModel';
+import type { SavedItem } from './import/undoPlan';
 
 // ─── 챗 메시지 / 도구 정의 ─────────────────────────────────────
 
@@ -50,6 +51,8 @@ export type SmartCard =
       errors: number;
       /** 학생·등록 매칭 실패로 저장 못 한 건 (있을 때만; 없으면 duplicated에 미포함) */
       unmatched?: number;
+      /** 실제로 저장된 각 건 (개별 내역 표시 + 되돌리기용). 참고: docs/PLAN-ai-import-history-undo.md */
+      savedItems?: SavedItem[];
     }
   | {
       type: 'bankDepositPreview';
@@ -91,6 +94,8 @@ export type SmartCard =
         paidAt: string;
         kind: 'saved' | 'enrolled' | 'refunded';
       }[];
+      /** 되돌리기에 필요한 id 포함 저장 내역 (개별/전체 되돌리기용) */
+      savedItems?: SavedItem[];
     }
   | { type: 'sourceLink'; kind: string; id: string; label: string };
 

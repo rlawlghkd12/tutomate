@@ -6,6 +6,7 @@ import { computeEnrollmentSync } from '../persist/enrollmentSync';
 import { resolveSelectionInserts } from '../import/resolveSelections';
 import { buildPreview, type PreviewRowInput } from '../import/buildPreview';
 import { buildPaymentLookup } from '../import/paymentLookup';
+import type { SavedItem } from '../import/undoPlan';
 import { parsePaymentMethod } from '../../types/index';
 import type { ToolHandler, SmartCard, ToolContext } from '../types';
 import type { StandardField } from '../../excel/types';
@@ -44,18 +45,23 @@ async function confirmPaymentSelections(
     existingByEnroll.set(eid, list);
   }
 
-  // enrollment 메타 (effectiveFee, 상태 보존)
+  // enrollment 메타 (effectiveFee, 상태 보존, 표시용 이름)
   const { data: enrolls } = await db
     .from('enrollments')
-    .select('id, discount_amount, payment_status, courses(fee)')
+    .select('id, discount_amount, payment_status, courses(name, fee), students(name)')
     .in('id', enrollmentIds);
   const effFeeBy = new Map<string, number>();
   const statusBy = new Map<string, string>();
+  const nameBy = new Map<string, { studentName: string; courseName: string }>();
   for (const e of enrolls ?? []) {
     const fee = Number((e as any).courses?.fee ?? 0);
     const disc = Number((e as any).discount_amount ?? 0);
     effFeeBy.set((e as any).id, Math.max(0, fee - disc));
     statusBy.set((e as any).id, (e as any).payment_status);
+    nameBy.set((e as any).id, {
+      studentName: (e as any).students?.name ?? '',
+      courseName: (e as any).courses?.name ?? '',
+    });
   }
 
   // 방어: 클라이언트가 준 enrollmentId 중 현재 조직(RLS 스코프) 등록에 실재하는 것만 저장.
@@ -76,10 +82,26 @@ async function confirmPaymentSelections(
   }));
 
   let added = 0;
+  const savedItems: SavedItem[] = [];
   if (rows.length > 0) {
     const { data, error } = await db.from('payment_records').insert(rows).select('id');
     if (error) throw new Error(error.message);
     added = data?.length ?? 0;
+    // 저장된 각 건 — 되돌리기/내역 표시용 (insert 반환은 입력 순서 보존)
+    (data ?? []).forEach((rec: any, i: number) => {
+      const s = inserts[i];
+      if (!s) return;
+      const nm = nameBy.get(s.enrollmentId);
+      savedItems.push({
+        recordId: rec.id,
+        enrollmentId: s.enrollmentId,
+        studentName: nm?.studentName ?? '',
+        courseName: nm?.courseName ?? '',
+        amount: s.amount,
+        paidAt: s.paidAt,
+        kind: 'saved',
+      });
+    });
     // 동기화용 최종 이력 = 기존 + 저장분
     const finalByEnroll = new Map(existingByEnroll);
     for (const s of inserts) {
@@ -104,6 +126,7 @@ async function confirmPaymentSelections(
     duplicated,
     errors: 0,
     ...(rejected > 0 ? { unmatched: rejected } : {}),
+    ...(savedItems.length > 0 ? { savedItems } : {}),
   };
   ctx.emit?.(card);
   return { status: 'done', added, duplicated, errors: 0, unmatched: rejected };
@@ -156,6 +179,7 @@ export const confirmImport: ToolHandler<typeof schema> = {
     let added = 0;
     let duplicated = 0;
     let unmatched = 0; // 학생·등록 매칭 실패(결제 임포트)
+    const savedItems: SavedItem[] = [];
 
     if (kind === 'students') {
       const rows = valid
@@ -239,6 +263,7 @@ export const confirmImport: ToolHandler<typeof schema> = {
 
         const preview = buildPreview(rowsInput, lookup); // 결정론(자동저장 안전)
         const rows: any[] = [];
+        const savedMeta: { enrollmentId: string; studentName: string; courseName: string; amount: number; paidAt: string }[] = [];
         for (const r of preview) {
           if (r.decision === 'include' && r.enrollmentId) {
             rows.push({
@@ -248,6 +273,13 @@ export const confirmImport: ToolHandler<typeof schema> = {
               amount: r.amount,
               payment_method: (r.paymentMethod as 'cash' | 'card' | 'transfer' | undefined) ?? 'cash',
               ...(r.memo ? { notes: r.memo } : {}),
+            });
+            savedMeta.push({
+              enrollmentId: r.enrollmentId,
+              studentName: r.studentName ?? r.payerName,
+              courseName: r.courseName ?? '',
+              amount: r.amount,
+              paidAt: r.paidAt,
             });
           } else if (r.dedup !== 'none') {
             duplicated++; // 정확중복/완납/초과
@@ -260,6 +292,21 @@ export const confirmImport: ToolHandler<typeof schema> = {
           const { data, error } = await supabase.from('payment_records').insert(rows).select('id');
           if (error) throw new Error(error.message);
           added = data?.length ?? 0;
+
+          // 저장된 각 건 — 되돌리기/내역 표시용 (insert 반환은 입력 순서 보존)
+          (data ?? []).forEach((rec: any, i: number) => {
+            const m = savedMeta[i];
+            if (!m) return;
+            savedItems.push({
+              recordId: rec.id,
+              enrollmentId: m.enrollmentId,
+              studentName: m.studentName,
+              courseName: m.courseName,
+              amount: m.amount,
+              paidAt: m.paidAt,
+              kind: 'saved',
+            });
+          });
 
           // enrollment 동기화 (FR-6). buildPreview가 lookup.existingByEnrollment에 저장분을 누적해둠.
           const affected = Array.from(new Set(rows.map((r) => r.enrollment_id)));
@@ -281,6 +328,7 @@ export const confirmImport: ToolHandler<typeof schema> = {
       duplicated,
       errors,
       ...(unmatched > 0 ? { unmatched } : {}),
+      ...(savedItems.length > 0 ? { savedItems } : {}),
     };
     ctx.emit?.(card);
     return { status: 'done', added, duplicated, errors, unmatched };

@@ -5,6 +5,7 @@ import { parseBankExcel } from '../bank/parseBankExcel';
 import { matchDeposits } from '../bank/depositMatcher';
 import { computeEnrollmentSync } from '../persist/enrollmentSync';
 import { derivePaymentStatus } from '../../utils/paymentStatus';
+import type { SavedItem } from '../import/undoPlan';
 import { filterBankDuplicates } from '../bank/bankDedup';
 import type { ToolHandler, SmartCard } from '../types';
 
@@ -305,7 +306,7 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
     let refunded = 0;
     let failed = enrollFailed;
     let insertOk = false;
-    type SavedItem = { name: string; course: string; amount: number; paidAt: string; kind: 'saved' | 'enrolled' | 'refunded' };
+    let insertedIds: string[] = [];
     let savedItems: SavedItem[] = [];
     if (insertRows.length > 0) {
       const { data, error } = await supabase.from('payment_records').insert(insertRows).select('id');
@@ -313,6 +314,7 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
         failed += toInsert.length;
       } else {
         insertOk = true;
+        insertedIds = (data ?? []).map((d: any) => d.id); // insert 반환은 입력 순서 보존
         const total = data?.length ?? 0;
         refunded = toInsert.filter((r) => r.isRefund).length;
         saved = Math.max(0, total - refunded); // 입금 저장 건수 (환불 제외)
@@ -346,14 +348,18 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
             course: courseNameById.get(ne.courseId) ?? '',
           });
       }
-      savedItems = toInsert.map((r) => {
+      savedItems = toInsert.map((r, i) => {
         const d = enrollDisp.get(r.enrollment_id);
+        const isNew = newIds.has(r.enrollment_id);
         return {
-          name: d?.name || '(이름 미상)',
-          course: d?.course ?? '',
-          amount: Math.abs(r.amount),
+          recordId: insertedIds[i],
+          enrollmentId: r.enrollment_id,
+          studentName: d?.name || '(이름 미상)',
+          courseName: d?.course ?? '',
+          amount: r.amount, // 실제 저장값(환불은 음수) — 되돌리기 스냅샷 일치용
           paidAt: r.paid_at,
-          kind: r.isRefund ? 'refunded' : newIds.has(r.enrollment_id) ? 'enrolled' : 'saved',
+          kind: r.isRefund ? 'refunded' : isNew ? 'enrolled' : 'saved',
+          ...(isNew ? { createdEnrollmentId: r.enrollment_id } : {}),
         };
       });
 
@@ -381,7 +387,24 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
       );
     }
 
-    const card: SmartCard = { type: 'bankDepositResult', saved, skipped, failed, enrolled, refunded, items: savedItems };
+    // 표시용 items는 savedItems에서 파생(금액은 절대값으로 보기 좋게).
+    const displayItems = savedItems.map((s) => ({
+      name: s.studentName || '(이름 미상)',
+      course: s.courseName,
+      amount: Math.abs(s.amount),
+      paidAt: s.paidAt,
+      kind: s.kind,
+    }));
+    const card: SmartCard = {
+      type: 'bankDepositResult',
+      saved,
+      skipped,
+      failed,
+      enrolled,
+      refunded,
+      items: displayItems,
+      ...(savedItems.length > 0 ? { savedItems } : {}),
+    };
     ctx.emit?.(card);
     return { saved, skipped, failed, enrolled, refunded };
   },
