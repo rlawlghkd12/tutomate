@@ -46,6 +46,8 @@ vi.mock('@tutomate/core', () => ({
     addPayment: vi.fn(),
   }),
   getCurrentQuarter: () => '2026-Q2',
+  isActiveEnrollment: () => true,
+  isCourseEnded: () => false,
 }));
 
 /* ------------------------------------------------------------------ */
@@ -126,6 +128,20 @@ describe('StudentList', () => {
 
     const enrollButtons = screen.getAllByText('수강 신청');
     expect(enrollButtons).toHaveLength(2);
+  });
+
+  it('최근납부일·납부금액 컬럼을 표시한다(은행 대조용)', () => {
+    mockStudents.mockReturnValue([makeStudent({ id: 's-1', name: '홍길동' })]);
+    mockEnrollments.mockReturnValue([
+      { id: 'e1', studentId: 's-1', courseId: 'c1', paidAmount: 150000, remainingAmount: 0, paidAt: '2026-07-05' } as any,
+      { id: 'e2', studentId: 's-1', courseId: 'c2', paidAmount: 50000, remainingAmount: 0, paidAt: '2026-08-10' } as any,
+    ]);
+    renderStudentList();
+
+    expect(screen.getByText('최근납부일')).toBeInTheDocument();
+    expect(screen.getByText('납부금액')).toBeInTheDocument();
+    expect(screen.getByText('2026-08-10')).toBeInTheDocument(); // 가장 최근 납부일
+    expect(screen.getByText('200,000원')).toBeInTheDocument(); // 납부금액 합계
   });
 
   it('clicking student name opens StudentForm modal', () => {

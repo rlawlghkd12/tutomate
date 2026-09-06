@@ -329,6 +329,17 @@ export const STUDENT_EXPORT_FIELDS: StudentExportField[] = [
     key: 'totalRemaining', label: '잔여금액', wch: 12,
     getValue: (s, enrs) => enrs.filter((e) => e.studentId === s.id).reduce((sum, e) => sum + e.remainingAmount, 0),
   },
+  {
+    // 최근납부일 — 학생의 등록들 중 가장 최근 납부일. 은행 내역과 대조용(정렬·내보내기).
+    key: 'lastPaidAt', label: '최근납부일', wch: 12,
+    getValue: (s, enrs) => {
+      const dates = enrs
+        .filter((e) => e.studentId === s.id && e.paidAt)
+        .map((e) => String(e.paidAt));
+      if (dates.length === 0) return '';
+      return dayjs(dates.reduce((a, b) => (a > b ? a : b))).format('YYYY-MM-DD');
+    },
+  },
   { key: 'notes', label: '메모', wch: 30, getValue: (s) => s.notes || '' },
   { key: 'createdAt', label: '등록일', wch: 12, getValue: (s) => dayjs(s.createdAt).format('YYYY-MM-DD') },
 ];

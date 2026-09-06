@@ -37,6 +37,8 @@ export type { EventLogFilters } from './stores/eventLogStore';
 export { useAiNotifyStore } from './stores/aiNotifyStore';
 
 // ─── Utils ───────────────────────────────────────────────────────
+export { decidePaymentEdit } from './utils/paymentReconcile';
+export type { PaymentEditOp, LedgerRecordLite } from './utils/paymentReconcile';
 export { createDataHelper, clearAllCache } from './utils/dataHelper';
 export type { DataHelper, LoadResult } from './utils/dataHelper';
 

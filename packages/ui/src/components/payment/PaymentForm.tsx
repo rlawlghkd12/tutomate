@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { Banknote, CreditCard, Building2 } from 'lucide-react';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
-import { useEnrollmentStore, useStudentStore, PaymentMethodEnum } from '@tutomate/core';
+import { useEnrollmentStore, useStudentStore, usePaymentRecordStore, decidePaymentEdit, PaymentMethodEnum } from '@tutomate/core';
 import dayjs from 'dayjs';
 import {
   Dialog,
@@ -45,7 +45,8 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   enrollment,
   courseFee,
 }) => {
-  const { updatePayment } = useEnrollmentStore();
+  const { updatePayment, updateEnrollment } = useEnrollmentStore();
+  const { getRecordsByEnrollmentId, updateRecord, addPayment } = usePaymentRecordStore();
   const { getStudentById } = useStudentStore();
   const [discountAmount, setDiscountAmount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -108,15 +109,35 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
         return;
       }
 
-      await updatePayment(
-        enrollment.id,
-        values.paidAmount,
-        courseFee,
-        values.paidAt,
-        false,
-        values.paymentMethod as PaymentMethod,
-        values.discountAmount ?? 0,
-      );
+      // 납부정보 '변경'은 기존 이력 기록을 수정하도록 통일한다(새 줄 추가 방지).
+      // 분납(양수 기록 2건 이상)은 모호하므로 이력은 그대로 두고 요약만 갱신(명시적 추가 버튼으로만 늘림).
+      const records = getRecordsByEnrollmentId(enrollment.id);
+      const op = decidePaymentEdit(records, values.paidAmount);
+      const method = values.paymentMethod as PaymentMethod;
+      if (op.kind === 'summaryOnly') {
+        await updatePayment(
+          enrollment.id,
+          values.paidAmount,
+          courseFee,
+          values.paidAt,
+          false,
+          method,
+          values.discountAmount ?? 0,
+        );
+      } else {
+        // 할인은 enrollment에 먼저 반영(이력 합산 동기화가 enrollment.discountAmount로 상태를 계산)
+        await updateEnrollment(enrollment.id, { discountAmount: values.discountAmount ?? 0 });
+        if (op.kind === 'update') {
+          await updateRecord(op.recordId, {
+            amount: values.paidAmount,
+            paidAt: values.paidAt,
+            paymentMethod: method,
+            notes: values.notes,
+          });
+        } else {
+          await addPayment(enrollment.id, values.paidAmount, courseFee, method, values.paidAt, values.notes);
+        }
+      }
       toast.success('납부 정보가 업데이트되었습니다.');
       reset();
       onClose();

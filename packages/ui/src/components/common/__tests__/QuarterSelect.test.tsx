@@ -16,6 +16,10 @@ vi.mock('@tutomate/core', () => ({
   useQuarterStore: (sel: (s: { selectedQuarter: string; setSelectedQuarter: typeof setSelectedQuarter }) => unknown) =>
     sel({ selectedQuarter, setSelectedQuarter }),
   getCurrentQuarter: () => '2026-Q2',
+  getPreviousQuarter: (q: string) => {
+    const [y, n] = q.split('-Q').map(Number);
+    return n === 1 ? `${y - 1}-Q4` : `${y}-Q${n - 1}`;
+  },
   getQuarterLabel: (q: string) => {
     const [year, n] = q.split('-Q');
     return `${year}년 ${n}분기`;

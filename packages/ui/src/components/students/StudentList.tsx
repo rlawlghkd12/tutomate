@@ -50,6 +50,10 @@ interface StudentRow {
   index: number;
   student: Student;
   courses: { id: string; name: string }[];
+  /** 활성 등록들의 납부금액 합 (은행 대조용) */
+  totalPaid: number;
+  /** 활성 등록들 중 가장 최근 납부일 (YYYY-MM-DD), 없으면 null */
+  lastPaidAt: string | null;
 }
 
 interface StudentListProps {
@@ -103,11 +107,20 @@ const StudentList: React.FC<StudentListProps> = ({ actions, enrollments: enrollm
         })
         .filter((c): c is { id: string; name: string } => c !== null);
 
+      // 납부금액 합계 + 최근납부일 (은행 내역과 눈으로 대조·정렬용)
+      const totalPaid = studentEnrollments.reduce((sum, e) => sum + (e.paidAmount || 0), 0);
+      const paidDates = studentEnrollments
+        .map((e) => (e.paidAt ? String(e.paidAt).slice(0, 10) : ''))
+        .filter(Boolean);
+      const lastPaidAt = paidDates.length ? paidDates.reduce((a, b) => (a > b ? a : b)) : null;
+
       return {
         rowKey: student.id,
         index: index + 1,
         student,
         courses: studentCourses,
+        totalPaid,
+        lastPaidAt,
       };
     });
   }, [students, enrollments, courses]);
@@ -206,6 +219,33 @@ const StudentList: React.FC<StudentListProps> = ({ actions, enrollments: enrollm
           </div>
         );
       },
+    },
+    {
+      // 최근납부일 — 정렬 가능. 은행 프로그램/엑셀과 눈으로 대조.
+      id: 'lastPaidAt',
+      header: '최근납부일',
+      enableSorting: true,
+      accessorFn: (row: StudentRow) => row.lastPaidAt ?? '',
+      sortingFn: 'basic',
+      cell: ({ row }: { row: { original: StudentRow } }) =>
+        row.original.lastPaidAt ? (
+          <span className="whitespace-nowrap tabular-nums">{row.original.lastPaidAt}</span>
+        ) : (
+          <span className="text-muted-foreground/50">-</span>
+        ),
+    },
+    {
+      // 납부금액 — 정렬 가능.
+      id: 'totalPaid',
+      header: '납부금액',
+      enableSorting: true,
+      accessorFn: (row: StudentRow) => row.totalPaid,
+      sortingFn: 'basic',
+      cell: ({ row }: { row: { original: StudentRow } }) => (
+        <span className="whitespace-nowrap tabular-nums">
+          {row.original.totalPaid.toLocaleString('ko-KR')}원
+        </span>
+      ),
     },
     {
       id: 'notes',
