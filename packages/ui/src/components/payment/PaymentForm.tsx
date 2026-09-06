@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { Banknote, CreditCard, Building2 } from 'lucide-react';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
-import { useEnrollmentStore, useStudentStore, usePaymentRecordStore, decidePaymentEdit, PaymentMethodEnum } from '@tutomate/core';
+import { useEnrollmentStore, useStudentStore, usePaymentRecordStore, decidePaymentEdit, logEvent, PaymentMethodEnum } from '@tutomate/core';
 import dayjs from 'dayjs';
 import {
   Dialog,
@@ -183,7 +183,24 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
 
   const handleCancelExempt = async () => {
     if (!enrollment) return;
-    await updatePayment(enrollment.id, 0, courseFee, undefined);
+    // 면제 취소 시 납부액을 0으로 만들면 안 된다. 면제 전에 실제 납부 이력이 있었으면
+    // 그 합계를 되살려야 한다(그렇지 않으면 다음 동기화 때 되살아나며 그 전까지 매출이 0으로 깎임).
+    const totalPaid = getRecordsByEnrollmentId(enrollment.id).reduce((sum, r) => sum + r.amount, 0);
+    await updatePayment(
+      enrollment.id,
+      totalPaid,
+      courseFee,
+      undefined,
+      false,
+      undefined,
+      enrollment.discountAmount,
+    );
+    await logEvent({
+      eventType: 'enrollment.unexempt',
+      entityType: 'enrollment',
+      entityId: enrollment.id,
+      meta: { restoredPaidAmount: totalPaid },
+    });
     toast.success('면제가 취소되었습니다.');
     reset();
     onClose();
