@@ -34,6 +34,9 @@ export { useQuarterStore } from './stores/quarterStore';
 export { useNotificationStore, getUnreadCountForOrg } from './stores/notificationStore';
 export { useEventLogStore } from './stores/eventLogStore';
 export type { EventLogFilters } from './stores/eventLogStore';
+export { useImportHistoryStore } from './stores/importHistoryStore';
+export { groupImportLogs } from './ai/import/importHistory';
+export type { ImportBatch, ImportHistoryItem, ImportLogRow } from './ai/import/importHistory';
 export { useAiNotifyStore } from './stores/aiNotifyStore';
 
 // ─── Utils ───────────────────────────────────────────────────────

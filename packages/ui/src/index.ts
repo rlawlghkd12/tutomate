@@ -62,6 +62,7 @@ export { default as BulkPaymentForm } from './components/payment/BulkPaymentForm
 export { default as MonthlyPaymentTable } from './components/payment/MonthlyPaymentTable';
 export { default as PaymentForm } from './components/payment/PaymentForm';
 export { default as PaymentManagementTable } from './components/payment/PaymentManagementTable';
+export { ImportHistoryDialog } from './components/payment/ImportHistoryDialog';
 
 // Search components
 export { GlobalSearch, useGlobalSearch } from './components/search/GlobalSearch';

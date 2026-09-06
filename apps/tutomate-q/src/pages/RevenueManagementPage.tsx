@@ -18,8 +18,9 @@ import { useStudentStore } from '@tutomate/core';
 import { useEnrollmentStore } from '@tutomate/core';
 import { usePaymentRecordStore } from '@tutomate/core';
 import { useQuarterStore, getQuarterLabel } from '@tutomate/core';
-import { PaymentForm, StudentForm } from '@tutomate/ui';
-import type { Enrollment, Student } from '@tutomate/core';
+import { PaymentForm, StudentForm, ImportHistoryDialog } from '@tutomate/ui';
+import { useImportHistoryStore, useAuthStore, reloadAllStores, dispatchErrorMessage } from '@tutomate/core';
+import type { Enrollment, Student, SavedItem } from '@tutomate/core';
 import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from '@tutomate/core';
 import type { PaymentStatusType, PaymentMethod } from '@tutomate/core';
 import { exportRevenueToExcel, exportRevenueToCSV, REVENUE_EXPORT_FIELDS } from '@tutomate/core';
@@ -33,6 +34,30 @@ const RevenueManagementPage: React.FC = () => {
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments, updateEnrollment } = useEnrollmentStore();
   const { loadRecords, records } = usePaymentRecordStore();
+
+  const { batches: importBatches, loading: importHistoryLoading, load: loadImportHistory } = useImportHistoryStore();
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const handleUndoImport = async (items: SavedItem[]) => {
+    if (items.length === 0) return;
+    const { session, organizationId } = useAuthStore.getState();
+    try {
+      const r = await window.electronAPI.aiDispatch({
+        toolName: 'undoImport',
+        args: { items },
+        orgId: organizationId ?? '',
+        userId: session?.user?.id ?? '',
+        accessToken: session?.access_token,
+        refreshToken: session?.refresh_token,
+      });
+      const errMsg = dispatchErrorMessage(r);
+      if (errMsg) { toast.error(`되돌리기 실패: ${errMsg}`); return; }
+      await reloadAllStores();
+      toast.success('되돌리기를 처리했어요.');
+    } catch (e: any) {
+      toast.error(`되돌리기 실패: ${e?.message ?? '알 수 없는 오류'}`);
+    }
+  };
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
@@ -502,6 +527,9 @@ const RevenueManagementPage: React.FC = () => {
               </div>
             </div>
 
+            <Button variant="outline" size="sm" onClick={() => { loadImportHistory(); setHistoryOpen(true); }}>
+              AI 처리 내역
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setIsExportModalVisible(true)}>
               <Download className="h-4 w-4" />내보내기
             </Button>
@@ -975,6 +1003,14 @@ const RevenueManagementPage: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+      <ImportHistoryDialog
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        batches={importBatches}
+        loading={importHistoryLoading}
+        onUndo={handleUndoImport}
+        onRefresh={loadImportHistory}
+      />
     </PageEnter>
   );
 };
