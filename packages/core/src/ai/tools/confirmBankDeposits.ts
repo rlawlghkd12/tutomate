@@ -6,6 +6,7 @@ import { matchDeposits } from '../bank/depositMatcher';
 import { computeEnrollmentSync } from '../persist/enrollmentSync';
 import { derivePaymentStatus } from '../../utils/paymentStatus';
 import type { SavedItem } from '../import/undoPlan';
+import { buildImportLogEntries } from '../import/importAudit';
 import { filterBankDuplicates } from '../bank/bankDedup';
 import type { ToolHandler, SmartCard } from '../types';
 
@@ -385,6 +386,16 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
           return db.from('enrollments').update(update).eq('id', eid);
         }),
       );
+    }
+
+    // 감사 로그 (best-effort) — '처리 내역' 화면에서 배치로 조회
+    if (savedItems.length > 0) {
+      const { error: logErr } = await supabase.from('event_logs').insert(
+        buildImportLogEntries(savedItems, {
+          orgId: ctx.orgId, userId: ctx.userId, batchId: crypto.randomUUID(), source: 'bank',
+        }),
+      );
+      if (logErr) console.warn('[confirmBankDeposits] 감사 로그 기록 실패:', logErr.message);
     }
 
     // 표시용 items는 savedItems에서 파생(금액은 절대값으로 보기 좋게).

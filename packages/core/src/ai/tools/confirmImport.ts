@@ -7,6 +7,7 @@ import { resolveSelectionInserts } from '../import/resolveSelections';
 import { buildPreview, type PreviewRowInput } from '../import/buildPreview';
 import { buildPaymentLookup } from '../import/paymentLookup';
 import type { SavedItem } from '../import/undoPlan';
+import { buildImportLogEntries } from '../import/importAudit';
 import { parsePaymentMethod } from '../../types/index';
 import type { ToolHandler, SmartCard, ToolContext } from '../types';
 import type { StandardField } from '../../excel/types';
@@ -118,6 +119,16 @@ async function confirmPaymentSelections(
         return db.from('enrollments').update(update).eq('id', eid);
       }),
     );
+
+    // 감사 로그 (best-effort) — 실패해도 저장은 유지. '처리 내역' 화면에서 배치로 조회.
+    if (savedItems.length > 0) {
+      const { error: logErr } = await db.from('event_logs').insert(
+        buildImportLogEntries(savedItems, {
+          orgId: ctx.orgId, userId: ctx.userId, batchId: crypto.randomUUID(), source: 'excel',
+        }),
+      );
+      if (logErr) console.warn('[confirmImport] 감사 로그 기록 실패:', logErr.message);
+    }
   }
 
   const card: SmartCard = {
@@ -318,6 +329,16 @@ export const confirmImport: ToolHandler<typeof schema> = {
               return supabase!.from('enrollments').update(update).eq('id', eid);
             }),
           );
+
+          // 감사 로그 (best-effort)
+          if (savedItems.length > 0) {
+            const { error: logErr } = await supabase.from('event_logs').insert(
+              buildImportLogEntries(savedItems, {
+                orgId: ctx.orgId, userId: ctx.userId, batchId: crypto.randomUUID(), source: 'excel',
+              }),
+            );
+            if (logErr) console.warn('[confirmImport] 감사 로그 기록 실패:', logErr.message);
+          }
         }
       }
     }

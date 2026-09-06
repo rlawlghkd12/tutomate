@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { supabase } from '../../config/supabase';
 import { computeEnrollmentSync } from '../persist/enrollmentSync';
 import { planUndo, toUndoTargets, type UndoState, type SavedItem } from '../import/undoPlan';
+import { buildUndoLogEntries } from '../import/importAudit';
 import type { ToolHandler, SmartCard } from '../types';
 
 /**
@@ -142,6 +143,17 @@ export const undoImport: ToolHandler<typeof schema> = {
         for (const eid of enrollmentsToDelete) {
           const remaining = (recsByEnroll.get(eid) ?? []).filter((r) => !deleted.has(r.id));
           if (remaining.length === 0) await db.from('enrollments').delete().eq('id', eid);
+        }
+
+        // 감사 로그 (best-effort) — 되돌린 건 기록
+        const undoneItems = (items as SavedItem[]).filter((it) => deleted.has(it.recordId));
+        if (undoneItems.length > 0) {
+          const { error: logErr } = await db.from('event_logs').insert(
+            buildUndoLogEntries(undoneItems, {
+              orgId: ctx.orgId, userId: ctx.userId, batchId: crypto.randomUUID(), source: 'bank',
+            }),
+          );
+          if (logErr) console.warn('[undoImport] 감사 로그 기록 실패:', logErr.message);
         }
       }
     }
