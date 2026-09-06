@@ -66,3 +66,14 @@ apps/tutomate-q/build/llama-bin/
 packages/electron-shared/build/vc_redist.x64.exe
 
 .env*
+
+# 로컬 전용·제안서·PII 포함 샘플 (커밋 금지)
+.mcp.json
+login.png
+docs/promo/
+docs/*.hwp
+docs/*.docx*
+scripts/gen-bank-sample*.cjs
+scripts/build-proposal-*.py
+scripts/restyle-proposal-doc.py
+test-data/*.xlsx
