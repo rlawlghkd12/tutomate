@@ -115,27 +115,52 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       const op = decidePaymentEdit(records, values.paidAmount);
       const method = values.paymentMethod as PaymentMethod;
       if (op.kind === 'summaryOnly') {
-        await updatePayment(
-          enrollment.id,
-          values.paidAmount,
-          courseFee,
-          values.paidAt,
-          false,
-          method,
-          values.discountAmount ?? 0,
-        );
+        // 요약만 바꾸면 이후 이력 합산 동기화(SUM) 때 되돌려진다.
+        // 분납(이력 2건 이상)처럼 어느 기록을 고칠지 모호하면, 기존 기록은 보존하고
+        // 목표 금액과의 '차액'만 '금액 조정' 기록으로 더해 이력=요약을 맞춘다(수정이 사라지지 않게).
+        const ledgerSum = records.reduce((sum, r) => sum + r.amount, 0);
+        const target = Math.max(0, values.paidAmount);
+        const delta = target - ledgerSum;
+        if (records.length > 0 && delta !== 0) {
+          // 할인은 enrollment에 먼저 반영(동기화가 enrollment.discountAmount로 상태 계산)
+          await updateEnrollment(enrollment.id, { discountAmount: values.discountAmount ?? 0 });
+          const rec = await addPayment(enrollment.id, delta, courseFee, method, values.paidAt, '금액 조정');
+          if (!rec) {
+            toast.error('납부 정보 저장에 실패했습니다. 다시 시도해주세요.');
+            return;
+          }
+        } else {
+          // 이력이 없거나(0 이하 케이스) 이미 목표와 일치 → 요약(상태/할인/납부일)만 갱신
+          await updatePayment(
+            enrollment.id,
+            target,
+            courseFee,
+            values.paidAt,
+            false,
+            method,
+            values.discountAmount ?? 0,
+          );
+        }
       } else {
         // 할인은 enrollment에 먼저 반영(이력 합산 동기화가 enrollment.discountAmount로 상태를 계산)
         await updateEnrollment(enrollment.id, { discountAmount: values.discountAmount ?? 0 });
         if (op.kind === 'update') {
-          await updateRecord(op.recordId, {
+          const ok = await updateRecord(op.recordId, {
             amount: values.paidAmount,
             paidAt: values.paidAt,
             paymentMethod: method,
             notes: values.notes,
           });
+          if (!ok) {
+            toast.error('납부 정보 저장에 실패했습니다. 다시 시도해주세요.');
+            return;
+          }
         } else {
-          await addPayment(enrollment.id, values.paidAmount, courseFee, method, values.paidAt, values.notes);
+          const rec = await addPayment(enrollment.id, values.paidAmount, courseFee, method, values.paidAt, values.notes);
+          if (!rec) {
+            toast.error('납부 정보 저장에 실패했습니다. 다시 시도해주세요.');
+            return;
+          }
         }
       }
       toast.success('납부 정보가 업데이트되었습니다.');

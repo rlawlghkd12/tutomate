@@ -84,36 +84,55 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
 
       // 각 수강생에게 납부 이력(payment_records)을 추가한다.
       // addPayment는 저장 후 enrollment.paidAmount = 이력 합계로 동기화한다.
-      // 따라서 예전에 '요약'으로만 저장돼 이력이 없는 금액(gap)이 있으면,
-      // 먼저 그만큼 보정 기록을 만들어 이력=요약을 맞춘 뒤 새 납부를 더한다(기존 납부액 손실 방지).
+      // 예전에 '요약'으로만 저장돼 이력이 없는 금액(gap)이 있으면, 먼저 보정 기록으로 채운 뒤
+      // 새 납부를 더한다(기존 납부액 손실 방지). 각 저장의 성공 여부를 확인해 실패를 정확히 보고한다.
+      const succeededIds: string[] = [];
+      let failedCount = 0;
       for (const enrollment of enrollments) {
         const ledgerSum = getRecordsByEnrollmentId(enrollment.id).reduce(
           (sum, r) => sum + r.amount,
           0,
         );
         const gap = enrollment.paidAmount - ledgerSum;
+        // 보정 기록이 실패하면 새 납부를 더하지 않는다.
+        // (그대로 진행하면 이 보정이 막으려던 기존 납부액 손실이 그대로 발생한다)
         if (gap > 0) {
-          await addPayment(enrollment.id, gap, courseFee, undefined, undefined, '기존 납부액(이력 보정)');
+          const baseline = await addPayment(
+            enrollment.id, gap, courseFee, undefined, undefined, '기존 납부액(이력 보정)',
+          );
+          if (!baseline) { failedCount++; continue; }
         }
-        await addPayment(enrollment.id, amountPerStudent, courseFee, paymentMethod);
+        const rec = await addPayment(enrollment.id, amountPerStudent, courseFee, paymentMethod);
+        if (!rec) { failedCount++; continue; }
+        succeededIds.push(enrollment.id);
       }
 
-      // 일괄 작업 감사 로그 (개별 enrollment.update 로그 외 summary)
-      await logEvent({
-        eventType: 'payment.bulk_update',
-        entityType: 'enrollment',
-        entityId: null,
-        meta: {
-          mode: paymentType,
-          amountPerStudent,
-          studentCount: totalSelectedStudents,
-          totalAmount: amountPerStudent * totalSelectedStudents,
-          paymentMethod,
-          enrollmentIds: enrollments.map((e) => e.id),
-        },
-      });
+      // 일괄 작업 감사 로그 — 실제 성공분만 기록
+      if (succeededIds.length > 0) {
+        await logEvent({
+          eventType: 'payment.bulk_update',
+          entityType: 'enrollment',
+          entityId: null,
+          meta: {
+            mode: paymentType,
+            amountPerStudent,
+            studentCount: succeededIds.length,
+            failedCount,
+            totalAmount: amountPerStudent * succeededIds.length,
+            paymentMethod,
+            enrollmentIds: succeededIds,
+          },
+        });
+      }
 
-      toast.success(`${totalSelectedStudents}명의 납부 정보가 업데이트되었습니다.`);
+      // 성공/실패를 정확히 보고한다(중간에 실패해도 '전원 완료'로 속이지 않는다).
+      if (failedCount === 0) {
+        toast.success(`${succeededIds.length}명의 납부 정보가 업데이트되었습니다.`);
+      } else {
+        toast.error(
+          `${succeededIds.length}명 저장 완료, ${failedCount}명 저장 실패했습니다. 실패한 학생은 다시 시도해주세요.`,
+        );
+      }
       form.reset();
       onClose();
     } catch (error) {
