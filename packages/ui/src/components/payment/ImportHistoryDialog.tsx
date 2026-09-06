@@ -44,18 +44,18 @@ export function ImportHistoryDialog({ open, onClose, batches, loading, onUndo, o
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[560px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-[560px]">
         <DialogHeader>
           <DialogTitle>AI 처리 내역</DialogTitle>
           <DialogDescription className="sr-only">AI로 저장한 임포트 내역과 되돌리기</DialogDescription>
         </DialogHeader>
 
         {loading ? (
-          <div className="py-10 text-center text-muted-foreground">불러오는 중…</div>
+          <div className="mt-4 py-10 text-center text-muted-foreground">불러오는 중…</div>
         ) : batches.length === 0 ? (
-          <div className="py-10 text-center text-muted-foreground">아직 AI로 저장한 내역이 없어요.</div>
+          <div className="mt-4 py-10 text-center text-muted-foreground">아직 AI로 저장한 내역이 없어요.</div>
         ) : (
-          <div className="space-y-3">
+          <div className="mt-4 space-y-3">
             {batches.map((b) => {
               const undoable = undoableOf(b);
               return (
