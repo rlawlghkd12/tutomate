@@ -3,7 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
-import { useEnrollmentStore, PaymentMethodEnum, logEvent } from '@tutomate/core';
+import { usePaymentRecordStore, PaymentMethodEnum, logEvent } from '@tutomate/core';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -32,7 +32,7 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
   enrollments,
   courseFee,
 }) => {
-  const { updatePayment } = useEnrollmentStore();
+  const { getRecordsByEnrollmentId, addPayment } = usePaymentRecordStore();
   const [paymentType, setPaymentType] = useState<'fixed' | 'ratio'>('fixed');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethodEnum.CASH);
 
@@ -77,10 +77,25 @@ const BulkPaymentForm: React.FC<BulkPaymentFormProps> = ({
         amountPerStudent = Math.floor((courseFee * ratio) / 100);
       }
 
-      // 각 수강생에게 납부 금액 추가
+      if (amountPerStudent <= 0) {
+        toast.error('납부 금액을 입력해주세요.');
+        return;
+      }
+
+      // 각 수강생에게 납부 이력(payment_records)을 추가한다.
+      // addPayment는 저장 후 enrollment.paidAmount = 이력 합계로 동기화한다.
+      // 따라서 예전에 '요약'으로만 저장돼 이력이 없는 금액(gap)이 있으면,
+      // 먼저 그만큼 보정 기록을 만들어 이력=요약을 맞춘 뒤 새 납부를 더한다(기존 납부액 손실 방지).
       for (const enrollment of enrollments) {
-        const newPaidAmount = enrollment.paidAmount + amountPerStudent;
-        await updatePayment(enrollment.id, newPaidAmount, courseFee, undefined, false, paymentMethod);
+        const ledgerSum = getRecordsByEnrollmentId(enrollment.id).reduce(
+          (sum, r) => sum + r.amount,
+          0,
+        );
+        const gap = enrollment.paidAmount - ledgerSum;
+        if (gap > 0) {
+          await addPayment(enrollment.id, gap, courseFee, undefined, undefined, '기존 납부액(이력 보정)');
+        }
+        await addPayment(enrollment.id, amountPerStudent, courseFee, paymentMethod);
       }
 
       // 일괄 작업 감사 로그 (개별 enrollment.update 로그 외 summary)
