@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Paperclip } from 'lucide-react';
 
 interface Props {
@@ -9,18 +9,34 @@ interface Props {
   onCancel?: () => void;
   /** 스트리밍 중 (응답 받는 중) */
   streaming?: boolean;
+  /** 채팅 영역에 드래그앤드롭된 파일 (AiChatPage에서 전달). 소비 후 onDroppedFileHandled 호출 */
+  droppedFile?: File | null;
+  onDroppedFileHandled?: () => void;
 }
 
-export function ChatInput({ onSend, onCancel, streaming }: Props) {
+export function ChatInput({ onSend, onCancel, streaming, droppedFile, onDroppedFileHandled }: Props) {
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState<{ fileId: string; name: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function pickFile(file: File) {
-    const buf = await file.arrayBuffer();
-    const r = await window.electronAPI.fileStashSave(file.name, buf);
-    setAttachment(r);
+    if (!/\.(xlsx|xls)$/i.test(file.name)) return; // 엑셀 파일만 첨부
+    try {
+      const buf = await file.arrayBuffer();
+      const r = await window.electronAPI.fileStashSave(file.name, buf);
+      setAttachment(r);
+    } catch (e) {
+      console.error('파일 첨부 실패:', e);
+    }
   }
+
+  // 드래그앤드롭으로 들어온 파일 첨부 (AiChatPage가 droppedFile로 전달)
+  useEffect(() => {
+    if (!droppedFile) return;
+    pickFile(droppedFile);
+    onDroppedFileHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [droppedFile]);
 
   function handleSend() {
     if (!text.trim() && !attachment) return;

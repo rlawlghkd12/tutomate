@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuthStore, useAiNotifyStore } from '@tutomate/core';
 import { ChatWindow } from './components/ChatWindow';
 import { ChatInput } from './components/ChatInput';
@@ -43,6 +43,10 @@ export default function AiChatPage() {
     () => ({ orgId, userId, accessToken, refreshToken, orgName, orgPlan, userEmail }),
     [orgId, userId, accessToken, refreshToken, orgName, orgPlan, userEmail],
   );
+
+  // 채팅 영역 전체에 엑셀 파일 드래그앤드롭 → ChatInput이 droppedFile을 받아 첨부한다.
+  const [dragging, setDragging] = useState(false);
+  const [droppedFile, setDroppedFile] = useState<File | null>(null);
 
   useEffect(() => {
     init();
@@ -107,7 +111,40 @@ export default function AiChatPage() {
   }
 
   return (
-    <div className="relative flex flex-col h-full min-h-0">
+    <div
+      className="relative flex flex-col h-full min-h-0"
+      onDragEnter={(e) => {
+        if (!streaming && e.dataTransfer.types.includes('Files')) {
+          e.preventDefault();
+          setDragging(true);
+        }
+      }}
+      onDragOver={(e) => {
+        if (!streaming && e.dataTransfer.types.includes('Files')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        }
+      }}
+      onDragLeave={(e) => {
+        // 자식으로 이동하는 경우가 아니라, 컨테이너 밖으로 나갈 때만 해제
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        if (streaming) return;
+        const file = e.dataTransfer.files?.[0];
+        if (file) setDroppedFile(file);
+      }}
+    >
+      {dragging && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-primary/10 backdrop-blur-sm">
+          <div className="rounded-2xl border-2 border-dashed border-primary bg-background px-8 py-6 text-center shadow-lg">
+            <p className="text-lg font-semibold text-foreground">엑셀 파일을 여기에 놓으세요</p>
+            <p className="mt-1 text-sm text-muted-foreground">.xlsx · .xls 파일이 첨부됩니다</p>
+          </div>
+        </div>
+      )}
       {usage && usage.level !== 'none' && (
         <div
           className={`px-4 py-2 text-sm text-center ${
@@ -165,6 +202,8 @@ export default function AiChatPage() {
         onSend={(text, attachment) => send(text, attachment, ctx)}
         onCancel={cancelStreaming}
         streaming={streaming}
+        droppedFile={droppedFile}
+        onDroppedFileHandled={() => setDroppedFile(null)}
       />
     </div>
   );
