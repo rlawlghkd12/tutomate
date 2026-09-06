@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Check, AlertTriangle } from 'lucide-react';
 import type { SmartCard, ImportPreviewRow } from '@tutomate/core';
 
 /** confirmImport에 넘길 저장 대상 결제 행 */
@@ -193,8 +194,9 @@ function EnrichedRows({
           );
         })}
       </div>
-      <div className="text-xs text-muted-foreground mb-2">
-        ✓ 체크한 것만 저장돼요. 중복·완납·초과·못 찾은 건은 실수를 막으려고 미리 빼뒀어요 — 필요하면 직접 체크하세요.
+      <div className="text-xs text-muted-foreground mb-2 flex items-start gap-1.5">
+        <Check className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-600" />
+        <span>체크한 것만 저장돼요. 중복·완납·초과·못 찾은 건은 실수를 막으려고 미리 빼뒀어요 — 필요하면 직접 체크하세요.</span>
       </div>
       <div className="flex gap-3">
         <button
@@ -233,8 +235,9 @@ export function ImportPreviewCard({
         결제 미리보기 (총 {total}건{hasEnriched ? '' : ' 중 5건만 보기'})
       </div>
       {errorRows > 0 && (
-        <div className="text-destructive mb-2">
-          ⚠ {errorRows}건은 날짜·금액 정보가 부족해서 빼뒀어요
+        <div className="text-destructive mb-2 flex items-center gap-1.5">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          {errorRows}건은 날짜·금액 정보가 부족해서 빼뒀어요
         </div>
       )}
       {hasEnriched ? (

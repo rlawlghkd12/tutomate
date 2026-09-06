@@ -371,7 +371,7 @@ const Layout: React.FC<LayoutProps> = ({ children, headerExtra, sidebarExtra }) 
 							size="icon"
 							onClick={openSearch}
 							style={{ width: 32, height: 32 }}
-							title="검색 (⌘K)"
+							title="검색 (Ctrl/Cmd+K)"
 						>
 							<Search style={{ width: 16, height: 16 }} />
 						</Button>

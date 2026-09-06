@@ -9,7 +9,7 @@ import {
   type SortingState,
   type ColumnSizingState,
 } from '@tanstack/react-table';
-import { Search } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import type { Course } from '@tutomate/core';
 import { useCourseStore } from '@tutomate/core';
 import { useEnrollmentStore, isCourseEnded, DAY_LABELS, isActiveEnrollment, formatTime12 } from '@tutomate/core';
@@ -338,8 +338,8 @@ const CourseList: React.FC<CourseListProps> = ({ actions, quarterSelector, selec
                     <span className="inline-flex items-center gap-1">
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getCanSort() && (
-                        <span className="text-[0.71rem]" style={{ opacity: header.column.getIsSorted() ? 1 : 0.3 }}>
-                          {header.column.getIsSorted() === 'asc' ? '▲' : header.column.getIsSorted() === 'desc' ? '▼' : '⇅'}
+                        <span className="inline-flex" style={{ opacity: header.column.getIsSorted() ? 1 : 0.3 }}>
+                          {header.column.getIsSorted() === 'asc' ? <ChevronUp className="h-3.5 w-3.5" /> : header.column.getIsSorted() === 'desc' ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronsUpDown className="h-3.5 w-3.5" />}
                         </span>
                       )}
                     </span>

@@ -9,7 +9,7 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
-import { X, Banknote, CreditCard, Building2, Pencil, Check } from 'lucide-react';
+import { X, Banknote, CreditCard, Building2, Pencil, Check, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
 import { usePaymentRecordStore } from '@tutomate/core';
@@ -771,8 +771,8 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getCanSort() && (
-                        <span style={{ fontSize: '0.71rem', opacity: header.column.getIsSorted() ? 1 : 0.3 }}>
-                          {header.column.getIsSorted() === 'asc' ? '▲' : header.column.getIsSorted() === 'desc' ? '▼' : '⇅'}
+                        <span className="inline-flex" style={{ opacity: header.column.getIsSorted() ? 1 : 0.3 }}>
+                          {header.column.getIsSorted() === 'asc' ? <ChevronUp className="h-3.5 w-3.5" /> : header.column.getIsSorted() === 'desc' ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronsUpDown className="h-3.5 w-3.5" />}
                         </span>
                       )}
                     </span>

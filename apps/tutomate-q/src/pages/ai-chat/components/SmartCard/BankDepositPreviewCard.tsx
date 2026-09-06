@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ButtonHTMLAttributes } from 'react';
+import { Repeat, AlertTriangle } from 'lucide-react';
 import type { SmartCard, MatchCandidate, DepositSelection } from '@tutomate/core';
 import { appConfig, getCurrentQuarter, getPreviousQuarter, getQuarterLabel } from '@tutomate/core';
 
@@ -607,8 +608,9 @@ export function BankDepositPreviewCard({ summary, items, dataQuarter, onConfirm,
 
             {/* 정기 수강료(지난달에도 같은 금액) — 매달 반복 확인 부담을 줄이는 힌트 */}
             {primary.recurring && (
-              <div className="text-base text-success font-medium mb-2">
-                🔁 지난달에도 이 금액을 여기에 내셨어요 (정기 수강료)
+              <div className="text-base text-success font-medium mb-2 flex items-center gap-1.5">
+                <Repeat className="h-4 w-4 shrink-0" />
+                지난달에도 이 금액을 여기에 내셨어요 (정기 수강료)
               </div>
             )}
             {/* 금액 관계 라벨 (수수료 차감·부분 납부·초과) */}
@@ -636,13 +638,15 @@ export function BankDepositPreviewCard({ summary, items, dataQuarter, onConfirm,
                     })}
                   </ul>
                   {dupSameDay ? (
-                    <div className="text-destructive font-medium mt-2">
-                      ⚠ 이번 {shortDate(cur.paidAt)} {won(cur.amount)}은 이미 받은 것 같아요
+                    <div className="text-destructive font-medium mt-2 flex items-start gap-1.5">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>이번 {shortDate(cur.paidAt)} {won(cur.amount)}은 이미 받은 것 같아요</span>
                     </div>
                   ) : dupSameMonth ? (
-                    <div className="text-destructive font-medium mt-2">
-                      ⚠ 같은 달에 {won(cur.amount)}을 이미 받은 기록이 있어요 (
-                      {shortDate(dupSameMonth.paidAt)}). 날짜만 다를 수 있어요.
+                    <div className="text-destructive font-medium mt-2 flex items-start gap-1.5">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>같은 달에 {won(cur.amount)}을 이미 받은 기록이 있어요 (
+                      {shortDate(dupSameMonth.paidAt)}). 날짜만 다를 수 있어요.</span>
                     </div>
                   ) : (
                     <div className="text-success mt-2">

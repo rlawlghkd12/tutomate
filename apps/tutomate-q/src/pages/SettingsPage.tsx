@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Save, Lock, Loader2,
   KeyRound, Building2, Palette, Bell, Info,
-  AlertTriangle, Copy,
+  AlertTriangle, Copy, Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -360,7 +360,7 @@ const SettingsPage: React.FC = () => {
                       </div>
                       <div className="text-xs font-medium flex items-center gap-1">
                         {t.label}
-                        {selected && <span className="text-primary">✓</span>}
+                        {selected && <Check className="h-3.5 w-3.5 text-primary" />}
                       </div>
                       <div className="text-[0.67rem] text-muted-foreground leading-tight mt-0.5 line-clamp-2">
                         {t.description}

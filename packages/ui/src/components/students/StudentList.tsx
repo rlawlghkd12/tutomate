@@ -9,7 +9,7 @@ import {
   type SortingState,
   type ColumnSizingState,
 } from '@tanstack/react-table';
-import { Search, BookOpen } from 'lucide-react';
+import { Search, BookOpen, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Student, Enrollment } from '@tutomate/core';
 import { useStudentStore } from '@tutomate/core';
@@ -352,8 +352,8 @@ const StudentList: React.FC<StudentListProps> = ({ actions, enrollments: enrollm
                     <span className="inline-flex items-center gap-1">
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getCanSort() && (
-                        <span className="text-[0.71rem]" style={{ opacity: header.column.getIsSorted() ? 1 : 0.3 }}>
-                          {header.column.getIsSorted() === 'asc' ? '▲' : header.column.getIsSorted() === 'desc' ? '▼' : '⇅'}
+                        <span className="inline-flex" style={{ opacity: header.column.getIsSorted() ? 1 : 0.3 }}>
+                          {header.column.getIsSorted() === 'asc' ? <ChevronUp className="h-3.5 w-3.5" /> : header.column.getIsSorted() === 'desc' ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronsUpDown className="h-3.5 w-3.5" />}
                         </span>
                       )}
                     </span>

@@ -1,5 +1,5 @@
 import type React from "react";
-import { Banknote, CreditCard, Building2 } from "lucide-react";
+import { Banknote, CreditCard, Building2, ArrowLeft, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -376,7 +376,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 
 					<DialogFooter>
 						<Button type="button" variant="outline" onClick={onClose} className="text-base px-6">취소</Button>
-						<Button type="button" onClick={() => { if (!form.getValues('courseId')) { form.setError('courseId', { message: '강좌를 선택하세요' }); return; } setStep(2); }} className="text-base px-6">다음 →</Button>
+						<Button type="button" onClick={() => { if (!form.getValues('courseId')) { form.setError('courseId', { message: '강좌를 선택하세요' }); return; } setStep(2); }} className="text-base px-6">다음 <ArrowRight className="h-4 w-4" /></Button>
 					</DialogFooter>
 				</>
 				)}
@@ -539,7 +539,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({
 					)}
 
 					<DialogFooter>
-						<Button type="button" variant="outline" onClick={() => setStep(1)} className="text-base px-6">← 이전</Button>
+						<Button type="button" variant="outline" onClick={() => setStep(1)} className="text-base px-6"><ArrowLeft className="h-4 w-4" /> 이전</Button>
 						<Button type="submit" disabled={submitting} className="text-base px-6">신청</Button>
 					</DialogFooter>
 				</>

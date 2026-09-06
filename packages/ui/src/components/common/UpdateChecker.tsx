@@ -171,7 +171,7 @@ export function UpdateChecker({ autoCheck = true, checkInterval = 60 }: UpdateCh
   if (restarting) {
     return (
       <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, background: 'rgba(0,0,0,0.85)', fontSize: '1.14rem', color: '#fff' }}>
-        <div style={{ fontSize: '2.86rem' }}>🔄</div>
+        <Loader2 className="animate-spin" style={{ width: '2.86rem', height: '2.86rem' }} />
         <div>업데이트 설치 중...</div>
         <div style={{ fontSize: '1rem', opacity: 0.6 }}>잠시 후 앱이 재시작됩니다</div>
       </div>

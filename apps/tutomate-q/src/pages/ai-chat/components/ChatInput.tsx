@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Paperclip } from 'lucide-react';
+import { Paperclip, Square } from 'lucide-react';
 
 interface Props {
   onSend: (
@@ -90,10 +90,11 @@ export function ChatInput({ onSend, onCancel, streaming, droppedFile, onDroppedF
         {streaming ? (
           <button
             onClick={onCancel}
-            className="h-12 shrink-0 rounded-xl bg-destructive px-6 text-lg font-medium text-destructive-foreground transition-opacity hover:opacity-90"
+            className="h-12 shrink-0 rounded-xl bg-destructive px-6 text-lg font-medium text-destructive-foreground transition-opacity hover:opacity-90 flex items-center gap-1.5"
             aria-label="응답 중지"
           >
-            ■ 중지
+            <Square className="h-4 w-4" fill="currentColor" />
+            중지
           </button>
         ) : (
           <button

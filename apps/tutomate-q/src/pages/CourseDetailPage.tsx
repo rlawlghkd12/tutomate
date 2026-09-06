@@ -1,4 +1,4 @@
-import { Download, Pencil, Trash2, FileSpreadsheet, FileText, UserPlus } from "lucide-react";
+import { Download, Pencil, Trash2, FileSpreadsheet, FileText, UserPlus, AlertTriangle } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -348,7 +348,7 @@ const CourseDetailPage: React.FC = () => {
 			{/* 분기 미지정 legacy 수강생 안내 */}
 			{legacyEnrollments.length > 0 && (
 				<div className="mb-3 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30 text-[0.87rem] text-warning flex items-center gap-2">
-					<span>⚠</span>
+					<AlertTriangle className="h-4 w-4 shrink-0" />
 					<span>분기 미지정 수강생 {legacyEnrollments.length}명이 있습니다. 이 인원은 현재 분기 정원에 포함되지 않습니다.</span>
 				</div>
 			)}
