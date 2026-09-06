@@ -55,4 +55,12 @@ export {
   type ResolveSelectionsResult,
 } from './import/resolveSelections';
 export { isNonPaymentRowName } from './import/rowFilter';
+export {
+  planUndo,
+  toUndoTargets,
+  type SavedItem,
+  type UndoTarget,
+  type UndoState,
+  type UndoVerdict,
+} from './import/undoPlan';
 export { dispatchErrorMessage, type DispatchEnvelope } from './dispatchResult';

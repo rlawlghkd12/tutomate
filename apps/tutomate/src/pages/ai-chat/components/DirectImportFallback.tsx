@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import type { SmartCard } from '@tutomate/core';
+import type { SmartCard, SavedItem } from '@tutomate/core';
 import { useAuthStore, reloadAllStores, dispatchErrorMessage } from '@tutomate/core';
 import { ImportPreviewCard, type PaymentSelection } from './SmartCard/ImportPreviewCard';
 import { ImportResultCard } from './SmartCard/ImportResultCard';
+import { ImportUndoResultCard } from './SmartCard/ImportUndoResultCard';
 import { MappingErrorCard } from './SmartCard/MappingErrorCard';
 
 export function DirectImportFallback() {
@@ -59,9 +60,41 @@ export function DirectImportFallback() {
         duplicated: res?.duplicated ?? 0,
         errors: res?.errors ?? 0,
         ...(res?.unmatched ? { unmatched: res.unmatched } : {}),
+        ...(res?.savedItems ? { savedItems: res.savedItems } : {}),
       });
       // 저장 데이터가 다른 화면(수강생·수익 등)에 즉시 반영되도록 스토어 갱신
       if ((res?.added ?? 0) > 0) await reloadAllStores();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleUndo(undoItems: SavedItem[]) {
+    if (undoItems.length === 0) return;
+    setBusy(true);
+    try {
+      const r = (await window.electronAPI.aiDispatch({
+        toolName: 'undoImport',
+        args: { items: undoItems },
+        orgId,
+        userId,
+        accessToken,
+        refreshToken,
+      })) as { result?: any };
+      const errMsg = dispatchErrorMessage(r);
+      if (errMsg) {
+        alert(`되돌리기 실패: ${errMsg}`);
+        return;
+      }
+      const res = r?.result;
+      setCard({
+        type: 'importUndoResult',
+        undone: res?.undone ?? 0,
+        skipped: res?.skipped ?? 0,
+        blocked: res?.blocked ?? 0,
+        failed: res?.failed ?? 0,
+      });
+      if ((res?.undone ?? 0) > 0) await reloadAllStores();
     } finally {
       setBusy(false);
     }
@@ -93,7 +126,8 @@ export function DirectImportFallback() {
           onCancel={() => setCard(null)}
         />
       )}
-      {card?.type === 'importResult' && <ImportResultCard {...card} />}
+      {card?.type === 'importResult' && <ImportResultCard {...card} onUndo={handleUndo} />}
+      {card?.type === 'importUndoResult' && <ImportUndoResultCard {...card} />}
     </div>
   );
 }

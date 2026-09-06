@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { useAiNotifyStore, reportError, reloadAllStores, dispatchErrorMessage } from '@tutomate/core';
-import type { ChatMessage, SmartCard, DepositSelection } from '@tutomate/core';
+import type { ChatMessage, SmartCard, DepositSelection, SavedItem } from '@tutomate/core';
 import type { DisplayMessage } from './components/MessageBubble';
 
 export type AiState =
@@ -136,6 +136,7 @@ interface AiChatStore {
     selections: DepositSelection[],
     ctx: SendContext,
   ) => Promise<void>;
+  undoImport: (items: SavedItem[], ctx: SendContext) => Promise<void>;
   cancelPreview: () => void;
   cancelStreaming: () => void;
   reset: (orgId: string) => void;
@@ -482,6 +483,36 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
     } catch (e: any) {
       set((state) => ({
         messages: [...state.messages, { role: 'assistant', content: `저장 실패: ${e?.message ?? '알 수 없는 오류'}`, error: true }],
+      }));
+    } finally {
+      set({ streaming: false });
+      scheduleSave();
+    }
+  },
+
+  undoImport: async (items, ctx) => {
+    set({ streaming: true });
+    try {
+      const r = await window.electronAPI.aiDispatch({
+        toolName: 'undoImport',
+        args: { items },
+        orgId: ctx.orgId,
+        userId: ctx.userId,
+        accessToken: ctx.accessToken,
+        refreshToken: ctx.refreshToken,
+      });
+      const errMsg = dispatchErrorMessage(r);
+      if (errMsg) {
+        set((state) => ({
+          messages: [...state.messages, { role: 'assistant', content: `되돌리기 실패: ${errMsg}`, error: true }],
+        }));
+      } else {
+        // 되돌리기 결과 카드는 tool의 ctx.emit로 자동 표시됨. 저장소 캐시 갱신으로 화면 반영.
+        await reloadAllStores();
+      }
+    } catch (e: any) {
+      set((state) => ({
+        messages: [...state.messages, { role: 'assistant', content: `되돌리기 실패: ${e?.message ?? '알 수 없는 오류'}`, error: true }],
       }));
     } finally {
       set({ streaming: false });

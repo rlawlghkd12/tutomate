@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowDown } from 'lucide-react';
-import type { SmartCard, DepositSelection } from '@tutomate/core';
+import type { SmartCard, DepositSelection, SavedItem } from '@tutomate/core';
 import { MessageBubble, type DisplayMessage } from './MessageBubble';
 import type { PaymentSelection } from './SmartCard/ImportPreviewCard';
 
@@ -17,6 +17,8 @@ interface Props {
     selections: DepositSelection[],
   ) => void;
   onCancelPreview: () => void;
+  /** 임포트 결과 카드에서 되돌리기 (개별/전체) */
+  onUndoImport: (items: SavedItem[]) => void;
   /** 오류 메시지의 "다시 시도" — 직전 질문 재전송 */
   onRetry?: () => void;
 }
@@ -72,7 +74,7 @@ function TypingIndicator() {
   );
 }
 
-export function ChatWindow({ messages, streaming, summarizing, onConfirmPreview, onConfirmBankDeposits, onCancelPreview, onRetry }: Props) {
+export function ChatWindow({ messages, streaming, summarizing, onConfirmPreview, onConfirmBankDeposits, onUndoImport, onCancelPreview, onRetry }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
 
@@ -115,6 +117,7 @@ export function ChatWindow({ messages, streaming, summarizing, onConfirmPreview,
             message={m}
             onConfirmPreview={onConfirmPreview}
             onConfirmBankDeposits={onConfirmBankDeposits}
+            onUndoImport={onUndoImport}
             onCancelPreview={onCancelPreview}
             onRetry={i === messages.length - 1 ? onRetry : undefined}
           />

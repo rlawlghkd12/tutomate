@@ -35,6 +35,7 @@ export default function AiChatPage() {
   const retry = useAiChatStore((s) => s.retry);
   const confirmPreview = useAiChatStore((s) => s.confirmPreview);
   const confirmBankDeposits = useAiChatStore((s) => s.confirmBankDeposits);
+  const undoImport = useAiChatStore((s) => s.undoImport);
   const cancelPreview = useAiChatStore((s) => s.cancelPreview);
   const cancelStreaming = useAiChatStore((s) => s.cancelStreaming);
   const reset = useAiChatStore((s) => s.reset);
@@ -195,6 +196,7 @@ export default function AiChatPage() {
         summarizing={summarizing}
         onConfirmPreview={(card, selections) => confirmPreview(card, ctx, selections)}
         onConfirmBankDeposits={(card, selections) => confirmBankDeposits(card, selections, ctx)}
+        onUndoImport={(items) => undoImport(items, ctx)}
         onCancelPreview={cancelPreview}
         onRetry={() => retry(ctx)}
       />

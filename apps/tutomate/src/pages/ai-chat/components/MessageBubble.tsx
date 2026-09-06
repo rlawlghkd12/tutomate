@@ -1,4 +1,4 @@
-import type { ChatMessage, SmartCard, DepositSelection } from '@tutomate/core';
+import type { ChatMessage, SmartCard, DepositSelection, SavedItem } from '@tutomate/core';
 import { useEffect, useState } from 'react';
 import { Check, Loader2, Paperclip, RotateCcw, AlertCircle } from 'lucide-react';
 import { MappingErrorCard } from './SmartCard/MappingErrorCard';
@@ -7,6 +7,7 @@ import { ImportResultCard } from './SmartCard/ImportResultCard';
 import { SourceLinkCard } from './SmartCard/SourceLinkCard';
 import { BankDepositPreviewCard } from './SmartCard/BankDepositPreviewCard';
 import { BankDepositResultCard } from './SmartCard/BankDepositResultCard';
+import { ImportUndoResultCard } from './SmartCard/ImportUndoResultCard';
 import { Markdown } from './Markdown';
 
 export type ToolActivity = { name: string; status: 'running' | 'done' };
@@ -64,6 +65,7 @@ interface Props {
     card: Extract<SmartCard, { type: 'bankDepositPreview' }>,
     selections: DepositSelection[],
   ) => void;
+  onUndoImport: (items: SavedItem[]) => void;
   onCancelPreview: () => void;
   /** 오류 메시지의 "다시 시도" — 직전 질문 재전송 */
   onRetry?: () => void;
@@ -73,6 +75,7 @@ function renderCard(
   c: SmartCard,
   onConfirm: Props['onConfirmPreview'],
   onConfirmBank: Props['onConfirmBankDeposits'],
+  onUndo: Props['onUndoImport'],
   onCancel: Props['onCancelPreview'],
 ) {
   switch (c.type) {
@@ -87,7 +90,7 @@ function renderCard(
         />
       );
     case 'importResult':
-      return <ImportResultCard {...c} />;
+      return <ImportResultCard {...c} onUndo={onUndo} />;
     case 'bankDepositPreview':
       return (
         <BankDepositPreviewCard
@@ -97,7 +100,9 @@ function renderCard(
         />
       );
     case 'bankDepositResult':
-      return <BankDepositResultCard {...c} />;
+      return <BankDepositResultCard {...c} onUndo={onUndo} />;
+    case 'importUndoResult':
+      return <ImportUndoResultCard {...c} />;
     case 'sourceLink':
       return <SourceLinkCard {...c} />;
   }
@@ -107,6 +112,7 @@ export function MessageBubble({
   message,
   onConfirmPreview,
   onConfirmBankDeposits,
+  onUndoImport,
   onCancelPreview,
   onRetry,
 }: Props) {
@@ -178,7 +184,7 @@ export function MessageBubble({
       ))}
       {message.cards?.map((c, i) => (
         <div key={i} className="mt-2">
-          {renderCard(c, onConfirmPreview, onConfirmBankDeposits, onCancelPreview)}
+          {renderCard(c, onConfirmPreview, onConfirmBankDeposits, onUndoImport, onCancelPreview)}
         </div>
       ))}
     </div>

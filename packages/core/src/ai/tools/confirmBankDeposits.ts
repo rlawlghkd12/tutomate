@@ -406,6 +406,6 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
       ...(savedItems.length > 0 ? { savedItems } : {}),
     };
     ctx.emit?.(card);
-    return { saved, skipped, failed, enrolled, refunded };
+    return { saved, skipped, failed, enrolled, refunded, savedItems };
   },
 };

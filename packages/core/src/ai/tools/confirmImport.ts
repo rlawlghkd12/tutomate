@@ -27,7 +27,7 @@ type PaymentSelection = {
 async function confirmPaymentSelections(
   selections: PaymentSelection[],
   ctx: ToolContext,
-): Promise<{ status: 'done'; added: number; duplicated: number; errors: number; unmatched: number }> {
+): Promise<{ status: 'done'; added: number; duplicated: number; errors: number; unmatched: number; savedItems: SavedItem[] }> {
   if (!supabase) throw new Error('Supabase 미설정');
   const db = supabase;
   const enrollmentIds = Array.from(new Set(selections.map((s) => s.enrollmentId)));
@@ -129,7 +129,7 @@ async function confirmPaymentSelections(
     ...(savedItems.length > 0 ? { savedItems } : {}),
   };
   ctx.emit?.(card);
-  return { status: 'done', added, duplicated, errors: 0, unmatched: rejected };
+  return { status: 'done', added, duplicated, errors: 0, unmatched: rejected, savedItems };
 }
 
 const schema = z.object({
@@ -331,6 +331,6 @@ export const confirmImport: ToolHandler<typeof schema> = {
       ...(savedItems.length > 0 ? { savedItems } : {}),
     };
     ctx.emit?.(card);
-    return { status: 'done', added, duplicated, errors, unmatched };
+    return { status: 'done', added, duplicated, errors, unmatched, savedItems };
   },
 };
