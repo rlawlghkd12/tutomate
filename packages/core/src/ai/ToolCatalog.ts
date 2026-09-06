@@ -23,8 +23,10 @@ import { previewImport } from './tools/previewImport';
 import { confirmImport } from './tools/confirmImport';
 import { analyzeBankDeposits } from './tools/analyzeBankDeposits';
 import { confirmBankDeposits } from './tools/confirmBankDeposits';
+import { undoImport } from './tools/undoImport';
 
-/** 챗봇이 호출 가능한 모든 도구 (조회 12 + 임포트 4 + 은행입금 2 = 18개). */
+/** 챗봇이 호출 가능한 모든 도구 (조회 12 + 임포트 4 + 은행입금 2 + 되돌리기 1 = 19개).
+ * undoImport는 LLM에 노출하지 않고 UI dispatch로만 호출된다(aiHandler에서 QUERY_TOOLS 제외). */
 export const ALL_TOOLS: AnyTool[] = [
   searchStudent,
   countStudents,
@@ -45,6 +47,7 @@ export const ALL_TOOLS: AnyTool[] = [
   confirmImport,
   analyzeBankDeposits,
   confirmBankDeposits,
+  undoImport,
 ];
 
 /**

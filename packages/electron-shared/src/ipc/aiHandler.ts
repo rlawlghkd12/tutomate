@@ -134,6 +134,8 @@ const IMPORT_TOOL_NAMES = new Set([
   'confirmImport',
   'analyzeBankDeposits',
   'confirmBankDeposits',
+  // undoImport는 LLM에 절대 노출 안 함 — UI 되돌리기 버튼에서 ai:dispatch로만 호출
+  'undoImport',
 ]);
 const QUERY_TOOLS = ALL_TOOLS.filter((t) => !IMPORT_TOOL_NAMES.has(t.name));
 const QUERY_TOOL_DEFS = toToolDefinitions(QUERY_TOOLS);
@@ -444,7 +446,7 @@ export function registerAiHandlers(ipcMain: IpcMain) {
    * write 도구 직접 호출 — LLM 우회. UI 버튼([확정])이 호출.
    * 화이트리스트만 허용 — 임의 도구 실행 차단.
    */
-  const DIRECT_DISPATCH_ALLOWLIST = new Set(['confirmImport', 'confirmBankDeposits']);
+  const DIRECT_DISPATCH_ALLOWLIST = new Set(['confirmImport', 'confirmBankDeposits', 'undoImport']);
   ipcMain.handle(
     'ai:dispatch',
     async (

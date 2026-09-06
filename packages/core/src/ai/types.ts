@@ -97,6 +97,17 @@ export type SmartCard =
       /** 되돌리기에 필요한 id 포함 저장 내역 (개별/전체 되돌리기용) */
       savedItems?: SavedItem[];
     }
+  | {
+      type: 'importUndoResult';
+      /** 되돌린(삭제된) 건 수 */
+      undone: number;
+      /** 이미 취소돼 건너뛴 건 수 */
+      skipped: number;
+      /** 정합성상 되돌릴 수 없어 막힌 건 수(환불 걸림 등) */
+      blocked: number;
+      /** 삭제 실패 건 수 */
+      failed: number;
+    }
   | { type: 'sourceLink'; kind: string; id: string; label: string };
 
 // ─── chat 스트림 이벤트 ──────────────────────────────────────
