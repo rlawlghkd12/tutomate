@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>은행 양식 인식 — 경우의 수별 UI</title>
+<style>
+  :root{
+    --background:#ffffff; --foreground:#09090b; --primary:#18181b; --primary-foreground:#fafafa;
+    --secondary:#f4f4f5; --secondary-foreground:#18181b; --muted:#f4f4f5; --muted-foreground:#71717a;
+    --accent:#f4f4f5; --destructive:#ef4444; --border:#e4e4e7;
+    --emerald-bg:rgba(16,185,129,.15); --emerald-fg:#047857;
+    --amber-bg:rgba(245,158,11,.15); --amber-fg:#b45309;
+    --sky-bg:rgba(14,165,233,.1); --sky-fg:#0369a1;
+    --dest-bg:rgba(239,68,68,.15); --dest-fg:#dc2626;
+    --violet-bg:rgba(139,92,246,.14); --violet-fg:#6d28d9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#eef2f7;color:var(--foreground);
+       font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;padding:28px 16px}
+  .wrap{max-width:720px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{font-size:13px;color:var(--muted-foreground);margin:0 0 18px;line-height:1.6}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+  .tab{font-size:13px;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:#fff;cursor:pointer}
+  .tab.active{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary)}
+  .case{display:none}
+  .case.on{display:block}
+  /* 채팅 컨텍스트 */
+  .who{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .ava{width:26px;height:26px;border-radius:9999px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+  .who .nm{font-size:13px;color:var(--muted-foreground)}
+  .bubble{background:var(--secondary);border-radius:16px;padding:12px 18px;font-size:14px;line-height:1.55;width:fit-content;max-width:100%;margin-bottom:8px}
+  /* 카드 */
+  .card{border:2px solid rgba(24,24,27,.4);background:rgba(24,24,27,.05);border-radius:16px;padding:16px;font-size:14px}
+  .card.ok{border-color:rgba(16,185,129,.5);background:rgba(16,185,129,.06)}
+  .card.warn{border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.07)}
+  .card.err{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.05)}
+  .ctitle{font-weight:700;font-size:17px;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+  .cnote{font-size:13px;color:var(--muted-foreground);margin:0 0 12px;line-height:1.55}
+  .srcbadge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+  .src-dict{background:var(--emerald-bg);color:var(--emerald-fg)}
+  .src-ai{background:var(--violet-bg);color:var(--violet-fg)}
+  .src-manual{background:var(--sky-bg);color:var(--sky-fg)}
+  .headchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+  .hchip{font-size:12px;padding:3px 8px;border-radius:6px;background:#fff;border:1px solid var(--border);color:var(--foreground)}
+  /* 매핑 테이블 */
+  .map{display:grid;grid-template-columns:120px 1fr;gap:8px 12px;align-items:center;margin-bottom:14px}
+  .role{font-size:13px;font-weight:600}
+  .role .req{color:var(--destructive);margin-left:2px}
+  .role .opt{font-size:11px;color:var(--muted-foreground);font-weight:400;margin-left:4px}
+  select{font-size:13px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;background:#fff;width:100%}
+  select.aifill{border-color:var(--violet-fg);background:rgba(139,92,246,.05)}
+  select.empty{border-color:var(--amber-fg);background:rgba(245,158,11,.06)}
+  /* 미니 미리보기 표 */
+  .prev{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;background:#fff}
+  .prev .ph{display:grid;grid-template-columns:repeat(4,1fr);background:var(--secondary);font-size:11px;font-weight:700;color:var(--muted-foreground)}
+  .prev .pr{display:grid;grid-template-columns:repeat(4,1fr);font-size:12px;border-top:1px solid var(--border)}
+  .prev span{padding:6px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .privacy{font-size:12px;color:var(--muted-foreground);background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.25);border-radius:8px;padding:8px 10px;margin-bottom:12px;line-height:1.5}
+  .actions{display:flex;gap:10px}
+  .btn-primary{background:var(--primary);color:#fff;border:0;padding:11px 20px;border-radius:12px;font-size:15px;cursor:pointer}
+  .btn-primary:disabled{opacity:.45;cursor:not-allowed}
+  .btn-secondary{background:var(--secondary);border:1px solid var(--border);padding:11px 20px;border-radius:12px;font-size:15px;cursor:pointer}
+  .hint{font-size:12px;color:var(--muted-foreground);margin-top:8px}
+  .deposit-badge{font-size:12px;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--emerald-bg);color:var(--emerald-fg)}
+  ul.flow{font-size:13px;color:var(--muted-foreground);line-height:1.7;margin:6px 0 0;padding-left:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>은행 엑셀 — 어느 칸이 무엇인지 알아보기</h1>
+  <p class="sub">엑셀을 올렸을 때 “이 칸이 날짜, 이 칸이 입금액…”을 어떻게 알아보는지 4가지 경우의 화면입니다. 공통 안전 규칙: <b>확실할 때만 자동, 애매하면 확인, 저장(돈)은 항상 규칙+사용자 확인.</b></p>
+
+  <div class="tabs">
+    <button class="tab active" data-c="1">① 바로 알아봄</button>
+    <button class="tab" data-c="2">② AI가 맞춰줌</button>
+    <button class="tab" data-c="3">③ 일부만 애매</button>
+    <button class="tab" data-c="4">④ 못 알아봄</button>
+  </div>
+
+  <!-- ① 사전으로 바로 인식 -->
+  <div class="case on" id="case1">
+    <div class="who"><div class="ava">AI</div><span class="nm">튜토메이트</span></div>
+    <div class="bubble">국민은행 거래내역으로 보이네요. 어느 칸이 무엇인지 바로 알아봤어요 👍</div>
+    <div class="card ok">
+      <div class="ctitle">✅ 은행 양식 바로 알아봄 <span class="srcbadge src-dict">아는 양식</span></div>
+      <div class="cnote">자주 쓰는 은행 양식이라 <b>추가 확인 없이</b> 바로 입금 미리보기로 넘어갑니다. (공짜·즉시·인터넷 없이)</div>
+      <div class="prev">
+        <div class="ph"><span>거래일자</span><span>보낸분</span><span>맡기신금액</span><span>적요</span></div>
+        <div class="pr"><span>2026-05-20</span><span>오한기 시니어</span><span>90,000</span><span>인터넷</span></div>
+        <div class="pr"><span>2026-05-21</span><span>김나래</span><span>60,000</span><span>창구</span></div>
+      </div>
+      <div class="actions"><button class="btn-primary">입금 미리보기 열기 →</button></div>
+      <div class="hint">→ 다음 화면은 지난번 보신 “결제 미리보기(태그·후보 선택)” 카드입니다.</div>
+    </div>
+  </div>
+
+  <!-- ② 사전 실패 → AI가 헤더 매핑 추천 -->
+  <div class="case" id="case2">
+    <div class="who"><div class="ava">AI</div><span class="nm">튜토메이트</span></div>
+    <div class="bubble">처음 보는 은행 양식이에요. 어느 칸이 무엇인지 이렇게 봤는데, 맞는지 한 번만 확인해 주세요.</div>
+    <div class="card">
+      <div class="ctitle">🧩 어느 칸이 무엇인지 확인해 주세요 <span class="srcbadge src-ai">AI가 맞춰봄</span></div>
+      <div class="cnote">처음 보는 양식이라 AI가 <b>칸 제목 글자만</b>(“날짜/보낸이”…) 보고 어느 칸이 무엇인지 맞춰봤어요. 아래에서 확인하거나 바꿔 주세요.</div>
+      <div class="headchips">
+        <span class="hchip">날짜</span><span class="hchip">보낸이</span><span class="hchip">받은금액</span>
+        <span class="hchip">보낸금액</span><span class="hchip">내역</span>
+      </div>
+      <div class="map" id="map2"></div>
+      <div class="prev" id="prev2"></div>
+      <div class="privacy">🔒 AI에는 <b>칸 제목 글자만</b> 보냈어요 (“날짜/보낸이/받은금액”…). 학생 이름·금액 같은 개인정보는 보내지 않았습니다.</div>
+      <div class="actions">
+        <button class="btn-primary" id="ok2">이대로 계속 →</button>
+        <button class="btn-secondary">직접 고칠게요</button>
+      </div>
+      <div class="hint" id="hint2">꼭 필요한 칸(날짜·입금자·입금액)이 채워지면 진행할 수 있어요.</div>
+    </div>
+  </div>
+
+  <!-- ③ AI 일부만/저신뢰 -->
+  <div class="case" id="case3">
+    <div class="who"><div class="ava">AI</div><span class="nm">튜토메이트</span></div>
+    <div class="bubble">몇 개는 알겠는데 <b>입금액 칸</b>이 확실하지 않아요. 노란 칸만 골라 주세요.</div>
+    <div class="card warn">
+      <div class="ctitle">⚠️ 일부 칸만 확인해 주세요 <span class="srcbadge src-ai">AI가 일부만 맞춤</span></div>
+      <div class="cnote">노란 칸은 AI가 <b>확신하지 못한 부분</b>이에요. 어느 칸인지 직접 골라 주세요.</div>
+      <div class="headchips">
+        <span class="hchip">일자</span><span class="hchip">성명</span><span class="hchip">금액①</span>
+        <span class="hchip">금액②</span><span class="hchip">구분</span>
+      </div>
+      <div class="map" id="map3"></div>
+      <div class="privacy">🔒 칸 제목 글자만 AI에 전달. 개인정보(이름·금액)는 안 보냄.</div>
+      <div class="actions">
+        <button class="btn-primary" id="ok3">이대로 계속 →</button>
+        <button class="btn-secondary">취소</button>
+      </div>
+      <div class="hint" id="hint3">노란 칸(꼭 필요한 칸)을 채우면 진행할 수 있어요.</div>
+    </div>
+  </div>
+
+  <!-- ④ 완전 실패 -->
+  <div class="case" id="case4">
+    <div class="who"><div class="ava">AI</div><span class="nm">튜토메이트</span></div>
+    <div class="bubble">이 파일은 은행 거래내역이 맞는지 확신이 안 서요. 잘못 저장하면 안 되니 직접 확인이 필요해요.</div>
+    <div class="card err">
+      <div class="ctitle">🚫 못 알아봤어요 — 안전하게 멈췄어요 <span class="srcbadge src-manual">직접 고르기</span></div>
+      <div class="cnote">확실하지 않은데 <b>잘못된 칸을 저장하면 안 되니까</b> 멈췄습니다. 아래에서 어느 칸이 무엇인지 직접 골라 주세요.</div>
+      <div class="headchips">
+        <span class="hchip">A열</span><span class="hchip">B열</span><span class="hchip">C열</span><span class="hchip">D열</span>
+      </div>
+      <div class="map" id="map4"></div>
+      <div class="actions">
+        <button class="btn-primary" id="ok4">직접 골라서 계속 →</button>
+        <button class="btn-secondary">다른 파일 올리기</button>
+      </div>
+      <div class="hint">※ 은행 거래내역이 아니라 학생 명부 같은 파일이면, 일반 등록으로 안내합니다.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 공통: 역할 정의
+const ROLES = [
+  { key:'date', label:'날짜', req:true },
+  { key:'name', label:'입금자', req:true },
+  { key:'in',   label:'입금액', req:true },
+  { key:'out',  label:'출금액', req:false },
+  { key:'etc',  label:'경로/비고', req:false },
+];
+
+// ── 탭 전환 ──
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.case').forEach(x=>x.classList.remove('on'));
+  t.classList.add('active');
+  document.getElementById('case'+t.dataset.c).classList.add('on');
+});
+
+// 매핑 UI 빌더: headers(칸 이름 목록), prefill(role→header), emptyRoles(비워둘 필수), onchange
+function buildMap(containerId, headers, prefill, opts){
+  const c = document.getElementById(containerId);
+  c.innerHTML = ROLES.map(r=>{
+    const val = prefill[r.key] ?? '';
+    const cls = opts.emptyRoles && opts.emptyRoles.includes(r.key) ? 'empty'
+              : (opts.aiFilled && val ? 'aifill' : '');
+    const opturl = ['<option value="">(없음)</option>']
+      .concat(headers.map(h=>`<option ${h===val?'selected':''}>${h}</option>`)).join('');
+    return `<div class="role">${r.label}${r.req?'<span class="req">*</span>':'<span class="opt">선택</span>'}</div>
+            <select class="${cls}" data-role="${r.key}">${opturl}</select>`;
+  }).join('');
+  c.querySelectorAll('select').forEach(s=>s.onchange=()=>{ s.className=''; opts.onchange && opts.onchange(); });
+}
+function getMap(containerId){
+  const m={}; document.querySelectorAll('#'+containerId+' select').forEach(s=>{ if(s.value) m[s.dataset.role]=s.value; });
+  return m;
+}
+function reqOk(m){ return m.date && m.name && m.in; }
+
+// ── ② AI 추천 (전부 채워짐) ──
+const H2=['날짜','보낸이','받은금액','보낸금액','내역'];
+const ROWS2=[['2026-05-20','오한기 시니어','90,000','','인터넷'],['2026-05-21','김나래','60,000','','창구']];
+function prev2(){
+  const m=getMap('map2'); const idx=h=>H2.indexOf(h);
+  const cell=(row,role)=> m[role]!==undefined&&idx(m[role])>=0 ? (row[idx(m[role])]||'—') : '—';
+  const p=document.getElementById('prev2');
+  p.innerHTML=`<div class="ph"><span>날짜</span><span>입금자</span><span>입금액</span><span>경로/비고</span></div>`+
+    ROWS2.map(r=>`<div class="pr"><span>${cell(r,'date')}</span><span>${cell(r,'name')}</span><span>${cell(r,'in')}</span><span>${cell(r,'etc')}</span></div>`).join('');
+  const ok=reqOk(getMap('map2'));
+  document.getElementById('ok2').disabled=!ok;
+  document.getElementById('hint2').textContent = ok?'✓ 확인되면 입금 미리보기로 넘어갑니다.':'필수 항목(날짜·입금자·입금액)이 채워지면 진행할 수 있어요.';
+}
+buildMap('map2', H2, {date:'날짜',name:'보낸이',in:'받은금액',out:'보낸금액',etc:'내역'}, {aiFilled:true,onchange:prev2});
+prev2();
+document.getElementById('ok2').onclick=()=>alert('이렇게 칸을 맞춰 읽고 → 입금 미리보기(태그·후보 선택)로 이동:\n'+JSON.stringify(getMap('map2'),null,2));
+
+// ── ③ AI 일부 (입금액 비어있음) ──
+const H3=['일자','성명','금액①','금액②','구분'];
+function upd3(){ const ok=reqOk(getMap('map3'));
+  document.getElementById('ok3').disabled=!ok;
+  document.getElementById('hint3').textContent= ok?'✓ 채워졌어요. 계속 진행할 수 있어요.':'빈(노란) 필수 칸을 채우면 진행할 수 있어요.'; }
+buildMap('map3', H3, {date:'일자',name:'성명',out:'금액②',etc:'구분'}, {emptyRoles:['in'],onchange:upd3});
+upd3();
+document.getElementById('ok3').onclick=()=>alert('직접 채운 칸 맞춤으로 진행:\n'+JSON.stringify(getMap('map3'),null,2));
+
+// ── ④ 완전 수동 (전부 비어있음) ──
+const H4=['A열','B열','C열','D열'];
+function upd4(){ document.getElementById('ok4').disabled=!reqOk(getMap('map4')); }
+buildMap('map4', H4, {}, {emptyRoles:['date','name','in'],onchange:upd4});
+upd4();
+document.getElementById('ok4').onclick=()=>alert('직접 고른 칸으로 진행:\n'+JSON.stringify(getMap('map4'),null,2));
+</script>
+</body>
+</html>

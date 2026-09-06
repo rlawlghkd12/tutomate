@@ -1,12 +1,12 @@
 // ai-proxy 순수 결정 로직 — Deno/네트워크 의존 없음.
 // index.ts(Deno 런타임)와 vitest(node) 양쪽에서 임포트해 단위 테스트 가능하게 분리.
 
-// 기획서 §5 확정 A/B 후보. 이 목록 밖의 모델은 거부.
+// A/B 후보 (2026-09-02 실측 검증 슬러그). 이 목록 밖의 모델은 거부.
+// 임포트 LLM은 DeepSeek 단일(저신뢰 폴백 gemini-3.5-flash-lite). openRouterConfig.ts와 동기화.
 export const ALLOWED_MODELS = [
   'qwen/qwen3-30b-a3b',
-  'deepseek/deepseek-v4-flash',
-  'google/gemini-2.5-flash-lite',
-  'google/gemini-3.1-flash-lite',
+  'deepseek/deepseek-v4-flash-0731',
+  'google/gemini-3.5-flash-lite',
 ] as const;
 
 /** 요청 모델이 allowlist에 있으면 그대로, 아니면 기본 모델로 강제. */
@@ -59,6 +59,16 @@ export function usageFromDataLine(line: string): UsageTokens | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * 비스트리밍(chat/completions, stream:false) 응답 JSON에서 usage를 추출.
+ * 구조화 출력(response_format) 임포트 호출용. usage 없으면 null.
+ */
+export function usageFromJson(obj: unknown): UsageTokens | null {
+  if (!obj || typeof obj !== 'object') return null;
+  const usage = (obj as { usage?: unknown }).usage;
+  return usage && typeof usage === 'object' ? (usage as UsageTokens) : null;
 }
 
 export interface UsageSummary {

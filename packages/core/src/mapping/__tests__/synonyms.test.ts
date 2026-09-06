@@ -26,6 +26,14 @@ describe('synonyms', () => {
     expect(findField(normalizeHeader('강습료'))).toBe('amount');
   });
 
+  it('실무 변형 (성함/입금액/받은날/지불방법)', () => {
+    expect(findField(normalizeHeader('성함'))).toBe('name');
+    expect(findField(normalizeHeader('입금액'))).toBe('amount');
+    expect(findField(normalizeHeader('받은날'))).toBe('paymentDate');
+    expect(findField(normalizeHeader('입금일자'))).toBe('paymentDate');
+    expect(findField(normalizeHeader('지불방법'))).toBe('paymentMethod');
+  });
+
   it('없는 헤더 → null', () => {
     expect(findField(normalizeHeader('도시락여부'))).toBeNull();
     expect(findField(normalizeHeader('알레르기'))).toBeNull();

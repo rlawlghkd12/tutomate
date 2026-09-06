@@ -6,12 +6,15 @@
  * 모델 교체는 프록시 env(OPENROUTER_MODEL) 또는 A/B override로 이뤄지며 앱 재배포 불필요.
  */
 
-/** Phase 0 A/B 후보 (기획서 §5 확정). id는 OpenRouter 모델 slug. */
+/**
+ * A/B 후보 (id는 OpenRouter 모델 slug). 2026-09-02 실측으로 존재·가격 검증된 슬러그.
+ * 이전 미검증 슬러그(deepseek-v4-flash 무버전, gemini-2.5/3.1-flash-lite)는 제거.
+ * 임포트 LLM은 DeepSeek 단일(저신뢰 폴백 gemini-3.5-flash-lite). 참고: docs/MODELS-ai-payment-import.md.
+ */
 export const OPENROUTER_CANDIDATES = [
   'qwen/qwen3-30b-a3b',
-  'deepseek/deepseek-v4-flash',
-  'google/gemini-2.5-flash-lite',
-  'google/gemini-3.1-flash-lite',
+  'deepseek/deepseek-v4-flash-0731',
+  'google/gemini-3.5-flash-lite',
 ] as const;
 
 export type OpenRouterCandidate = (typeof OPENROUTER_CANDIDATES)[number];

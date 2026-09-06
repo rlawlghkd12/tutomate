@@ -2,7 +2,7 @@ import type { ChatMessage, SmartCard, DepositSelection } from '@tutomate/core';
 import { useEffect, useState } from 'react';
 import { Check, Loader2, Paperclip, RotateCcw, AlertCircle } from 'lucide-react';
 import { MappingErrorCard } from './SmartCard/MappingErrorCard';
-import { ImportPreviewCard } from './SmartCard/ImportPreviewCard';
+import { ImportPreviewCard, type PaymentSelection } from './SmartCard/ImportPreviewCard';
 import { ImportResultCard } from './SmartCard/ImportResultCard';
 import { SourceLinkCard } from './SmartCard/SourceLinkCard';
 import { BankDepositPreviewCard } from './SmartCard/BankDepositPreviewCard';
@@ -56,7 +56,10 @@ function LoadingDots() {
 
 interface Props {
   message: DisplayMessage;
-  onConfirmPreview: (card: Extract<SmartCard, { type: 'importPreview' }>) => void;
+  onConfirmPreview: (
+    card: Extract<SmartCard, { type: 'importPreview' }>,
+    selections?: PaymentSelection[],
+  ) => void;
   onConfirmBankDeposits: (
     card: Extract<SmartCard, { type: 'bankDepositPreview' }>,
     selections: DepositSelection[],
@@ -79,7 +82,7 @@ function renderCard(
       return (
         <ImportPreviewCard
           {...c}
-          onConfirm={() => onConfirm(c)}
+          onConfirm={(selections) => onConfirm(c, selections)}
           onCancel={onCancel}
         />
       );

@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type { BankDepositPreviewItem } from './bank/depositMatcher';
+import type { ImportPreviewRow } from './import/ImportPreviewModel';
 
 // ─── 챗 메시지 / 도구 정의 ─────────────────────────────────────
 
@@ -34,8 +35,22 @@ export type SmartCard =
       total: number;
       errorRows: number;
       kind: 'students' | 'payments';
+      /**
+       * 결제 임포트 강화 미리보기 — 매칭·중복 판정까지 반영한 행별 모델(선택).
+       * 있으면 UI가 행별 체크박스·중복/완납 배지·AI 사유를 보여줄 수 있다(Phase 3).
+       * 없으면(학생 임포트·조회 실패) 기존 rows만 표시. 참고: docs/DEV-ai-payment-import.md §6.
+       */
+      previewRows?: ImportPreviewRow[];
     }
-  | { type: 'importResult'; added: number; duplicated: number; errors: number }
+  | {
+      type: 'importResult';
+      added: number;
+      /** 중복(정확·완납·초과)으로 저장에서 제외된 건 */
+      duplicated: number;
+      errors: number;
+      /** 학생·등록 매칭 실패로 저장 못 한 건 (있을 때만; 없으면 duplicated에 미포함) */
+      unmatched?: number;
+    }
   | {
       type: 'bankDepositPreview';
       fileId: string;

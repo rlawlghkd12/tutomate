@@ -11,10 +11,26 @@ describe('normalizeRow', () => {
     }
   });
 
-  it('비표준 전화번호 → 에러', () => {
-    const r = normalizeRow({ phone: '02-1234' }, { phone: 'phone' });
+  it('legacy·유선 전화번호는 숫자 그대로 보존(행 무효화 안 함)', () => {
+    // 011/016 등 구 이동전화, 02 유선 → 매칭 키로 숫자만 남기고 에러는 만들지 않는다.
+    const r1 = normalizeRow({ phone: '016-123-4567' }, { phone: 'phone' });
+    expect(r1.data.phone).toBe('0161234567');
+    expect(r1.errors).toHaveLength(0);
+    const r2 = normalizeRow({ phone: '02-1234-5678' }, { phone: 'phone' });
+    expect(r2.data.phone).toBe('0212345678');
+    expect(r2.errors).toHaveLength(0);
+  });
+
+  it('전화 파싱 실패해도 다른 필드는 살아남는다(행 전체 유효)', () => {
+    // 전화 칸에 "미납" 같은 비-숫자 → 전화만 생략, 이름/금액은 정상 → 오류 0.
+    const r = normalizeRow(
+      { name: '김말순', phone: '미납', amount: '150,000' },
+      { name: 'name', phone: 'phone', amount: 'amount' },
+    );
+    expect(r.errors).toHaveLength(0);
+    expect(r.data.name).toBe('김말순');
+    expect(r.data.amount).toBe(150000);
     expect(r.data.phone).toBeUndefined();
-    expect(r.errors[0]).toMatchObject({ field: 'phone' });
   });
 
   it('날짜 다양한 포맷 → ISO', () => {

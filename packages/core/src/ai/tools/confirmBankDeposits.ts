@@ -3,6 +3,8 @@ import { supabase } from '../../config/supabase';
 import { getCurrentQuarter } from '../../utils/quarterUtils';
 import { parseBankExcel } from '../bank/parseBankExcel';
 import { matchDeposits } from '../bank/depositMatcher';
+import { computeEnrollmentSync } from '../persist/enrollmentSync';
+import { filterBankDuplicates } from '../bank/bankDedup';
 import type { ToolHandler, SmartCard } from '../types';
 
 const schema = z.object({
@@ -261,29 +263,33 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
       return { saved: 0, skipped: 0, failed: enrollFailed, enrolled, refunded: 0, message: '저장할 입금 건이 없습니다.' };
     }
 
-    // 중복 방지 — 동일 (enrollment_id, paid_at, amount) 기존 레코드 제외
+    // 중복 방지 — 대상 enrollment의 기존 결제 이력을 모아 판정한다.
     const enrollmentIds = Array.from(new Set(candidates.map((c) => c.enrollment_id)));
     const { data: existing } = await supabase
       .from('payment_records')
       .select('enrollment_id, paid_at, amount')
       .in('enrollment_id', enrollmentIds);
-    const ym = (s: string) => String(s).slice(0, 7); // YYYY-MM
-    const existKey = new Set(
-      (existing ?? []).map((e: any) => `${e.enrollment_id}|${e.paid_at}|${e.amount}`),
-    );
-    const monthKey = new Set(
-      (existing ?? []).map((e: any) => `${e.enrollment_id}|${ym(e.paid_at)}|${e.amount}`),
-    );
 
-    // 사용자가 한 건씩 직접 확인한 건은 항상 저장(중복 경고를 보고 '그래도 저장'한 의식적 선택).
-    // 단, '전체 추천대로' 일괄 적용 건(viaRecommend)은 의식적 오버라이드가 아니므로 중복 검사를 적용한다.
-    // 자동매칭 건도 같은 날뿐 아니라 같은 달·같은 금액 기록이 있으면(수동입력 등) 자동 저장 제외.
-    const toInsert = candidates.filter((c) => {
-      if (c.userConfirmed && !c.viaRecommend) return true;
-      const exact = existKey.has(`${c.enrollment_id}|${c.paid_at}|${c.amount}`);
-      const month = monthKey.has(`${c.enrollment_id}|${ym(c.paid_at)}|${c.amount}`);
-      return !exact && !month;
-    });
+    // enrollment별 실효 수강료(할인 반영) — 완납/초과 판정 기준. 알 수 없으면(신규 등 0) 완납검사 생략.
+    const effectiveFeeById = new Map<string, number>();
+    for (const id of enrollmentIds) {
+      const meta = enrollMetaById.get(id);
+      if (!meta) continue;
+      const fee = Number(courseFee.get(meta.courseId) ?? 0);
+      if (fee > 0) effectiveFeeById.set(id, Math.max(0, fee - meta.discount));
+    }
+
+    // 사용자가 한 건씩 직접 확인한 건은 항상 저장, 자동/‘전체 추천대로’ 건만 중복·완납초과 검사.
+    // (재업로드·다른 달 중복 이체·같은 파일 내 중복 모두 순수 함수 filterBankDuplicates에서 처리)
+    const toInsert = filterBankDuplicates(
+      candidates,
+      (existing ?? []).map((e: any) => ({
+        enrollmentId: e.enrollment_id as string,
+        paidAt: e.paid_at as string,
+        amount: Number(e.amount),
+      })),
+      effectiveFeeById,
+    );
     const skipped = candidates.length - toInsert.length;
 
     // payment_records에 없는 내부 플래그(userConfirmed/isRefund/viaRecommend) 제거 후 insert.
@@ -364,27 +370,10 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
         affected.map((eid) => {
           const meta = enrollMetaById.get(eid)!;
           const recs = recsByEnroll.get(eid) ?? [];
-          const totalPaid = recs.reduce((a, r) => a + (Number(r.amount) || 0), 0);
-          const latestPaidAt = recs.reduce((m, r) => (r.paidAt && r.paidAt > m ? r.paidAt : m), '');
-          // withdrawn/exempt 상태는 유지하고 납부액·납부일만 반영
-          if (meta.status === 'withdrawn' || meta.status === 'exempt') {
-            return db
-              .from('enrollments')
-              .update({ paid_amount: totalPaid, remaining_amount: 0, paid_at: latestPaidAt || null })
-              .eq('id', eid);
-          }
           const netFee = Math.max(0, (courseFee.get(meta.courseId) ?? 0) - meta.discount);
-          const remaining = Math.max(0, netFee - totalPaid);
-          const status = totalPaid <= 0 ? 'pending' : totalPaid < netFee ? 'partial' : 'completed';
-          return db
-            .from('enrollments')
-            .update({
-              paid_amount: totalPaid,
-              remaining_amount: remaining,
-              payment_status: status,
-              paid_at: latestPaidAt || null,
-            })
-            .eq('id', eid);
+          // 일반 흐름과 동일한 순수 계산 공유 (withdrawn/exempt 상태 보존 포함)
+          const update = computeEnrollmentSync(recs, netFee, meta.status);
+          return db.from('enrollments').update(update).eq('id', eid);
         }),
       );
     }

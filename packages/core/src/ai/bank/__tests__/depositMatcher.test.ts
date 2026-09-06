@@ -93,6 +93,29 @@ describe('matchDeposit', () => {
     expect(r.courseName).toBe('필라테스');
   });
 
+  it('짧은 이름이 더 긴 다른 이름의 일부로 박힌 입금은 auto 금지(김민 ⊂ 김민수) → needsConfirm', () => {
+    // 학생 '김민'이 태극권 수강. 다른 사람 '김민수'가 "김민수태극권"으로 60000 입금.
+    // '김민'이 '김민수'의 접두 substring이라 과거엔 김민에게 자동 귀속됐다(오귀속 버그).
+    const local: MatchInput = {
+      courses: [{ id: 'c_태극', name: '태극권', fee: 60000 }],
+      students: [{ id: 's_김민', name: '김민' }],
+      enrollments: [{ id: 'e_김민태극', studentId: 's_김민', courseId: 'c_태극' }],
+    };
+    const r = matchDeposit(tx('김민수태극권', 60000), local);
+    expect(r.status).toBe('needsConfirm');
+  });
+
+  it('정확한 이름 경계면 정상 auto(김민태극권 → 김민)', () => {
+    const local: MatchInput = {
+      courses: [{ id: 'c_태극', name: '태극권', fee: 60000 }],
+      students: [{ id: 's_김민', name: '김민' }],
+      enrollments: [{ id: 'e_김민태극', studentId: 's_김민', courseId: 'c_태극' }],
+    };
+    const r = matchDeposit(tx('김민태극권', 60000), local);
+    expect(r.status).toBe('auto');
+    expect(r.studentName).toBe('김민');
+  });
+
   it('강좌+이름 맞지만 금액 불일치 → needsConfirm', () => {
     const r = matchDeposit(tx('건강증진이아름', 20000), input);
     expect(r.status).toBe('needsConfirm');

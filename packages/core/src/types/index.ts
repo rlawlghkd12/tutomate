@@ -114,6 +114,20 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   transfer: '계좌이체',
 };
 
+/**
+ * 파일 셀의 결제수단 표기(한국어/영문)를 enum으로 정규화. 인식 실패 시 undefined.
+ * 예: "카드"/"신용카드"→card, "현금"→cash, "계좌이체"/"이체"/"무통장"→transfer.
+ */
+export function parsePaymentMethod(raw: unknown): PaymentMethod | undefined {
+  const s = String(raw ?? '').replace(/\s/g, '').toLowerCase();
+  if (!s) return undefined;
+  if (s === 'cash' || s.includes('현금')) return 'cash';
+  if (s === 'card' || s.includes('카드')) return 'card';
+  if (s === 'transfer' || s.includes('이체') || s.includes('계좌') || s.includes('무통장') || s.includes('입금'))
+    return 'transfer';
+  return undefined;
+}
+
 // 월별 납부 기록
 export interface MonthlyPayment {
   id: string;

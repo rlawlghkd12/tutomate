@@ -1,19 +1,35 @@
 import { describe, it, expect } from 'vitest';
-import { selectModel, pickActiveOrgId, usageFromDataLine, isRateLimited, summarizeUsage, ALLOWED_MODELS } from '../logic';
+import { selectModel, pickActiveOrgId, usageFromDataLine, usageFromJson, isRateLimited, summarizeUsage, ALLOWED_MODELS } from '../logic';
 
 describe('selectModel', () => {
   it('allowlist에 있는 요청 모델은 그대로 쓴다', () => {
-    expect(selectModel('deepseek/deepseek-v4-flash', 'qwen/qwen3-30b-a3b')).toBe('deepseek/deepseek-v4-flash');
+    expect(selectModel('deepseek/deepseek-v4-flash-0731', 'qwen/qwen3-30b-a3b')).toBe('deepseek/deepseek-v4-flash-0731');
   });
   it('allowlist 밖·비문자열·미지정은 기본 모델로 강제', () => {
     expect(selectModel('gpt-4o', 'qwen/qwen3-30b-a3b')).toBe('qwen/qwen3-30b-a3b');
     expect(selectModel(undefined, 'qwen/qwen3-30b-a3b')).toBe('qwen/qwen3-30b-a3b');
     expect(selectModel(123, 'qwen/qwen3-30b-a3b')).toBe('qwen/qwen3-30b-a3b');
   });
-  it('후보 모델을 노출한다', () => {
-    expect(ALLOWED_MODELS).toContain('google/gemini-2.5-flash-lite');
-    expect(ALLOWED_MODELS).toContain('google/gemini-3.1-flash-lite');
-    expect(ALLOWED_MODELS.length).toBe(4);
+  it('검증된 후보 모델을 노출한다', () => {
+    expect(ALLOWED_MODELS).toContain('deepseek/deepseek-v4-flash-0731');
+    expect(ALLOWED_MODELS).toContain('google/gemini-3.5-flash-lite');
+    expect(ALLOWED_MODELS.length).toBe(3);
+  });
+});
+
+describe('usageFromJson (비스트리밍 구조화 출력)', () => {
+  it('completion JSON의 usage를 추출', () => {
+    const u = usageFromJson({
+      choices: [{ message: { content: '{}' } }],
+      usage: { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14 },
+    });
+    expect(u?.prompt_tokens).toBe(10);
+    expect(u?.completion_tokens).toBe(4);
+  });
+  it('usage 없거나 비객체면 null', () => {
+    expect(usageFromJson({ choices: [] })).toBeNull();
+    expect(usageFromJson(null)).toBeNull();
+    expect(usageFromJson('x')).toBeNull();
   });
 });
 

@@ -1,4 +1,13 @@
 import type { BankTransaction } from './parseBankExcel';
+import {
+  norm,
+  findCourseInName,
+  amountNoteOf,
+  type AmountNote,
+} from '../matching/normalize';
+
+// 하위 호환: 기존에 depositMatcher에서 노출하던 순수 유틸을 재-export (matching/normalize로 이관됨)
+export { norm, amountNoteOf, type AmountNote };
 
 /**
  * 은행 입금 거래 ↔ 수강생/강좌 매칭 엔진 (순수 함수, 테스트 가능).
@@ -53,24 +62,6 @@ export type MatchStatus =
   | 'needsEnrollment'
   | 'needsSplit'
   | 'needsRefund';
-
-/**
- * 입금액과 수강료의 관계 라벨.
- * - exact: 정확히 일치 (auto 대상)
- * - feeDeducted: 이체 수수료 등으로 소액(≤FEE_TOLERANCE) 부족 — "수수료 빼고 딱 맞음"
- * - partial: 부분 납부 (수강료보다 많이 부족)
- * - over: 초과 입금 (합산 분할 가능성)
- */
-export type AmountNote = 'exact' | 'feeDeducted' | 'partial' | 'over';
-
-/** 수수료 차감으로 볼 수 있는 최대 부족액(원). 이보다 더 부족하면 부분 납부로 본다. */
-const FEE_TOLERANCE = 1000;
-
-export function amountNoteOf(fee: number, amount: number): AmountNote {
-  if (amount === fee) return 'exact';
-  if (amount < fee) return fee - amount <= FEE_TOLERANCE ? 'feeDeducted' : 'partial';
-  return 'over';
-}
 
 /** 후보 정렬 순위: 정확 > 수수료차감 > 초과 > 부분 (금액 신뢰도 순) */
 function amountRank(fee: number, amount: number): number {
@@ -147,65 +138,34 @@ export interface DepositMatch {
   reason: string;
 }
 
-/** 공백·구두점 제거. 한글은 그대로. 비교를 관대하게 하기 위한 정규화. */
-export function norm(s: string): string {
-  return String(s)
-    .replace(/[\s.,·()\[\]{}/\\|·.~!@#$%^&*\-_+=]/g, '')
-    .toLowerCase();
-}
-
-/** a, b의 글자 단위 Levenshtein 거리 (오타 1~2 보정용, 짧은 문자열만). */
-function editDistance(a: string, b: string): number {
-  const m = a.length;
-  const n = b.length;
-  if (Math.abs(m - n) > 2) return 99;
-  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
-    }
-  }
-  return dp[m][n];
-}
-
-/**
- * 입금자명 안에서 강좌가 매칭되면 그 부분을 제거한 "이름 후보"와 함께 반환.
- * - 강좌명 전체가 부분문자열로 포함 (강함)
- * - 강좌명 앞 2글자 이상이 포함 (별칭/약어: 필라테스→필라, 라인댄스→라인)
- * - 편집거리 1 이내 (오타: 태극권→태극퀀)
- */
-function findCourseInName(
-  payerNorm: string,
-  course: MatchCourse,
-): { matchedText: string } | null {
-  const cn = norm(course.name);
-  if (!cn) return null;
-
-  // 1) 전체 포함
-  if (payerNorm.includes(cn)) return { matchedText: cn };
-
-  // 2) 약어 — 강좌명 prefix(2~연속) 가 payer에 포함. 최소 2글자, 강좌명의 절반 이상.
-  const minLen = Math.max(2, Math.ceil(cn.length / 2));
-  for (let len = cn.length - 1; len >= minLen; len--) {
-    const prefix = cn.slice(0, len);
-    if (payerNorm.includes(prefix)) return { matchedText: prefix };
-  }
-
-  // 3) 오타 — payer의 동일 길이 윈도우 중 편집거리 1 이내
-  if (cn.length >= 3) {
-    for (let i = 0; i + cn.length <= payerNorm.length; i++) {
-      const window = payerNorm.slice(i, i + cn.length);
-      if (editDistance(window, cn) <= 1) return { matchedText: window };
-    }
-  }
-  return null;
-}
-
 const GROUP_RE = /\d+\s*명/; // "사군자9명", "윤사랑외4명"
 const CODE_RE = /^[0-9a-zA-Z\-_.]+$/; // "740704535B"
+
+const isHangul = (ch?: string): boolean => !!ch && /[가-힣]/.test(ch);
+
+/**
+ * auto 안전장치: 입금자명 안에서 학생 이름이 '온전한 경계'로 등장하는가?
+ * 이름의 앞/뒤 글자가 (문자열 끝 · 한글이 아닌 문자 · 매칭된 강좌 텍스트) 중 하나여야 한다.
+ * 그렇지 않고 이름이 다른 한글 음절에 붙어 있으면(예: 학생 '김민'이 입금자 '김민수'의 일부),
+ * 더 긴 다른 이름의 조각일 수 있어 엉뚱한 사람에게 자동 귀속될 위험 → auto 금지(needsConfirm).
+ */
+function payerResolvesToName(payerNorm: string, courseMatchedText: string, studentName: string): boolean {
+  const name = norm(studentName);
+  if (!name) return false;
+  const idx = payerNorm.indexOf(name);
+  if (idx < 0) return false;
+  const before = payerNorm.slice(0, idx);
+  const after = payerNorm.slice(idx + name.length);
+  const beforeOk =
+    before === '' ||
+    !isHangul(before[before.length - 1]) ||
+    (!!courseMatchedText && before.endsWith(courseMatchedText));
+  const afterOk =
+    after === '' ||
+    !isHangul(after[0]) ||
+    (!!courseMatchedText && after.startsWith(courseMatchedText));
+  return beforeOk && afterOk;
+}
 
 /** 입금 1건 매칭 + 모든 후보에 amountNote(금액 관계 라벨) 후처리. */
 export function matchDeposit(tx: BankTransaction, input: MatchInput): DepositMatch {
@@ -290,7 +250,10 @@ function matchDepositInner(tx: BankTransaction, input: MatchInput): DepositMatch
     const uniq = dedupeCandidates(candidates);
     if (uniq.length === 1) {
       const c = uniq[0];
-      if (c.amountMatches) {
+      const matchedText = courseHits.find((ch) => ch.course.id === c.courseId)?.hit.matchedText ?? '';
+      // 이름이 더 긴 다른 이름의 일부로 박힌 경우(예: 학생 '김민' ⊂ 입금자 '김민수') 자동 귀속 방지.
+      const nameClean = payerResolvesToName(payerNorm, matchedText, c.studentName);
+      if (c.amountMatches && nameClean) {
         return base({
           status: 'auto',
           studentId: c.studentId,
@@ -308,7 +271,9 @@ function matchDepositInner(tx: BankTransaction, input: MatchInput): DepositMatch
         courseId: c.courseId,
         courseName: c.courseName,
         candidates: uniq,
-        reason: `강좌·수강생은 맞지만 입금액(${tx.amount})이 수강료(${c.fee})와 다름`,
+        reason: !c.amountMatches
+          ? `강좌·수강생은 맞지만 입금액(${tx.amount})이 수강료(${c.fee})와 다름`
+          : `입금자명에 다른 이름이 섞여 있을 수 있어 확인 필요('${tx.payerName}')`,
       });
     }
     if (uniq.length > 1) {

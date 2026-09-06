@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from 'react';
 import { useAuthStore, useAiNotifyStore } from '@tutomate/core';
-import type { SmartCard } from '@tutomate/core';
 import { ChatWindow } from './components/ChatWindow';
 import { ChatInput } from './components/ChatInput';
 import { ModelDownloadModal } from './components/ModelDownloadModal';
@@ -157,7 +156,7 @@ export default function AiChatPage() {
         messages={messages}
         streaming={streaming}
         summarizing={summarizing}
-        onConfirmPreview={(card: Extract<SmartCard, { type: 'importPreview' }>) => confirmPreview(card, ctx)}
+        onConfirmPreview={(card, selections) => confirmPreview(card, ctx, selections)}
         onConfirmBankDeposits={(card, selections) => confirmBankDeposits(card, selections, ctx)}
         onCancelPreview={cancelPreview}
         onRetry={() => retry(ctx)}

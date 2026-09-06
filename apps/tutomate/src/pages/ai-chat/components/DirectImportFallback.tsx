@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import type { SmartCard } from '@tutomate/core';
-import { useAuthStore } from '@tutomate/core';
-import { ImportPreviewCard } from './SmartCard/ImportPreviewCard';
+import { useAuthStore, reloadAllStores, dispatchErrorMessage } from '@tutomate/core';
+import { ImportPreviewCard, type PaymentSelection } from './SmartCard/ImportPreviewCard';
 import { ImportResultCard } from './SmartCard/ImportResultCard';
 import { MappingErrorCard } from './SmartCard/MappingErrorCard';
 
 export function DirectImportFallback() {
   const orgId = useAuthStore((s) => s.organizationId ?? '');
   const userId = useAuthStore((s) => s.session?.user?.id ?? '');
+  const accessToken = useAuthStore((s) => s.session?.access_token ?? '');
+  const refreshToken = useAuthStore((s) => s.session?.refresh_token ?? '');
   const [card, setCard] = useState<SmartCard | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -24,6 +26,47 @@ export function DirectImportFallback() {
     }
   }
 
+  // 미리보기 확정 저장 — confirmImport를 LLM 우회(ai:dispatch)로 직접 호출.
+  // 이 경로는 클라우드 LLM을 쓰지 않으며(confirmImport는 순수 Supabase 저장), 선택 행만 저장한다.
+  async function handleConfirm(
+    preview: Extract<SmartCard, { type: 'importPreview' }>,
+    selections?: PaymentSelection[],
+  ) {
+    setBusy(true);
+    try {
+      const r = (await window.electronAPI.aiDispatch({
+        toolName: 'confirmImport',
+        args: {
+          fileId: preview.fileId,
+          mapping: preview.mapping,
+          kind: preview.kind,
+          ...(selections && selections.length > 0 ? { selections } : {}),
+        },
+        orgId,
+        userId,
+        accessToken,
+        refreshToken,
+      })) as { result?: any };
+      const errMsg = dispatchErrorMessage(r);
+      if (errMsg) {
+        alert(`저장 실패: ${errMsg}`);
+        return;
+      }
+      const res = r?.result;
+      setCard({
+        type: 'importResult',
+        added: res?.added ?? 0,
+        duplicated: res?.duplicated ?? 0,
+        errors: res?.errors ?? 0,
+        ...(res?.unmatched ? { unmatched: res.unmatched } : {}),
+      });
+      // 저장 데이터가 다른 화면(수강생·수익 등)에 즉시 반영되도록 스토어 갱신
+      if ((res?.added ?? 0) > 0) await reloadAllStores();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-3">엑셀 직접 임포트</h1>
@@ -32,7 +75,7 @@ export function DirectImportFallback() {
       </p>
       <input
         type="file"
-        accept=".xlsx,.xls"
+        accept=".xlsx,.xls,.csv"
         disabled={busy}
         onChange={(e) =>
           e.target.files?.[0] && handleFile(e.target.files[0])
@@ -44,11 +87,9 @@ export function DirectImportFallback() {
       {card?.type === 'importPreview' && (
         <ImportPreviewCard
           {...card}
-          onConfirm={() => {
-            // 직접 임포트는 confirmImport를 LLM 우회로 호출 — 별도 IPC 추가 필요시 확장
-            // v1: 사용자가 챗봇 활성화 후 처리하도록 안내
-            alert('확정은 챗봇이 활성화된 PC에서 처리해주세요.');
-          }}
+          onConfirm={(selections) =>
+            handleConfirm(card as Extract<SmartCard, { type: 'importPreview' }>, selections)
+          }
           onCancel={() => setCard(null)}
         />
       )}

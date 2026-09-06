@@ -57,8 +57,8 @@ describe('getAiProxyUrl', () => {
 
 describe('getAiModelOverride', () => {
   it('후보에 있는 모델만 override로 통과', () => {
-    process.env.TUTOMATE_AI_MODEL = 'deepseek/deepseek-v4-flash';
-    expect(getAiModelOverride()).toBe('deepseek/deepseek-v4-flash');
+    process.env.TUTOMATE_AI_MODEL = 'deepseek/deepseek-v4-flash-0731';
+    expect(getAiModelOverride()).toBe('deepseek/deepseek-v4-flash-0731');
   });
   it('후보 밖·미설정은 undefined(프록시 기본값 사용)', () => {
     expect(getAiModelOverride()).toBeUndefined();

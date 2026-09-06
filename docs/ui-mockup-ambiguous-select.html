@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>결제 미리보기 카드 (실제 크기·실제 테마)</title>
+<style>
+  /* ── 실제 앱 테마 토큰 (globals.css 라이트) ── */
+  :root{
+    --background:#ffffff;
+    --foreground:#09090b;         /* 240 10% 3.9% */
+    --primary:#18181b;            /* 240 5.9% 10% */
+    --primary-foreground:#fafafa; /* 0 0% 98% */
+    --secondary:#f4f4f5;          /* 240 4.8% 95.9% */
+    --secondary-foreground:#18181b;
+    --muted:#f4f4f5;
+    --muted-foreground:#71717a;   /* 240 3.8% 46.1% */
+    --accent:#f4f4f5;
+    --destructive:#ef4444;        /* 0 84.2% 60.2% */
+    --border:#e4e4e7;             /* 240 5.9% 90% */
+    /* 배지색: emerald/amber/sky-700 + /15 배경 */
+    --emerald-bg:rgba(16,185,129,.15); --emerald-fg:#047857;
+    --amber-bg:rgba(245,158,11,.15);   --amber-fg:#b45309;
+    --sky-bg:rgba(14,165,233,.1);      --sky-fg:#0369a1;
+    --dest-bg:rgba(239,68,68,.15);     --dest-fg:#dc2626;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--background);color:var(--foreground);
+       font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+       font-size:16px;line-height:1.5;padding:32px 20px}
+  .hint{max-width:672px;margin:0 auto 14px;font-size:13px;color:var(--muted-foreground)}
+  /* 채팅 열 폭 = max-w-2xl (672px), 어시스턴트=왼쪽 정렬 */
+  .msg{max-width:672px;width:fit-content;margin:0 auto}
+  .who{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .ava{width:26px;height:26px;border-radius:9999px;background:var(--primary);color:var(--primary-foreground);
+       display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+  .who .nm{font-size:13px;color:var(--muted-foreground)}
+  /* 어시스턴트 말풍선: rounded-2xl px-5 py-3 */
+  .assistant-bubble{background:var(--secondary);color:var(--foreground);
+       border-radius:16px;padding:12px 20px;font-size:14px;line-height:1.55;width:fit-content}
+
+  /* ── 카드 outer: border-2 border-primary/40 bg-primary/5 rounded-2xl p-4 ── */
+  .card{border:2px solid rgba(24,24,27,.4);background:rgba(24,24,27,.05);
+        border-radius:16px;padding:16px;color:var(--foreground);margin-top:8px}
+  .card-title{font-weight:700;font-size:18px;line-height:1.4;margin-bottom:8px}   /* text-lg mb-2 */
+
+  .toprow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+  .count{font-size:14px}                                                          /* text-sm */
+  .count strong{color:var(--emerald-fg);font-weight:700}
+  .top-btns{display:flex;gap:4px;margin-left:auto}                                /* gap-1 */
+  .top-btns button{font-size:12px;padding:4px 8px;border-radius:4px;border:1px solid var(--border);
+        background:transparent;cursor:pointer;color:var(--foreground)}           /* text-xs px-2 py-1 */
+  .top-btns button:hover{background:var(--accent)}
+
+  /* 목록: bg-background border rounded-xl p-2 mb-3 max-h-72 */
+  .list{background:var(--background);border:1px solid var(--border);border-radius:12px;
+        padding:8px;margin-bottom:12px;max-height:288px;overflow-y:auto}
+  .row{font-size:14px;padding:8px;border-bottom:1px solid var(--border)}          /* text-sm p-2 */
+  .row:last-child{border-bottom:0}
+  .rowmain{display:flex;align-items:center;gap:8px}                               /* gap-2 */
+  .rowmain.dim{opacity:.6}
+  .badge{padding:2px 6px;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap} /* px-1.5 py-0.5 text-xs font-semibold */
+  .b-auto{background:var(--emerald-bg);color:var(--emerald-fg)}
+  .b-confirm{background:var(--amber-bg);color:var(--amber-fg)}
+  .b-unmatched{background:var(--muted);color:var(--muted-foreground)}
+  .b-dup{background:var(--dest-bg);color:var(--dest-fg)}
+  .name{font-weight:500}                                                          /* font-medium */
+  .muted{color:var(--muted-foreground)}
+  .xs{font-size:12px}                                                            /* text-xs */
+  .qchip{font-size:11px;padding:2px 4px;border-radius:4px;background:var(--sky-bg);color:var(--sky-fg)} /* text-[11px] px-1 py-0.5 */
+  .tags{margin-left:auto;display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}
+  .tag{font-size:11px;padding:2px 6px;border-radius:4px;background:var(--muted);color:var(--muted-foreground);white-space:nowrap}
+  .pickrow{display:flex;align-items:center;gap:8px;margin-top:4px;padding-left:24px} /* mt-1 pl-6 gap-2 */
+  .pickrow .lbl{font-size:12px;color:var(--muted-foreground)}
+  select{font-size:12px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;
+         background:var(--background);color:var(--foreground);cursor:pointer}      /* text-xs px-1 py-0.5 */
+  input[type=checkbox]{flex:0 0 auto}                                             /* 기본 크기(shrink-0) */
+
+  .note{font-size:12px;color:var(--muted-foreground);margin-bottom:8px;line-height:1.5} /* text-xs mb-2 */
+  .actions{display:flex;gap:12px}                                                 /* gap-3 */
+  .btn-primary{background:var(--primary);color:var(--primary-foreground);border:0;
+        padding:12px 24px;border-radius:12px;font-size:18px;cursor:pointer}       /* px-6 py-3 rounded-xl text-lg */
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+  .btn-secondary{background:var(--secondary);color:var(--secondary-foreground);border:1px solid var(--border);
+        padding:12px 24px;border-radius:12px;font-size:18px;cursor:pointer}
+  .btn-secondary:hover{background:var(--accent)}
+  .flash{transition:background .35s}
+  .flash.on{background:rgba(24,24,27,.05)}
+</style>
+</head>
+<body>
+  <div class="hint">↓ 실제 크기(채팅 열 폭 672px). 사유는 <b>짧은 태그(칩)</b>로 표시하고, 자세한 설명은 행에 마우스를 올리면 툴팁으로 보여줍니다.</div>
+
+  <div class="msg">
+    <div class="who"><div class="ava">AI</div><span class="nm">튜토메이트</span></div>
+    <div class="assistant-bubble">엑셀을 분석했어요. 아래에서 저장할 결제를 선택해 주세요. 확실한 건 자동으로 체크해 뒀고, 애매한 건은 “어느 수강 건?”에서 골라 주세요.</div>
+
+    <!-- ImportPreviewCard (enriched) -->
+    <div class="card">
+      <div class="card-title">결제 미리보기 (총 6건)</div>
+
+      <div class="toprow">
+        <span class="count">저장 선택 <strong id="sel">1</strong> / <span id="total">1</span>건</span>
+        <div class="top-btns">
+          <button onclick="selectAll()">전체 선택</button>
+          <button onclick="selectAutoOnly()">자동만</button>
+          <button onclick="clearAll()">전체 해제</button>
+        </div>
+      </div>
+
+      <div class="list" id="list"></div>
+
+      <div class="note">✓ 체크한 것만 저장돼요. 중복·완납·초과·못 찾은 건은 실수를 막으려고 미리 빼뒀어요 — 필요하면 직접 체크하세요.</div>
+
+      <div class="actions">
+        <button class="btn-primary" id="saveBtn" onclick="save()">선택 1건 저장</button>
+        <button class="btn-secondary">취소</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+// 실제 previewRows(buildPreview 출력) 형태
+const rows = [
+  { rowIndex:0, payerName:'홍길동', amount:150000, paidAt:'2026-07-05',
+    matchStatus:'auto', dedup:'none', enrollmentId:'e1', courseName:'중3수학', quarter:'2026-Q3',
+    reason:'전화번호가 같아요 · 금액도 딱 맞아요', tags:['전화 일치','금액 일치'],
+    candidates:[{enrollmentId:'e1',studentName:'홍길동',courseName:'중3수학',quarter:'2026-Q3'}] },
+  { rowIndex:1, payerName:'김영희', amount:150000, paidAt:'2026-07-03',
+    matchStatus:'needsConfirm', dedup:'none', enrollmentId:'', courseName:'', quarter:'',
+    reason:'이름이 같은 학생이 2명 있어요. 누구인지 골라 주세요', tags:['같은 이름 2명'],
+    candidates:[
+      {enrollmentId:'e2',studentName:'김영희',courseName:'중3수학',quarter:'2026-Q3'},
+      {enrollmentId:'e3',studentName:'김영희',courseName:'중3영어',quarter:'2026-Q3'},
+    ] },
+  { rowIndex:2, payerName:'김영히', amount:150000, paidAt:'2026-07-04',
+    matchStatus:'needsConfirm', dedup:'none', enrollmentId:'', courseName:'', quarter:'',
+    reason:'이름이 비슷한 학생이에요. 이 학생이 맞는지 확인해 주세요', tags:['이름 비슷'],
+    candidates:[{enrollmentId:'e2b',studentName:'김영희',courseName:'중3수학',quarter:'2026-Q3'}] },
+  { rowIndex:3, payerName:'김미영', amount:100000, paidAt:'2026-07-05',
+    matchStatus:'needsConfirm', dedup:'none', enrollmentId:'', courseName:'', quarter:'',
+    reason:'지난 분기(2025-Q3) 수강 건이에요. 올해 결제가 맞는지 확인해 주세요', tags:['지난 분기'],
+    candidates:[{enrollmentId:'e4',studentName:'김미영',courseName:'중3영어',quarter:'2025-Q3'}] },
+  { rowIndex:4, payerName:'박철수', amount:120000, paidAt:'2026-07-06',
+    matchStatus:'auto', dedup:'periodComplete', enrollmentId:'e5', courseName:'중3영어', quarter:'2026-Q3',
+    reason:'이 수업은 이미 다 냈어요', tags:['금액 일치'],
+    candidates:[{enrollmentId:'e5',studentName:'박철수',courseName:'중3영어',quarter:'2026-Q3'}] },
+  { rowIndex:5, payerName:'이몽룡', amount:90000, paidAt:'2026-07-07',
+    matchStatus:'unmatched', dedup:'none', enrollmentId:'', courseName:'', quarter:'',
+    reason:'등록된 학생 중에서 찾지 못했어요', tags:['학생 없음'], candidates:[] },
+];
+
+const won = n => n.toLocaleString('ko-KR');
+const dedupLabel = { exact:'중복', periodComplete:'완납', overpay:'초과', none:'' };
+
+const picked = new Map();
+const resolved = r => picked.get(r.rowIndex) ?? r.enrollmentId;
+const selectable = r => !!resolved(r) && r.dedup !== 'exact';
+const needsPick = r => !r.enrollmentId && r.candidates.length > 0 && r.dedup !== 'exact';
+const checked = new Set(rows.filter(r => r.matchStatus==='auto' && r.dedup==='none').map(r=>r.rowIndex));
+
+function badge(r){
+  if(r.dedup !== 'none'){ const cls=r.dedup==='exact'?'b-dup':'b-confirm'; return `<span class="badge ${cls}">${dedupLabel[r.dedup]}</span>`; }
+  if(r.matchStatus==='unmatched') return `<span class="badge b-unmatched">못 찾음</span>`;
+  if(r.matchStatus==='needsConfirm') return `<span class="badge b-confirm">확인해요</span>`;
+  return `<span class="badge b-auto">자동</span>`;
+}
+function render(){
+  document.getElementById('list').innerHTML = rows.map(r=>{
+    const can=selectable(r), pick=needsPick(r);
+    const opts=['<option value="">아직 안 골랐어요</option>'].concat(
+      r.candidates.map(c=>`<option value="${c.enrollmentId}" ${picked.get(r.rowIndex)===c.enrollmentId?'selected':''}>${c.studentName} · ${c.courseName}${c.quarter?` (${c.quarter})`:''}</option>`)
+    ).join('');
+    const tagHtml = (r.tags&&r.tags.length)
+      ? `<span class="tags">${r.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</span>` : '';
+    return `<div class="row flash" id="row${r.rowIndex}">
+      <div class="rowmain ${can?'':'dim'}" title="${r.reason||''}">
+        <input type="checkbox" ${can?'':'disabled'} ${checked.has(r.rowIndex)?'checked':''} onchange="toggle(${r.rowIndex})">
+        ${badge(r)}
+        <span class="name">${r.payerName||'(이름 미상)'}</span>
+        <span class="muted">${won(r.amount)}원</span>
+        <span class="muted xs">${r.paidAt}</span>
+        ${r.courseName?`<span class="xs muted">· ${r.courseName}</span>`:''}
+        ${r.quarter?`<span class="qchip">${r.quarter}</span>`:''}
+        ${tagHtml}
+      </div>
+      ${pick?`<div class="pickrow"><span class="lbl">어떤 수업 결제인가요?</span>
+        <select onchange="onPick(${r.rowIndex}, this.value)">${opts}</select></div>`:''}
+    </div>`;
+  }).join('');
+  updateCounts();
+}
+function updateCounts(){
+  const total=rows.filter(selectable).length, sel=checked.size;
+  document.getElementById('sel').textContent=sel;
+  document.getElementById('total').textContent=total;
+  const b=document.getElementById('saveBtn'); b.textContent=`선택 ${sel}건 저장`; b.disabled=sel===0;
+}
+function toggle(i){ checked.has(i)?checked.delete(i):checked.add(i); updateCounts(); }
+function onPick(i,eid){ if(eid){picked.set(i,eid);checked.add(i);}else{picked.delete(i);checked.delete(i);}
+  render(); const el=document.getElementById('row'+i); if(el){el.classList.add('on');setTimeout(()=>el.classList.remove('on'),350);} }
+function selectAll(){ rows.filter(selectable).forEach(r=>checked.add(r.rowIndex)); render(); }
+function selectAutoOnly(){ checked.clear(); rows.filter(r=>selectable(r)&&r.matchStatus==='auto').forEach(r=>checked.add(r.rowIndex)); render(); }
+function clearAll(){ checked.clear(); render(); }
+function save(){ const s=rows.filter(r=>checked.has(r.rowIndex)&&resolved(r)).map(r=>({enrollmentId:resolved(r),paidAt:r.paidAt,amount:r.amount}));
+  alert('confirmImport로 저장될 selections('+s.length+'건):\n\n'+JSON.stringify(s,null,2)); }
+render();
+</script>
+</body>
+</html>

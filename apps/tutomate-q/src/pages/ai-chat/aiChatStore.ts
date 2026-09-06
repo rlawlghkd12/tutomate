@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { useAiNotifyStore, reportError, reloadAllStores } from '@tutomate/core';
+import { useAiNotifyStore, reportError, reloadAllStores, dispatchErrorMessage } from '@tutomate/core';
 import type { ChatMessage, SmartCard, DepositSelection } from '@tutomate/core';
 import type { DisplayMessage } from './components/MessageBubble';
 
@@ -121,7 +121,16 @@ interface AiChatStore {
   send: (text: string, attachment: { fileId: string; name: string } | undefined, ctx: SendContext) => Promise<void>;
   /** 직전 사용자 질문을 다시 전송 (에러 후 재시도) */
   retry: (ctx: SendContext) => Promise<void>;
-  confirmPreview: (card: Extract<SmartCard, { type: 'importPreview' }>, ctx: SendContext) => Promise<void>;
+  confirmPreview: (
+    card: Extract<SmartCard, { type: 'importPreview' }>,
+    ctx: SendContext,
+    selections?: {
+      enrollmentId: string;
+      paidAt: string;
+      amount: number;
+      paymentMethod?: 'cash' | 'card' | 'transfer';
+    }[],
+  ) => Promise<void>;
   confirmBankDeposits: (
     card: Extract<SmartCard, { type: 'bankDepositPreview' }>,
     selections: DepositSelection[],
@@ -413,20 +422,27 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
     });
   },
 
-  confirmPreview: async (card, ctx) => {
+  confirmPreview: async (card, ctx, selections) => {
     set({ streaming: true });
     try {
       const r = await window.electronAPI.aiDispatch({
         toolName: 'confirmImport',
-        args: { fileId: card.fileId, mapping: card.mapping, kind: card.kind },
+        args: {
+          fileId: card.fileId,
+          mapping: card.mapping,
+          kind: card.kind,
+          ...(selections && selections.length > 0 ? { selections } : {}),
+        },
         orgId: ctx.orgId,
         userId: ctx.userId,
         accessToken: ctx.accessToken,
         refreshToken: ctx.refreshToken,
       });
-      if (r.error) {
+      // 도구 실행 에러는 r.result.error로 온다(dispatcher가 throw를 {error}로 감쌈). 최상위 r.error(인증/권한)도 확인.
+      const errMsg = dispatchErrorMessage(r);
+      if (errMsg) {
         set((state) => ({
-          messages: [...state.messages, { role: 'assistant', content: `확정 실패: ${r.error?.message}`, error: true }],
+          messages: [...state.messages, { role: 'assistant', content: `확정 실패: ${errMsg}`, error: true }],
         }));
       } else {
         // AI 도구가 supabase에 직접 저장하므로 스토어 캐시를 갱신해야 화면에 반영됨
@@ -454,9 +470,10 @@ export const useAiChatStore = create<AiChatStore>((set, get) => ({
         accessToken: ctx.accessToken,
         refreshToken: ctx.refreshToken,
       });
-      if (r.error) {
+      const errMsg = dispatchErrorMessage(r);
+      if (errMsg) {
         set((state) => ({
-          messages: [...state.messages, { role: 'assistant', content: `저장 실패: ${r.error?.message}`, error: true }],
+          messages: [...state.messages, { role: 'assistant', content: `저장 실패: ${errMsg}`, error: true }],
         }));
       } else {
         // AI 도구가 supabase에 직접 저장하므로 스토어 캐시를 갱신해야 화면에 반영됨

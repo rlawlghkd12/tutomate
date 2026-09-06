@@ -12,7 +12,7 @@
 // TODO(Phase 1+): 플랜별 차등 한도(현재는 단일 env 캡), org당 rate limit(초당/분당).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
-import { selectModel, pickActiveOrgId, usageFromDataLine, isRateLimited, summarizeUsage } from './logic.ts';
+import { selectModel, pickActiveOrgId, usageFromDataLine, usageFromJson, isRateLimited, summarizeUsage } from './logic.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -137,6 +137,26 @@ Deno.serve(async (req) => {
     // 3) OpenRouter 호출 — 비학습·무로깅 프로바이더만 라우팅
     //    data_collection:'deny' → 프롬프트를 저장/학습하는 프로바이더 배제.
     //    ZDR 강제는 OpenRouter 계정 privacy 설정(Zero Data Retention)과 함께 적용.
+    //    스트리밍(대화)과 비스트리밍(구조화 출력, response_format) 둘 다 지원.
+    //    임포트 LLM 스테이지는 stream:false + response_format(JSON 스키마)로 호출한다.
+    const wantStream = body.stream !== false;
+    const upstreamBody: Record<string, unknown> = {
+      model,
+      messages: body.messages,
+      max_tokens: body.max_tokens ?? 2048,
+      temperature: body.temperature ?? 0.3,
+      provider: { data_collection: 'deny' },
+      stream: wantStream,
+    };
+    // 구조화 출력이면 tools 대신 response_format을 통과. 아니면 기존 tool-calling 유지.
+    if (body.response_format) {
+      upstreamBody.response_format = body.response_format;
+    } else {
+      upstreamBody.tools = body.tools;
+      upstreamBody.tool_choice = body.tool_choice ?? 'auto';
+    }
+    if (wantStream) upstreamBody.stream_options = { include_usage: true };
+
     const orResp = await fetch(OPENROUTER_URL, {
       method: 'POST',
       headers: {
@@ -144,17 +164,7 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${openrouterKey}`,
         'X-Title': 'TutorMate',
       },
-      body: JSON.stringify({
-        model,
-        messages: body.messages,
-        tools: body.tools,
-        tool_choice: body.tool_choice ?? 'auto',
-        stream: true,
-        stream_options: { include_usage: true },
-        max_tokens: body.max_tokens ?? 2048,
-        temperature: body.temperature ?? 0.3,
-        provider: { data_collection: 'deny' },
-      }),
+      body: JSON.stringify(upstreamBody),
     });
 
     if (!orResp.ok || !orResp.body) {
@@ -162,7 +172,33 @@ Deno.serve(async (req) => {
       return json({ error: 'openrouter_error', status: orResp.status, detail: errText.slice(0, 500) }, 502);
     }
 
-    // 4) 스트리밍 relay + 사용량 기록 (tee로 복제: 한쪽은 클라이언트, 한쪽은 usage 파싱)
+    // 4a) 비스트리밍(구조화 출력) — 단일 JSON을 그대로 반환 + usage 기록.
+    if (!wantStream) {
+      const completion = await orResp.json().catch(() => null);
+      const u = usageFromJson(completion);
+      if (u) {
+        const logTask = adminClient
+          .from('ai_usage_logs')
+          .insert({
+            user_id: user.id,
+            organization_id: orgId,
+            model,
+            prompt_tokens: u.prompt_tokens ?? 0,
+            completion_tokens: u.completion_tokens ?? 0,
+            total_tokens: u.total_tokens ?? 0,
+            cached_tokens: u.prompt_tokens_details?.cached_tokens ?? 0,
+            cost: u.cost ?? 0,
+          })
+          .then(() => {})
+          .catch((e: unknown) => console.error('[ai-proxy] usage 기록 실패:', e));
+        try {
+          (globalThis as any).EdgeRuntime?.waitUntil?.(logTask);
+        } catch { /* waitUntil 미지원 환경 무시 */ }
+      }
+      return json(completion ?? { error: 'empty_completion' }, 200);
+    }
+
+    // 4b) 스트리밍 relay + 사용량 기록 (tee로 복제: 한쪽은 클라이언트, 한쪽은 usage 파싱)
     const [toClient, toLog] = orResp.body.tee();
     const logTask = logUsage(adminClient, toLog, {
       userId: user.id,

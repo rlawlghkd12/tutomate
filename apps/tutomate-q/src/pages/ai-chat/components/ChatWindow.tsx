@@ -2,12 +2,16 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowDown } from 'lucide-react';
 import type { SmartCard, DepositSelection } from '@tutomate/core';
 import { MessageBubble, type DisplayMessage } from './MessageBubble';
+import type { PaymentSelection } from './SmartCard/ImportPreviewCard';
 
 interface Props {
   messages: DisplayMessage[];
   streaming?: boolean;
   summarizing?: boolean;
-  onConfirmPreview: (card: Extract<SmartCard, { type: 'importPreview' }>) => void;
+  onConfirmPreview: (
+    card: Extract<SmartCard, { type: 'importPreview' }>,
+    selections?: PaymentSelection[],
+  ) => void;
   onConfirmBankDeposits: (
     card: Extract<SmartCard, { type: 'bankDepositPreview' }>,
     selections: DepositSelection[],

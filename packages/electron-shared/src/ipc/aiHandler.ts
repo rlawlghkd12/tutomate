@@ -51,6 +51,8 @@ let abort: AbortController | null = null;
 // OpenRouter 백엔드가 프록시 인증에 쓰는 최신 Supabase 액세스 토큰.
 // ai:chat / ai:summarize 진입 시 payload.accessToken으로 갱신된다.
 let lastAccessToken: string | null = null;
+// 임포트(엑셀→결제)는 결정론 파이프라인이다 — 파싱·중복·매칭이 규칙으로 충분하고,
+// 애매행은 미리보기 후보 드롭다운으로 사용자가 확정한다. LLM/모델 라우터를 쓰지 않는다.
 // PII 토큰화 볼트 — OpenRouter(클라우드) 백엔드에서만 사용. 실명↔토큰 매핑을 세션 동안 유지,
 // ai:reset-session에서 초기화. 로컬 백엔드에선 미사용(데이터가 기기를 안 벗어남).
 const piiVault = createPiiVault();
@@ -634,6 +636,9 @@ export function registerAiHandlers(ipcMain: IpcMain) {
       userId: string,
     ): Promise<{ card: SmartCard | null }> => {
       let captured: SmartCard | null = null;
+      // ai:direct-import는 'AI 비활성'(저사양 또는 클라우드 동의 거절) 경로다.
+      // 이 경로는 LLM을 쓰지 않아야 하므로 router를 주입하지 않는다(클라우드 PII 전송 차단).
+      // → previewImport는 결정론 프리뷰(애매행 needsConfirm)로만 동작.
       const ctx: ToolContext = {
         orgId,
         userId,
@@ -651,6 +656,16 @@ export function registerAiHandlers(ipcMain: IpcMain) {
       if (headersResult?.error) {
         return { card: null };
       }
+      // 은행 거래내역은 이 결정론 체인으로 처리 불가(전용 흐름 필요) → 크래시 대신 안내 카드.
+      if (headersResult?.kind === 'bank_statement' || !Array.isArray(headersResult?.headers)) {
+        return {
+          card: {
+            type: 'mappingError',
+            matched: [],
+            unmatched: ['이 파일은 이 화면에서 자동 처리할 수 없습니다. 표준 양식(이름·금액·납부일)의 엑셀/CSV를 올려주세요.'],
+          },
+        };
+      }
 
       const mapResult = (await dispatcher.dispatch(
         'mapColumns',
@@ -666,6 +681,10 @@ export function registerAiHandlers(ipcMain: IpcMain) {
             unmatched: mapResult.unmatched,
           },
         };
+      }
+      // 매핑 실패(스키마 오류 등)로 mapping이 없으면 크래시 방지.
+      if (mapResult?.error || !mapResult?.mapping) {
+        return { card: null };
       }
 
       // 매핑 결과로 students/payments 자동 구분
