@@ -24,13 +24,9 @@ import {
   getCurrentQuarter,
   getQuarterOptions,
   isActiveEnrollment,
-  useImportHistoryStore,
-  useAuthStore,
-  reloadAllStores,
-  dispatchErrorMessage,
 } from '@tutomate/core';
-import type { Enrollment, SavedItem } from '@tutomate/core';
-import { PaymentForm, PageEnter, ExportQuarterScope, EXPORT_SCOPE_ALL, CourseCombobox, ImportHistoryDialog } from '@tutomate/ui';
+import type { Enrollment } from '@tutomate/core';
+import { PaymentForm, PageEnter, ExportQuarterScope, EXPORT_SCOPE_ALL, CourseCombobox } from '@tutomate/ui';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -44,31 +40,6 @@ const RevenueManagementPage: React.FC = () => {
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
   const { loadRecords } = usePaymentRecordStore();
-
-  const { batches: importBatches, loading: importHistoryLoading, load: loadImportHistory } = useImportHistoryStore();
-  const [historyOpen, setHistoryOpen] = useState(false);
-
-  // AI 처리 내역 되돌리기 — undoImport 도구를 ai:dispatch로 호출(챗 밖 경로)
-  const handleUndoImport = async (items: SavedItem[]) => {
-    if (items.length === 0) return;
-    const { session, organizationId } = useAuthStore.getState();
-    try {
-      const r = await window.electronAPI.aiDispatch({
-        toolName: 'undoImport',
-        args: { items },
-        orgId: organizationId ?? '',
-        userId: session?.user?.id ?? '',
-        accessToken: session?.access_token,
-        refreshToken: session?.refresh_token,
-      });
-      const errMsg = dispatchErrorMessage(r);
-      if (errMsg) { toast.error(`되돌리기 실패: ${errMsg}`); return; }
-      await reloadAllStores();
-      toast.success('되돌리기를 처리했어요.');
-    } catch (e: any) {
-      toast.error(`되돌리기 실패: ${e?.message ?? '알 수 없는 오류'}`);
-    }
-  };
 
   const [selectedEnrollment, setSelectedEnrollment] = useState<Enrollment | null>(null);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
@@ -327,15 +298,10 @@ const RevenueManagementPage: React.FC = () => {
                 ))}
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => { loadImportHistory(); setHistoryOpen(true); }}>
-                AI 처리 내역
-              </Button>
-              <Button variant="outline" onClick={() => setIsExportModalVisible(true)}>
-                <Download className="h-4 w-4" />
-                내보내기
-              </Button>
-            </div>
+            <Button variant="outline" onClick={() => setIsExportModalVisible(true)}>
+              <Download className="h-4 w-4" />
+              내보내기
+            </Button>
           </div>
 
           {/* 결제 상태 필터 */}
@@ -732,14 +698,6 @@ const RevenueManagementPage: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
-      <ImportHistoryDialog
-        open={historyOpen}
-        onClose={() => setHistoryOpen(false)}
-        batches={importBatches}
-        loading={importHistoryLoading}
-        onUndo={handleUndoImport}
-        onRefresh={loadImportHistory}
-      />
     </PageEnter>
   );
 };

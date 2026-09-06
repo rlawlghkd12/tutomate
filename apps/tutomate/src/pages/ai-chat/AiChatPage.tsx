@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useAuthStore, useAiNotifyStore } from '@tutomate/core';
+import { useAuthStore, useAiNotifyStore, useImportHistoryStore } from '@tutomate/core';
+import { ImportHistoryDialog } from '@tutomate/ui';
 import { ChatWindow } from './components/ChatWindow';
 import { ChatInput } from './components/ChatInput';
 import { ModelDownloadModal } from './components/ModelDownloadModal';
@@ -48,6 +49,10 @@ export default function AiChatPage() {
   // 채팅 영역 전체에 엑셀 파일 드래그앤드롭 → ChatInput이 droppedFile을 받아 첨부한다.
   const [dragging, setDragging] = useState(false);
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
+
+  // AI 처리 내역(임포트 내역) 조회/되돌리기
+  const { batches: importBatches, loading: importHistoryLoading, load: loadImportHistory } = useImportHistoryStore();
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     init();
@@ -159,28 +164,35 @@ export default function AiChatPage() {
             : `이번 달 AI 사용량이 ${usage.percent}%에 도달했어요. 한도에 가까워지고 있어요.`}
         </div>
       )}
-      {messages.length > 0 && (
-        <div className="absolute top-2 right-3 z-10 flex items-center gap-3">
-          {contextPercent > 0 && (
-            <div
-              className="flex items-center gap-2 rounded-full border border-border bg-background/90 px-3 py-1.5 text-sm text-muted-foreground shadow-sm backdrop-blur"
-              title="현재 대화가 AI의 기억 공간을 차지한 정도예요. 꽉 차면 오래된 대화를 자동으로 요약해 정리합니다."
-            >
-              <span>기억</span>
-              <div className="h-2.5 w-24 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`h-full rounded-full transition-all ${
-                    contextPercent >= 90
-                      ? 'bg-red-500'
-                      : contextPercent >= 75
-                        ? 'bg-amber-500'
-                        : 'bg-emerald-500'
-                  }`}
-                  style={{ width: `${contextPercent}%` }}
-                />
-              </div>
+      <div className="absolute top-2 right-3 z-10 flex items-center gap-3">
+        {messages.length > 0 && contextPercent > 0 && (
+          <div
+            className="flex items-center gap-2 rounded-full border border-border bg-background/90 px-3 py-1.5 text-sm text-muted-foreground shadow-sm backdrop-blur"
+            title="현재 대화가 AI의 기억 공간을 차지한 정도예요. 꽉 차면 오래된 대화를 자동으로 요약해 정리합니다."
+          >
+            <span>기억</span>
+            <div className="h-2.5 w-24 overflow-hidden rounded-full bg-muted">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  contextPercent >= 90
+                    ? 'bg-red-500'
+                    : contextPercent >= 75
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
+                }`}
+                style={{ width: `${contextPercent}%` }}
+              />
             </div>
-          )}
+          </div>
+        )}
+        {/* 처리 내역은 항상 보이게 — 채팅이 사라져도 나중에 임포트 내역 조회/되돌리기 */}
+        <button
+          onClick={() => { loadImportHistory(); setHistoryOpen(true); }}
+          className="rounded-full border border-border bg-background/90 px-3 py-1.5 text-sm shadow-sm backdrop-blur hover:bg-accent"
+        >
+          처리 내역
+        </button>
+        {messages.length > 0 && (
           <button
             onClick={handleResetChat}
             disabled={streaming}
@@ -188,8 +200,8 @@ export default function AiChatPage() {
           >
             새 대화 시작
           </button>
-        </div>
-      )}
+        )}
+      </div>
       <ChatWindow
         messages={messages}
         streaming={streaming}
@@ -206,6 +218,14 @@ export default function AiChatPage() {
         streaming={streaming}
         droppedFile={droppedFile}
         onDroppedFileHandled={() => setDroppedFile(null)}
+      />
+      <ImportHistoryDialog
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        batches={importBatches}
+        loading={importHistoryLoading}
+        onUndo={(items) => undoImport(items, ctx)}
+        onRefresh={loadImportHistory}
       />
     </div>
   );
