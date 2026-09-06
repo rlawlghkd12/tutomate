@@ -3,6 +3,7 @@
  * 은행/일반 흐름이 공유할 계산부만 분리(순수) → 단위테스트. 실제 UPDATE는 각 도구가 수행.
  */
 import type { PaymentStatusType } from '../../types/index';
+import { derivePaymentStatus } from '../../utils/paymentStatus';
 
 export interface EnrollmentSyncRecord {
   paidAt: string;
@@ -36,8 +37,11 @@ export function computeEnrollmentSync(
     return { paid_amount: totalPaid, remaining_amount: 0, paid_at: paidAt };
   }
 
-  const remaining = Math.max(0, effectiveFee - totalPaid);
-  const payment_status: PaymentStatusType =
-    totalPaid <= 0 ? 'pending' : totalPaid < effectiveFee ? 'partial' : 'completed';
-  return { paid_amount: totalPaid, remaining_amount: remaining, payment_status, paid_at: paidAt };
+  const { paymentStatus, remainingAmount } = derivePaymentStatus(totalPaid, effectiveFee);
+  return {
+    paid_amount: totalPaid,
+    remaining_amount: remainingAmount,
+    payment_status: paymentStatus,
+    paid_at: paidAt,
+  };
 }

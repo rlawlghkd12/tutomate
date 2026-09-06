@@ -4,6 +4,7 @@ import { getCurrentQuarter } from '../../utils/quarterUtils';
 import { parseBankExcel } from '../bank/parseBankExcel';
 import { matchDeposits } from '../bank/depositMatcher';
 import { computeEnrollmentSync } from '../persist/enrollmentSync';
+import { derivePaymentStatus } from '../../utils/paymentStatus';
 import { filterBankDuplicates } from '../bank/bankDedup';
 import type { ToolHandler, SmartCard } from '../types';
 
@@ -125,6 +126,8 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
       if (!tx) return [];
       const fee = courseFee.get(sel.newEnrollment.courseId) ?? 0;
       const amount = tx.amount;
+      // 신규 등록은 할인 0이므로 fee=실수강료. 상태·잔여는 단일 기준으로 계산.
+      const { paymentStatus, remainingAmount } = derivePaymentStatus(amount, fee);
       return [
         {
           rowIndex: sel.rowIndex,
@@ -133,9 +136,9 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
             course_id: sel.newEnrollment.courseId,
             student_id: sel.newEnrollment.studentId,
             enrolled_at: new Date().toISOString(),
-            payment_status: amount <= 0 ? 'pending' : amount < fee ? 'partial' : 'completed',
+            payment_status: paymentStatus,
             paid_amount: amount,
-            remaining_amount: Math.max(0, fee - amount),
+            remaining_amount: remainingAmount,
             paid_at: tx.paidAt,
             payment_method: toPaymentMethod(tx.method),
             discount_amount: 0,

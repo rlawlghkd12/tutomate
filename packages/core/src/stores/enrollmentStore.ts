@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { isActiveEnrollment } from "../types";
 import type { Enrollment, EnrollmentFormData, PaymentMethod } from "../types";
 import { createDataHelper } from "../utils/dataHelper";
+import { derivePaymentStatus } from "../utils/paymentStatus";
 import type { EnrollmentRow } from "../utils/fieldMapper";
 import {
 	mapEnrollmentFromDb,
@@ -262,17 +263,8 @@ export const useEnrollmentStore = create<EnrollmentStore>((set, get) => ({
 			return;
 		}
 
-		// 잔여금은 음수가 될 수 없음 (초과 납부도 잔여 0)
-		const remainingAmount = Math.max(0, effectiveFee - paidAmount);
-		let paymentStatus: "pending" | "partial" | "completed" = "pending";
-
-		if (paidAmount <= 0) {
-			paymentStatus = "pending";
-		} else if (paidAmount < effectiveFee) {
-			paymentStatus = "partial";
-		} else {
-			paymentStatus = "completed";
-		}
+		// 납부 상태·잔여액은 단일 기준(derivePaymentStatus)으로 계산 (초과 납부도 잔여 0)
+		const { paymentStatus, remainingAmount } = derivePaymentStatus(paidAmount, effectiveFee);
 
 		await get().updateEnrollment(id, {
 			paidAmount,
