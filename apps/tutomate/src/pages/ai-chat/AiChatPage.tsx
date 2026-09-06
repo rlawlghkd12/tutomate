@@ -69,6 +69,11 @@ export default function AiChatPage() {
     loadForOrg(orgId);
   }, [orgId, loadForOrg]);
 
+  // 처리 내역 미리 로드 — 시드니 리전 왕복 지연이 커서, 버튼 누를 때 기다리지 않도록 선조회
+  useEffect(() => {
+    loadImportHistory();
+  }, [loadImportHistory]);
+
   // 클라우드: 동의 완료 후 이번 달 사용량을 미리 조회해 한도 임박/초과 배너를 띄운다(첫 채팅 전에도).
   useEffect(() => {
     if (cloudBackend && cloudConsent && accessToken) void refreshUsage(accessToken);

@@ -19,7 +19,9 @@ export const useImportHistoryStore = create<ImportHistoryStore>((set) => ({
   error: null,
 
   load: async () => {
-    set({ loading: true, error: null });
+    // 이미 불러온 내역이 있으면 그대로 보여주고 백그라운드로 갱신(로딩 스피너 깜빡임 방지).
+    // 시드니 리전이라 왕복 지연이 커서, 재열람 시 캐시 즉시 표시가 체감 속도에 크다.
+    set((s) => ({ loading: s.batches.length === 0, error: null }));
     try {
       if (!supabase) {
         set({ loading: false, error: 'Supabase 미설정' });
