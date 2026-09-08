@@ -401,6 +401,34 @@ describe('export 함수 — DOM 다운로드', () => {
 		spy.mockRestore();
 	});
 
+	it('exportRevenueToExcel — 순번 열이 첫 컬럼, 1부터 시작', async () => {
+		const XLSX = await import('xlsx');
+		const spy = vi.spyOn(XLSX.utils, 'book_append_sheet');
+		const e2: Enrollment = { ...enrollment, id: 'e2' };
+		await exportRevenueToExcel([enrollment, e2], [student], [course], ['studentName']);
+		const ws = spy.mock.calls[0][1] as Record<string, { v: unknown }>;
+		expect(ws['A1'].v).toBe('순번'); // 헤더 첫 컬럼
+		expect(ws['A2'].v).toBe(1);
+		expect(ws['A3'].v).toBe(2);
+		spy.mockRestore();
+	});
+
+	it('exportCourseStudentsToExcel — 순번 열이 첫 컬럼, 1부터 시작', async () => {
+		const XLSX = await import('xlsx');
+		const spy = vi.spyOn(XLSX.utils, 'book_append_sheet');
+		const s2: Student = { ...student, id: 's2', name: '김철수' };
+		await exportCourseStudentsToExcel(
+			course,
+			[{ student, enrollment }, { student: s2, enrollment: { ...enrollment, id: 'e2', studentId: 's2' } }],
+			['name'],
+		);
+		const ws = spy.mock.calls[0][1] as Record<string, { v: unknown }>;
+		expect(ws['A1'].v).toBe('순번');
+		expect(ws['A2'].v).toBe(1);
+		expect(ws['A3'].v).toBe(2);
+		spy.mockRestore();
+	});
+
 	it('exportRevenueToExcel — 수강 있으면 에러 없이 완료', async () => {
 		await expect(exportRevenueToExcel([enrollment], [student], [course])).resolves.toBeUndefined();
 	});

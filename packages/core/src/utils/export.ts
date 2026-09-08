@@ -174,8 +174,9 @@ export const exportRevenueToExcel = async (
     ? REVENUE_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key))
     : REVENUE_EXPORT_FIELDS;
 
-  const rows = enrollments.map((enrollment) => {
-    const row: Record<string, string | number> = {};
+  // 순번 열(1부터)을 첫 컬럼으로 추가
+  const rows = enrollments.map((enrollment, i) => {
+    const row: Record<string, string | number> = { 순번: i + 1 };
     fields.forEach((field) => {
       row[field.label] = field.getValue(enrollment, students, courses);
     });
@@ -185,7 +186,7 @@ export const exportRevenueToExcel = async (
   // 합계 행 추가
   const hasSummable = fields.some((f) => REVENUE_SUMMABLE_FIELDS.has(f.key));
   if (hasSummable) {
-    const totalRow: Record<string, string | number> = {};
+    const totalRow: Record<string, string | number> = { 순번: '' };
     fields.forEach((field, idx) => {
       if (REVENUE_SUMMABLE_FIELDS.has(field.key)) {
         totalRow[field.label] = enrollments.reduce(
@@ -201,7 +202,7 @@ export const exportRevenueToExcel = async (
     rows.push(totalRow);
   }
 
-  const colWidths = fields.map((f) => ({ wch: f.wch }));
+  const colWidths = [{ wch: 6 }, ...fields.map((f) => ({ wch: f.wch }))];
   const headerLines = [getOrgName(), `수익 현황 (${dayjs().format('YYYY-MM-DD')} 기준)`];
   const worksheet = createSheetWithHeader(XLSX, headerLines, rows, colWidths);
   applyAutoFilter(XLSX, worksheet, hasSummable);
@@ -269,25 +270,30 @@ export const exportRevenueToCSV = (
     ? REVENUE_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key))
     : REVENUE_EXPORT_FIELDS;
 
-  const csvHeaders = fields.map((f) => f.label);
+  // 순번 열(1부터)을 첫 컬럼으로 추가
+  const csvHeaders = ['순번', ...fields.map((f) => f.label)];
 
-  const rows = enrollments.map((enrollment) =>
-    fields.map((field) => `"${field.getValue(enrollment, students, courses)}"`),
-  );
+  const rows = enrollments.map((enrollment, i) => [
+    `"${i + 1}"`,
+    ...fields.map((field) => `"${field.getValue(enrollment, students, courses)}"`),
+  ]);
 
   // 합계 행 추가
   const hasSummable = fields.some((f) => REVENUE_SUMMABLE_FIELDS.has(f.key));
   if (hasSummable) {
-    const totalRow = fields.map((field, idx) => {
-      if (REVENUE_SUMMABLE_FIELDS.has(field.key)) {
-        const sum = enrollments.reduce(
-          (s, enrollment) => s + (Number(field.getValue(enrollment, students, courses)) || 0),
-          0,
-        );
-        return `"${sum}"`;
-      }
-      return idx === 0 ? '"합계"' : '""';
-    });
+    const totalRow = [
+      '""',
+      ...fields.map((field, idx) => {
+        if (REVENUE_SUMMABLE_FIELDS.has(field.key)) {
+          const sum = enrollments.reduce(
+            (s, enrollment) => s + (Number(field.getValue(enrollment, students, courses)) || 0),
+            0,
+          );
+          return `"${sum}"`;
+        }
+        return idx === 0 ? '"합계"' : '""';
+      }),
+    ];
     rows.push(totalRow);
   }
 
@@ -381,8 +387,9 @@ export const exportCourseStudentsToExcel = async (
   const XLSX = await import('xlsx');
   const fields = COURSE_STUDENT_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key));
 
-  const rows = data.map(({ student, enrollment }) => {
-    const row: Record<string, string | number> = {};
+  // 순번 열(1부터)을 첫 컬럼으로 추가
+  const rows = data.map(({ student, enrollment }, i) => {
+    const row: Record<string, string | number> = { 순번: i + 1 };
     fields.forEach((field) => {
       row[field.label] = field.getValue(student, enrollment);
     });
@@ -392,7 +399,7 @@ export const exportCourseStudentsToExcel = async (
   // 합계 행 추가
   const hasSummable = fields.some((f) => SUMMABLE_FIELDS.has(f.key));
   if (hasSummable) {
-    const totalRow: Record<string, string | number> = {};
+    const totalRow: Record<string, string | number> = { 순번: '' };
     fields.forEach((field, idx) => {
       if (SUMMABLE_FIELDS.has(field.key)) {
         totalRow[field.label] = data.reduce(
@@ -414,7 +421,7 @@ export const exportCourseStudentsToExcel = async (
     `강사: ${course.instructorName} | 강의실: ${course.classroom} | 수강료: ₩${course.fee.toLocaleString()} | 출력일: ${dayjs().format('YYYY-MM-DD')}`,
   ];
 
-  const colWidths = fields.map((f) => ({ wch: Math.max(f.label.length * 2, 12) }));
+  const colWidths = [{ wch: 6 }, ...fields.map((f) => ({ wch: Math.max(f.label.length * 2, 12) }))];
   const worksheet = createSheetWithHeader(XLSX, headerLines, rows, colWidths);
   applyAutoFilter(XLSX, worksheet, hasSummable);
   const workbook = XLSX.utils.book_new();
@@ -432,25 +439,30 @@ export const exportCourseStudentsToCSV = (
   quarterTag?: string
 ) => {
   const fields = COURSE_STUDENT_EXPORT_FIELDS.filter((f) => selectedFields.includes(f.key));
-  const csvHeaders = fields.map((f) => f.label);
+  // 순번 열(1부터)을 첫 컬럼으로 추가
+  const csvHeaders = ['순번', ...fields.map((f) => f.label)];
 
-  const rows = data.map(({ student, enrollment }) =>
-    fields.map((field) => `"${field.getValue(student, enrollment)}"`),
-  );
+  const rows = data.map(({ student, enrollment }, i) => [
+    `"${i + 1}"`,
+    ...fields.map((field) => `"${field.getValue(student, enrollment)}"`),
+  ]);
 
   // 합계 행 추가
   const hasSummable = fields.some((f) => SUMMABLE_FIELDS.has(f.key));
   if (hasSummable) {
-    const totalRow = fields.map((field, idx) => {
-      if (SUMMABLE_FIELDS.has(field.key)) {
-        const sum = data.reduce(
-          (s, { student, enrollment }) => s + (Number(field.getValue(student, enrollment)) || 0),
-          0,
-        );
-        return `"${sum}"`;
-      }
-      return idx === 0 ? '"합계"' : '""';
-    });
+    const totalRow = [
+      '""',
+      ...fields.map((field, idx) => {
+        if (SUMMABLE_FIELDS.has(field.key)) {
+          const sum = data.reduce(
+            (s, { student, enrollment }) => s + (Number(field.getValue(student, enrollment)) || 0),
+            0,
+          );
+          return `"${sum}"`;
+        }
+        return idx === 0 ? '"합계"' : '""';
+      }),
+    ];
     rows.push(totalRow);
   }
 
