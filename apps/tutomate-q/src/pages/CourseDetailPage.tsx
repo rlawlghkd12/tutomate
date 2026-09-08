@@ -199,7 +199,9 @@ const CourseDetailPage: React.FC = () => {
 			return;
 		}
 
+		// 내보내기는 수강취소생 제외로 통일 (수강생·수익 내보내기와 일관)
 		const data = courseEnrollments
+			.filter((e) => isActiveEnrollment(e))
 			.map((e) => ({ student: getStudentById(e.studentId), enrollment: e }))
 			.filter((es): es is { student: NonNullable<typeof es.student>; enrollment: Enrollment } => !!es.student);
 

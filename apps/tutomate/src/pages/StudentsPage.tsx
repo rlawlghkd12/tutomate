@@ -30,7 +30,6 @@ const StudentsPage: React.FC = () => {
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [selectedExportFields, setSelectedExportFields] = useState<string[]>(DEFAULT_EXPORT_FIELDS);
   const [exportScope, setExportScope] = useState<string>(getCurrentQuarter());
-  const [includeWithdrawn, setIncludeWithdrawn] = useState(false);
   const { students, loadStudents, getStudentById } = useStudentStore();
   const { enrollments, loadEnrollments } = useEnrollmentStore();
   const { courses, loadCourses } = useCourseStore();
@@ -47,18 +46,17 @@ const StudentsPage: React.FC = () => {
         : enrollments.filter((e) => e.quarter === exportScope || !e.quarter),
     [exportScope, enrollments],
   );
-  // 실제 내보낼 등록: 수강취소 미포함이면 활성 등록만
+  // 실제 내보낼 등록: 수강취소생은 항상 제외(활성 등록만)
   const exportEnrollments = useMemo(
-    () => (includeWithdrawn ? scopedEnrollments : scopedEnrollments.filter(isActiveEnrollment)),
-    [includeWithdrawn, scopedEnrollments],
+    () => scopedEnrollments.filter(isActiveEnrollment),
+    [scopedEnrollments],
   );
-  // 내보낼 수강생: 수강취소 미포함이면 "범위 내 등록이 있으나 활성 등록이 없는(수강취소만 남은)" 학생 제외
+  // 내보낼 수강생: "범위 내 등록이 있으나 활성 등록이 없는(수강취소만 남은)" 학생 제외
   const exportStudents = useMemo(() => {
-    if (includeWithdrawn) return students;
     const activeIds = new Set(exportEnrollments.map((e) => e.studentId));
     const scopedIds = new Set(scopedEnrollments.map((e) => e.studentId));
     return students.filter((s) => !scopedIds.has(s.id) || activeIds.has(s.id));
-  }, [includeWithdrawn, students, exportEnrollments, scopedEnrollments]);
+  }, [students, exportEnrollments, scopedEnrollments]);
   const exportQuarterTag = exportScope === EXPORT_SCOPE_ALL ? '전체분기' : exportScope;
 
   useEffect(() => {
@@ -152,14 +150,6 @@ const StudentsPage: React.FC = () => {
             onChange={setExportScope}
             quarters={quarterOptions}
           />
-
-          <label className="flex items-center gap-2 text-sm cursor-pointer py-2 mb-1">
-            <Checkbox
-              checked={includeWithdrawn}
-              onCheckedChange={(checked) => setIncludeWithdrawn(checked === true)}
-            />
-            수강취소생 포함
-          </label>
 
           <div className="flex justify-between items-center py-1 pb-2 border-b border-border mb-3">
             <label className="flex items-center gap-2 text-sm cursor-pointer">
