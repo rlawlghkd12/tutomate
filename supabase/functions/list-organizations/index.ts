@@ -84,16 +84,35 @@ Deno.serve(async (req) => {
     // 각 조직별 멤버·강좌·수강생·등록 수 조회
     const orgIds = (organizations || []).map((o: any) => o.id);
 
-    const [
-      { data: memberRows },
-      { data: courseRows },
-      { data: studentRows },
-      { data: enrollmentRows },
-    ] = await Promise.all([
-      supabaseAdmin.from('user_organizations').select('organization_id').in('organization_id', orgIds),
-      supabaseAdmin.from('courses').select('organization_id').in('organization_id', orgIds),
-      supabaseAdmin.from('students').select('organization_id').in('organization_id', orgIds),
-      supabaseAdmin.from('enrollments').select('organization_id').in('organization_id', orgIds),
+    // 서버 최대 행 수(Max rows)를 넘으면 행이 잘려 개수가 줄어들므로 페이지 단위로 끝까지 읽는다.
+    const PAGE = 1000;
+    // 페이지 순서가 흔들리지 않도록 각 테이블의 고유 키로 정렬 (user_organizations는 id 없이 복합 키)
+    const fetchOrgIds = async (
+      table: string,
+      keyCol: string = 'id',
+    ): Promise<{ organization_id: string }[]> => {
+      const all: { organization_id: string }[] = [];
+      for (let from = 0; from < 500 * PAGE; ) {
+        const { data, error } = await supabaseAdmin
+          .from(table)
+          .select('organization_id')
+          .in('organization_id', orgIds)
+          .order('organization_id')
+          .order(keyCol)
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        from += data.length;
+      }
+      return all;
+    };
+
+    const [memberRows, courseRows, studentRows, enrollmentRows] = await Promise.all([
+      fetchOrgIds('user_organizations', 'user_id'),
+      fetchOrgIds('courses'),
+      fetchOrgIds('students'),
+      fetchOrgIds('enrollments'),
     ]);
 
     const count = (rows: any[] | null) => {

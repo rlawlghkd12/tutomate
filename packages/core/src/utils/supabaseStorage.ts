@@ -3,6 +3,7 @@ import { AppError, ErrorType, ErrorCode } from "./errors";
 import type { ErrorCodeType } from "./errors";
 import { logError, logInfo } from "./logger";
 import { reportError } from "./errorReporter";
+import { fetchAllPages, FETCH_PAGE_SIZE } from "./fetchAll";
 
 type TableName = "courses" | "students" | "enrollments" | "monthly_payments" | "payment_records";
 
@@ -57,20 +58,32 @@ function toAppError(error: unknown, operation: string, table: string): AppError 
 	});
 }
 
+/** 한 번에 요청하는 행 수. 서버 최대 행 수(Max rows)보다 작거나 같아야 한다. */
+export const LOAD_PAGE_SIZE = FETCH_PAGE_SIZE;
+
 /**
- * Supabase에서 데이터 전체 로드
+ * Supabase에서 데이터 전체 로드.
+ *
+ * PostgREST는 한 요청에 최대 행 수(Max rows)까지만 돌려주고 나머지는 말없이 버린다.
+ * 그래서 id 순으로 정렬해 페이지 단위로 끝까지 읽는다 (fetchAllPages 참고).
  */
 export async function supabaseLoadData<T>(table: TableName): Promise<T[]> {
 	if (!supabase) throw new Error("Supabase not configured");
+	const db = supabase;
 
-	const { data, error } = await supabase.from(table).select("*");
+	const { data, error, truncated } = await fetchAllPages<T>((from, to) =>
+		db.from(table).select("*").order("id", { ascending: true }).range(from, to),
+	);
 
 	if (error) {
 		throw toAppError(error, 'load', table);
 	}
+	if (truncated) {
+		logError(`Load stopped at page limit: ${table}`, { data: { loaded: data.length } });
+	}
 
 	logInfo(`Loaded ${data.length} items from Supabase: ${table}`);
-	return data as T[];
+	return data;
 }
 
 /**

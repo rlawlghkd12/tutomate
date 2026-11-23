@@ -42,6 +42,7 @@ import {
   TooltipTrigger,
 } from '../ui/tooltip';
 
+import { useIncrementalRows, LoadMoreButton } from '../common/useIncrementalRows';
 import StudentForm from './StudentForm';
 import EnrollmentForm from './EnrollmentForm';
 
@@ -296,6 +297,12 @@ const StudentList: React.FC<StudentListProps> = ({ actions, enrollments: enrollm
     getRowId: (row) => row.rowKey,
   });
 
+  // 수강생이 수백 명이면 한 번에 다 그리지 않고 스크롤에 맞춰 나눠 그린다
+  const sortedRows = table.getRowModel().rows;
+  const incremental = useIncrementalRows(sortedRows, {
+    resetKey: `${searchText}|${searchField}|${JSON.stringify(sorting)}`,
+  });
+
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -377,8 +384,8 @@ const StudentList: React.FC<StudentListProps> = ({ actions, enrollments: enrollm
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows.length > 0 ? (
-            table.getRowModel().rows.map((row) => (
+          {sortedRows.length > 0 ? (
+            incremental.visible.map((row) => (
               <TableRow key={row.id}>
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id} style={{ width: cell.column.getSize() }}>
@@ -396,6 +403,11 @@ const StudentList: React.FC<StudentListProps> = ({ actions, enrollments: enrollm
           )}
         </TableBody>
       </Table>
+      <LoadMoreButton
+        remaining={incremental.remaining}
+        onClick={incremental.loadMore}
+        sentinelRef={incremental.sentinelRef}
+      />
       </div>
       <StudentForm
         visible={isModalVisible}

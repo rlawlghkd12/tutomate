@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { supabase } from '../../config/supabase';
+import { fetchAllPages } from '../../utils/fetchAll';
 import { getCurrentQuarter } from '../../utils/quarterUtils';
 import type { ToolHandler } from '../types';
 
@@ -24,20 +25,21 @@ export const getOrgStats: ToolHandler<typeof schema> = {
 
     console.log('[getOrgStats] querying org_id=', ctx.orgId);
 
-    // head:true + count 조합이 빈 응답 내는 케이스가 있어 일반 select로 카운트
+    // head:true + count 조합이 빈 응답 내는 케이스가 있어 일반 select로 카운트.
+    // 서버 최대 행 수를 넘으면 개수가 잘리므로 페이지 단위로 끝까지 센다.
+    const db = supabase;
     const [studentsRes, coursesRes, enrollmentsRes] = await Promise.all([
-      supabase.from('students').select('id'),
-      supabase.from('courses').select('id'),
+      fetchAllPages((from, to) => db.from('students').select('id').order('id').range(from, to)),
+      fetchAllPages((from, to) => db.from('courses').select('id').order('id').range(from, to)),
       // 활성 등록 = 탈퇴(withdrawn) 아닌 등록 (enrollments에 status 컬럼은 없고 payment_status 사용)
-      supabase
-        .from('enrollments')
-        .select('id')
-        .neq('payment_status', 'withdrawn'),
+      fetchAllPages((from, to) =>
+        db.from('enrollments').select('id').neq('payment_status', 'withdrawn').order('id').range(from, to),
+      ),
     ]);
 
-    console.log('[getOrgStats] students:', { rows: studentsRes.data?.length, error: studentsRes.error });
-    console.log('[getOrgStats] courses:', { rows: coursesRes.data?.length, error: coursesRes.error });
-    console.log('[getOrgStats] enrollments:', { rows: enrollmentsRes.data?.length, error: enrollmentsRes.error });
+    console.log('[getOrgStats] students:', { rows: studentsRes.data.length, error: studentsRes.error });
+    console.log('[getOrgStats] courses:', { rows: coursesRes.data.length, error: coursesRes.error });
+    console.log('[getOrgStats] enrollments:', { rows: enrollmentsRes.data.length, error: enrollmentsRes.error });
 
     // 현재 supabase auth 상태도 같이 (인증 적용됐는지 검증용)
     const { data: authData } = await supabase.auth.getSession();
@@ -57,25 +59,29 @@ export const getOrgStats: ToolHandler<typeof schema> = {
         }
       }
       console.error('[getOrgStats] supabase error own-props:', JSON.stringify(errDump, null, 2));
-      throw new Error(err?.message || (err as any)?.code || 'DB 조회 실패 — RLS 또는 인증 문제 가능');
+      throw new Error((err as any)?.message || (err as any)?.code || 'DB 조회 실패 — RLS 또는 인증 문제 가능');
     }
 
     // 매출은 수익 관리 페이지와 동일 기준: 현재 분기, 탈퇴/면제 제외 등록의 paid_amount 합
     const quarter = getCurrentQuarter();
-    const { data: revEnrolls, error: revErr } = await supabase
-      .from('enrollments')
-      .select('paid_amount')
-      .neq('payment_status', 'withdrawn')
-      .neq('payment_status', 'exempt')
-      .eq('quarter', quarter);
+    const { data: revEnrolls, error: revErr } = await fetchAllPages((from, to) =>
+      db
+        .from('enrollments')
+        .select('id, paid_amount')
+        .neq('payment_status', 'withdrawn')
+        .neq('payment_status', 'exempt')
+        .eq('quarter', quarter)
+        .order('id')
+        .range(from, to),
+    );
     if (revErr) console.warn('[getOrgStats] revenue query error:', revErr);
-    const currentQuarterRevenue = (revEnrolls ?? []).reduce((s, e: any) => s + (e.paid_amount ?? 0), 0);
+    const currentQuarterRevenue = revEnrolls.reduce((s, e: any) => s + (e.paid_amount ?? 0), 0);
 
     const result = {
       orgId: ctx.orgId,
-      totalStudents: studentsRes.data?.length ?? 0,
-      totalCourses: coursesRes.data?.length ?? 0,
-      activeEnrollments: enrollmentsRes.data?.length ?? 0,
+      totalStudents: studentsRes.data.length,
+      totalCourses: coursesRes.data.length,
+      activeEnrollments: enrollmentsRes.data.length,
       // 수익 관리 페이지와 동일 기준 매출 (등록 누적 납부액)
       currentQuarter: quarter,
       currentQuarterRevenue,

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { supabase } from '../../config/supabase';
+import { fetchAllByIds } from '../../utils/fetchAll';
 import { computeEnrollmentSync } from '../persist/enrollmentSync';
 import { planUndo, toUndoTargets, type UndoState, type SavedItem } from '../import/undoPlan';
 import { buildUndoLogEntries } from '../import/importAudit';
@@ -48,12 +49,16 @@ export const undoImport: ToolHandler<typeof schema> = {
     const enrollmentIds = Array.from(new Set(items.map((i) => i.enrollmentId)));
 
     // 대상 기록의 현재 상태 (RLS로 현재 조직만 반환 → org 가드 내장)
-    const { data: targetRecs } = await db
-      .from('payment_records')
-      .select('id, amount, paid_at')
-      .in('id', recordIds);
+    const { data: targetRecs } = await fetchAllByIds(recordIds, (chunk, from, to) =>
+      db
+        .from('payment_records')
+        .select('id, amount, paid_at')
+        .in('id', chunk)
+        .order('id')
+        .range(from, to),
+    );
     const recordById = new Map<string, { exists: boolean; amount: number; paidAt: string }>();
-    for (const r of targetRecs ?? []) {
+    for (const r of targetRecs) {
       recordById.set((r as any).id, {
         exists: true,
         amount: Number((r as any).amount),
@@ -62,12 +67,16 @@ export const undoImport: ToolHandler<typeof schema> = {
     }
 
     // 등록별 현재 전체 기록 (개수·환불여부 판정 + 삭제 후 재동기화용)
-    const { data: enrollRecs } = await db
-      .from('payment_records')
-      .select('id, enrollment_id, amount, paid_at')
-      .in('enrollment_id', enrollmentIds);
+    const { data: enrollRecs } = await fetchAllByIds(enrollmentIds, (chunk, from, to) =>
+      db
+        .from('payment_records')
+        .select('id, enrollment_id, amount, paid_at')
+        .in('enrollment_id', chunk)
+        .order('id')
+        .range(from, to),
+    );
     const recsByEnroll = new Map<string, { id: string; amount: number; paidAt: string }[]>();
-    for (const r of enrollRecs ?? []) {
+    for (const r of enrollRecs) {
       const eid = (r as any).enrollment_id;
       const arr = recsByEnroll.get(eid) ?? [];
       arr.push({ id: (r as any).id, amount: Number((r as any).amount), paidAt: (r as any).paid_at });
@@ -81,14 +90,18 @@ export const undoImport: ToolHandler<typeof schema> = {
     }
 
     // enrollment 메타 (재동기화용 effectiveFee·상태)
-    const { data: enrolls } = await db
-      .from('enrollments')
-      .select('id, discount_amount, payment_status, courses(fee)')
-      .in('id', enrollmentIds);
+    const { data: enrolls } = await fetchAllByIds(enrollmentIds, (chunk, from, to) =>
+      db
+        .from('enrollments')
+        .select('id, discount_amount, payment_status, courses(fee)')
+        .in('id', chunk)
+        .order('id')
+        .range(from, to),
+    );
     const effFeeBy = new Map<string, number>();
     const statusBy = new Map<string, string>();
     const validEnroll = new Set<string>();
-    for (const e of enrolls ?? []) {
+    for (const e of enrolls) {
       const fee = Number((e as any).courses?.fee ?? 0);
       const disc = Number((e as any).discount_amount ?? 0);
       effFeeBy.set((e as any).id, Math.max(0, fee - disc));

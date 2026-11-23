@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Check, AlertTriangle } from 'lucide-react';
 import type { SmartCard, ImportPreviewRow } from '@tutomate/core';
+import { useIncrementalRows, LoadMoreButton } from '@tutomate/ui';
 
 /** confirmImport에 넘길 저장 대상 결제 행 */
 export type PaymentSelection = {
@@ -80,6 +81,9 @@ function EnrichedRows({
       return next;
     });
 
+  // 엑셀 행이 수백 개여도 미리보기는 스크롤에 맞춰 나눠 그린다 (선택·저장은 전체 기준 그대로)
+  const incremental = useIncrementalRows(previewRows);
+
   const counts = useMemo(() => {
     const total = previewRows.filter(selectable).length;
     return { total, sel: checked.size };
@@ -128,7 +132,7 @@ function EnrichedRows({
         </div>
       </div>
       <div className="bg-background border border-border rounded-xl p-2 mb-3 max-h-72 overflow-y-auto">
-        {previewRows.map((r) => {
+        {incremental.visible.map((r) => {
           const can = selectable(r);
           const pick = needsPick(r);
           return (
@@ -193,6 +197,11 @@ function EnrichedRows({
             </div>
           );
         })}
+        <LoadMoreButton
+          remaining={incremental.remaining}
+          onClick={incremental.loadMore}
+          sentinelRef={incremental.sentinelRef}
+        />
       </div>
       <div className="text-xs text-muted-foreground mb-2 flex items-start gap-1.5">
         <Check className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-600" />

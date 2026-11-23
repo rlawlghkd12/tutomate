@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import dayjs from 'dayjs';
 import { supabase } from '../../config/supabase';
+import { fetchAllPages, errorMessage } from '../../utils/fetchAll';
 import type { ToolHandler } from '../types';
 
 const schema = z.object({
@@ -15,17 +16,22 @@ export const getUnpaidStudents: ToolHandler<typeof schema> = {
     if (!supabase) throw new Error('Supabase 미설정');
     const target = month ?? dayjs().format('YYYY-MM');
 
-    const { data, error } = await supabase
-      .from('monthly_payments')
-      .select(
-        'enrollment_id, status, amount, paid_at, ' +
-          'enrollments!inner(student_id, course_id, students!inner(id, name, phone), courses(name))',
-      )
-      .eq('month', target)
-      .eq('status', 'pending');
-    if (error) throw new Error(error.message);
+    const db = supabase;
+    const { data, error } = await fetchAllPages((from, to) =>
+      db
+        .from('monthly_payments')
+        .select(
+          'id, enrollment_id, status, amount, paid_at, ' +
+            'enrollments!inner(student_id, course_id, students!inner(id, name, phone), courses(name))',
+        )
+        .eq('month', target)
+        .eq('status', 'pending')
+        .order('id')
+        .range(from, to),
+    );
+    if (error) throw new Error(errorMessage(error));
 
-    const unpaid = (data ?? []).map((mp: any) => ({
+    const unpaid = data.map((mp: any) => ({
       student_id: mp.enrollments?.student_id,
       student_name: mp.enrollments?.students?.name,
       phone: mp.enrollments?.students?.phone,

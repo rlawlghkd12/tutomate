@@ -51,7 +51,9 @@ import {
   supabaseDelete,
   supabaseBulkInsert,
   normalizeError,
+  LOAD_PAGE_SIZE,
 } from '../supabaseStorage';
+import { logError } from '../logger';
 import { AppError, ErrorCode } from '../errors';
 
 // supabase 모듈을 가져와서 내부 from mock에 접근
@@ -59,17 +61,30 @@ import { supabase } from '../../config/supabase';
 
 // ─── 헬퍼: supabase.from().xxx 를 원하는 응답으로 설정 ─────────────────────────
 
-function setupSelectResponse(response: { data: unknown[] | null; error: unknown }) {
-  const eqMock = vi.fn().mockResolvedValue(response);
-  const selectMock = vi.fn().mockResolvedValue(response);
+type SelectResponse = { data: unknown[] | null; error: unknown };
+
+/** 페이지 응답을 차례로 돌려준다. 준비한 페이지가 끝나면 빈 페이지. */
+function setupPagedSelect(pages: SelectResponse[]) {
+  const rangeMock = vi.fn();
+  for (const p of pages) rangeMock.mockResolvedValueOnce(p);
+  rangeMock.mockResolvedValue({ data: [], error: null });
+  const orderMock = vi.fn(() => ({ range: rangeMock }));
+  const selectMock = vi.fn(() => ({ order: orderMock }));
   (supabase!.from as ReturnType<typeof vi.fn>).mockReturnValue({
     select: selectMock,
     insert: vi.fn(),
-    update: vi.fn(() => ({ eq: eqMock })),
-    delete: vi.fn(() => ({ eq: eqMock })),
+    update: vi.fn(),
+    delete: vi.fn(),
   });
-  return { selectMock, eqMock };
+  return { selectMock, orderMock, rangeMock };
 }
+
+function setupSelectResponse(response: SelectResponse) {
+  return setupPagedSelect([response]);
+}
+
+const makeRows = (start: number, count: number) =>
+  Array.from({ length: count }, (_, i) => ({ id: `r${String(start + i).padStart(6, '0')}` }));
 
 function setupInsertResponse(response: { error: unknown }) {
   const insertMock = vi.fn().mockResolvedValue(response);
@@ -141,6 +156,76 @@ describe('supabaseLoadData', () => {
     setupSelectResponse({ data: [{ id: 'mp1' }], error: null });
     const result = await supabaseLoadData('monthly_payments');
     expect(result).toHaveLength(1);
+  });
+
+  it('id 순으로 정렬해 첫 페이지를 0~999로 요청', async () => {
+    const { orderMock, rangeMock } = setupSelectResponse({ data: [{ id: 'a' }], error: null });
+    await supabaseLoadData('enrollments');
+    expect(orderMock).toHaveBeenCalledWith('id', { ascending: true });
+    expect(rangeMock).toHaveBeenNthCalledWith(1, 0, LOAD_PAGE_SIZE - 1);
+  });
+
+  it('1,000행을 넘으면 다음 페이지까지 모두 읽음 (1,034행)', async () => {
+    const { rangeMock } = setupPagedSelect([
+      { data: makeRows(0, 1000), error: null },
+      { data: makeRows(1000, 34), error: null },
+    ]);
+    const result = await supabaseLoadData('enrollments');
+    expect(result).toHaveLength(1034);
+    expect(rangeMock).toHaveBeenNthCalledWith(2, 1000, 1999);
+    expect(rangeMock).toHaveBeenNthCalledWith(3, 1034, 2033);
+    expect(rangeMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('서버 한도가 페이지보다 작아도(500행씩) 빠짐없이 읽음', async () => {
+    const { rangeMock } = setupPagedSelect([
+      { data: makeRows(0, 500), error: null },
+      { data: makeRows(500, 500), error: null },
+      { data: makeRows(1000, 200), error: null },
+    ]);
+    const result = await supabaseLoadData('monthly_payments');
+    expect(result).toHaveLength(1200);
+    expect(rangeMock).toHaveBeenNthCalledWith(2, 500, 1499);
+    expect(rangeMock).toHaveBeenNthCalledWith(3, 1000, 1999);
+  });
+
+  it('페이지 경계에서 같은 id가 두 번 오면 한 번만 담음', async () => {
+    setupPagedSelect([
+      { data: makeRows(0, 3), error: null },
+      { data: [...makeRows(2, 1), ...makeRows(3, 2)], error: null },
+    ]);
+    const result = (await supabaseLoadData('students')) as { id: string }[];
+    expect(result.map((r) => r.id)).toEqual(makeRows(0, 5).map((r) => r.id));
+  });
+
+  it('id가 없는 행도 버리지 않음', async () => {
+    setupSelectResponse({ data: [{ name: 'x' }, { name: 'y' }], error: null });
+    const result = await supabaseLoadData('courses');
+    expect(result).toHaveLength(2);
+  });
+
+  it('두 번째 페이지에서 에러 → AppError throw (부분 데이터 반환 안 함)', async () => {
+    setupPagedSelect([
+      { data: makeRows(0, 1000), error: null },
+      { data: null, error: { message: 'timeout' } },
+    ]);
+    await expect(supabaseLoadData('enrollments')).rejects.toBeInstanceOf(AppError);
+  });
+
+  it('페이지 상한(500)에서 멈추고 기록함', async () => {
+    const rangeMock = vi.fn((from: number) =>
+      Promise.resolve({ data: [{ id: `p${from}` }], error: null }),
+    );
+    (supabase!.from as ReturnType<typeof vi.fn>).mockReturnValue({
+      select: vi.fn(() => ({ order: vi.fn(() => ({ range: rangeMock })) })),
+    });
+    const result = await supabaseLoadData('courses');
+    expect(rangeMock).toHaveBeenCalledTimes(500);
+    expect(result).toHaveLength(500);
+    expect(logError).toHaveBeenCalledWith(
+      'Load stopped at page limit: courses',
+      expect.anything(),
+    );
   });
 });
 

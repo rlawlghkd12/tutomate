@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { supabase } from '../../config/supabase';
+import { fetchAllPages, fetchAllByIds, errorMessage } from '../../utils/fetchAll';
 import { getCurrentQuarter, getPreviousQuarter, getQuarterForDate } from '../../utils/quarterUtils';
 import { parseBankExcel } from '../bank/parseBankExcel';
 import {
@@ -41,14 +42,17 @@ export const analyzeBankDeposits: ToolHandler<typeof schema> = {
       return { error: '입금/출금 내역을 찾지 못했습니다. 거래내역 엑셀이 맞는지 확인해주세요.' };
     }
 
+    const db = supabase;
     const [coursesRes, studentsRes, enrollsRes] = await Promise.all([
-      supabase.from('courses').select('id, name, fee'),
-      supabase.from('students').select('id, name'),
-      supabase.from('enrollments').select('id, student_id, course_id, quarter'),
+      fetchAllPages((from, to) => db.from('courses').select('id, name, fee').order('id').range(from, to)),
+      fetchAllPages((from, to) => db.from('students').select('id, name').order('id').range(from, to)),
+      fetchAllPages((from, to) =>
+        db.from('enrollments').select('id, student_id, course_id, quarter').order('id').range(from, to),
+      ),
     ]);
-    if (coursesRes.error) throw new Error(coursesRes.error.message);
-    if (studentsRes.error) throw new Error(studentsRes.error.message);
-    if (enrollsRes.error) throw new Error(enrollsRes.error.message);
+    if (coursesRes.error) throw new Error(errorMessage(coursesRes.error));
+    if (studentsRes.error) throw new Error(errorMessage(studentsRes.error));
+    if (enrollsRes.error) throw new Error(errorMessage(enrollsRes.error));
 
     // 현재 분기로 제한 — '2분기 정리'면 1분기 등록/결제는 보지 않는다.
     // (분기 없는 데이터=일반 버전은 그대로 통과시켜 양쪽 앱 모두 안전)
@@ -56,13 +60,13 @@ export const analyzeBankDeposits: ToolHandler<typeof schema> = {
     // 이번 분기 미등록이라고 무조건 '신규'로 뜨지 않고, 지난 분기 등록에 저장하는 선택지를 준다.
     const targetQuarter = getCurrentQuarter();
     const prevQuarter = getPreviousQuarter(targetQuarter);
-    const courses = (coursesRes.data ?? []).map((c: any) => ({
+    const courses = coursesRes.data.map((c: any) => ({
       id: c.id,
       name: c.name,
       fee: c.fee ?? 0,
     }));
-    const students = (studentsRes.data ?? []).map((s: any) => ({ id: s.id, name: s.name }));
-    const allEnrolls = enrollsRes.data ?? [];
+    const students = studentsRes.data.map((s: any) => ({ id: s.id, name: s.name }));
+    const allEnrolls = enrollsRes.data;
     const enrollments = allEnrolls
       .filter((e: any) => !e.quarter || e.quarter === targetQuarter)
       .map((e: any) => ({ id: e.id, studentId: e.student_id, courseId: e.course_id }));
@@ -118,11 +122,15 @@ export const analyzeBankDeposits: ToolHandler<typeof schema> = {
     const existKey = new Set<string>(); // 같은 날·같은 금액 (정확 중복)
     const monthKey = new Set<string>(); // 같은 달·같은 금액 (수동입력 등 날짜만 다른 중복 의심)
     if (allEnrollmentIds.length > 0) {
-      const { data: existing } = await supabase
-        .from('payment_records')
-        .select('enrollment_id, paid_at, amount')
-        .in('enrollment_id', allEnrollmentIds);
-      for (const e of existing ?? []) {
+      const { data: existing } = await fetchAllByIds(allEnrollmentIds, (chunk, from, to) =>
+        db
+          .from('payment_records')
+          .select('id, enrollment_id, paid_at, amount')
+          .in('enrollment_id', chunk)
+          .order('id')
+          .range(from, to),
+      );
+      for (const e of existing) {
         const eid = (e as any).enrollment_id;
         const paidAt = (e as any).paid_at;
         const amount = (e as any).amount;

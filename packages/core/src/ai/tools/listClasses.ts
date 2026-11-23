@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { supabase } from '../../config/supabase';
+import { fetchAllPages, fetchAllByIds, errorMessage } from '../../utils/fetchAll';
 import { DAY_LABELS } from '../../types';
 import { formatClassTime } from '../../utils/scheduleUtils';
 import { getCurrentQuarter } from '../../utils/quarterUtils';
@@ -35,14 +36,19 @@ async function activeCounts(courseIds: string[]): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
   if (!courseIds.length || !supabase) return counts;
   const quarter = getCurrentQuarter();
-  const { data, error } = await supabase
-    .from('enrollments')
-    .select('course_id')
-    .in('course_id', courseIds)
-    .neq('payment_status', 'withdrawn')
-    .eq('quarter', quarter);
-  if (error) throw new Error(error.message);
-  for (const e of data ?? []) {
+  const db = supabase;
+  const { data, error } = await fetchAllByIds(courseIds, (chunk, from, to) =>
+    db
+      .from('enrollments')
+      .select('id, course_id')
+      .in('course_id', chunk)
+      .neq('payment_status', 'withdrawn')
+      .eq('quarter', quarter)
+      .order('id')
+      .range(from, to),
+  );
+  if (error) throw new Error(errorMessage(error));
+  for (const e of data) {
     const id = (e as any).course_id;
     counts.set(id, (counts.get(id) ?? 0) + 1);
   }
@@ -65,9 +71,12 @@ export const listClasses: ToolHandler<typeof schema> = {
       if (error) throw new Error(error.message);
       courses = (data ?? []).map((r: any) => r.courses);
     } else {
-      const { data, error } = await supabase.from('courses').select(COLUMNS);
-      if (error) throw new Error(error.message);
-      courses = data ?? [];
+      const db = supabase;
+      const { data, error } = await fetchAllPages((from, to) =>
+        db.from('courses').select(COLUMNS).order('id').range(from, to),
+      );
+      if (error) throw new Error(errorMessage(error));
+      courses = data;
     }
     const counts = await activeCounts(courses.map((c) => c.id));
     return { classes: courses.map((c) => shape(c, counts.get(c.id) ?? 0)) };

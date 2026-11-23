@@ -77,3 +77,4 @@ export { MemberManagementPage } from './components/members/MemberManagementPage'
 export { default as EnrollmentForm } from './components/students/EnrollmentForm';
 export { default as StudentForm } from './components/students/StudentForm';
 export { default as StudentList } from './components/students/StudentList';
+export { useIncrementalRows, LoadMoreButton, INCREMENTAL_PAGE_SIZE } from './components/common/useIncrementalRows';

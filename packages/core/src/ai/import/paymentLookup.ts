@@ -6,6 +6,7 @@
  * enrollments·기존결제는 매칭된 학생만 조회해 범위를 좁힌다. 은행 흐름과 동일 패턴.
  */
 import { supabase } from '../../config/supabase';
+import { fetchAllPages, fetchAllByIds } from '../../utils/fetchAll';
 import { norm } from '../matching/normalize';
 import type { PreviewLookup, PreviewRowInput } from './buildPreview';
 import type { DedupPayment } from '../dedup/DedupChecker';
@@ -20,8 +21,10 @@ export async function buildPaymentLookup(rows: PreviewRowInput[]): Promise<Previ
   const rowPhones = new Set(rows.map((r) => digitsOnly(r.phone)).filter(Boolean));
   const rowNames = new Set(rows.map((r) => norm(r.name)).filter(Boolean));
 
-  const { data: allStudents } = await db.from('students').select('id, name, phone');
-  const students = (allStudents ?? [])
+  const { data: allStudents } = await fetchAllPages((from, to) =>
+    db.from('students').select('id, name, phone').order('id').range(from, to),
+  );
+  const students = allStudents
     .filter(
       (s: any) =>
         (s.phone && rowPhones.has(digitsOnly(s.phone))) || (s.name && rowNames.has(norm(s.name))),
@@ -30,15 +33,19 @@ export async function buildPaymentLookup(rows: PreviewRowInput[]): Promise<Previ
   const studentIds = students.map((s) => s.id);
   if (studentIds.length === 0) return null;
 
-  const { data: enrolls } = await db
-    .from('enrollments')
-    .select('id, student_id, course_id, discount_amount, quarter, courses(name, fee)')
-    .in('student_id', studentIds);
+  const { data: enrolls } = await fetchAllByIds(studentIds, (chunk, from, to) =>
+    db
+      .from('enrollments')
+      .select('id, student_id, course_id, discount_amount, quarter, courses(name, fee)')
+      .in('student_id', chunk)
+      .order('id')
+      .range(from, to),
+  );
 
   const courses: { id: string; name: string; fee: number }[] = [];
   const seenCourse = new Set<string>();
   const effectiveFeeByEnrollment = new Map<string, number>();
-  for (const e of enrolls ?? []) {
+  for (const e of enrolls) {
     const cid = (e as any).course_id;
     const cname = (e as any).courses?.name ?? '';
     const fee = Number((e as any).courses?.fee ?? 0);
@@ -50,14 +57,18 @@ export async function buildPaymentLookup(rows: PreviewRowInput[]): Promise<Previ
     }
   }
 
-  const enrollmentIds = (enrolls ?? []).map((e: any) => e.id);
+  const enrollmentIds = enrolls.map((e: any) => e.id);
   const existingByEnrollment = new Map<string, DedupPayment[]>();
   if (enrollmentIds.length > 0) {
-    const { data: pays } = await db
-      .from('payment_records')
-      .select('enrollment_id, paid_at, amount')
-      .in('enrollment_id', enrollmentIds);
-    for (const p of pays ?? []) {
+    const { data: pays } = await fetchAllByIds(enrollmentIds, (chunk, from, to) =>
+      db
+        .from('payment_records')
+        .select('id, enrollment_id, paid_at, amount')
+        .in('enrollment_id', chunk)
+        .order('id')
+        .range(from, to),
+    );
+    for (const p of pays) {
       const eid = (p as any).enrollment_id;
       const list = existingByEnrollment.get(eid) ?? [];
       list.push({ paidAt: (p as any).paid_at, amount: Number((p as any).amount) });
@@ -68,7 +79,7 @@ export async function buildPaymentLookup(rows: PreviewRowInput[]): Promise<Previ
   return {
     students,
     courses,
-    enrollments: (enrolls ?? []).map((e: any) => ({
+    enrollments: enrolls.map((e: any) => ({
       id: e.id,
       studentId: e.student_id,
       courseId: e.course_id,

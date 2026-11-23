@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { supabase } from '../../config/supabase';
+import { fetchAllPages, errorMessage } from '../../utils/fetchAll';
 import type { ToolHandler } from '../types';
 
 const schema = z.object({
@@ -21,18 +22,19 @@ export const getRevenue: ToolHandler<typeof schema> = {
   async execute({ quarter, classId }, _ctx) {
     if (!supabase) throw new Error('Supabase 미설정');
 
-    let q = supabase
-      .from('enrollments')
-      .select('paid_amount, payment_status, quarter, course_id, courses(name, fee)')
-      // 페이지와 동일: 탈퇴/면제 제외
-      .neq('payment_status', 'withdrawn')
-      .neq('payment_status', 'exempt');
-    if (quarter) q = q.eq('quarter', quarter);
-    if (classId) q = q.eq('course_id', classId);
-
-    const { data, error } = await q;
-    if (error) throw new Error(error.message);
-    const rows = data ?? [];
+    const db = supabase;
+    const { data: rows, error } = await fetchAllPages((from, to) => {
+      let q = db
+        .from('enrollments')
+        .select('id, paid_amount, payment_status, quarter, course_id, courses(name, fee)')
+        // 페이지와 동일: 탈퇴/면제 제외
+        .neq('payment_status', 'withdrawn')
+        .neq('payment_status', 'exempt');
+      if (quarter) q = q.eq('quarter', quarter);
+      if (classId) q = q.eq('course_id', classId);
+      return q.order('id').range(from, to);
+    });
+    if (error) throw new Error(errorMessage(error));
 
     const byCourse = new Map<string, { courseId: string; courseName: string | null; studentCount: number; revenue: number; expected: number }>();
     for (const r of rows as any[]) {

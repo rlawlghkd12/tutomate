@@ -11,10 +11,13 @@ import * as XLSX from 'xlsx';
 const h = vi.hoisted(() => ({ db: {} as Record<string, any[]>, inserted: {} as Record<string, any[]>, updated: [] as any[] }));
 
 vi.mock('../../../config/supabase', () => {
-  const thenable = (rows: any[]) => {
+  // select() 이후 체인: .in()/.order()/.range() 지원 (fetchAllPages·fetchAllByIds 경로)
+  const thenable = (rows: any[]): any => {
     const p: any = Promise.resolve({ data: rows, error: null });
-    p.in = (col: string, vals: any[]) =>
-      Promise.resolve({ data: rows.filter((r: any) => vals.includes(r[col])), error: null });
+    p.in = (col: string, vals: any[]) => thenable(rows.filter((r: any) => vals.includes(r[col])));
+    p.order = () => thenable(rows);
+    p.range = (from: number, to: number) =>
+      Promise.resolve({ data: rows.slice(from, to + 1), error: null });
     return p;
   };
   const client = {

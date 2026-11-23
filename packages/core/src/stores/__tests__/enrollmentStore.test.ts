@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { withPaging } from "../../__tests__/pagedSelect";
 
 // Mock authStore
 vi.mock("../authStore", () => ({
@@ -21,7 +22,7 @@ const mockDelete = vi
 vi.mock("../../config/supabase", () => ({
 	supabase: {
 		from: () => ({
-			select: mockSelect,
+			select: (...args: unknown[]) => withPaging(mockSelect(...args)),
 			insert: mockInsert,
 			update: mockUpdate,
 			delete: mockDelete,

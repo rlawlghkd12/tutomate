@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { withPaging } from "../../__tests__/pagedSelect";
 
 vi.mock("../authStore", () => ({
 	isCloud: () => true,
@@ -19,7 +20,7 @@ const mockDelete = vi
 vi.mock("../../config/supabase", () => ({
 	supabase: {
 		from: () => ({
-			select: mockSelect,
+			select: (...args: unknown[]) => withPaging(mockSelect(...args)),
 			insert: mockInsert,
 			update: mockUpdate,
 			delete: mockDelete,

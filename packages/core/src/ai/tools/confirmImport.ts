@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { parseExcel } from '../../excel/ExcelParser';
 import { normalizeRow } from '../../excel/DataNormalizer';
 import { supabase } from '../../config/supabase';
+import { fetchAllByIds, errorMessage } from '../../utils/fetchAll';
 import { computeEnrollmentSync } from '../persist/enrollmentSync';
 import { resolveSelectionInserts } from '../import/resolveSelections';
 import { buildPreview, type PreviewRowInput } from '../import/buildPreview';
@@ -35,11 +36,15 @@ async function confirmPaymentSelections(
 
   // 기존 결제 이력 (정확중복 방어 + 동기화 합산용)
   const existingByEnroll = new Map<string, { paidAt: string; amount: number }[]>();
-  const { data: existingPays } = await db
-    .from('payment_records')
-    .select('enrollment_id, paid_at, amount')
-    .in('enrollment_id', enrollmentIds);
-  for (const p of existingPays ?? []) {
+  const { data: existingPays } = await fetchAllByIds(enrollmentIds, (chunk, from, to) =>
+    db
+      .from('payment_records')
+      .select('id, enrollment_id, paid_at, amount')
+      .in('enrollment_id', chunk)
+      .order('id')
+      .range(from, to),
+  );
+  for (const p of existingPays) {
     const eid = (p as any).enrollment_id;
     const list = existingByEnroll.get(eid) ?? [];
     list.push({ paidAt: (p as any).paid_at, amount: Number((p as any).amount) });
@@ -47,14 +52,18 @@ async function confirmPaymentSelections(
   }
 
   // enrollment 메타 (effectiveFee, 상태 보존, 표시용 이름)
-  const { data: enrolls } = await db
-    .from('enrollments')
-    .select('id, discount_amount, payment_status, courses(name, fee), students(name)')
-    .in('id', enrollmentIds);
+  const { data: enrolls } = await fetchAllByIds(enrollmentIds, (chunk, from, to) =>
+    db
+      .from('enrollments')
+      .select('id, discount_amount, payment_status, courses(name, fee), students(name)')
+      .in('id', chunk)
+      .order('id')
+      .range(from, to),
+  );
   const effFeeBy = new Map<string, number>();
   const statusBy = new Map<string, string>();
   const nameBy = new Map<string, { studentName: string; courseName: string }>();
-  for (const e of enrolls ?? []) {
+  for (const e of enrolls) {
     const fee = Number((e as any).courses?.fee ?? 0);
     const disc = Number((e as any).discount_amount ?? 0);
     effFeeBy.set((e as any).id, Math.max(0, fee - disc));
@@ -207,12 +216,16 @@ export const confirmImport: ToolHandler<typeof schema> = {
       const phones = rows.map((r) => r.phone).filter(Boolean) as string[];
       const existing = new Set<string>();
       if (phones.length > 0) {
-        const { data: dup, error: dupErr } = await supabase
-          .from('students')
-          .select('phone')
-          .in('phone', phones);
-        if (dupErr) throw new Error(dupErr.message);
-        for (const d of dup ?? []) {
+        const { data: dup, error: dupErr } = await fetchAllByIds(phones, (chunk, from, to) =>
+          supabase!
+            .from('students')
+            .select('id, phone')
+            .in('phone', chunk)
+            .order('id')
+            .range(from, to),
+        );
+        if (dupErr) throw new Error(errorMessage(dupErr));
+        for (const d of dup) {
           const p = (d as { phone?: string }).phone;
           if (p) existing.add(p);
         }
@@ -265,11 +278,15 @@ export const confirmImport: ToolHandler<typeof schema> = {
         const eids = lookup.enrollments.map((e) => e.id);
         const statusByEnroll = new Map<string, string>();
         if (eids.length > 0) {
-          const { data: statusRows } = await supabase
-            .from('enrollments')
-            .select('id, payment_status')
-            .in('id', eids);
-          for (const e of statusRows ?? []) statusByEnroll.set((e as any).id, (e as any).payment_status);
+          const { data: statusRows } = await fetchAllByIds(eids, (chunk, from, to) =>
+            supabase!
+              .from('enrollments')
+              .select('id, payment_status')
+              .in('id', chunk)
+              .order('id')
+              .range(from, to),
+          );
+          for (const e of statusRows) statusByEnroll.set((e as any).id, (e as any).payment_status);
         }
 
         const preview = buildPreview(rowsInput, lookup); // 결정론(자동저장 안전)

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import dayjs from 'dayjs';
 import { supabase } from '../../config/supabase';
+import { fetchAllPages, errorMessage } from '../../utils/fetchAll';
 import type { ToolHandler } from '../types';
 
 const schema = z.object({ month: z.string().regex(/^\d{4}-\d{2}$/) });
@@ -16,25 +17,34 @@ export const getMonthlySummary: ToolHandler<typeof schema> = {
     const monthStart = `${month}-01`;
     const nextMonthStart = dayjs(monthStart).add(1, 'month').format('YYYY-MM-DD');
 
-    const { data: pays, error: paysErr } = await supabase
-      .from('payment_records')
-      .select('amount')
-      .gte('paid_at', monthStart)
-      .lt('paid_at', nextMonthStart);
-    if (paysErr) throw new Error(paysErr.message);
+    const db = supabase;
+    const { data: pays, error: paysErr } = await fetchAllPages((from, to) =>
+      db
+        .from('payment_records')
+        .select('id, amount')
+        .gte('paid_at', monthStart)
+        .lt('paid_at', nextMonthStart)
+        .order('id')
+        .range(from, to),
+    );
+    if (paysErr) throw new Error(errorMessage(paysErr));
     // 입금(양수)과 환불(음수) 분리 — 합치면 매출이 음수로 보여 혼란
-    const paid = (pays ?? []).filter((p: any) => (p.amount ?? 0) > 0);
-    const refunds = (pays ?? []).filter((p: any) => (p.amount ?? 0) < 0);
+    const paid = pays.filter((p: any) => (p.amount ?? 0) > 0);
+    const refunds = pays.filter((p: any) => (p.amount ?? 0) < 0);
     const revenue = paid.reduce((s, p: any) => s + p.amount, 0);
     const refundAmount = Math.abs(refunds.reduce((s, p: any) => s + p.amount, 0));
 
-    const { data: enrolls, error: enrollErr } = await supabase
-      .from('enrollments')
-      .select('id')
-      .gte('enrolled_at', monthStart)
-      .lt('enrolled_at', nextMonthStart);
-    if (enrollErr) throw new Error(enrollErr.message);
-    const newEnrollments = enrolls?.length ?? 0;
+    const { data: enrolls, error: enrollErr } = await fetchAllPages((from, to) =>
+      db
+        .from('enrollments')
+        .select('id')
+        .gte('enrolled_at', monthStart)
+        .lt('enrolled_at', nextMonthStart)
+        .order('id')
+        .range(from, to),
+    );
+    if (enrollErr) throw new Error(errorMessage(enrollErr));
+    const newEnrollments = enrolls.length;
 
     return {
       month,

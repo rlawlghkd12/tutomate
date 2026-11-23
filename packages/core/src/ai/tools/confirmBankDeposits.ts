@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { supabase } from '../../config/supabase';
+import { fetchAllPages, fetchAllByIds, errorMessage } from '../../utils/fetchAll';
 import { getCurrentQuarter } from '../../utils/quarterUtils';
 import { parseBankExcel } from '../bank/parseBankExcel';
 import { matchDeposits } from '../bank/depositMatcher';
@@ -76,16 +77,21 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
     const buf = await ctx.fileStash.read(fileId);
     const parsed = parseBankExcel(new Uint8Array(buf));
 
+    const db = supabase;
     const [coursesRes, studentsRes, enrollsRes] = await Promise.all([
-      supabase.from('courses').select('id, name, fee'),
-      supabase.from('students').select('id, name'),
-      supabase
-        .from('enrollments')
-        .select('id, student_id, course_id, quarter, payment_status, discount_amount'),
+      fetchAllPages((from, to) => db.from('courses').select('id, name, fee').order('id').range(from, to)),
+      fetchAllPages((from, to) => db.from('students').select('id, name').order('id').range(from, to)),
+      fetchAllPages((from, to) =>
+        db
+          .from('enrollments')
+          .select('id, student_id, course_id, quarter, payment_status, discount_amount')
+          .order('id')
+          .range(from, to),
+      ),
     ]);
-    if (coursesRes.error) throw new Error(coursesRes.error.message);
+    if (coursesRes.error) throw new Error(errorMessage(coursesRes.error));
 
-    const courses = (coursesRes.data ?? []).map((c: any) => ({
+    const courses = coursesRes.data.map((c: any) => ({
       id: c.id,
       name: c.name,
       fee: c.fee ?? 0,
@@ -93,7 +99,7 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
     const courseFee = new Map(courses.map((c) => [c.id, c.fee]));
     // 저장 후 기존 등록의 납부일·납부액 동기화용 (화면 '납부일'은 enrollments.paid_at을 읽음)
     const enrollMetaById = new Map<string, { courseId: string; status: string; discount: number }>(
-      (enrollsRes.data ?? []).map((e: any) => [
+      enrollsRes.data.map((e: any) => [
         e.id,
         { courseId: e.course_id, status: e.payment_status, discount: e.discount_amount ?? 0 },
       ]),
@@ -103,8 +109,8 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
     const targetQuarter = getCurrentQuarter();
     const matches = matchDeposits(parsed.deposits, {
       courses,
-      students: (studentsRes.data ?? []).map((s: any) => ({ id: s.id, name: s.name })),
-      enrollments: (enrollsRes.data ?? [])
+      students: studentsRes.data.map((s: any) => ({ id: s.id, name: s.name })),
+      enrollments: enrollsRes.data
         .filter((e: any) => !e.quarter || e.quarter === targetQuarter)
         .map((e: any) => ({ id: e.id, studentId: e.student_id, courseId: e.course_id })),
     });
@@ -270,10 +276,14 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
 
     // 중복 방지 — 대상 enrollment의 기존 결제 이력을 모아 판정한다.
     const enrollmentIds = Array.from(new Set(candidates.map((c) => c.enrollment_id)));
-    const { data: existing } = await supabase
-      .from('payment_records')
-      .select('enrollment_id, paid_at, amount')
-      .in('enrollment_id', enrollmentIds);
+    const { data: existing } = await fetchAllByIds(enrollmentIds, (chunk, from, to) =>
+      db
+        .from('payment_records')
+        .select('id, enrollment_id, paid_at, amount')
+        .in('enrollment_id', chunk)
+        .order('id')
+        .range(from, to),
+    );
 
     // enrollment별 실효 수강료(할인 반영) — 완납/초과 판정 기준. 알 수 없으면(신규 등 0) 완납검사 생략.
     const effectiveFeeById = new Map<string, number>();
@@ -288,7 +298,7 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
     // (재업로드·다른 달 중복 이체·같은 파일 내 중복 모두 순수 함수 filterBankDuplicates에서 처리)
     const toInsert = filterBankDuplicates(
       candidates,
-      (existing ?? []).map((e: any) => ({
+      existing.map((e: any) => ({
         enrollmentId: e.enrollment_id as string,
         paidAt: e.paid_at as string,
         amount: Number(e.amount),
@@ -331,11 +341,11 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
 
       // 저장 요약(누구·강의·금액·날짜·종류) — 결과 카드에서 "무엇을 저장했는지" 보여준다.
       const studentNameById = new Map<string, string>(
-        (studentsRes.data ?? []).map((s: any) => [s.id, s.name]),
+        studentsRes.data.map((s: any) => [s.id, s.name]),
       );
       const courseNameById = new Map(courses.map((c) => [c.id, c.name]));
       const enrollDisp = new Map<string, { name: string; course: string }>();
-      for (const e of enrollsRes.data ?? []) {
+      for (const e of enrollsRes.data) {
         enrollDisp.set((e as any).id, {
           name: studentNameById.get((e as any).student_id) ?? '',
           course: courseNameById.get((e as any).course_id) ?? '',
@@ -370,7 +380,7 @@ export const confirmBankDeposits: ToolHandler<typeof schema> = {
         arr.push({ paidAt, amount });
         recsByEnroll.set(eid, arr);
       };
-      for (const e of existing ?? []) pushRec((e as any).enrollment_id, (e as any).paid_at, (e as any).amount);
+      for (const e of existing) pushRec((e as any).enrollment_id, (e as any).paid_at, (e as any).amount);
       for (const r of insertRows) pushRec(r.enrollment_id, r.paid_at, r.amount);
 
       const affected = Array.from(new Set(insertRows.map((r) => r.enrollment_id))).filter(
