@@ -149,9 +149,9 @@ const CourseEnrollForm: React.FC<CourseEnrollFormProps> = ({
 				paymentStatus = "completed";
 			}
 
-			// 포기된 기존 수강이 있으면 재활성화
+			// 같은 분기에 포기된 기존 수강이 있으면 재활성화 (다른 분기 기록은 건드리지 않고 새로 등록)
 			const withdrawnEnrollment = enrollments.find(
-				(e) => e.studentId === values.studentId && e.courseId === courseId && e.paymentStatus === PaymentStatus.WITHDRAWN,
+				(e) => e.studentId === values.studentId && e.courseId === courseId && e.paymentStatus === PaymentStatus.WITHDRAWN && quarterFilter(e),
 			);
 
 			if (withdrawnEnrollment) {

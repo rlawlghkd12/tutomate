@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import EnrollmentForm from '../EnrollmentForm';
 
 /* ------------------------------------------------------------------ */
@@ -9,7 +9,13 @@ import EnrollmentForm from '../EnrollmentForm';
 const mockAddEnrollment = vi.fn().mockResolvedValue(undefined);
 const mockAddPayment = vi.fn().mockResolvedValue(undefined);
 const mockGetCourseById = vi.fn();
+const mockUpdateEnrollment = vi.fn().mockResolvedValue(undefined);
 const mockEnrollments: import('@tutomate/core').Enrollment[] = [];
+const mockAppConfig = vi.hoisted(() => ({
+  enableMemberFeature: false,
+  hideAddressField: false,
+  enableQuarterSystem: false,
+}));
 
 vi.mock('@tutomate/core', () => ({
   useCourseStore: () => ({
@@ -41,10 +47,14 @@ vi.mock('@tutomate/core', () => ({
     ],
     getCourseById: mockGetCourseById,
   }),
-  useEnrollmentStore: () => ({
-    enrollments: mockEnrollments,
-    addEnrollment: mockAddEnrollment,
-  }),
+  useEnrollmentStore: Object.assign(
+    () => ({
+      enrollments: mockEnrollments,
+      addEnrollment: mockAddEnrollment,
+      updateEnrollment: mockUpdateEnrollment,
+    }),
+    { getState: () => ({ enrollments: mockEnrollments }) },
+  ),
   usePaymentRecordStore: () => ({
     addPayment: mockAddPayment,
   }),
@@ -56,11 +66,7 @@ vi.mock('@tutomate/core', () => ({
     basic: { maxCourses: Infinity, maxStudentsPerCourse: Infinity },
     admin: { maxCourses: Infinity, maxStudentsPerCourse: Infinity },
   },
-  appConfig: {
-    enableMemberFeature: false,
-    hideAddressField: false,
-    enableQuarterSystem: false,
-  },
+  appConfig: mockAppConfig,
   getCurrentQuarter: () => '2026-Q2',
   isActiveEnrollment: (e: { paymentStatus: string }) => e.paymentStatus !== 'withdrawn',
   isCourseEnded: () => false,
@@ -203,5 +209,50 @@ describe('EnrollmentForm', () => {
 
     const submitBtn = screen.getByRole('button', { name: '신청' });
     expect(submitBtn).not.toBeDisabled();
+  });
+
+  describe('수강 포기 기록 재활성화 (분기제)', () => {
+    const withdrawn = (quarter: string) =>
+      ({
+        id: `w-${quarter}`,
+        courseId: 'course-1',
+        studentId: 's-1',
+        paymentStatus: 'withdrawn',
+        paidAmount: 0,
+        remainingAmount: 0,
+        discountAmount: 0,
+        quarter,
+        enrolledAt: '2026-01-01T00:00:00Z',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      }) as unknown as import('@tutomate/core').Enrollment;
+
+    beforeEach(() => {
+      mockAppConfig.enableQuarterSystem = true;
+    });
+    afterEach(() => {
+      mockAppConfig.enableQuarterSystem = false;
+      mockEnrollments.length = 0;
+    });
+
+    it('다른 분기의 포기 기록은 건드리지 않고 새로 등록', async () => {
+      mockEnrollments.push(withdrawn('2026-Q4'));
+      renderForm();
+      await selectCourse('수학 기초');
+      fireEvent.click(screen.getByRole('button', { name: '신청' }));
+      await waitFor(() => expect(mockAddEnrollment).toHaveBeenCalled());
+      expect(mockAddEnrollment.mock.calls[0][0]).toMatchObject({ courseId: 'course-1', quarter: '2026-Q2' });
+      expect(mockUpdateEnrollment).not.toHaveBeenCalled();
+    });
+
+    it('같은 분기의 포기 기록은 다시 살림', async () => {
+      mockEnrollments.push(withdrawn('2026-Q2'));
+      renderForm();
+      await selectCourse('수학 기초');
+      fireEvent.click(screen.getByRole('button', { name: '신청' }));
+      await waitFor(() => expect(mockUpdateEnrollment).toHaveBeenCalled());
+      expect(mockUpdateEnrollment.mock.calls[0][0]).toBe('w-2026-Q2');
+      expect(mockAddEnrollment).not.toHaveBeenCalled();
+    });
   });
 });
