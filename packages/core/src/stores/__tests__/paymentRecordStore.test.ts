@@ -764,6 +764,27 @@ describe("paymentRecordStore", () => {
 		expect(enrollment?.paymentStatus).toBe("partial");
 	});
 
+	it("syncEnrollmentTotal — 같은 납부일이면 나중에 입력한 기록의 결제수단 반영 (현금 → 포기 환불 → 계좌이체 재입력)", async () => {
+		useEnrollmentStore.setState({
+			enrollments: [makeEnrollment({ paidAmount: 300000, paymentStatus: "completed", paymentMethod: "cash" })],
+		});
+		usePaymentRecordStore.setState({
+			records: [
+				makeRecord({ id: "cash", amount: 300000, paymentMethod: "cash", paidAt: "2026-10-01", createdAt: "2026-11-24T10:42:22.814+00:00" }),
+				makeRecord({ id: "refund", amount: -300000, paymentMethod: "cash", paidAt: "2026-11-25", createdAt: "2026-11-25T01:57:11.069+00:00", notes: "수강 포기 환불" }),
+			],
+		});
+
+		// 같은 납부일(2026-10-01)로 계좌이체 재입력
+		await usePaymentRecordStore
+			.getState()
+			.addPayment("e1", 300000, 300000, "transfer", "2026-10-01");
+
+		const enrollment = useEnrollmentStore.getState().getEnrollmentById("e1");
+		expect(enrollment?.paymentMethod).toBe("transfer");
+		expect(enrollment?.paidAmount).toBe(300000);
+	});
+
 	// ── enrollmentStore.updatePayment — 음수 잔여금 방지 ──
 
 	it("updatePayment — paidAmount > effectiveFee 초과 납부 시 remainingAmount는 0 (음수 방지)", async () => {

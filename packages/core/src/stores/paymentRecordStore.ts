@@ -62,7 +62,7 @@ export const usePaymentRecordStore = create<PaymentRecordStore>(
     getRecordsByEnrollmentId: (enrollmentId: string) => {
       return get()
         .records.filter((r) => r.enrollmentId === enrollmentId)
-        .sort((a, b) => (b.paidAt || "").localeCompare(a.paidAt || ""));
+        .sort(byLatest);
     },
 
     addPayment: async (
@@ -202,6 +202,16 @@ export const usePaymentRecordStore = create<PaymentRecordStore>(
   }),
 );
 
+/**
+ * 최신 납부 순 정렬: 납부일(paidAt)이 늦은 것 먼저, 같은 날이면 나중에 입력한 것(createdAt) 먼저.
+ * 같은 납부일로 다시 입력한 기록(예: 현금 → 계좌이체 재입력)이 예전 기록에 밀리지 않게 한다.
+ */
+function byLatest(a: PaymentRecord, b: PaymentRecord): number {
+  const byPaidAt = (b.paidAt || "").localeCompare(a.paidAt || "");
+  if (byPaidAt !== 0) return byPaidAt;
+  return (Date.parse(b.createdAt || "") || 0) - (Date.parse(a.createdAt || "") || 0);
+}
+
 /** payment_records 합산 → enrollment paidAmount/status 갱신 */
 async function syncEnrollmentTotal(
   enrollmentId: string,
@@ -212,9 +222,7 @@ async function syncEnrollmentTotal(
     (r) => r.enrollmentId === enrollmentId,
   );
   const totalPaid = enrollmentRecords.reduce((sum, r) => sum + r.amount, 0);
-  const latestRecord = enrollmentRecords.sort((a, b) =>
-    (b.paidAt || "").localeCompare(a.paidAt || ""),
-  )[0];
+  const latestRecord = [...enrollmentRecords].sort(byLatest)[0];
 
   const enrollment = useEnrollmentStore.getState().getEnrollmentById(enrollmentId);
   if (!enrollment) return;
@@ -236,9 +244,7 @@ async function syncEnrollmentTotal(
   // 환불(amount<0)이 섞여 있을 때 paymentMethod 보호:
   // 양수 record 중 가장 최근 것을 우선 사용 (없으면 latestRecord 사용)
   const positiveRecords = enrollmentRecords.filter((r) => r.amount > 0);
-  const latestPositive = positiveRecords.sort((a, b) =>
-    (b.paidAt || '').localeCompare(a.paidAt || ''),
-  )[0];
+  const latestPositive = positiveRecords.sort(byLatest)[0];
   const effectiveMethod = latestPositive?.paymentMethod ?? latestRecord?.paymentMethod;
 
   await useEnrollmentStore.getState().updatePayment(
