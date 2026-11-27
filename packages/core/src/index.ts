@@ -40,8 +40,8 @@ export type { ImportBatch, ImportHistoryItem, ImportLogRow } from './ai/import/i
 export { useAiNotifyStore } from './stores/aiNotifyStore';
 
 // ─── Utils ───────────────────────────────────────────────────────
-export { decidePaymentEdit } from './utils/paymentReconcile';
-export type { PaymentEditOp, LedgerRecordLite } from './utils/paymentReconcile';
+export { decidePaymentEdit, byLatest, findMethodFixTarget } from './utils/paymentReconcile';
+export type { PaymentEditOp, LedgerRecordLite, DatedRecordLite } from './utils/paymentReconcile';
 export { derivePaymentStatus } from './utils/paymentStatus';
 export type { PaymentDerivation } from './utils/paymentStatus';
 export { createDataHelper, clearAllCache } from './utils/dataHelper';

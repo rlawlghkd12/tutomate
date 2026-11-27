@@ -48,6 +48,7 @@ import { useEnrollmentStore } from "../enrollmentStore";
 import { useCourseStore } from "../courseStore";
 import { usePaymentRecordStore } from "../paymentRecordStore";
 import { handleError } from "../../utils/errors";
+import { findMethodFixTarget } from "../../utils/paymentReconcile";
 
 function makeRecord(overrides: Partial<PaymentRecord> = {}): PaymentRecord {
 	return {
@@ -783,6 +784,30 @@ describe("paymentRecordStore", () => {
 		const enrollment = useEnrollmentStore.getState().getEnrollmentById("e1");
 		expect(enrollment?.paymentMethod).toBe("transfer");
 		expect(enrollment?.paidAmount).toBe(300000);
+	});
+
+	it("분납 결제수단 변경 — 최신 기록에 반영하면 이후 환불 동기화에도 계좌이체 유지", async () => {
+		useEnrollmentStore.setState({
+			enrollments: [makeEnrollment({ paidAmount: 300000, paymentStatus: "completed", paymentMethod: "cash" })],
+		});
+		usePaymentRecordStore.setState({
+			records: [
+				makeRecord({ id: "p1", amount: 150000, paymentMethod: "cash", paidAt: "2026-10-01", createdAt: "2026-10-01T00:00:00Z" }),
+				makeRecord({ id: "p2", amount: 150000, paymentMethod: "cash", paidAt: "2026-10-15", createdAt: "2026-10-15T00:00:00Z" }),
+			],
+		});
+
+		useCourseStore.setState({ courses: [makeCourse()] });
+
+		// PaymentForm이 하는 일: 최신 양수 기록의 결제수단을 고른 값으로
+		const target = findMethodFixTarget(usePaymentRecordStore.getState().getRecordsByEnrollmentId("e1"), "transfer");
+		expect(target).toBe("p2");
+		await usePaymentRecordStore.getState().updateRecord(target!, { paymentMethod: "transfer" });
+		expect(useEnrollmentStore.getState().getEnrollmentById("e1")?.paymentMethod).toBe("transfer");
+
+		// 이후 환불 등으로 다시 동기화돼도 되돌아가지 않음
+		await usePaymentRecordStore.getState().addPayment("e1", -50000, 300000, "cash", "2026-11-01", "환불");
+		expect(useEnrollmentStore.getState().getEnrollmentById("e1")?.paymentMethod).toBe("transfer");
 	});
 
 	// ── enrollmentStore.updatePayment — 음수 잔여금 방지 ──

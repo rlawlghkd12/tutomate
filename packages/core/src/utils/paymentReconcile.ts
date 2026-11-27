@@ -31,3 +31,36 @@ export function decidePaymentEdit(
   if (positive.length === 1) return { kind: 'update', recordId: positive[0].id };
   return { kind: 'summaryOnly' };
 }
+
+/** 정렬에 필요한 최소 필드 */
+export interface DatedRecordLite {
+  amount: number;
+  paidAt?: string;
+  createdAt?: string;
+}
+
+/**
+ * 최신 납부 순 정렬: 납부일(paidAt)이 늦은 것 먼저, 같은 날이면 나중에 입력한 것(createdAt) 먼저.
+ * 같은 납부일로 다시 입력한 기록(예: 현금 → 계좌이체 재입력)이 예전 기록에 밀리지 않게 한다.
+ */
+export function byLatest(a: DatedRecordLite, b: DatedRecordLite): number {
+  const byPaidAt = (b.paidAt || '').localeCompare(a.paidAt || '');
+  if (byPaidAt !== 0) return byPaidAt;
+  return (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0);
+}
+
+/**
+ * 결제수단을 바꿨을 때, 결제수단을 함께 고쳐야 할 기록을 고른다.
+ *
+ * 수강의 결제수단은 이력 합산 동기화 때 "가장 최근 양수 기록"의 결제수단으로 다시 계산된다.
+ * 그래서 분납처럼 요약만 바꾸면 나중에 동기화될 때 예전 결제수단으로 되돌아간다.
+ * 가장 최근 양수 기록의 결제수단이 고른 값과 다르면 그 기록의 id를, 같거나 없으면 null을 준다.
+ */
+export function findMethodFixTarget<T extends DatedRecordLite & { id: string; paymentMethod?: string }>(
+  records: readonly T[],
+  method: string,
+): string | null {
+  const latest = records.filter((r) => r.amount > 0).sort(byLatest)[0];
+  if (!latest || latest.paymentMethod === method) return null;
+  return latest.id;
+}

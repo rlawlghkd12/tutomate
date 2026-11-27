@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { Banknote, CreditCard, Building2 } from 'lucide-react';
 import type { Enrollment, PaymentMethod } from '@tutomate/core';
-import { useEnrollmentStore, useStudentStore, usePaymentRecordStore, decidePaymentEdit, logEvent, PaymentMethodEnum } from '@tutomate/core';
+import { useEnrollmentStore, useStudentStore, usePaymentRecordStore, decidePaymentEdit, findMethodFixTarget, logEvent, PaymentMethodEnum } from '@tutomate/core';
 import dayjs from 'dayjs';
 import {
   Dialog,
@@ -100,6 +100,15 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
 
   const effectiveFee = courseFee - discountAmount;
 
+  /** 최신 양수 기록의 결제수단을 고른 값으로 맞춘다. 실패하면 false */
+  const syncLatestMethod = async (enrollmentId: string, method: PaymentMethod): Promise<boolean> => {
+    const targetId = findMethodFixTarget(getRecordsByEnrollmentId(enrollmentId), method);
+    if (!targetId) return true;
+    const ok = await updateRecord(targetId, { paymentMethod: method });
+    if (!ok) toast.error('납부 정보 저장에 실패했습니다. 다시 시도해주세요.');
+    return ok;
+  };
+
   const onSubmit = async (values: PaymentFormData) => {
     if (submitting) return;
     setSubmitting(true);
@@ -129,7 +138,11 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             toast.error('납부 정보 저장에 실패했습니다. 다시 시도해주세요.');
             return;
           }
+          // 조정 기록이 예전 날짜면 최신 기록이 아닐 수 있다 → 최신 기록의 결제수단도 맞춘다
+          if (target > 0 && !(await syncLatestMethod(enrollment.id, method))) return;
         } else {
+          // 분납 등 요약만 바꾸는 경우에도 결제수단은 최신 기록에 남겨야 이후 동기화 때 되돌아가지 않는다
+          if (target > 0 && !(await syncLatestMethod(enrollment.id, method))) return;
           // 이력이 없거나(0 이하 케이스) 이미 목표와 일치 → 요약(상태/할인/납부일)만 갱신
           await updatePayment(
             enrollment.id,

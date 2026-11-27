@@ -2,6 +2,7 @@ import dayjs from "dayjs";
 import { create } from "zustand";
 import type { PaymentRecord, PaymentMethod } from "../types";
 import { createDataHelper } from "../utils/dataHelper";
+import { byLatest } from "../utils/paymentReconcile";
 import type { PaymentRecordRow } from "../utils/fieldMapper";
 import {
   mapPaymentRecordFromDb,
@@ -201,16 +202,6 @@ export const usePaymentRecordStore = create<PaymentRecordStore>(
     },
   }),
 );
-
-/**
- * 최신 납부 순 정렬: 납부일(paidAt)이 늦은 것 먼저, 같은 날이면 나중에 입력한 것(createdAt) 먼저.
- * 같은 납부일로 다시 입력한 기록(예: 현금 → 계좌이체 재입력)이 예전 기록에 밀리지 않게 한다.
- */
-function byLatest(a: PaymentRecord, b: PaymentRecord): number {
-  const byPaidAt = (b.paidAt || "").localeCompare(a.paidAt || "");
-  if (byPaidAt !== 0) return byPaidAt;
-  return (Date.parse(b.createdAt || "") || 0) - (Date.parse(a.createdAt || "") || 0);
-}
 
 /** payment_records 합산 → enrollment paidAmount/status 갱신 */
 async function syncEnrollmentTotal(
